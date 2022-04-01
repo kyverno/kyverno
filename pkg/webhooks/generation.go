@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -47,7 +47,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
 	request *v1beta1.AdmissionRequest,
-	policies []*kyverno.ClusterPolicy,
+	policies []kyverno.PolicyInterface,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo,
 	dynamicConfig config.Interface,
@@ -80,7 +80,7 @@ func (ws *WebhookServer) handleGenerate(
 
 		for _, policy := range policies {
 			var rules []response.RuleResponse
-			policyContext.Policy = *policy
+			policyContext.Policy = policy
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 			}
@@ -100,10 +100,10 @@ func (ws *WebhookServer) handleGenerate(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), policy, *engineResponse)
 
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -127,28 +127,28 @@ func (ws *WebhookServer) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 //handleUpdatesForGenerateRules handles admission-requests for update
-func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface) {
 	if request.Operation != v1beta1.Update {
 		return
 	}
@@ -220,7 +220,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {

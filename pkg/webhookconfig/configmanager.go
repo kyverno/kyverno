@@ -20,6 +20,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,12 +36,6 @@ import (
 )
 
 var DefaultWebhookTimeout int64 = 10
-
-// policy abstracts the concrete policy type (Policy vs ClusterPolicy)
-type policy interface {
-	metav1.Object
-	GetSpec() kyverno.Spec
-}
 
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
@@ -372,7 +367,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	return nil
 }
 
-func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error) {
+func (m *webhookConfigManager) getPolicy(namespace, name string) (kyverno.PolicyInterface, error) {
 	if namespace == "" {
 		return m.pLister.Get(name)
 	} else {
@@ -380,8 +375,8 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error)
 	}
 }
 
-func (m *webhookConfigManager) listAllPolicies() ([]policy, error) {
-	policies := []policy{}
+func (m *webhookConfigManager) listAllPolicies() ([]kyverno.PolicyInterface, error) {
+	policies := []kyverno.PolicyInterface{}
 	polList, err := m.npLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to list Policy")
@@ -734,7 +729,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy policy, updateValidate bool) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyInterface, updateValidate bool) {
 	matchedGVK := make([]string, 0)
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
@@ -758,7 +753,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy policy, updateV
 			gvkMap[gvk] = 1
 
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			gv, k := common.GetKindFromGVK(gvk)
+			gv, k := kubeutils.GetKindFromGVK(gvk)
 			switch k {
 			case "Binding":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})

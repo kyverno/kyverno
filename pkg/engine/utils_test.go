@@ -1445,7 +1445,7 @@ func TestManagedPodResource(t *testing.T) {
 		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
 
 		resource, _ := utils.ConvertToUnstructured(tc.resource)
-		res := ManagedPodResource(policy, *resource)
+		res := ManagedPodResource(&policy, *resource)
 		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
 }

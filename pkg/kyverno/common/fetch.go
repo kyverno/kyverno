@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -25,7 +25,7 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 	var resourceTypesMap = make(map[string]bool)
@@ -116,7 +116,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
@@ -167,7 +167,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var getErrString string
 
-	files, splitDocError := utils.SplitYAMLDocuments(resourceBytes)
+	files, splitDocError := yamlutils.SplitDocuments(resourceBytes)
 	if splitDocError != nil {
 		return nil, splitDocError
 	}

@@ -77,8 +77,8 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 }
 
 // GetSpec returns the policy spec
-func (p *ClusterPolicy) GetSpec() Spec {
-	return p.Spec
+func (p *ClusterPolicy) GetSpec() *Spec {
+	return &p.Spec
 }
 
 // IsNamespaced indicates if the policy is namespace scoped
@@ -98,6 +98,14 @@ func (p *ClusterPolicy) Validate(clusterResources sets.String) (errs field.Error
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
+}
+
+func (p *ClusterPolicy) GetKind() string {
+	return p.Kind
+}
+
+func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
+	return p.DeepCopy()
 }
 
 // ClusterPolicyList is a list of ClusterPolicy instances.
