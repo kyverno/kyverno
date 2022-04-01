@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
-	common "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/api/admission/v1beta1"
@@ -34,22 +33,6 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 		}
 	}
 	return false
-}
-
-func ContainsKind(list []string, element string) bool {
-	for _, e := range list {
-		_, k := common.GetKindFromGVK(e)
-		if k == element {
-			return true
-		}
-	}
-	return false
-}
-
-// SkipSubResources check to skip list of resources which don't have group.
-func SkipSubResources(kind string) bool {
-	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
-	return ContainsKind(s, kind)
 }
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
