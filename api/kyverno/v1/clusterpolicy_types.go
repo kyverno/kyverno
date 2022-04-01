@@ -100,6 +100,14 @@ func (p *ClusterPolicy) Validate(clusterResources sets.String) (errs field.Error
 	return errs
 }
 
+func (p *ClusterPolicy) GetKind() string {
+	return p.Kind
+}
+
+func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
+	return p.DeepCopy()
+}
+
 // ClusterPolicyList is a list of ClusterPolicy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterPolicyList struct {

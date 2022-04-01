@@ -15,11 +15,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPolicy) {
-	logger := pc.log.WithValues("policy", policy.Name)
+func (pc *PolicyController) processExistingResources(policy kyverno.PolicyInterface) {
+	logger := pc.log.WithValues("policy", policy.GetName())
 	logger.V(4).Info("applying policy to existing resources")
 
 	// Parse through all the resources drops the cache after configured rebuild time
@@ -35,9 +36,9 @@ func (pc *PolicyController) processExistingResources(policy *kyverno.ClusterPoli
 	}
 }
 
-func (pc *PolicyController) applyAndReportPerNamespace(policy *kyverno.ClusterPolicy, kind string, ns string, rule kyverno.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
+func (pc *PolicyController) applyAndReportPerNamespace(policy kyverno.PolicyInterface, kind string, ns string, rule kyverno.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
 	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
-	excludeAutoGenResources(*policy, rMap, logger)
+	excludeAutoGenResources(policy, rMap, logger)
 	if len(rMap) == 0 {
 		return
 	}
@@ -73,14 +74,14 @@ func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger
 	}
 }
 
-func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
+func (pc *PolicyController) applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
-	if !pc.rm.ProcessResource(policy.Name, policy.ResourceVersion, resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
-		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.ResourceVersion, "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
+	if !pc.rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
+		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	}
 
 	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
-	engineResponse := applyPolicy(*policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, namespaceLabels)
+	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 
 	// post-processing, register the resource as processed
@@ -90,9 +91,9 @@ func (pc *PolicyController) applyPolicy(policy *kyverno.ClusterPolicy, resource 
 }
 
 // excludeAutoGenResources filter out the pods / jobs with ownerReference
-func excludeAutoGenResources(policy kyverno.ClusterPolicy, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
+func excludeAutoGenResources(policy kyverno.PolicyInterface, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
 	for uid, r := range resourceMap {
-		if engine.ManagedPodResource(&policy, r) {
+		if engine.ManagedPodResource(policy, r) {
 			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
 			delete(resourceMap, uid)
 		}
@@ -201,13 +202,13 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (pc *PolicyController) processExistingKinds(kinds []string, policy *kyverno.ClusterPolicy, rule kyverno.Rule, logger logr.Logger) {
+func (pc *PolicyController) processExistingKinds(kinds []string, policy kyverno.PolicyInterface, rule kyverno.Rule, logger logr.Logger) {
 
 	for _, kind := range kinds {
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
 		_, err := pc.rm.GetScope(kind)
 		if err != nil {
-			gv, k := common.GetKindFromGVK(kind)
+			gv, k := kubeutils.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
 				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
 				if err != nil {
@@ -221,8 +222,8 @@ func (pc *PolicyController) processExistingKinds(kinds []string, policy *kyverno
 		// this tracker would help to ensure that even for multiple namespaces, duplicate metric are not generated
 		metricRegisteredTracker := false
 
-		if policy.Namespace != "" {
-			ns := policy.Namespace
+		if policy.GetNamespace() != "" {
+			ns := policy.GetNamespace()
 			pc.applyAndReportPerNamespace(policy, kind, ns, rule, logger.WithValues("kind", kind).WithValues("ns", ns), &metricRegisteredTracker)
 			continue
 		}
