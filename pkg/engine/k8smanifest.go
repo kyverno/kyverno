@@ -45,6 +45,17 @@ func VerifyManifestSignature(ctx *PolicyContext, logger logr.Logger) *response.E
 	}()
 
 	for _, rule := range ctx.Policy.Spec.Rules {
+		logger := logger.WithValues("rule", rule.Name)
+		var excludeResource []string
+		if len(ctx.ExcludeGroupRole) > 0 {
+			excludeResource = ctx.ExcludeGroupRole
+		}
+
+		if err := MatchesResourceDescription(ctx.NewResource, rule, ctx.AdmissionInfo, excludeResource, ctx.NamespaceLabels, ctx.Policy.Namespace); err != nil {
+			logger.V(4).Info("rule not matched", "reason", err.Error())
+			continue
+		}
+
 		ruleResp := handleVerifyManifest(ctx, rule, logger)
 		resp.Add(ruleResp)
 	}
@@ -74,8 +85,6 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, ignoreFields 
 
 	// adding default ignoreFields from pkg/engine/resources/default-config.yaml
 	vo = addDefaultConfig(vo)
-
-	log.Info("using verify resource options", "config", vo)
 
 	objManifest, err := yaml.Marshal(policyContext.NewResource.Object)
 	if err != nil {

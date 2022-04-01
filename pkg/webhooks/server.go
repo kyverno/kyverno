@@ -328,7 +328,7 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	}
 
 	if err := ws.applyVerifyManifestPolicies(request, policyContext, validateManifestPolicies, logger); err != nil {
-		logger.Error(err, "manifest verification failed")
+		logger.Error(err, "manifest verification failed", "userInfo", request.UserInfo)
 		return failureResponse(err.Error())
 	}
 
