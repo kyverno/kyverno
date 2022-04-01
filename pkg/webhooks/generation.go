@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -33,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) {
+func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -46,7 +47,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
 	request *v1beta1.AdmissionRequest,
-	policies []*kyverno.ClusterPolicy,
+	policies []kyverno.PolicyInterface,
 	ctx *context.Context,
 	userRequestInfo kyverno.RequestInfo,
 	dynamicConfig config.Interface,
@@ -79,7 +80,7 @@ func (ws *WebhookServer) handleGenerate(
 
 		for _, policy := range policies {
 			var rules []response.RuleResponse
-			policyContext.Policy = *policy
+			policyContext.Policy = policy
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 			}
@@ -99,10 +100,10 @@ func (ws *WebhookServer) handleGenerate(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), policy, *engineResponse)
 
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
 		// Adds Generate Request to a channel(queue size 1000) to generators
@@ -126,28 +127,28 @@ func (ws *WebhookServer) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
 	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
+		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 //handleUpdatesForGenerateRules handles admission-requests for update
-func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface) {
 	if request.Operation != v1beta1.Update {
 		return
 	}
@@ -207,8 +208,10 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 	if len(grAnnotations) == 0 {
 		grAnnotations = make(map[string]string)
 	}
+	ws.mu.Lock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
+	ws.mu.Unlock()
 	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
@@ -217,7 +220,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -234,7 +237,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 		return
 	}
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 			if err != nil {
@@ -440,8 +443,15 @@ func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generat
 }
 
 func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
+	var PolicyNameNamespaceKey string
+	if er.PolicyResponse.Policy.Namespace != "" {
+		PolicyNameNamespaceKey = fmt.Sprintf("%s", er.PolicyResponse.Policy.Namespace+"/"+er.PolicyResponse.Policy.Name)
+	} else {
+		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+	}
+
 	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy.Name,
+		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,

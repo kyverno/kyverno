@@ -20,14 +20,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// Policy Reporting Modes
-const (
-	// Enforce blocks the request on failure
-	Enforce = "enforce"
-	// Audit indicates not to block the request on failure, but report failiures as policy violations
-	Audit = "audit"
-)
-
 // Policy Reporting Types
 const (
 	PolicyViolation = "POLICYVIOLATION"

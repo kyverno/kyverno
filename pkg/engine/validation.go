@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -39,7 +40,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func buildLogger(ctx *PolicyContext) logr.Logger {
-	logger := log.Log.WithName("EngineValidate").WithValues("policy", ctx.Policy.Name)
+	logger := log.Log.WithName("EngineValidate").WithValues("policy", ctx.Policy.GetName())
 	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		logger = logger.WithValues("kind", ctx.OldResource.GetKind(), "namespace", ctx.OldResource.GetNamespace(), "name", ctx.OldResource.GetName())
 	} else {
@@ -64,16 +65,16 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 		resp.PatchedResource = resource
 	}
 
-	resp.Policy = &ctx.Policy
+	resp.Policy = ctx.Policy
 	resp.PolicyResponse.Policy.Name = ctx.Policy.GetName()
 	resp.PolicyResponse.Policy.Namespace = ctx.Policy.GetNamespace()
 	resp.PolicyResponse.Resource.Name = resp.PatchedResource.GetName()
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.Spec.ValidationFailureAction
+	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.GetSpec().ValidationFailureAction
 
-	for _, v := range ctx.Policy.Spec.ValidationFailureActionOverrides {
+	for _, v := range ctx.Policy.GetSpec().ValidationFailureActionOverrides {
 		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
 	}
 
@@ -87,7 +88,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
-	rules := ctx.Policy.GetRules()
+	rules := autogen.ComputeRules(ctx.Policy)
 	for i := range rules {
 		rule := &rules[i]
 		if !rule.HasValidate() {

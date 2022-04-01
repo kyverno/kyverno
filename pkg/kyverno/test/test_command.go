@@ -18,6 +18,7 @@ import (
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -801,10 +802,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	var filteredPolicies = []*v1.ClusterPolicy{}
+	var filteredPolicies = []v1.PolicyInterface{}
 	for _, p := range policies {
 		for _, res := range values.Results {
-			if p.Name == res.Policy {
+			if p.GetName() == res.Policy {
 				filteredPolicies = append(filteredPolicies, p)
 				break
 			}
@@ -814,7 +815,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, p := range filteredPolicies {
 		var filteredRules = []v1.Rule{}
 
-		for _, rule := range p.GetRules() {
+		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
@@ -822,7 +823,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				}
 			}
 		}
-		p.Spec.SetRules(filteredRules)
+		p.GetSpec().SetRules(filteredRules)
 	}
 	policies = filteredPolicies
 
@@ -872,7 +873,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, policy := range mutatedPolicies {
 		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
+			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue
 		}
 
@@ -882,8 +883,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		if len(variable) > 0 {
 			if len(variables) == 0 {
 				// check policy in variable file
-				if valuesFile == "" || valuesMap[policy.Name] == nil {
-					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.Name)
+				if valuesFile == "" || valuesMap[policy.GetName()] == nil {
+					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.GetName())
 				}
 			}
 		}
@@ -893,12 +894,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
-				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
 			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
 			if err != nil {
-				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			engineResponses = append(engineResponses, ers...)
 			pvInfos = append(pvInfos, info)

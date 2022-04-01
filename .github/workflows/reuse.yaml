@@ -146,28 +146,28 @@ jobs:
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
         run: |          
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
+          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
         run: |          
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}

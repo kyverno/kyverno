@@ -397,7 +397,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -1646,7 +1648,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -1732,6 +1736,11 @@ Deprecated. Policy metrics are available via the metrics endpoint</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.PolicyInterface">PolicyInterface
+</h3>
+<p>
+<p>PolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)</p>
+</p>
 <h3 id="kyverno.io/v1.PolicyStatus">PolicyStatus
 </h3>
 <p>
@@ -2313,7 +2322,9 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 <td>
 <code>validationFailureAction</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>
@@ -2525,6 +2536,16 @@ Deny
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ValidationFailureAction">ValidationFailureAction
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>, 
+<a href="#kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride</a>)
+</p>
+<p>
+<p>ValidationFailureAction defines the policy validation failure action</p>
+</p>
 <h3 id="kyverno.io/v1.ValidationFailureActionOverride">ValidationFailureActionOverride
 </h3>
 <p>
@@ -2545,7 +2566,9 @@ Deny
 <td>
 <code>action</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.ValidationFailureAction">
+ValidationFailureAction
+</a>
 </em>
 </td>
 <td>

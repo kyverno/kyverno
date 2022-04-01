@@ -5,12 +5,11 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/engine/mutate"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -19,14 +18,16 @@ import (
 
 // Mutate performs mutation. Overlay first and then mutation patches
 func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
-	resp = &response.EngineResponse{}
 	startTime := time.Now()
 	policy := policyContext.Policy
+	resp = &response.EngineResponse{
+		Policy: policy,
+	}
 	patchedResource := policyContext.NewResource
 	ctx := policyContext.JSONContext
 	var skippedRules []string
 
-	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.Name, "kind", patchedResource.GetKind(),
+	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", patchedResource.GetKind(),
 		"namespace", patchedResource.GetNamespace(), "skippedRules", patchedResource.GetName())
 
 	logger.V(4).Info("start policy processing", "startTime", startTime)
@@ -39,7 +40,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasMutate() {
 			continue
 		}
@@ -50,7 +51,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.Namespace); err != nil {
+		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.GetNamespace()); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			skippedRules = append(skippedRules, rule.Name)
 			continue
@@ -184,6 +185,9 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 
 	patchedResource := resource
 	var allPatches [][]byte
+	if foreach.RawPatchStrategicMerge != nil {
+		invertedElement(elements)
+	}
 
 	for i, e := range elements {
 		ctx.JSONContext.Reset()
@@ -257,7 +261,7 @@ func buildSuccessMessage(r unstructured.Unstructured) string {
 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
 }
 
-func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) {
+func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.PolicyInterface, resource unstructured.Unstructured) {
 	if resp == nil {
 		return
 	}

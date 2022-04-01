@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -24,14 +25,14 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []*v1.ClusterPolicy, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
 
 	for _, policy := range policies {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			resourceTypesInRule := GetKindsFromRule(rule)
 			for resourceKind := range resourceTypesInRule {
 				resourceTypesMap[resourceKind] = true
@@ -115,12 +116,12 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []*v1.ClusterPolicy, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var resourceTypesMap = make(map[string]bool)
 	var resourceTypes []string
 	for _, policy := range policies {
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}
