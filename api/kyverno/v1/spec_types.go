@@ -7,6 +7,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
+// ValidationFailureAction defines the policy validation failure action
+type ValidationFailureAction string
+
+// Policy Reporting Modes
+const (
+	// Enforce blocks the request on failure
+	Enforce ValidationFailureAction = "enforce"
+	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	Audit ValidationFailureAction = "audit"
+)
+
+type ValidationFailureActionOverride struct {
+	// +kubebuilder:validation:Enum=audit;enforce
+	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
+	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
+}
+
 // Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
 	// Rules is a list of Rule instances. A Policy contains multiple rules and
@@ -24,7 +41,7 @@ type Spec struct {
 	// and report an error in a policy report. Optional. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
-	ValidationFailureAction string `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
@@ -46,11 +63,6 @@ type Spec struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
-}
-
-// GetRules returns the spec rules
-func (s *Spec) GetRules() []Rule {
-	return s.Rules
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -121,8 +133,7 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 }
 
 // ValidateRuleNames checks if the rule names are unique across a policy
-func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.NewString()
 	for i, rule := range s.Rules {
 		rulePath := path.Index(i)
@@ -135,8 +146,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
@@ -145,8 +155,7 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))

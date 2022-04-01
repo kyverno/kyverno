@@ -3,6 +3,7 @@ package common
 import (
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/toggle"
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 )
@@ -73,7 +74,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				Fail:  1,
 				Warn:  0,
 				Error: 0,
-				Skip:  0,
+				Skip:  2,
 			},
 		},
 		{
@@ -89,7 +90,7 @@ func Test_NamespaceSelector(t *testing.T) {
 				Fail:  1,
 				Warn:  0,
 				Error: 0,
-				Skip:  0,
+				Skip:  4,
 			},
 		},
 	}
@@ -99,10 +100,15 @@ func Test_NamespaceSelector(t *testing.T) {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
 		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, false, tc.namespaceSelectorMap, false, rc, false)
-		assert.Assert(t, int64(rc.Pass) == int64(tc.result.Pass))
-		assert.Assert(t, int64(rc.Fail) == int64(tc.result.Fail))
-		assert.Assert(t, int64(rc.Skip) == int64(tc.result.Skip))
-		assert.Assert(t, int64(rc.Warn) == int64(tc.result.Warn))
-		assert.Assert(t, int64(rc.Error) == int64(tc.result.Error))
+		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
+		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
+		// TODO: autogen rules seem to not be present when autogen internals is disabled
+		if toggle.AutogenInternals() {
+			assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
+		} else {
+			assert.Equal(t, int64(rc.Skip), int64(0))
+		}
+		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
+		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
 }

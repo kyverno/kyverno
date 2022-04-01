@@ -63,12 +63,11 @@ func Test_Apply(t *testing.T) {
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
-
-		assert.Assert(t, actual[preport.StatusPass].(int64) == int64(expected.Pass))
-		assert.Assert(t, actual[preport.StatusFail].(int64) == int64(expected.Fail))
-		assert.Assert(t, actual[preport.StatusSkip].(int64) == int64(expected.Skip))
-		assert.Assert(t, actual[preport.StatusWarn].(int64) == int64(expected.Warn))
-		assert.Assert(t, actual[preport.StatusError].(int64) == int64(expected.Error))
+		assert.Equal(t, actual[preport.StatusPass].(int64), int64(expected.Pass))
+		assert.Equal(t, actual[preport.StatusFail].(int64), int64(expected.Fail))
+		assert.Equal(t, actual[preport.StatusSkip].(int64), int64(expected.Skip))
+		assert.Equal(t, actual[preport.StatusWarn].(int64), int64(expected.Warn))
+		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error))
 	}
 
 	for _, tc := range testcases {

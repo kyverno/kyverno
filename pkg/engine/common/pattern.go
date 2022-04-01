@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/minio/pkg/wildcard"
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
 

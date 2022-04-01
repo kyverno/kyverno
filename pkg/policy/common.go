@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/pkg/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,22 +39,6 @@ func transformResource(resource unstructured.Unstructured) []byte {
 		return nil
 	}
 	return data
-}
-
-// convertPoliciesToClusterPolicies - convert array of Policy to array of ClusterPolicy
-func convertPoliciesToClusterPolicies(nsPolicies []*kyverno.Policy) []*kyverno.ClusterPolicy {
-	var cpols []*kyverno.ClusterPolicy
-	for _, pol := range nsPolicies {
-		cpol := kyverno.ClusterPolicy(*pol)
-		cpols = append(cpols, &cpol)
-	}
-	return cpols
-}
-
-// ConvertPolicyToClusterPolicy - convert Policy to ClusterPolicy
-func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
-	cpol := kyverno.ClusterPolicy(*nsPolicies)
-	return &cpol
 }
 
 func ParseNamespacedPolicy(key string) (string, string, bool) {
