@@ -65,6 +65,10 @@ type ImageVerification struct {
 	// If specified Repository will override the default OCI image repository configured for the installation.
 	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// DigestMutate is an optional field which handles the tag-to-digest mutation for the provided image paths.
+	// Defaults to false.
+	DigestMutate bool `json:"digestMutate,omitempty" yaml:"digestMutate,omitempty"`
 }
 
 type AttestorSet struct {

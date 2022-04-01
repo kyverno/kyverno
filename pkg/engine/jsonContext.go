@@ -114,6 +114,7 @@ func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 	return imageData, nil
 }
 
+// FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
 	parsedRef, err := name.ParseReference(ref)
 	if err != nil {
@@ -137,6 +138,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	}
 	data := map[string]interface{}{
 		"image":         ref,
+		"digest":        desc.Digest.String(),
 		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
 		"registry":      parsedRef.Context().RegistryStr(),
 		"repository":    parsedRef.Context().RepositoryStr(),

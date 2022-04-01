@@ -156,12 +156,22 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
-				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
-				if ruleResp.Status == response.RuleStatusPass {
+				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
+				if imageInfo.Digest == "" && imageVerify.DigestMutate && ruleResp.Status == response.RuleStatusPass {
 					iv.patchDigest(path, imageInfo, digest, ruleResp)
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
+				if imageInfo.Digest == "" && imageVerify.DigestMutate {
+					imageData, err := fetchImageDataMap(imageInfo.String())
+					if err != nil {
+						iv.logger.V(4).Info("fetching image data from registry", "error", err)
+					}
+					imgData, ok := imageData.(map[string]interface{})
+					if ok {
+						iv.patchDigest(path, imageInfo, imgData["digest"].(string), ruleResp)
+					}
+				}
 			}
 
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -295,15 +305,13 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	return opts, path
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
-	if imageInfo.Digest == "" {
-		patch, err := makeAddDigestPatch(path, imageInfo, digest)
-		if err != nil {
-			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
-		} else {
-			iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-			ruleResp.Patches = [][]byte{patch}
-		}
+func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+	patch, err := makeAddDigestPatch(path, imageInfo, digest)
+	if err != nil {
+		iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
+	} else {
+		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+		ruleResp.Patches = [][]byte{patch}
 	}
 }
 
