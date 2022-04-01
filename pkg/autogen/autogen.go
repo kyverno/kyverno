@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -168,55 +168,37 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
-	rules := spec.Rules
-	insertIdx := len(rules)
-
-	ruleMap := createRuleMap(rules)
+	ruleMap := createRuleMap(spec.Rules)
 	var ruleIndex = make(map[string]int)
-	for index, rule := range rules {
+	for index, rule := range spec.Rules {
 		ruleIndex[rule.Name] = index
 	}
-
-	for _, rule := range rules {
+	insertIdx := len(spec.Rules)
+	for _, rule := range spec.Rules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
 			operation := "add"
 			if existingAutoGenRule, alreadyExists := ruleMap[genRule.Name]; alreadyExists {
 				existingAutoGenRuleRaw, _ := json.Marshal(existingAutoGenRule)
 				genRuleRaw, _ := json.Marshal(genRule)
-
 				if string(existingAutoGenRuleRaw) == string(genRuleRaw) {
 					return nil
 				}
 				operation = "replace"
 				patchPostion = ruleIndex[genRule.Name]
 			}
-
-			// generate patch bytes
-			jsonPatch := struct {
-				Path  string      `json:"path"`
-				Op    string      `json:"op"`
-				Value interface{} `json:"value"`
-			}{
-				fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)),
-				operation,
-				genRule,
-			}
-			pbytes, err := json.Marshal(jsonPatch)
+			patch := jsonutils.NewPatch(fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)), operation, genRule)
+			pbytes, err := patch.Marshal()
 			if err != nil {
 				errs = append(errs, err)
 				return nil
 			}
-
-			// check the patch
-			if _, err := jsonpatch.DecodePatch([]byte("[" + string(pbytes) + "]")); err != nil {
+			if err := jsonutils.CheckPatch(pbytes); err != nil {
 				errs = append(errs, err)
 				return nil
 			}
-
 			return pbytes
 		}
-
 		// handle all other controllers other than CronJob
 		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
 		if genRule != nil {
@@ -228,7 +210,6 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 			insertIdx++
 			patchPostion = insertIdx
 		}
-
 		// handle CronJob, it appends an additional rule
 		genRule = generateCronJobRule(rule, controllers, log)
 		if genRule != nil {
@@ -312,14 +293,11 @@ func ComputeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 		return spec.Rules
 	}
 	applyAutoGen, desiredControllers := CanAutoGen(spec, log.Log)
-
 	if !applyAutoGen {
 		desiredControllers = "none"
 	}
-
 	ann := p.GetAnnotations()
 	actualControllers, ok := ann[kyverno.PodControllersAnnotation]
-
 	if !ok || !applyAutoGen {
 		actualControllers = desiredControllers
 	} else {
@@ -327,7 +305,6 @@ func ComputeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 			actualControllers = desiredControllers
 		}
 	}
-
 	if actualControllers == "none" {
 		return spec.Rules
 	}
