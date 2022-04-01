@@ -36,26 +36,21 @@ type kyvernoRule struct {
 func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 	var ruleMap = make(map[string]kyvernoRule)
 	for _, rule := range rules {
-		var jsonFriendlyStruct kyvernoRule
-
-		jsonFriendlyStruct.Name = rule.Name
-
+		jsonFriendlyStruct := kyvernoRule{
+			Name: rule.Name,
+		}
 		if !reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
 			jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 		}
-
 		if !reflect.DeepEqual(rule.ExcludeResources, kyverno.MatchResources{}) {
 			jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 		}
-
 		if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
 			jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
 		}
-
 		if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
 			jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 		}
-
 		ruleMap[rule.Name] = jsonFriendlyStruct
 	}
 	return ruleMap
@@ -63,25 +58,17 @@ func createRuleMap(rules []kyverno.Rule) map[string]kyvernoRule {
 
 func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.Logger) *kyvernoRule {
 	logger := log.WithName("generateRuleForControllers")
-
 	if strings.HasPrefix(rule.Name, "autogen-") || controllers == "" {
 		logger.V(5).Info("skip generateRuleForControllers")
 		return nil
 	}
-
 	logger.V(3).Info("processing rule", "rulename", rule.Name)
-
-	match := rule.MatchResources
-	exclude := rule.ExcludeResources
-
-	matchResourceDescriptionsKinds := rule.MatchKinds()
-	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
-
-	if !utils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
+	match, exclude := rule.MatchResources, rule.ExcludeResources
+	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
+	if !utils.ContainsKind(matchKinds, "Pod") ||
+		(len(excludeKinds) != 0 && !utils.ContainsKind(excludeKinds, "Pod")) {
 		return nil
 	}
-
 	// Support backwards compatibility
 	skipAutoGeneration := false
 	var controllersValidated []string

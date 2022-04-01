@@ -22,6 +22,20 @@ const (
 	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 )
 
+func checkAutogenSupport(subjects ...kyverno.ResourceDescription) (bool, bool) {
+	needed := false
+	for _, subject := range subjects {
+		if subject.Name != "" || subject.Selector != nil || subject.Annotations != nil {
+			return false, false
+		}
+		if isKindOtherthanPod(subject.Kinds) {
+			return false, false
+		}
+		needed = needed || hasAutogenKinds(subject.Kinds)
+	}
+	return true, needed
+}
+
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
 // returns controllers as:
 // - "" if:
@@ -32,81 +46,53 @@ const (
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
 	var needAutogen bool
-	rules := spec.Rules
-	for _, rule := range rules {
-		match := rule.MatchResources
-		exclude := rule.ExcludeResources
-
-		if match.ResourceDescription.Name != "" || match.ResourceDescription.Selector != nil || match.ResourceDescription.Annotations != nil ||
-			exclude.ResourceDescription.Name != "" || exclude.ResourceDescription.Selector != nil || exclude.ResourceDescription.Annotations != nil {
-			log.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, ""
-		}
-
-		if isKindOtherthanPod(match.Kinds) || isKindOtherthanPod(exclude.Kinds) {
-			return false, ""
-		}
-
-		needAutogen = hasAutogenKinds(match.Kinds) || hasAutogenKinds(exclude.Kinds)
-
-		for _, value := range match.Any {
-			if isKindOtherthanPod(value.Kinds) {
-				return false, ""
-			}
-			if !needAutogen {
-				needAutogen = hasAutogenKinds(value.Kinds)
-			}
-			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
-				return false, ""
-			}
-		}
-		for _, value := range match.All {
-			if isKindOtherthanPod(value.Kinds) {
-				return false, ""
-			}
-			if !needAutogen {
-				needAutogen = hasAutogenKinds(value.Kinds)
-			}
-			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
-				return false, ""
-			}
-		}
-		for _, value := range exclude.Any {
-			if isKindOtherthanPod(value.Kinds) {
-				return false, ""
-			}
-			if !needAutogen {
-				needAutogen = hasAutogenKinds(value.Kinds)
-			}
-			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
-				return false, ""
-			}
-		}
-		for _, value := range exclude.All {
-			if isKindOtherthanPod(value.Kinds) {
-				return false, ""
-			}
-			if !needAutogen {
-				needAutogen = hasAutogenKinds(value.Kinds)
-			}
-			if value.Name != "" || value.Selector != nil || value.Annotations != nil {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
-				return false, ""
-			}
-		}
-
+	for _, rule := range spec.Rules {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
+		match, exclude := rule.MatchResources, rule.ExcludeResources
+		if supported, needed := checkAutogenSupport(match.ResourceDescription, exclude.ResourceDescription); !supported {
+			log.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
+			return false, ""
+		} else {
+			needAutogen = needAutogen || needed
+		}
+		for _, value := range match.Any {
+			if supported, needed := checkAutogenSupport(value.ResourceDescription); !supported {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+				return false, ""
+			} else {
+				needAutogen = needAutogen || needed
+			}
+		}
+		for _, value := range match.All {
+			if supported, needed := checkAutogenSupport(value.ResourceDescription); !supported {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
+				return false, ""
+			} else {
+				needAutogen = needAutogen || needed
+			}
+		}
+		for _, value := range exclude.Any {
+			if supported, needed := checkAutogenSupport(value.ResourceDescription); !supported {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+				return false, ""
+			} else {
+				needAutogen = needAutogen || needed
+			}
+		}
+		for _, value := range exclude.All {
+			if supported, needed := checkAutogenSupport(value.ResourceDescription); !supported {
+				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
+				return false, ""
+			} else {
+				needAutogen = needAutogen || needed
+			}
+		}
 	}
-
 	if !needAutogen {
 		return false, ""
 	}
-
 	return true, PodControllers
 }
 
@@ -139,14 +125,11 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 // It returns the requested, supported and effective controllers (intersection of requested and supported ones).
 func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
 	// compute supported and requested controllers
-	supported := GetSupportedControllers(spec, log)
-	requested := GetRequestedControllers(meta)
-
+	supported, requested := GetSupportedControllers(spec, log), GetRequestedControllers(meta)
 	// no specific request, we can return supported controllers without further filtering
 	if requested == nil {
 		return requested, supported, supported
 	}
-
 	// filter supported controllers, keeping only those that have been requested
 	var activated []string
 	for _, controller := range supported {
