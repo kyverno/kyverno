@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
@@ -105,8 +106,14 @@ More info: https://kyverno.io/docs/kyverno-cli/
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
+<<<<<<< HEAD
 	var cluster, policyReport, stdin, registryAccess bool
 	var mutateLogPath, variablesString, valuesFile, namespace string
+=======
+	var cluster, policyReport, stdin bool
+	var mutateLogPath, variablesString, valuesFile, namespace, userInfoPath string
+
+>>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
 	cmd = &cobra.Command{
 		Use:     "apply",
 		Short:   "applies policies on resources",
@@ -121,7 +128,11 @@ func Command() *cobra.Command {
 				}
 			}()
 
+<<<<<<< HEAD
 			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandHelper(resourcePaths, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin, registryAccess)
+=======
+			rc, resources, skipInvalidPolicies, pvInfos, err := applyCommandHelper(resourcePaths, userInfoPath, cluster, policyReport, mutateLogPath, variablesString, valuesFile, namespace, policyPaths, stdin)
+>>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
 			if err != nil {
 				return err
 			}
@@ -134,6 +145,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&cluster, "cluster", "c", false, "Checks if policies should be applied to cluster in the current context")
 	cmd.Flags().StringVarP(&mutateLogPath, "output", "o", "", "Prints the mutated resources in provided file/directory")
 	// currently `set` flag supports variable for single policy applied on single resource
+	cmd.Flags().StringVarP(&userInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
 	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
@@ -143,8 +155,13 @@ func Command() *cobra.Command {
 	return cmd
 }
 
+<<<<<<< HEAD
 func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool, mutateLogPath string,
 	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
+=======
+func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster bool, policyReport bool, mutateLogPath string,
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
+>>>>>>> 1402b2d1b (add support for roles, cluster roles and subjects)
 	store.SetMock(true)
 	store.SetRegistryAccess(registryAccess)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
@@ -243,6 +260,16 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("currently `set` flag supports variable for single policy applied on single resource ", nil)
 	}
 
+	// get the user info as request info from a different file
+	var userInfo v1.RequestInfo
+	if userInfoPath != "" {
+		userInfo, err = common.GetUserInfoAccordingToUserInfoPath(fs, userInfoPath, false, "")
+		if err != nil {
+			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
 	if variablesString != "" {
 		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
@@ -300,7 +327,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
-			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, policyReport, namespaceSelectorMap, stdin, rc, true)
+			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, userInfo, policyReport, namespaceSelectorMap, stdin, rc, true)
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
