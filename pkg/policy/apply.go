@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -110,7 +109,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 		patches := rule.Patches
 
-		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches))
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches...))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
 			return &response.EngineResponse{}, err
@@ -133,23 +132,16 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 	return engineResponse, nil
 }
 
-type jsonPatch struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
-}
-
 func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	var resultPath []string
 	// extract the patch path and value
 	for _, patch := range patches {
-		log.V(4).Info("expected json patch not found in resource", "patch", string(patch))
-		var data jsonPatch
-		if err := json.Unmarshal(patch, &data); err != nil {
+		if data, err := jsonutils.UnmarshalPatch(patch); err != nil {
 			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
 			continue
+		} else {
+			resultPath = append(resultPath, data.Path)
 		}
-		resultPath = append(resultPath, data.Path)
 	}
 	return strings.Join(resultPath, ";")
 }

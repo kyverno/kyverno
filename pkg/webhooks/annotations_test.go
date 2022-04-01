@@ -43,36 +43,31 @@ func newEngineResponse(policy, rule string, patchesStr []string, status response
 func Test_empty_annotation(t *testing.T) {
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, response.RuleStatusPass, nil)
-
 	annPatches := generateAnnotationPatches([]*response.EngineResponse{engineResponse}, log.Log)
-	expectedPatches := `{"op":"add","path":"/metadata/annotations","value":{"policies.kyverno.io/last-applied-patches":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}}`
-	assert.Assert(t, string(annPatches[0]) == expectedPatches)
+	expectedPatches := `{"path":"/metadata/annotations","op":"add","value":{"policies.kyverno.io/last-applied-patches":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}}`
+	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
 
 func Test_exist_annotation(t *testing.T) {
 	annotation := map[string]interface{}{
 		"test": "annotation",
 	}
-
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, response.RuleStatusPass, annotation)
 	annPatches := generateAnnotationPatches([]*response.EngineResponse{engineResponse}, log.Log)
-
-	expectedPatches := `{"op":"add","path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
-	assert.Assert(t, string(annPatches[0]) == expectedPatches)
+	expectedPatches := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
+	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
 
 func Test_exist_kyverno_annotation(t *testing.T) {
 	annotation := map[string]interface{}{
 		"policies.kyverno.patches": "old-annotation",
 	}
-
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, response.RuleStatusPass, annotation)
 	annPatches := generateAnnotationPatches([]*response.EngineResponse{engineResponse}, log.Log)
-
-	expectedPatches := `{"op":"add","path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
-	assert.Assert(t, string(annPatches[0]) == expectedPatches)
+	expectedPatches := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
+	assert.Equal(t, string(annPatches[0]), expectedPatches)
 }
 
 func Test_annotation_nil_patch(t *testing.T) {
@@ -91,10 +86,8 @@ func Test_annotation_failed_Patch(t *testing.T) {
 	annotation := map[string]interface{}{
 		"policies.kyverno.patches": "old-annotation",
 	}
-
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", nil, response.RuleStatusFail, annotation)
 	annPatches := generateAnnotationPatches([]*response.EngineResponse{engineResponse}, log.Log)
-
 	assert.Assert(t, annPatches == nil)
 }
 
@@ -105,9 +98,8 @@ func Test_exist_patches(t *testing.T) {
 	patchStr := `{ "op": "replace", "path": "/spec/containers/0/imagePullPolicy", "value": "IfNotPresent" }`
 	engineResponse := newEngineResponse("mutate-container", "default-imagepullpolicy", []string{patchStr}, response.RuleStatusPass, annotation)
 	annPatches := generateAnnotationPatches([]*response.EngineResponse{engineResponse}, log.Log)
-	expectedPatches1 := `{"op":"remove","path":"/metadata/annotations/policies.kyverno.io~1patches","value":null}`
-	expectedPatches2 := `{"op":"add","path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
-
-	assert.Assert(t, string(annPatches[0]) == expectedPatches1)
-	assert.Assert(t, string(annPatches[1]) == expectedPatches2)
+	expectedPatches1 := `{"path":"/metadata/annotations/policies.kyverno.io~1patches","op":"remove"}`
+	expectedPatches2 := `{"path":"/metadata/annotations/policies.kyverno.io~1last-applied-patches","op":"add","value":"default-imagepullpolicy.mutate-container.kyverno.io: replaced /spec/containers/0/imagePullPolicy\n"}`
+	assert.Equal(t, string(annPatches[0]), expectedPatches1)
+	assert.Equal(t, string(annPatches[1]), expectedPatches2)
 }

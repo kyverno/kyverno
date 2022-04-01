@@ -271,7 +271,7 @@ func Test_Any(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches)))
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -545,7 +545,7 @@ func Test_Deny(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches)))
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
