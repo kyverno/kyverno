@@ -11,7 +11,6 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -271,7 +270,6 @@ func Test_Any(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -359,7 +357,6 @@ func Test_Exclude(t *testing.T) {
 }
 
 func Test_CronJobOnly(t *testing.T) {
-
 	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -424,7 +421,6 @@ func Test_ForEachPod(t *testing.T) {
 }
 
 func Test_CronJob_hasExclude(t *testing.T) {
-
 	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -518,7 +514,10 @@ func Test_UpdateVariablePath(t *testing.T) {
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-select-secrets-from-volumes","match":{"resources":{"kinds":["CronJob"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}}}`),
 	}
 
-	assert.DeepEqual(t, rulePatches, expectedPatches)
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
 }
 
 func Test_Deny(t *testing.T) {
@@ -545,7 +544,6 @@ func Test_Deny(t *testing.T) {
 	}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}

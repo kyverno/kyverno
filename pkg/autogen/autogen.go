@@ -183,7 +183,7 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 			return pbytes
 		}
 		// handle all other controllers other than CronJob
-		genRule := generateRuleForControllers(rule, stripCronJob(controllers), log)
+		genRule := createRule(generateRuleForControllers(rule, stripCronJob(controllers), log))
 		if genRule != nil {
 			pbytes := convertToPatches(*genRule, patchPostion)
 			pbytes = updateGenRuleByte(pbytes, "Pod", *genRule)
@@ -194,7 +194,7 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 			patchPostion = insertIdx
 		}
 		// handle CronJob, it appends an additional rule
-		genRule = generateCronJobRule(rule, controllers, log)
+		genRule = createRule(generateCronJobRule(rule, controllers, log))
 		if genRule != nil {
 			pbytes := convertToPatches(*genRule, patchPostion)
 			pbytes = updateGenRuleByte(pbytes, "Cronjob", *genRule)
@@ -221,13 +221,13 @@ func GenerateRules(spec *kyverno.Spec, controllers string, log logr.Logger) []ky
 	var rules []kyverno.Rule
 	for _, rule := range spec.Rules {
 		// handle all other controllers other than CronJob
-		if genRule := generateRuleForControllers(*rule.DeepCopy(), stripCronJob(controllers), log); genRule != nil {
+		if genRule := createRule(generateRuleForControllers(*rule.DeepCopy(), stripCronJob(controllers), log)); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
 			}
 		}
 		// handle CronJob, it appends an additional rule
-		if genRule := generateCronJobRule(*rule.DeepCopy(), controllers, log); genRule != nil {
+		if genRule := createRule(generateCronJobRule(*rule.DeepCopy(), controllers, log)); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
 				rules = append(rules, *convRule)
 			}
