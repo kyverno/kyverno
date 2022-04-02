@@ -37,3 +37,18 @@ func Test_Policy_IsNamespaced(t *testing.T) {
 	assert.Equal(t, namespaced.IsNamespaced(), false)
 	assert.Equal(t, notNamespaced.IsNamespaced(), false)
 }
+
+func Test_Policy_Autogen_All(t *testing.T) {
+	subject := Policy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "policy",
+			Namespace: "abcd",
+			Annotations: map[string]string{
+				PodControllersAnnotation: "all",
+			},
+		},
+	}
+	errs := subject.Validate(nil)
+	assert.Equal(t, len(errs), 1)
+	assert.Equal(t, errs[0].Error(), "metadata.annotations: Forbidden: Autogen annotation does not support 'all' anymore, remove the annotation or set it to a valid value")
+}
