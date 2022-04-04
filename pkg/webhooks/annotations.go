@@ -51,7 +51,7 @@ func generateAnnotationPatches(engineResponses []*response.EngineResponse, log l
 	if _, ok := annotations[strings.ReplaceAll(policyAnnotation, "~1", "/")]; ok {
 		// create update patch string
 		if _, ok := annotations["policies.kyverno.io/patches"]; ok {
-			patchResponse = jsonutils.NewPatch("/metadata/annotations/policies.kyverno.io/patches", "remove", nil)
+			patchResponse = jsonutils.NewPatch("/metadata/annotations/"+oldAnnotation, "remove", nil)
 			delete(annotations, "policies.kyverno.io/patches")
 			patchByte, _ := json.Marshal(patchResponse)
 			patchBytes = append(patchBytes, patchByte)
