@@ -29,7 +29,7 @@ func (m *pMap) add(policy kyverno.PolicyInterface) {
 	defer m.lock.Unlock()
 
 	spec := policy.GetSpec()
-	enforcePolicy := spec.ValidationFailureAction == kyverno.Enforce
+	enforcePolicy := spec.GetValidationFailureAction() == kyverno.Enforce
 	for _, k := range spec.ValidationFailureActionOverrides {
 		if k.Action == kyverno.Enforce {
 			enforcePolicy = true
