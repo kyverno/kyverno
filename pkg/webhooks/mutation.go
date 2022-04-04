@@ -25,8 +25,8 @@ func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, 
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(ts, 0)))
-	go registerAdmissionReviewDurationMetricMutate(logger, *ws.promConfig, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
-	go registerAdmissionRequestsMetricMutate(logger, *ws.promConfig, string(request.Operation), mutateEngineResponses)
+	go ws.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
+	go ws.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
 
 	return mutatePatches
 }
