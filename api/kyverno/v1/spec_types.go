@@ -132,6 +132,14 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
+// GetFailurePolicy returns the failure policy to be applied
+func (s *Spec) GetFailurePolicy() FailurePolicyType {
+	if s.FailurePolicy == nil {
+		return Fail
+	}
+	return *s.FailurePolicy
+}
+
 // GetValidationFailureAction returns the validation failure action to be applied
 func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
 	if s.ValidationFailureAction == "" {

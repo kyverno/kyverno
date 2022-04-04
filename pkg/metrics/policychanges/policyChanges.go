@@ -46,7 +46,7 @@ func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyC
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy)
 		policyType := metrics.Cluster
 		policyNamespace := "" // doesn't matter for cluster policy
 		policyName := inputPolicy.GetName()
@@ -59,7 +59,7 @@ func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyC
 		if err != nil {
 			return err
 		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy.Spec.Background)
+		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy)
 		policyType := metrics.Namespaced
 		policyNamespace := inputPolicy.GetNamespace()
 		policyName := inputPolicy.GetName()
