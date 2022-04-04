@@ -1,11 +1,8 @@
 package v1
 
 import (
-	"strings"
-
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -47,36 +44,4 @@ func ValidatePolicyName(path *field.Path, name string) (errs field.ErrorList) {
 		errs = append(errs, field.TooLong(path, name, 63))
 	}
 	return errs
-}
-
-func labelSelectorContainsWildcard(v *metav1.LabelSelector) bool {
-	for k, v := range v.MatchLabels {
-		if isWildcardPresent(k) || isWildcardPresent(v) {
-			return true
-		}
-	}
-	return false
-}
-
-func isWildcardPresent(v string) bool {
-	if strings.Contains(v, "*") || strings.Contains(v, "?") {
-		return true
-	}
-	return false
-}
-
-// ViolatedRule stores the information regarding the rule.
-type ViolatedRule struct {
-	// Name specifies violated rule name.
-	Name string `json:"name" yaml:"name"`
-
-	// Type specifies violated rule type.
-	Type string `json:"type" yaml:"type"`
-
-	// Message specifies violation message.
-	// +optional
-	Message string `json:"message" yaml:"message"`
-
-	// Status shows the rule response status
-	Status string `json:"status" yaml:"status"`
 }
