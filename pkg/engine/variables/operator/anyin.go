@@ -63,7 +63,7 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) {
 				return false, true
 			}
 		}
