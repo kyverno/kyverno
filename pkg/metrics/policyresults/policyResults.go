@@ -58,7 +58,7 @@ func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engin
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.GetSpec().Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy)
 	policyNamespace := policy.GetNamespace()
 	if policyNamespace == "" {
 		policyNamespace = "-"
