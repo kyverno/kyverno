@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -207,7 +208,7 @@ func (pc *PolicyController) processExistingKinds(kinds []string, policy kyverno.
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
 		_, err := pc.rm.GetScope(kind)
 		if err != nil {
-			gv, k := common.GetKindFromGVK(kind)
+			gv, k := kubeutils.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
 				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
 				if err != nil {
