@@ -9,7 +9,8 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pc PromConfig) registerAdmissionReviewDurationMetric(
+func registerAdmissionReviewDurationMetric(
+	pc *metrics.PromConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	admissionRequestLatency float64,
@@ -31,14 +32,13 @@ func (pc PromConfig) registerAdmissionReviewDurationMetric(
 	return nil
 }
 
-func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(pc *metrics.PromConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
 	resourceNamespace, resourceKind := engineResponses[0].PolicyResponse.Resource.Namespace, engineResponses[0].PolicyResponse.Resource.Kind
-	totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount := 0, 0, 0
+	validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 	for _, e := range engineResponses {
-		validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 		for _, rule := range e.PolicyResponse.Rules {
 			switch rule.Type {
 			case "Validation":
@@ -49,18 +49,10 @@ func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineRe
 				generateRulesCount++
 			}
 		}
-		// no rules triggered
-		if validateRulesCount+mutateRulesCount+generateRulesCount == 0 {
-			continue
-		}
-
-		totalValidateRulesCount += validateRulesCount
-		totalMutateRulesCount += mutateRulesCount
-		totalGenerateRulesCount += generateRulesCount
 	}
-	if totalValidateRulesCount+totalMutateRulesCount+totalGenerateRulesCount == 0 {
+	if validateRulesCount == 0 && mutateRulesCount == 0 && generateRulesCount == 0 {
 		return nil
 	}
 	admissionReviewLatencyDurationInSeconds := float64(admissionReviewLatencyDuration) / float64(1000*1000*1000)
-	return pc.registerAdmissionReviewDurationMetric(resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
+	return registerAdmissionReviewDurationMetric(pc, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
 }
