@@ -41,7 +41,7 @@ func (pc PromConfig) registerPolicyChangesMetric(
 func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyC
 		}
 		return nil
 	case *kyverno.Policy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 		if err != nil {
 			return err
 		}

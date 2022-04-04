@@ -60,7 +60,7 @@ func (pc PromConfig) registerPolicyExecutionDurationMetric(
 //engineResponse - resource and rule related data
 func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
 
-	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().ValidationFailureAction)
+	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
 	if err != nil {
 		return err
 	}

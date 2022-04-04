@@ -54,7 +54,7 @@ func (pc *PolicyController) registerPolicyChangesMetricUpdatePolicy(logger logr.
 		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", oldP.GetName())
 	}
 	// curP will require a new kyverno_policy_changes_total metric if the above update involved change in the following fields:
-	if curSpec.Background != oldSpec.Background || curSpec.ValidationFailureAction != oldSpec.ValidationFailureAction {
+	if curSpec.Background != oldSpec.Background || curSpec.GetValidationFailureAction() != oldSpec.GetValidationFailureAction() {
 		err = policyChangesMetric.ParsePromConfig(*pc.promConfig).RegisterPolicy(curP, policyChangesMetric.PolicyUpdated)
 		if err != nil {
 			logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's updation", "name", curP.GetName())

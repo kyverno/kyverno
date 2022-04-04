@@ -64,7 +64,7 @@ func (pc PromConfig) registerPolicyRuleInfoMetric(
 func (pc PromConfig) AddPolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (pc PromConfig) AddPolicy(policy interface{}) error {
 		}
 		return nil
 	case *kyverno.Policy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 	switch inputPolicy := policy.(type) {
 	case *kyverno.ClusterPolicy:
 		for _, rule := range autogen.ComputeRules(inputPolicy) {
-			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 			if err != nil {
 				return err
 			}
@@ -131,7 +131,7 @@ func (pc PromConfig) RemovePolicy(policy interface{}) error {
 		return nil
 	case *kyverno.Policy:
 		for _, rule := range autogen.ComputeRules(inputPolicy) {
-			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.ValidationFailureAction)
+			policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
 			if err != nil {
 				return err
 			}
