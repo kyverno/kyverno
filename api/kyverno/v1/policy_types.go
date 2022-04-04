@@ -96,6 +96,7 @@ func (p *Policy) IsReady() bool {
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
 func (p *Policy) Validate(clusterResources sets.String) (errs field.ErrorList) {
+	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
