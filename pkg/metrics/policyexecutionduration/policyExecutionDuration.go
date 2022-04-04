@@ -60,13 +60,12 @@ func (pc PromConfig) registerPolicyExecutionDurationMetric(
 //policy - policy related data
 //engineResponse - resource and rule related data
 func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
-
 	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
 	if err != nil {
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.GetSpec().Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy)
 	policyNamespace := policy.GetNamespace()
 	if policyNamespace == "" {
 		policyNamespace = "-"
