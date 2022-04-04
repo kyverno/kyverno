@@ -6,6 +6,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/utils"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -29,11 +30,11 @@ func (pc PromConfig) registerPolicyRuleInfoMetric(
 	}
 
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
-	if (policyNamespace != "" && policyNamespace != "-") && metrics.ElementInSlice(policyNamespace, excludeNamespaces) {
+	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
 		return nil
 	}
-	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(policyNamespace, includeNamespaces) {
+	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
 		return nil
 	}
