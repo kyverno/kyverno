@@ -87,3 +87,11 @@ func ResponseSuccessWithPatch(allowed bool, msg string, patch []byte) *v1beta1.A
 	}
 	return r
 }
+
+func GetResourceName(request *v1beta1.AdmissionRequest) string {
+	resourceName := request.Kind.Kind + "/" + request.Name
+	if request.Namespace != "" {
+		resourceName = request.Namespace + "/" + resourceName
+	}
+	return resourceName
+}
