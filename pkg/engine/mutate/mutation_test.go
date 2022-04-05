@@ -54,14 +54,14 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*respon
 
 	if mutateResp.Status != response.RuleStatusPass {
 		return &response.RuleResponse{
-			Type:    utils.Mutation.String(),
+			Type:    response.Mutation,
 			Status:  mutateResp.Status,
 			Message: mutateResp.Message,
 		}, resource
 	}
 
 	return &response.RuleResponse{
-		Type:    utils.Mutation.String(),
+		Type:    response.Mutation,
 		Status:  response.RuleStatusPass,
 		Patches: mutateResp.Patches,
 	}, mutateResp.PatchedResource
