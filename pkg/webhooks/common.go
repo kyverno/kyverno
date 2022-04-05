@@ -5,9 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -30,29 +28,7 @@ func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 }
 
 func checkEngineResponse(er *response.EngineResponse) bool {
-	var nsAction kyverno.ValidationFailureAction
-	actionOverride := false
-
-	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		action := v.Action
-		if action != kyverno.Enforce && action != kyverno.Audit {
-			continue
-		}
-
-		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-				nsAction = action
-				actionOverride = true
-				break
-			}
-		}
-
-		if actionOverride {
-			break
-		}
-	}
-
-	return !er.IsSuccessful() && ((actionOverride && nsAction == kyverno.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == kyverno.Enforce))
+	return !er.IsSuccessful() && er.GetValidationFailureAction() == kyverno.Enforce
 }
 
 // returns true -> if there is even one policy that blocks resource request
@@ -81,12 +57,10 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 					ruleToReason[rule.Name] = rule.Message
 				}
 			}
-
 			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 		}
 	}
-
 	result, _ := yamlv2.Marshal(policyToRule)
 	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
 }
@@ -95,7 +69,6 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 func getErrorMsg(engineReponses []*response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
-
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() {
 			// resource in engineReponses is identical as this was called per admission request
@@ -258,7 +231,7 @@ func excludeKyvernoResources(kind string) bool {
 	}
 }
 
-func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *v1.RequestInfo) (*enginectx.Context, error) {
+func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (*enginectx.Context, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, errors.Wrap(err, "failed to load incoming request in context")
