@@ -20,6 +20,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -434,7 +435,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		spec := p.GetSpec()
 		if spec.HasValidate() || spec.HasGenerate() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
 				m.mergeWebhook(validateFail, p, true)
@@ -442,7 +443,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		}
 
 		if spec.HasMutate() || spec.HasVerifyImages() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
 				m.mergeWebhook(mutateFail, p, false)
@@ -752,7 +753,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			gvkMap[gvk] = 1
 
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			gv, k := common.GetKindFromGVK(gvk)
+			gv, k := kubeutils.GetKindFromGVK(gvk)
 			switch k {
 			case "Binding":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})

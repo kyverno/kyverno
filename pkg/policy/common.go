@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -69,7 +70,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 
 	var wildcards []string
 	for _, nsName := range rule.MatchResources.Namespaces {
-		if HasWildcard(nsName) {
+		if stringutils.ContainsWildcard(nsName) {
 			wildcards = append(wildcards, nsName)
 		}
 
@@ -82,15 +83,6 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 	}
 
 	return pc.configHandler.FilterNamespaces(matchedNS)
-}
-
-// HasWildcard ...
-func HasWildcard(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
 // GetMatchingNamespaces ...

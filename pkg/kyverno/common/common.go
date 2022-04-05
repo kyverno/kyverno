@@ -182,24 +182,10 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	if len(patches) == 0 {
 		return policy, nil
 	}
-
-	type jsonPatch struct {
-		Path  string      `json:"path"`
-		Op    string      `json:"op"`
-		Value interface{} `json:"value"`
-	}
-
-	var jsonPatches []jsonPatch
-	err := json.Unmarshal(patches, &jsonPatches)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.GetName()), err)
-	}
-
 	patch, err := jsonpatch.DecodePatch(patches)
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
 	}
-
 	policyBytes, _ := json.Marshal(policy)
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
@@ -208,7 +194,6 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
 	}
-
 	var p v1.ClusterPolicy
 	err = json.Unmarshal(modifiedPolicy, &p)
 	if err != nil {

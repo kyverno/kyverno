@@ -9,19 +9,18 @@ import (
 	"strings"
 
 	"github.com/distribution/distribution/reference"
-	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	comn "github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	v1beta1 "k8s.io/api/admission/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -82,7 +81,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
-	background := spec.Background == nil || *spec.Background
+	background := spec.BackgroundProcessingEnabled()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -177,7 +176,7 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (spec.Background == nil || *spec.Background) {
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
 			return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
@@ -1021,12 +1020,12 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 // and found in the cache, returns error if not found
 func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.PolicyInterface) error {
 	for _, kind := range kinds {
-		gv, k := comn.GetKindFromGVK(kind)
+		gv, k := kubeutils.GetKindFromGVK(kind)
 		if k == p.GetKind() {
 			return fmt.Errorf("kind and match resource kind should not be the same")
 		}
 
-		if !mock && !utils.SkipSubResources(k) && !strings.Contains(kind, "*") {
+		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.DiscoveryClient.FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -177,6 +178,20 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	}
 
 	return rules
+}
+
+func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailureAction {
+	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+		if v.Action != kyverno.Enforce && v.Action != kyverno.Audit {
+			continue
+		}
+		for _, ns := range v.Namespaces {
+			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+				return v.Action
+			}
+		}
+	}
+	return er.PolicyResponse.ValidationFailureAction
 }
 
 type ValidationFailureActionOverride struct {
