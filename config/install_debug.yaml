@@ -12044,13 +12044,8 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
-          app.kubernetes.io/name: kyverno
-      podSelector:
-        matchLabels:
           app.kubernetes.io/name: prometheus
     ports:
-    - port: 9443
-      protocol: TCP
     - port: 8000
       protocol: TCP
   podSelector:

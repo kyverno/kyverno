@@ -14,14 +14,8 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
-          app.kubernetes.io/name: kyverno
-      podSelector:
-        matchLabels:
           app.kubernetes.io/name: prometheus
     ports:
-    # Webhook access
-    - protocol: TCP
-      port: 9443
     # Allow prometheus scrape for metrics
     - protocol: TCP
       port: 8000

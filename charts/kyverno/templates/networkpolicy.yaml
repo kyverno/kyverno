@@ -55,9 +55,6 @@ spec:
             {{ toYaml . | nindent 10 }}
     {{- end }}
     ports:
-    # Webhook access
-    - protocol: TCP
-      port: 9443
     # Allow prometheus scrape for metrics
     - protocol: TCP
       port: 8000
