@@ -81,7 +81,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
-	background := spec.Background == nil || *spec.Background
+	background := spec.BackgroundProcessingEnabled()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -176,7 +176,7 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && (spec.Background == nil || *spec.Background) {
+		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
 			return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 

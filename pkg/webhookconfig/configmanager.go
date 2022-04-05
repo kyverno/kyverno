@@ -435,7 +435,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		spec := p.GetSpec()
 		if spec.HasValidate() || spec.HasGenerate() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
 				m.mergeWebhook(validateFail, p, true)
@@ -443,7 +443,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		}
 
 		if spec.HasMutate() || spec.HasVerifyImages() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
 				m.mergeWebhook(mutateFail, p, false)
