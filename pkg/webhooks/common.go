@@ -10,6 +10,7 @@ import (
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/api/admission/v1beta1"
@@ -17,25 +18,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// isResponseSuccessful return true if all responses are successful
-func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
-	for _, er := range engineReponses {
-		if !er.IsSuccessful() {
-			return false
-		}
-	}
-	return true
-}
-
-func checkEngineResponse(er *response.EngineResponse) bool {
-	return !er.IsSuccessful() && er.GetValidationFailureAction() == kyverno.Enforce
-}
-
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if checkEngineResponse(er) {
+		if engineutils2.CheckEngineResponse(er) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
@@ -50,7 +37,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if checkEngineResponse(er) {
+		if engineutils2.CheckEngineResponse(er) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
@@ -82,23 +69,6 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 		}
 	}
 	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
-}
-
-//ArrayFlags to store filterkinds
-type ArrayFlags []string
-
-func (i *ArrayFlags) String() string {
-	var sb strings.Builder
-	for _, str := range *i {
-		sb.WriteString(str)
-	}
-	return sb.String()
-}
-
-//Set setter for array flags
-func (i *ArrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
 }
 
 // patchRequest applies patches to the request.Object and returns a new copy of the request
