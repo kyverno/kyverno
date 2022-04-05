@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/common"
-
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,13 +125,13 @@ func (ws *WebhookServer) handleMutation(
 		}
 
 		// if any of the policies fails, print out the error
-		if !isResponseSuccessful(engineResponses) {
+		if !engineutils.IsResponseSuccessful(engineResponses) {
 			logger.Error(errors.New(getErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 		}
 	}()
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
-	return engineutils.JoinPatches(patches), engineResponses
+	return jsonutils.JoinPatches(patches...), engineResponses
 }
 
 func (ws *WebhookServer) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse, [][]byte, error) {

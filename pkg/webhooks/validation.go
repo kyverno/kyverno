@@ -4,14 +4,14 @@ import (
 	"reflect"
 	"time"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/event"
-
 	"github.com/go-logr/logr"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,7 +38,7 @@ func (v *validationHandler) handleValidation(
 		return true, ""
 	}
 
-	resourceName := getResourceName(request)
+	resourceName := admissionutils.GetResourceName(request)
 	logger := v.log.WithValues("action", "validate", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var deletionTimeStamp *metav1.Time
@@ -135,15 +135,6 @@ func (v *validationHandler) handleValidation(
 	//registering the kyverno_admission_requests_total metric concurrently
 	go registerAdmissionRequestsMetricValidate(promConfig, logger, string(request.Operation), engineResponses)
 	return true, ""
-}
-
-func getResourceName(request *admissionv1.AdmissionRequest) string {
-	resourceName := request.Kind.Kind + "/" + request.Name
-	if request.Namespace != "" {
-		resourceName = request.Namespace + "/" + resourceName
-	}
-
-	return resourceName
 }
 
 func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {

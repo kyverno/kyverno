@@ -1,7 +1,6 @@
 package policymutation
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -9,9 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -22,25 +21,22 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 	var patches [][]byte
 	var updateMsgs []string
 	spec := policy.GetSpec()
-	// default 'ValidationFailureAction'
-	if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-
-	// default 'Background'
-	if patch, updateMsg := defaultBackgroundFlag(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-
-	if patch, updateMsg := defaultFailurePolicy(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-
-	// if autogenInternals is enabled, we don't mutate rules in the webhook
+	// if autogenInternals is enabled, we don't mutate most of the policy fields
 	if !toggle.AutogenInternals() {
+		// default 'ValidationFailureAction'
+		if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
+		// default 'Background'
+		if patch, updateMsg := defaultBackgroundFlag(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
+		if patch, updateMsg := defaultFailurePolicy(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
 		patch, errs := GeneratePodControllerRule(policy, log)
 		if len(errs) > 0 {
 			var errMsgs []string
@@ -52,7 +48,6 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 		}
 		patches = append(patches, patch...)
 	}
-
 	formatedGVK, errs := checkForGVKFormatPatch(policy, log)
 	if len(errs) > 0 {
 		var errMsgs []string
@@ -63,8 +58,7 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
 	}
 	patches = append(patches, formatedGVK...)
-
-	return jsonutils.JoinPatches(patches), updateMsgs
+	return jsonutils.JoinPatches(patches...), updateMsgs
 }
 
 func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
@@ -127,118 +121,65 @@ func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (pa
 func convertGVKForKinds(path string, kinds []string, log logr.Logger) ([]byte, error) {
 	kindList := []string{}
 	for _, k := range kinds {
-		gvk := common.GetFormatedKind(k)
+		gvk := kubeutils.GetFormatedKind(k)
 		if gvk == k {
 			continue
 		}
 		kindList = append(kindList, gvk)
 	}
-
 	if len(kindList) == 0 {
 		return nil, nil
 	}
-
-	p, err := buildReplaceJsonPatch(path, kindList)
+	p, err := jsonutils.MarshalPatch(path, "replace", kindList)
 	log.V(4).WithName("convertGVKForKinds").Info("generated patch", "patch", string(p))
 	return p, err
 }
 
-func buildReplaceJsonPatch(path string, kindList []string) ([]byte, error) {
-	jsonPatch := struct {
-		Path  string   `json:"path"`
-		Op    string   `json:"op"`
-		Value []string `json:"value"`
-	}{
-		path,
-		"replace",
-		kindList,
-	}
-	return json.Marshal(jsonPatch)
-}
-
 func defaultBackgroundFlag(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set 'Background' flag to 'true' if not specified
-	defaultVal := true
 	if spec.Background == nil {
+		defaultVal := true
 		log.V(4).Info("setting default value", "spec.background", true)
-		jsonPatch := struct {
-			Path  string `json:"path"`
-			Op    string `json:"op"`
-			Value *bool  `json:"value"`
-		}{
-			"/spec/background",
-			"add",
-			&defaultVal,
-		}
-
-		patchByte, err := json.Marshal(jsonPatch)
+		patchByte, err := jsonutils.MarshalPatch("/spec/background", "add", &defaultVal)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
 		}
-
 		log.V(3).Info("generated JSON Patch to set default", "spec.background", true)
 		return patchByte, fmt.Sprintf("default 'Background' to '%s'", strconv.FormatBool(true))
 	}
-
 	return nil, ""
 }
 
 func defaultvalidationFailureAction(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set ValidationFailureAction to "audit" if not specified
-	Audit := kyverno.Audit
 	if spec.ValidationFailureAction == "" {
-		log.V(4).Info("setting default value", "spec.validationFailureAction", Audit)
-
-		jsonPatch := struct {
-			Path  string `json:"path"`
-			Op    string `json:"op"`
-			Value string `json:"value"`
-		}{
-			"/spec/validationFailureAction",
-			"add",
-			string(Audit),
-		}
-
-		patchByte, err := json.Marshal(jsonPatch)
+		audit := kyverno.Audit
+		log.V(4).Info("setting default value", "spec.validationFailureAction", audit)
+		patchByte, err := jsonutils.MarshalPatch("/spec/validationFailureAction", "add", audit)
 		if err != nil {
-			log.Error(err, "failed to default value", "spec.validationFailureAction", Audit)
+			log.Error(err, "failed to default value", "spec.validationFailureAction", audit)
 			return nil, ""
 		}
-
-		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", Audit)
-
-		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", Audit)
+		log.V(3).Info("generated JSON Patch to set default", "spec.validationFailureAction", audit)
+		return patchByte, fmt.Sprintf("default 'ValidationFailureAction' to '%s'", audit)
 	}
-
 	return nil, ""
 }
 
 func defaultFailurePolicy(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {
 	// set failurePolicy to Fail if not present
-	failurePolicy := string(kyverno.Fail)
 	if spec.FailurePolicy == nil {
+		failurePolicy := string(kyverno.Fail)
 		log.V(4).Info("setting default value", "spec.failurePolicy", failurePolicy)
-		jsonPatch := struct {
-			Path  string `json:"path"`
-			Op    string `json:"op"`
-			Value string `json:"value"`
-		}{
-			"/spec/failurePolicy",
-			"add",
-			string(kyverno.Fail),
-		}
-
-		patchByte, err := json.Marshal(jsonPatch)
+		patchByte, err := jsonutils.MarshalPatch("/spec/failurePolicy", "add", failurePolicy)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.failurePolicy", failurePolicy)
 			return nil, ""
 		}
-
 		log.V(3).Info("generated JSON Patch to set default", "spec.failurePolicy", failurePolicy)
 		return patchByte, fmt.Sprintf("default failurePolicy to '%s'", failurePolicy)
 	}
-
 	return nil, ""
 }
 
@@ -298,34 +239,13 @@ func defaultPodControllerAnnotation(ann map[string]string, controllers string) (
 	if ann == nil {
 		ann = make(map[string]string)
 		ann[kyverno.PodControllersAnnotation] = controllers
-		jsonPatch := struct {
-			Path  string      `json:"path"`
-			Op    string      `json:"op"`
-			Value interface{} `json:"value"`
-		}{
-			"/metadata/annotations",
-			"add",
-			ann,
-		}
-
-		patchByte, err := json.Marshal(jsonPatch)
+		patchByte, err := jsonutils.MarshalPatch("/metadata/annotations", "add", ann)
 		if err != nil {
 			return nil, err
 		}
 		return patchByte, nil
 	}
-
-	jsonPatch := struct {
-		Path  string      `json:"path"`
-		Op    string      `json:"op"`
-		Value interface{} `json:"value"`
-	}{
-		"/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers",
-		"add",
-		controllers,
-	}
-
-	patchByte, err := json.Marshal(jsonPatch)
+	patchByte, err := jsonutils.MarshalPatch("/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers", "add", controllers)
 	if err != nil {
 		return nil, err
 	}

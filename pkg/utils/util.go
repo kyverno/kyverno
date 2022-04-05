@@ -12,7 +12,6 @@ import (
 
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
-	common "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -26,6 +25,53 @@ import (
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
 
+// CopyMap creates a full copy of the target map
+func CopyMap(m map[string]interface{}) map[string]interface{} {
+	mapCopy := make(map[string]interface{})
+	for k, v := range m {
+		mapCopy[k] = v
+	}
+
+	return mapCopy
+}
+
+// CopySlice creates a full copy of the target slice
+func CopySlice(s []interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	copy(sliceCopy, s)
+
+	return sliceCopy
+}
+
+// CopySliceOfMaps creates a full copy of the target slice
+func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	for i, v := range s {
+		sliceCopy[i] = CopyMap(v)
+	}
+
+	return sliceCopy
+}
+
+func ToMap(data interface{}) (map[string]interface{}, error) {
+	if m, ok := data.(map[string]interface{}); ok {
+		return m, nil
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	mapData := make(map[string]interface{})
+	err = json.Unmarshal(b, &mapData)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapData, nil
+}
+
 // Contains checks if a string is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
 	for _, e := range list {
@@ -34,22 +80,6 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 		}
 	}
 	return false
-}
-
-func ContainsKind(list []string, element string) bool {
-	for _, e := range list {
-		_, k := common.GetKindFromGVK(e)
-		if k == element {
-			return true
-		}
-	}
-	return false
-}
-
-// SkipSubResources check to skip list of resources which don't have group.
-func SkipSubResources(kind string) bool {
-	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
-	return ContainsKind(s, kind)
 }
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)

@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -77,8 +78,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	matchResourceDescriptionsKinds := rule.MatchKinds()
 	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
 
-	if !utils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
+	if !kubeutils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !kubeutils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
 		return nil
 	}
 

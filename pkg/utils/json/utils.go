@@ -1,7 +1,7 @@
 package json
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
-func JoinPatches(patches [][]byte) []byte {
+func JoinPatches(patches ...[]byte) []byte {
 	var result []byte
 	if len(patches) == 0 {
 		return result

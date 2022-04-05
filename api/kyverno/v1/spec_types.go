@@ -132,6 +132,23 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
+// GetFailurePolicy returns the failure policy to be applied
+func (s *Spec) GetFailurePolicy() FailurePolicyType {
+	if s.FailurePolicy == nil {
+		return Fail
+	}
+	return *s.FailurePolicy
+}
+
+// GetValidationFailureAction returns the validation failure action to be applied
+func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
+	if s.ValidationFailureAction == "" {
+		return Audit
+	}
+
+	return s.ValidationFailureAction
+}
+
 // ValidateRuleNames checks if the rule names are unique across a policy
 func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.NewString()
