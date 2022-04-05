@@ -6,6 +6,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/utils"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -25,11 +26,11 @@ func (pc PromConfig) registerPolicyResultsMetric(
 		policyNamespace = "-"
 	}
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
-	if (resourceNamespace != "" && resourceNamespace != "-") && metrics.ElementInSlice(resourceNamespace, excludeNamespaces) {
+	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
-	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(resourceNamespace, includeNamespaces) {
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
@@ -52,13 +53,13 @@ func (pc PromConfig) registerPolicyResultsMetric(
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func (pc PromConfig) ProcessEngineResponse(policy kyverno.ClusterPolicy, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
-	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.Spec.ValidationFailureAction)
+func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
+	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
 	if err != nil {
 		return err
 	}
 	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy.Spec.Background)
+	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy)
 	policyNamespace := policy.GetNamespace()
 	if policyNamespace == "" {
 		policyNamespace = "-"

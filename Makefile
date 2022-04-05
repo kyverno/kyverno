@@ -294,10 +294,8 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report:
-# generate code coverage report
+code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
-
 	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
@@ -359,16 +357,15 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen
+kyverno-crd: controller-gen ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen
+report-crd: controller-gen ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-# install the right version of controller-gen
 .PHONY: install-controller-gen
-install-controller-gen:
+install-controller-gen: ## Install controller-gen
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -379,9 +376,8 @@ install-controller-gen:
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
-# setup controller-gen with the right version, if necessary
 .PHONY: controller-gen
-controller-gen:
+controller-gen: ## Setup controller-gen
 ifeq (, $(shell which controller-gen))
 	@{ \
 	echo "controller-gen not found!";\
@@ -470,3 +466,16 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+
+.PHONY: kind-deploy
+kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	helm upgrade --install kyverno --namespace kyverno --create-namespace ./charts/kyverno \
+		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set extraArgs={--autogenInternals=true}
+	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

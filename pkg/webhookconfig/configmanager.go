@@ -20,6 +20,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,12 +36,6 @@ import (
 )
 
 var DefaultWebhookTimeout int64 = 10
-
-// policy abstracts the concrete policy type (Policy vs ClusterPolicy)
-type policy interface {
-	metav1.Object
-	GetSpec() kyverno.Spec
-}
 
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
@@ -372,7 +367,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	return nil
 }
 
-func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error) {
+func (m *webhookConfigManager) getPolicy(namespace, name string) (kyverno.PolicyInterface, error) {
 	if namespace == "" {
 		return m.pLister.Get(name)
 	} else {
@@ -380,8 +375,8 @@ func (m *webhookConfigManager) getPolicy(namespace, name string) (policy, error)
 	}
 }
 
-func (m *webhookConfigManager) listAllPolicies() ([]policy, error) {
-	policies := []policy{}
+func (m *webhookConfigManager) listAllPolicies() ([]kyverno.PolicyInterface, error) {
+	policies := []kyverno.PolicyInterface{}
 	polList, err := m.npLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to list Policy")
@@ -440,18 +435,18 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		spec := p.GetSpec()
 		if spec.HasValidate() || spec.HasGenerate() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(validateIgnore, &spec, true)
+			if spec.GetFailurePolicy() == kyverno.Ignore {
+				m.mergeWebhook(validateIgnore, p, true)
 			} else {
-				m.mergeWebhook(validateFail, &spec, true)
+				m.mergeWebhook(validateFail, p, true)
 			}
 		}
 
 		if spec.HasMutate() || spec.HasVerifyImages() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
-				m.mergeWebhook(mutateIgnore, &spec, false)
+			if spec.GetFailurePolicy() == kyverno.Ignore {
+				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
-				m.mergeWebhook(mutateFail, &spec, false)
+				m.mergeWebhook(mutateFail, p, false)
 			}
 		}
 	}
@@ -734,9 +729,9 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 }
 
 // mergeWebhook merges the matching kinds of the policy to webhook.rule
-func (m *webhookConfigManager) mergeWebhook(dst *webhook, spec *kyverno.Spec, updateValidate bool) {
+func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyInterface, updateValidate bool) {
 	matchedGVK := make([]string, 0)
-	for _, rule := range spec.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
 			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
@@ -758,7 +753,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, spec *kyverno.Spec, up
 			gvkMap[gvk] = 1
 
 			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
-			gv, k := common.GetKindFromGVK(gvk)
+			gv, k := kubeutils.GetKindFromGVK(gvk)
 			switch k {
 			case "Binding":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})
@@ -818,6 +813,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, spec *kyverno.Spec, up
 	dst.rule[apiVersions] = removeDuplicates(versions)
 	dst.rule[resources] = removeDuplicates(rsrcs)
 
+	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
 		if dst.maxWebhookTimeout < int64(*spec.WebhookTimeoutSeconds) {
 			dst.maxWebhookTimeout = int64(*spec.WebhookTimeoutSeconds)
@@ -850,7 +846,7 @@ func webhookKey(webhookKind, failurePolicy string) string {
 }
 
 func hasWildcard(spec *kyverno.Spec) bool {
-	for _, rule := range spec.GetRules() {
+	for _, rule := range spec.Rules {
 		if kinds := rule.MatchKinds(); utils.ContainsString(kinds, "*") {
 			return true
 		}

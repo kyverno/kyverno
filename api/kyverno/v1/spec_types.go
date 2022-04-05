@@ -65,11 +65,6 @@ type Spec struct {
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 }
 
-// GetRules returns the spec rules
-func (s *Spec) GetRules() []Rule {
-	return s.Rules
-}
-
 func (s *Spec) SetRules(rules []Rule) {
 	s.Rules = rules
 }
@@ -137,9 +132,25 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
+// GetFailurePolicy returns the failure policy to be applied
+func (s *Spec) GetFailurePolicy() FailurePolicyType {
+	if s.FailurePolicy == nil {
+		return Fail
+	}
+	return *s.FailurePolicy
+}
+
+// GetValidationFailureAction returns the validation failure action to be applied
+func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
+	if s.ValidationFailureAction == "" {
+		return Audit
+	}
+
+	return s.ValidationFailureAction
+}
+
 // ValidateRuleNames checks if the rule names are unique across a policy
-func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 	names := sets.NewString()
 	for i, rule := range s.Rules {
 		rulePath := path.Index(i)
@@ -152,8 +163,7 @@ func (s *Spec) ValidateRuleNames(path *field.Path) field.ErrorList {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
 		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
@@ -162,8 +172,7 @@ func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))

@@ -18,11 +18,10 @@ func ParsePolicyValidationMode(validationFailureAction kyverno.ValidationFailure
 	}
 }
 
-func ParsePolicyBackgroundMode(backgroundMode *bool) PolicyBackgroundMode {
-	if backgroundMode == nil || *backgroundMode {
+func ParsePolicyBackgroundMode(policy kyverno.PolicyInterface) PolicyBackgroundMode {
+	if policy.BackgroundProcessingEnabled() {
 		return BackgroundTrue
 	}
-
 	return BackgroundFalse
 }
 

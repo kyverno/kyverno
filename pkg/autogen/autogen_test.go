@@ -11,6 +11,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -260,7 +261,8 @@ func Test_Any(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -268,8 +270,8 @@ func Test_Any(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -298,7 +300,8 @@ func Test_All(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.All = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.All = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -306,7 +309,7 @@ func Test_All(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -336,9 +339,10 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec := policy.GetSpec()
+	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -374,7 +378,7 @@ func Test_CronJobOnly(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -400,9 +404,10 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec := policy.GetSpec()
+	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -439,12 +444,13 @@ func Test_CronJob_hasExclude(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rule := policy.GetRules()[0].DeepCopy()
+	spec := policy.GetSpec()
+	rule := spec.Rules[0].DeepCopy()
 	rule.ExcludeResources.Kinds = []string{"Pod"}
 	rule.ExcludeResources.Namespaces = []string{"test"}
-	policy.GetRules()[0] = *rule
+	spec.Rules[0] = *rule
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -475,7 +481,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -503,7 +509,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 
 	policy := policies[0]
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -529,7 +535,8 @@ func Test_Deny(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -537,8 +544,8 @@ func Test_Deny(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	fmt.Println("utils.JoinPatches(patches)erterter", string(jsonutils.JoinPatches(rulePatches...)))
 	if len(errs) != 0 {
 		t.Log(errs)
 	}

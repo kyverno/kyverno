@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
@@ -77,8 +78,8 @@ func generateRuleForControllers(rule kyverno.Rule, controllers string, log logr.
 	matchResourceDescriptionsKinds := rule.MatchKinds()
 	excludeResourceDescriptionsKinds := rule.ExcludeKinds()
 
-	if !utils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
-		(len(excludeResourceDescriptionsKinds) != 0 && !utils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
+	if !kubeutils.ContainsKind(matchResourceDescriptionsKinds, "Pod") ||
+		(len(excludeResourceDescriptionsKinds) != 0 && !kubeutils.ContainsKind(excludeResourceDescriptionsKinds, "Pod")) {
 		return nil
 	}
 
@@ -418,11 +419,11 @@ func updateGenRuleByte(pbyte []byte, kind string, genRule kyvernoRule) (obj []by
 		return obj
 	}
 	if kind == "Pod" {
-		obj = []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.template.spec", -1))
+		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 	}
 	if kind == "Cronjob" {
-		obj = []byte(strings.Replace(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec", -1))
+		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
 	}
-	obj = []byte(strings.Replace(string(obj), "request.object.metadata", "request.object.spec.template.metadata", -1))
+	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
 	return obj
 }

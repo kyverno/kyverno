@@ -22,7 +22,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 		return nil
 	}
 
-	policyName := ctx.Policy.Name
+	policyName := ctx.Policy.GetName()
 	if store.GetMock() {
 		if store.GetRegistryAccess() {
 			for _, entry := range contextEntries {
