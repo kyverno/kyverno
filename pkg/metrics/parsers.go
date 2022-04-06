@@ -37,3 +37,18 @@ func ParseRuleType(rule kyverno.Rule) RuleType {
 	}
 	return EmptyRuleType
 }
+
+func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestOperation, error) {
+	switch requestOperationStr {
+	case "CREATE":
+		return ResourceCreated, nil
+	case "UPDATE":
+		return ResourceUpdated, nil
+	case "DELETE":
+		return ResourceDeleted, nil
+	case "CONNECT":
+		return ResourceConnected, nil
+	default:
+		return "", fmt.Errorf("unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
+	}
+}

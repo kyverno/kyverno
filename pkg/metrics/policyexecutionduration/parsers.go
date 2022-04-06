@@ -1,8 +1,6 @@
 package policyexecutionduration
 
 import (
-	"fmt"
-
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 )
@@ -25,20 +23,5 @@ func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) metrics.Rul
 		return metrics.Generate
 	default:
 		return metrics.EmptyRuleType
-	}
-}
-
-func ParseResourceRequestOperation(requestOperationStr string) (metrics.ResourceRequestOperation, error) {
-	switch requestOperationStr {
-	case "CREATE":
-		return metrics.ResourceCreated, nil
-	case "UPDATE":
-		return metrics.ResourceUpdated, nil
-	case "DELETE":
-		return metrics.ResourceDeleted, nil
-	case "CONNECT":
-		return metrics.ResourceConnected, nil
-	default:
-		return "", fmt.Errorf("unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
 	}
 }
