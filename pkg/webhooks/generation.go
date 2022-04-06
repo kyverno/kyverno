@@ -23,9 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	gen "github.com/kyverno/kyverno/pkg/generate"
-	"github.com/kyverno/kyverno/pkg/metrics"
-	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
-	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -40,8 +37,8 @@ func (ws *WebhookServer) applyGeneratePolicies(request *admissionv1.AdmissionReq
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
 
 	go ws.handleGenerate(request, policies, policyContext.JSONContext, policyContext.AdmissionInfo, ws.configHandler, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-	go registerAdmissionReviewDurationMetricGenerate(logger, *ws.promConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go registerAdmissionRequestsMetricGenerate(logger, *ws.promConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go ws.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go ws.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
 //handleGenerate handles admission-requests for policies with generate rules
@@ -125,26 +122,6 @@ func (ws *WebhookServer) handleGenerate(
 	*latencySender <- admissionReviewLatencyDuration
 	*generateEngineResponsesSenderForAdmissionReviewDurationMetric <- engineResponses
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
-}
-
-func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-}
-
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
 }
 
 //handleUpdatesForGenerateRules handles admission-requests for update
