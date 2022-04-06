@@ -23,7 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -146,13 +146,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	requestString := gr.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	var request v1beta1.AdmissionRequest
+	var request admissionv1.AdmissionRequest
 	err = json.Unmarshal([]byte(requestString), &request)
 	if err != nil {
 		logger.Error(err, "error parsing the request string")
 	}
 
-	if gr.Spec.Context.AdmissionRequestInfo.Operation == v1beta1.Update {
+	if gr.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Update {
 		request.Operation = gr.Spec.Context.AdmissionRequestInfo.Operation
 	}
 
