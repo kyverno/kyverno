@@ -136,7 +136,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | networkPolicy.openEgress | bool | `false` | If openEgress is true allow all egress traffic else allow egress to only kube-apiserver on port 9443 |
 | networkPolicy.prometheusNamespaceLabels | object | `{"app.kubernetes.io/name":"prometheus"}` | A list of matchLabels for matching namespaces with respective labels in the allow-prometheus network policy Example: app.kubernetes.io/name: prometheus |
-| networkPolicy.prometheusPodLabels | object | `{"app.kubernetes.io/name":"prometheus-pod"}` | A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy Example: app.kubernetes.io/name: prometheus-pod |
+| networkPolicy.prometheusPodLabels | list | `[]` | A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy Example: app.kubernetes.io/name: prometheus-pod |
 | webhooksCleanup.enable | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
 

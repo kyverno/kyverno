@@ -351,8 +351,7 @@ networkPolicy:
     app.kubernetes.io/name: prometheus
   # -- A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy
   # Example: app.kubernetes.io/name: prometheus-pod
-  # Uncomment the line below to use pod labels
-  # prometheusPodLabels: []
+  prometheusPodLabels: []
 
 webhooksCleanup:
   # -- Create a helm pre-delete hook to cleanup webhooks.
