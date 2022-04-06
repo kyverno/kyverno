@@ -9,7 +9,8 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pc PromConfig) registerPolicyChangesMetric(
+func registerPolicyChangesMetric(
+	pc *metrics.PromConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -39,35 +40,13 @@ func (pc PromConfig) registerPolicyChangesMetric(
 	return nil
 }
 
-func (pc PromConfig) RegisterPolicy(policy interface{}, policyChangeType PolicyChangeType) error {
-	switch inputPolicy := policy.(type) {
-	case *kyverno.ClusterPolicy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
-		if err != nil {
-			return err
-		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy)
-		policyType := metrics.Cluster
-		policyNamespace := "" // doesn't matter for cluster policy
-		policyName := inputPolicy.GetName()
-		if err = pc.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
-			return err
-		}
-		return nil
-	case *kyverno.Policy:
-		policyValidationMode, err := metrics.ParsePolicyValidationMode(inputPolicy.Spec.GetValidationFailureAction())
-		if err != nil {
-			return err
-		}
-		policyBackgroundMode := metrics.ParsePolicyBackgroundMode(inputPolicy)
-		policyType := metrics.Namespaced
-		policyNamespace := inputPolicy.GetNamespace()
-		policyName := inputPolicy.GetName()
-		if err = pc.registerPolicyChangesMetric(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, policyChangeType); err != nil {
-			return err
-		}
-		return nil
-	default:
-		return fmt.Errorf("wrong input type provided %T. Only kyverno.Policy and kyverno.ClusterPolicy allowed", inputPolicy)
+func RegisterPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface, policyChangeType PolicyChangeType) error {
+	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
+	if err != nil {
+		return err
 	}
+	if err = registerPolicyChangesMetric(pc, validationMode, policyType, backgroundMode, namespace, name, policyChangeType); err != nil {
+		return err
+	}
+	return nil
 }

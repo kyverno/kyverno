@@ -2,8 +2,6 @@ package policyruleinfo
 
 import (
 	"fmt"
-
-	"github.com/kyverno/kyverno/pkg/metrics"
 )
 
 func ParsePolicyRuleInfoMetricChangeType(change string) (PolicyRuleInfoMetricChangeType, error) {
@@ -14,12 +12,4 @@ func ParsePolicyRuleInfoMetricChangeType(change string) (PolicyRuleInfoMetricCha
 		return PolicyRuleDeleted, nil
 	}
 	return "", fmt.Errorf("wrong policy rule count metric change type found %s. Allowed: '%s', '%s'", change, "created", "deleted")
-}
-
-func ParsePromMetrics(pm metrics.PromMetrics) PromMetrics {
-	return PromMetrics(pm)
-}
-
-func ParsePromConfig(pc metrics.PromConfig) PromConfig {
-	return PromConfig(pc)
 }
