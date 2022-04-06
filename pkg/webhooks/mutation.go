@@ -14,12 +14,12 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/pkg/errors"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) []byte {
+func (ws *WebhookServer) applyMutatePolicies(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyverno.PolicyInterface, ts int64, logger logr.Logger) []byte {
 	var mutateEngineResponses []*response.EngineResponse
 
 	mutatePatches, mutateEngineResponses := ws.handleMutation(request, policyContext, policies)
@@ -35,7 +35,7 @@ func (ws *WebhookServer) applyMutatePolicies(request *v1beta1.AdmissionRequest, 
 // handleMutation handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
 func (ws *WebhookServer) handleMutation(
-	request *v1beta1.AdmissionRequest,
+	request *admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []kyverno.PolicyInterface) ([]byte, []*response.EngineResponse) {
 
@@ -64,7 +64,7 @@ func (ws *WebhookServer) handleMutation(
 		deletionTimeStamp = oldR.GetDeletionTimestamp()
 	}
 
-	if deletionTimeStamp != nil && request.Operation == v1beta1.Update {
+	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
 		return nil, nil
 	}
 	var patches [][]byte
@@ -115,7 +115,7 @@ func (ws *WebhookServer) handleMutation(
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, request.Operation == v1beta1.Update, logger)
+	events := generateEvents(engineResponses, false, request.Operation == admissionv1.Update, logger)
 	ws.eventGen.Add(events...)
 
 	// debug info
@@ -134,7 +134,7 @@ func (ws *WebhookServer) handleMutation(
 	return jsonutils.JoinPatches(patches...), engineResponses
 }
 
-func (ws *WebhookServer) applyMutation(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse, [][]byte, error) {
+func (ws *WebhookServer) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse, [][]byte, error) {
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(
 			request.Kind.Kind, request.Namespace, ws.nsLister, logger)
