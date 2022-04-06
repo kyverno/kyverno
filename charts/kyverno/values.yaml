@@ -345,8 +345,8 @@ networkPolicy:
   ingressFrom: []
   # -- If openEgress is true allow all egress traffic else allow egress to only kube-apiserver on port 9443
   openEgress: false
-  # -- A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy
-  # Example: app.kubernetes.io/name: prometheus-pod
+  # -- A list of matchLabels for matching namespaces with respective labels in the allow-prometheus network policy
+  # Example: app.kubernetes.io/name: prometheus
   prometheusNamespaceLabels:
     app.kubernetes.io/name: prometheus
   # -- A list of matchLabels for matching pods with respective labels in the allow-prometheus network policy
