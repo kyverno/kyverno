@@ -19,7 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 // TODO: use admission review sub resource ?
@@ -36,12 +36,12 @@ func isStatusUpdate(old, new kyverno.PolicyInterface) bool {
 	return true
 }
 
-func errorResponse(logger logr.Logger, err error, message string) *v1beta1.AdmissionResponse {
+func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
 	return admissionutils.ResponseFailure(false, message+": "+err.Error())
 }
 
-func setupLogger(logger logr.Logger, name string, request *v1beta1.AdmissionRequest) logr.Logger {
+func setupLogger(logger logr.Logger, name string, request *admissionv1.AdmissionRequest) logr.Logger {
 	return logger.WithName("MutateWebhook").WithValues(
 		"uid", request.UID,
 		"kind", request.Kind,
@@ -59,7 +59,7 @@ func (ws *WebhookServer) admissionHandler(filter bool, inner handlers.AdmissionH
 	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(ws.log, inner))
 }
 
-func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	logger := setupLogger(ws.log, "policy mutation", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
@@ -81,7 +81,7 @@ func (ws *WebhookServer) policyMutation(request *v1beta1.AdmissionRequest) *v1be
 }
 
 //policyValidation performs the validation check on policy resource
-func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	logger := setupLogger(ws.log, "policy validation", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
@@ -107,12 +107,12 @@ func (ws *WebhookServer) policyValidation(request *v1beta1.AdmissionRequest) *v1
 }
 
 // resourceMutation mutates resource
-func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	logger := setupLogger(ws.log, "resource mutation", request)
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess(true, "")
 	}
-	if request.Operation == v1beta1.Delete {
+	if request.Operation == admissionv1.Delete {
 		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 		if err == nil {
 			ws.prGenerator.Add(buildDeletionPrInfo(resource))
@@ -150,9 +150,9 @@ func (ws *WebhookServer) resourceMutation(request *v1beta1.AdmissionRequest) *v1
 	return admissionutils.ResponseSuccessWithPatch(true, "", patches)
 }
 
-func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	logger := setupLogger(ws.log, "resource validation", request)
-	if request.Operation == v1beta1.Delete {
+	if request.Operation == admissionv1.Delete {
 		ws.handleDelete(request)
 	}
 	if excludeKyvernoResources(request.Kind.Kind) {
@@ -166,7 +166,7 @@ func (ws *WebhookServer) resourceValidation(request *v1beta1.AdmissionRequest) *
 	nsPolicies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
 	policies = append(policies, nsPolicies...)
 	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, request.Namespace)
-	if len(generatePolicies) == 0 && request.Operation == v1beta1.Update {
+	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
 		go ws.handleUpdatesForGenerateRules(request, []kyverno.PolicyInterface{})
 	}

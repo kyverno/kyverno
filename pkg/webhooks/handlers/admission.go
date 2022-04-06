@@ -11,10 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(*v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse
+type AdmissionHandler func(*admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
 
 func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -37,7 +37,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 			return
 		}
-		admissionReview := &v1beta1.AdmissionReview{}
+		admissionReview := &admissionv1.AdmissionReview{}
 		if err := json.Unmarshal(body, &admissionReview); err != nil {
 			logger.Error(err, "failed to decode request body to type 'AdmissionReview")
 			http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
@@ -50,7 +50,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
 		)
-		admissionReview.Response = &v1beta1.AdmissionResponse{
+		admissionReview.Response = &admissionv1.AdmissionResponse{
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
@@ -72,7 +72,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 }
 
 func Filter(c config.Interface, inner AdmissionHandler) AdmissionHandler {
-	return func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
@@ -81,7 +81,7 @@ func Filter(c config.Interface, inner AdmissionHandler) AdmissionHandler {
 }
 
 func Verify(m *webhookconfig.Monitor, logger logr.Logger) AdmissionHandler {
-	return func(request *v1beta1.AdmissionRequest) *v1beta1.AdmissionResponse {
+	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		logger = logger.WithName("verifyHandler").WithValues(
 			"action", "verify",
 			"kind", request.Kind,
