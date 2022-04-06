@@ -1027,35 +1027,35 @@ func GetKindsFromPolicy(policy v1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-//GetPatchedResourceFromPath - get patchedResource from given path
-func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
-	var patchedResourceBytes []byte
-	var patchedResource unstructured.Unstructured
+//GetResourceFromPath - get patchedResource and generatedResource from given path
+func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
+	var resourceBytes []byte
+	var resource unstructured.Unstructured
 	var err error
 
 	if isGit {
 		if len(path) > 0 {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 			if err != nil {
-				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, err)
+				fmt.Printf("Unable to open %s file: %s. \nerror: %s", resourceType, path, err)
 			}
-			patchedResourceBytes, err = ioutil.ReadAll(filep)
+			resourceBytes, err = ioutil.ReadAll(filep)
 		}
 	} else {
-		patchedResourceBytes, err = getFileBytes(path)
+		resourceBytes, err = getFileBytes(path)
 	}
 
 	if err != nil {
-		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load patchedResource: %s. \nerror: %s\n----------------------------------------------------------------------\n", path, err)
-		return patchedResource, err
+		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load %s: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourceType, path, err)
+		return resource, err
 	}
 
-	patchedResource, err = GetPatchedResource(patchedResourceBytes)
+	resource, err = GetPatchedAndGeneratedResource(resourceBytes)
 	if err != nil {
-		return patchedResource, err
+		return resource, err
 	}
 
-	return patchedResource, nil
+	return resource, nil
 }
 
 func initializeMockController(objects []runtime.Object) (*generate.Controller, error) {

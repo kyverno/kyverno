@@ -583,7 +583,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 					} else {
 						var x string
 						result.Result = report.StatusFail
-						x = getAndComparePatchedResource(test.GeneratedResource, rule.GeneratedResource, isGit, policyResourcePath, fs)
+						x = getAndCompareResource(test.GeneratedResource, rule.GeneratedResource, isGit, policyResourcePath, fs, true)
 						if x == "pass" {
 							result.Result = report.StatusPass
 						}
@@ -620,7 +620,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 					var x string
 					for _, path := range patchedResourcePath {
 						result.Result = report.StatusFail
-						x = getAndComparePatchedResource(path, resp.PatchedResource, isGit, policyResourcePath, fs)
+						x = getAndCompareResource(path, resp.PatchedResource, isGit, policyResourcePath, fs, false)
 						if x == "pass" {
 							result.Result = report.StatusPass
 							break
@@ -703,17 +703,22 @@ func getUserDefinedPolicyNameAndNamespace(policyName string) (string, string) {
 	return "", policyName
 }
 
-// getAndComparePatchedResource --> Get the patchedResource from the path provided by user
-// And compare this patchedResource with engine generated patcheResource.
-func getAndComparePatchedResource(path string, enginePatchedResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem) string {
+// getAndCompareResource --> Get the patchedResource or generatedResource from the path provided by user
+// And compare this resource with engine generated resource.
+func getAndCompareResource(path string, engineResource unstructured.Unstructured, isGit bool, policyResourcePath string, fs billy.Filesystem, isGenerate bool) string {
 	var status string
-	patchedResources, err := common.GetPatchedResourceFromPath(fs, path, isGit, policyResourcePath)
+	resourceType := "patchedResource"
+	if isGenerate {
+		resourceType = "generatedResource"
+	}
+
+	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
 		os.Exit(1)
 	}
-	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
+	matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
 	if err != nil {
-		log.Log.V(3).Info("patched resource mismatch", "error", err.Error())
+		log.Log.V(3).Info(resourceType+" mismatch", "error", err.Error())
 		status = "fail"
 	}
 
