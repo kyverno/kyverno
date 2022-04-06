@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/api/admission/v1beta1"
 )
@@ -30,7 +31,7 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		return true, "", nil
 	}
 
-	resourceName := getResourceName(request)
+	resourceName := admissionutils.GetResourceName(request)
 	logger := ws.log.WithValues("action", "verifyImages", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var engineResponses []*response.EngineResponse

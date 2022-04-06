@@ -21,22 +21,22 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 	var patches [][]byte
 	var updateMsgs []string
 	spec := policy.GetSpec()
-	// default 'ValidationFailureAction'
-	if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-	// default 'Background'
-	if patch, updateMsg := defaultBackgroundFlag(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-	if patch, updateMsg := defaultFailurePolicy(spec, log); patch != nil {
-		patches = append(patches, patch)
-		updateMsgs = append(updateMsgs, updateMsg)
-	}
-	// if autogenInternals is enabled, we don't mutate rules in the webhook
+	// if autogenInternals is enabled, we don't mutate most of the policy fields
 	if !toggle.AutogenInternals() {
+		// default 'ValidationFailureAction'
+		if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
+		// default 'Background'
+		if patch, updateMsg := defaultBackgroundFlag(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
+		if patch, updateMsg := defaultFailurePolicy(spec, log); patch != nil {
+			patches = append(patches, patch)
+			updateMsgs = append(updateMsgs, updateMsg)
+		}
 		patch, errs := GeneratePodControllerRule(policy, log)
 		if len(errs) > 0 {
 			var errMsgs []string

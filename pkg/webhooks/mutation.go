@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/utils"
+	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/pkg/errors"
 	"k8s.io/api/admission/v1beta1"
@@ -124,7 +125,7 @@ func (ws *WebhookServer) handleMutation(
 		}
 
 		// if any of the policies fails, print out the error
-		if !isResponseSuccessful(engineResponses) {
+		if !engineutils.IsResponseSuccessful(engineResponses) {
 			logger.Error(errors.New(getErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
 		}
 	}()
