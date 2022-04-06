@@ -2,7 +2,6 @@ package common
 
 import (
 	"fmt"
-	"reflect"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -13,7 +12,6 @@ func GetRawKeyIfWrappedWithAttributes(str string) string {
 	if len(str) < 2 {
 		return str
 	}
-
 	if str[0] == '(' && str[len(str)-1] == ')' {
 		return str[1 : len(str)-1]
 	} else if (str[0] == '$' || str[0] == '^' || str[0] == '+' || str[0] == '=') && (str[1] == '(' && str[len(str)-1] == ')') {
@@ -31,31 +29,13 @@ func TransformConditions(original apiextensions.JSON) (interface{}, error) {
 	}
 	switch typedValue := oldConditions.(type) {
 	case kyverno.AnyAllConditions:
-		return copyAnyAllConditions(typedValue), nil
+		return *typedValue.DeepCopy(), nil
 	case []kyverno.Condition: // backwards compatibility
-		return copyOldConditions(typedValue), nil
+		var copies []kyverno.Condition
+		for _, condition := range typedValue {
+			copies = append(copies, *condition.DeepCopy())
+		}
+		return copies, nil
 	}
-
 	return nil, fmt.Errorf("invalid preconditions")
-}
-
-func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
-	if reflect.DeepEqual(original, kyverno.AnyAllConditions{}) {
-		return kyverno.AnyAllConditions{}
-	}
-	return *original.DeepCopy()
-}
-
-// backwards compatibility
-func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if len(original) == 0 {
-		return []kyverno.Condition{}
-	}
-
-	var copies []kyverno.Condition
-	for _, condition := range original {
-		copies = append(copies, *condition.DeepCopy())
-	}
-
-	return copies
 }

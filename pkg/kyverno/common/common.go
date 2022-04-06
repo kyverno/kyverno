@@ -768,7 +768,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 				ruleFoundInEngineResponse = true
 				vrule := v1.ViolatedRule{
 					Name:    valResponseRule.Name,
-					Type:    valResponseRule.Type,
+					Type:    string(valResponseRule.Type),
 					Message: valResponseRule.Message,
 				}
 
