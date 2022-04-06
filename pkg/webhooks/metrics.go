@@ -1,6 +1,8 @@
 package webhooks
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -12,109 +14,97 @@ import (
 	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
 )
 
-func registerAdmissionReviewDurationMetricMutate(logger logr.Logger, promConfig metrics.PromConfig, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
-	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
-	}
-	if err := admissionReviewDuration.ParsePromConfig(promConfig).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
+type reporterFunc func(metrics.ResourceRequestOperation) error
+
+func registerMetric(logger logr.Logger, m string, requestOperation string, r reporterFunc) {
+	if op, err := metrics.ParseResourceRequestOperation(requestOperation); err != nil {
+		logger.Error(err, fmt.Sprintf("error occurred while registering %s metrics", m))
+	} else {
+		if err := r(op); err != nil {
+			logger.Error(err, fmt.Sprintf("error occurred while registering %s metrics", m))
+		}
 	}
 }
 
-func registerAdmissionRequestsMetricMutate(logger logr.Logger, promConfig metrics.PromConfig, requestOperation string, engineResponses []*response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
-	if err := admissionRequests.ParsePromConfig(promConfig).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
+// ADMISSION REVIEW
+
+func (ws *WebhookServer) registerAdmissionReviewDurationMetricMutate(logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
+	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionReviewDuration.ProcessEngineResponses(ws.promConfig, engineResponses, admissionReviewLatencyDuration, op)
+	})
 }
 
-func registerAdmissionReviewDurationMetricGenerate(logger logr.Logger, promConfig metrics.PromConfig, requestOperation string, latencyReceiver *chan int64, engineResponsesReceiver *chan []*response.EngineResponse) {
+func (ws *WebhookServer) registerAdmissionReviewDurationMetricGenerate(logger logr.Logger, requestOperation string, latencyReceiver *chan int64, engineResponsesReceiver *chan []*response.EngineResponse) {
 	defer close(*latencyReceiver)
 	defer close(*engineResponsesReceiver)
-	engineResponses := <-(*engineResponsesReceiver)
-	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
-	}
-	// this goroutine will keep on waiting here till it doesn't receive the admission review latency int64 from the other goroutine i.e. ws.HandleGenerate
-	admissionReviewLatencyDuration := <-(*latencyReceiver)
-	if err := admissionReviewDuration.ParsePromConfig(promConfig).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
-	}
+	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionReviewDuration.ProcessEngineResponses(ws.promConfig, <-(*engineResponsesReceiver), <-(*latencyReceiver), op)
+	})
 }
 
-func registerAdmissionRequestsMetricGenerate(logger logr.Logger, promConfig metrics.PromConfig, requestOperation string, engineResponsesReceiver *chan []*response.EngineResponse) {
+func registerAdmissionReviewDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
+	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionReviewDuration.ProcessEngineResponses(promConfig, engineResponses, admissionReviewLatencyDuration, op)
+	})
+}
+
+// ADMISSION REQUEST
+
+func (ws *WebhookServer) registerAdmissionRequestsMetricMutate(logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse) {
+	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionRequests.ProcessEngineResponses(ws.promConfig, engineResponses, op)
+	})
+}
+
+func (ws *WebhookServer) registerAdmissionRequestsMetricGenerate(logger logr.Logger, requestOperation string, engineResponsesReceiver *chan []*response.EngineResponse) {
 	defer close(*engineResponsesReceiver)
-	engineResponses := <-(*engineResponsesReceiver)
-	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
-	if err := admissionRequests.ParsePromConfig(promConfig).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
+	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionRequests.ProcessEngineResponses(ws.promConfig, <-(*engineResponsesReceiver), op)
+	})
 }
 
-func registerPolicyResultsMetricValidation(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyResults.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
+func registerAdmissionRequestsMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, engineResponses []*response.EngineResponse) {
+	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return admissionRequests.ProcessEngineResponses(promConfig, engineResponses, op)
+	})
 }
 
-func registerPolicyExecutionDurationMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyExecutionDuration.ParsePromConfig(*promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
+// POLICY RESULTS
+
+func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyResults.ProcessEngineResponse(ws.promConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+	})
 }
 
-func registerAdmissionReviewDurationMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
-	resourceRequestOperationPromAlias, err := admissionReviewDuration.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
-	}
-	if err := admissionReviewDuration.ParsePromConfig(*promConfig).ProcessEngineResponses(engineResponses, admissionReviewLatencyDuration, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_review_duration_seconds metrics")
-	}
+func registerPolicyResultsMetricValidation(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyResults.ProcessEngineResponse(promConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+	})
 }
 
-func registerAdmissionRequestsMetricValidate(promConfig *metrics.PromConfig, logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := admissionRequests.ParseResourceRequestOperation(requestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
-	if err := admissionRequests.ParsePromConfig(*promConfig).ProcessEngineResponses(engineResponses, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_admission_requests_total metrics")
-	}
+func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyResults.ProcessEngineResponse(ws.promConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+	})
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
-	}
+// POLICY EXECUTION
+
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyExecutionDuration.ProcessEngineResponse(ws.promConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+	})
 }
 
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, resourceRequestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
-	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
-	}
+func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyExecutionDuration.ProcessEngineResponse(promConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+	})
+}
+
+func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
+	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
+		return policyExecutionDuration.ProcessEngineResponse(ws.promConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+	})
 }

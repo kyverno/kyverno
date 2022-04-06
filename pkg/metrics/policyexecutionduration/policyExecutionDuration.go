@@ -10,7 +10,8 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pc PromConfig) registerPolicyExecutionDurationMetric(
+func registerPolicyExecutionDurationMetric(
+	pc *metrics.PromConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -59,31 +60,18 @@ func (pc PromConfig) registerPolicyExecutionDurationMetric(
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
-	policyValidationMode, err := metrics.ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
+func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
+	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
 	}
-	policyType := metrics.Namespaced
-	policyBackgroundMode := metrics.ParsePolicyBackgroundMode(policy)
-	policyNamespace := policy.GetNamespace()
-	if policyNamespace == "" {
-		policyNamespace = "-"
-		policyType = metrics.Cluster
-	}
-	policyName := policy.GetName()
-
 	resourceSpec := engineResponse.PolicyResponse.Resource
-
 	resourceKind := resourceSpec.Kind
 	resourceNamespace := resourceSpec.Namespace
-
 	ruleResponses := engineResponse.PolicyResponse.Rules
-
 	for _, rule := range ruleResponses {
 		ruleName := rule.Name
-		ruleType := ParseRuleTypeFromEngineRuleResponse(rule)
-
+		ruleType := metrics.ParseRuleTypeFromEngineRuleResponse(rule)
 		var ruleResult metrics.RuleResult
 		switch rule.Status {
 		case response.RuleStatusPass:
@@ -99,14 +87,13 @@ func (pc PromConfig) ProcessEngineResponse(policy kyverno.PolicyInterface, engin
 		default:
 			ruleResult = metrics.Fail
 		}
-
 		ruleExecutionLatencyInSeconds := float64(rule.RuleStats.ProcessingTime) / float64(1000*1000*1000)
-
-		if err := pc.registerPolicyExecutionDurationMetric(
-			policyValidationMode,
+		if err := registerPolicyExecutionDurationMetric(
+			pc,
+			validationMode,
 			policyType,
-			policyBackgroundMode,
-			policyNamespace, policyName,
+			backgroundMode,
+			namespace, name,
 			resourceKind, resourceNamespace,
 			resourceRequestOperation,
 			ruleName,
