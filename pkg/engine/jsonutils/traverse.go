@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/utils"
 )
 
 // ActionData represents data available for action on current element
@@ -69,13 +69,13 @@ func (t *Traversal) traverseJSON(element interface{}, path string) (interface{},
 	// traverse further
 	switch typed := element.(type) {
 	case map[string]interface{}:
-		return t.traverseObject(common.CopyMap(typed), path)
+		return t.traverseObject(utils.CopyMap(typed), path)
 
 	case []interface{}:
-		return t.traverseList(common.CopySlice(typed), path)
+		return t.traverseList(utils.CopySlice(typed), path)
 
 	case []map[string]interface{}:
-		return t.traverseList(common.CopySliceOfMaps(typed), path)
+		return t.traverseList(utils.CopySliceOfMaps(typed), path)
 
 	case Key:
 		return typed.Key, nil

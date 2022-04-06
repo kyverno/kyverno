@@ -435,7 +435,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	for _, p := range policies {
 		spec := p.GetSpec()
 		if spec.HasValidate() || spec.HasGenerate() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
 				m.mergeWebhook(validateFail, p, true)
@@ -443,7 +443,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 		}
 
 		if spec.HasMutate() || spec.HasVerifyImages() {
-			if spec.FailurePolicy != nil && *spec.FailurePolicy == kyverno.Ignore {
+			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(mutateIgnore, p, false)
 			} else {
 				m.mergeWebhook(mutateFail, p, false)
@@ -734,7 +734,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
-			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
 			continue
 		}
@@ -742,7 +742,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 		if (updateValidate && rule.HasValidate()) ||
 			(!updateValidate && rule.HasMutate()) ||
 			(!updateValidate && rule.HasVerifyImages()) {
-			matchedGVK = append(matchedGVK, rule.MatchKinds()...)
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
 
@@ -847,7 +847,7 @@ func webhookKey(webhookKind, failurePolicy string) string {
 
 func hasWildcard(spec *kyverno.Spec) bool {
 	for _, rule := range spec.Rules {
-		if kinds := rule.MatchKinds(); utils.ContainsString(kinds, "*") {
+		if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
 			return true
 		}
 	}
