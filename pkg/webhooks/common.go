@@ -157,7 +157,7 @@ func excludeKyvernoResources(kind string) bool {
 	}
 }
 
-func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (*enginectx.Context, error) {
+func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, errors.Wrap(err, "failed to load incoming request in context")

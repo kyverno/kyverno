@@ -9,7 +9,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
@@ -44,9 +43,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 					value = string(newVal)
 				}
 
-				jsonData := pkgcommon.VariableToJSON(key, value)
-
-				if err := ctx.JSONContext.AddJSON(jsonData); err != nil {
+				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
 					return err
 				}
 			}
@@ -81,7 +78,11 @@ func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCo
 	if err != nil {
 		return err
 	}
-	if err := ctx.JSONContext.AddJSONObject(imageData); err != nil {
+	jsonBytes, err := json.Marshal(imageData)
+	if err != nil {
+		return err
+	}
+	if err := ctx.JSONContext.AddContextEntry(entry.Name, jsonBytes); err != nil {
 		return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
 	}
 	return nil
@@ -110,9 +111,7 @@ func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
 		}
 	}
-	return map[string]interface{}{
-		entry.Name: imageData,
-	}, nil
+	return imageData, nil
 }
 
 func fetchImageDataMap(ref string) (interface{}, error) {
@@ -169,7 +168,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 	}
 
 	if entry.APICall.JMESPath == "" {
-		err = ctx.JSONContext.AddJSON(jsonData)
+		err = ctx.JSONContext.AddContextEntry(entry.Name, jsonData)
 		if err != nil {
 			return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
 		}
@@ -187,19 +186,17 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return err
 	}
 
-	contextNamedData := make(map[string]interface{})
-	contextNamedData[entry.Name] = results
-	contextData, err := json.Marshal(contextNamedData)
+	contextData, err := json.Marshal(results)
 	if err != nil {
-		return fmt.Errorf("failed to marshall data %v for context entry %v: %v", contextNamedData, entry, err)
+		return fmt.Errorf("failed to marshall data %v for context entry %v: %v", contextData, entry, err)
 	}
 
-	err = ctx.JSONContext.AddJSON(contextData)
+	err = ctx.JSONContext.AddContextEntry(entry.Name, contextData)
 	if err != nil {
 		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
 	}
 
-	logger.Info("added APICall context entry", "data", contextNamedData)
+	logger.Info("added APICall context entry", "data", contextData)
 	return nil
 }
 
@@ -286,7 +283,7 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCo
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
 	}
 
-	err = ctx.JSONContext.AddJSON(data)
+	err = ctx.JSONContext.AddContextEntry(entry.Name, data)
 	if err != nil {
 		return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
 	}
@@ -324,9 +321,7 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
 	contextData["metadata"] = unstructuredObj["metadata"]
-	contextNamedData := make(map[string]interface{})
-	contextNamedData[entry.Name] = contextData
-	data, err := json.Marshal(contextNamedData)
+	data, err := json.Marshal(contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
 	}
