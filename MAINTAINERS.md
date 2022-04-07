@@ -12,7 +12,7 @@ Maintainers are approvers who have shown good technical judgement in guiding fea
 | Vyankatesh Kudtarkar  | [@vyankyGH](https://github.com/vyankyGH)               | Nirmata                   |
 | Prateek Pandey        | [@prateekpandey14](https://github.com/prateekpandey14) | Nirmata                   |
 | Sambhav Kothari       | [@samj1912](https://github.com/samj1912)               | Bloomberg                 |
-| Charles-Edouard Brétéché | [@eddycharly](https://github.com/eddycharly)        | Payfit                    |
+| Charles-Edouard Brétéché | [@eddycharly](https://github.com/eddycharly)        | --                    |
 
 
 **Note**: Please refer to the [Project Governance](https://main.kyverno.io/community/#project-governance) for more information on the responsibilities and privileges of a maintainer in Kyverno.
