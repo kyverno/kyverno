@@ -13,8 +13,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/toggle"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
@@ -74,14 +74,14 @@ type NamespaceSelector struct {
 }
 
 // HasVariables - check for variables in the policy
-func HasVariables(policy *v1.ClusterPolicy) [][]string {
+func HasVariables(policy v1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) {
+func GetPolicies(paths []string) (policies []v1.PolicyInterface, errors []error) {
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
@@ -175,42 +175,27 @@ func GetPolicies(paths []string) (policies []*v1.ClusterPolicy, errors []error) 
 }
 
 // MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy *v1.ClusterPolicy, autogenInternals bool, logger logr.Logger) (*v1.ClusterPolicy, error) {
-	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, autogenInternals, logger)
+func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInterface, error) {
+	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 	if len(patches) == 0 {
 		return policy, nil
 	}
-
-	type jsonPatch struct {
-		Path  string      `json:"path"`
-		Op    string      `json:"op"`
-		Value interface{} `json:"value"`
-	}
-
-	var jsonPatches []jsonPatch
-	err := json.Unmarshal(patches, &jsonPatches)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal patches for %s policy", policy.Name), err)
-	}
-
 	patch, err := jsonpatch.DecodePatch(patches)
 	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
 	}
-
 	policyBytes, _ := json.Marshal(policy)
 	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
 	}
 	modifiedPolicy, err := patch.Apply(policyBytes)
 	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
 	}
-
 	var p v1.ClusterPolicy
 	err = json.Unmarshal(modifiedPolicy, &p)
 	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.Name), err)
+		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
 	}
 
 	return &p, nil
@@ -439,12 +424,12 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
-	newPolicies := make([]*v1.ClusterPolicy, 0)
+func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error) {
+	newPolicies := make([]v1.PolicyInterface, 0)
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
-		p, err := MutatePolicy(policy, toggle.AutogenInternals, logger)
+		p, err := MutatePolicy(policy, logger)
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
@@ -457,7 +442,7 @@ func MutatePolicies(policies []*v1.ClusterPolicy) ([]*v1.ClusterPolicy, error) {
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unstructured,
+func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
@@ -472,7 +457,7 @@ func ApplyPolicyOnResource(policy *v1.ClusterPolicy, resource *unstructured.Unst
 
 	policyWithNamespaceSelector := false
 OuterLoop:
-	for _, p := range policy.GetRules() {
+	for _, p := range autogen.ComputeRules(policy) {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
@@ -513,7 +498,7 @@ OuterLoop:
 	}
 
 	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", policy.Name, "resource", resPath)
+	log.Log.V(3).Info("applying policy on resource", "policy", policy.GetName(), "resource", resPath)
 
 	resourceRaw, err := resource.MarshalJSON()
 	if err != nil {
@@ -553,7 +538,7 @@ OuterLoop:
 	if err := context.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: *policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -567,14 +552,16 @@ OuterLoop:
 
 	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
 		if policy.HasAutoGenAnnotation() {
-			if _, ok := policy.GetAnnotations()[v1.PodControllersAnnotation]; ok {
-				delete(policy.Annotations, v1.PodControllersAnnotation)
+			annotations := policy.GetAnnotations()
+			if _, ok := annotations[v1.PodControllersAnnotation]; ok {
+				delete(annotations, v1.PodControllersAnnotation)
+				policy.SetAnnotations(annotations)
 			}
 		}
 	}
 
 	var policyHasValidate bool
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasValidate() {
 			policyHasValidate = true
 		}
@@ -583,7 +570,7 @@ OuterLoop:
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		policyCtx := &engine.PolicyContext{Policy: *policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
 		validateResponse = engine.Validate(policyCtx)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
@@ -592,7 +579,7 @@ OuterLoop:
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -601,7 +588,7 @@ OuterLoop:
 	if policyHasGenerate {
 		policyContext := &engine.PolicyContext{
 			NewResource:      *resource,
-			Policy:           *policy,
+			Policy:           policy,
 			ExcludeGroupRole: []string{},
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
@@ -651,7 +638,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []*v1.ClusterPolicy, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []v1.PolicyInterface, err error) {
 	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
@@ -714,7 +701,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []*v1.ClusterPolicy, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []v1.PolicyInterface, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
@@ -767,10 +754,10 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
+func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 	printCount := 0
-	for _, policyRule := range policy.GetRules() {
+	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		if !policyRule.HasValidate() {
 			continue
@@ -781,7 +768,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 				ruleFoundInEngineResponse = true
 				vrule := v1.ViolatedRule{
 					Name:    valResponseRule.Name,
-					Type:    valResponseRule.Type,
+					Type:    string(valResponseRule.Type),
 					Message: valResponseRule.Message,
 				}
 
@@ -795,7 +782,7 @@ func ProcessValidateEngineResponse(policy *v1.ClusterPolicy, validateResponse *r
 					vrule.Status = report.StatusFail
 					if !policyReport {
 						if printCount < 1 {
-							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.Name, resPath)
+							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
 							printCount++
 						}
 
@@ -849,9 +836,9 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 	return info
 }
 
-func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+func processGenerateEngineResponse(policy v1.PolicyInterface, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
-	for _, policyRule := range policy.GetRules() {
+	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
 			if policyRule.Name == genResponseRule.Name {
@@ -860,7 +847,7 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 					rc.Pass++
 				} else {
 					if printCount < 1 {
-						fmt.Println("\ngenerate resource is not valid", "policy", policy.Name, "resource", resPath)
+						fmt.Println("\ngenerate resource is not valid", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
 					fmt.Printf("%d. %s - %s\n", i+1, genResponseRule.Name, genResponseRule.Message)
@@ -875,11 +862,11 @@ func processGenerateEngineResponse(policy *v1.ClusterPolicy, generateResponse *r
 	}
 }
 
-func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string]string) map[string]string {
+func SetInStoreContext(mutatedPolicies []v1.PolicyInterface, variables map[string]string) map[string]string {
 	storePolicies := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(policy) {
 			contextVal := make(map[string]string)
 			if len(rule.Context) != 0 {
 				for _, contextVar := range rule.Context {
@@ -897,7 +884,7 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 			}
 		}
 		storePolicies = append(storePolicies, store.Policy{
-			Name:  policy.Name,
+			Name:  policy.GetName(),
 			Rules: storeRules,
 		})
 	}
@@ -909,9 +896,9 @@ func SetInStoreContext(mutatedPolicies []*v1.ClusterPolicy, variables map[string
 	return variables
 }
 
-func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
+func processMutateEngineResponse(policy v1.PolicyInterface, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -922,7 +909,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 
 	printCount := 0
 	printMutatedRes := false
-	for _, policyRule := range policy.GetRules() {
+	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
@@ -931,14 +918,14 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 					rc.Pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status == response.RuleStatusSkip {
-					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.Name, resPath)
+					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resPath)
 					rc.Skip++
 				} else if mutateResponseRule.Status == response.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.Name, resPath, mutateResponseRule.Message)
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resPath, mutateResponseRule.Message)
 					rc.Error++
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.Name, resPath)
+						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resPath)
 						printCount++
 					}
 					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
@@ -962,7 +949,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
 				if !stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", policy.Name, resPath)
+					fmt.Printf("\nmutate policy %s applied to %s:", policy.GetName(), resPath)
 				}
 				fmt.Printf("\n" + mutatedResource + "\n")
 			}
@@ -978,7 +965,7 @@ func processMutateEngineResponse(policy *v1.ClusterPolicy, mutateResponse *respo
 	return nil
 }
 
-func PrintMutatedPolicy(mutatedPolicies []*v1.ClusterPolicy) error {
+func PrintMutatedPolicy(mutatedPolicies []v1.PolicyInterface) error {
 	for _, policy := range mutatedPolicies {
 		p, err := json.Marshal(policy)
 		if err != nil {
@@ -1019,9 +1006,9 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 	return thisPolicyResourceValues, nil
 }
 
-func GetKindsFromPolicy(policy *v1.ClusterPolicy) map[string]struct{} {
+func GetKindsFromPolicy(policy v1.PolicyInterface) map[string]struct{} {
 	var kindOnwhichPolicyIsApplied = make(map[string]struct{})
-	for _, rule := range policy.GetRules() {
+	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			kindOnwhichPolicyIsApplied[kind] = struct{}{}
 		}

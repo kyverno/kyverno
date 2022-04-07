@@ -6,16 +6,17 @@ import (
 	"time"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/pkg/errors"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/minio/pkg/wildcard"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -28,7 +29,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
-	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.Name,
+	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	startTime := time.Now()
@@ -48,7 +49,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 	}
 
-	rules := policyContext.Policy.GetRules()
+	rules := autogen.ComputeRules(policyContext.Policy)
 	for i := range rules {
 		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {
@@ -90,7 +91,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
-	rr := ruleResponse(rule, utils.ImageVerify, msg, status)
+	rr := ruleResponse(rule, response.ImageVerify, msg, status)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -172,7 +173,7 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 
 	ruleResp := &response.RuleResponse{
 		Name: iv.rule.Name,
-		Type: utils.Validation.String(),
+		Type: response.Validation,
 	}
 
 	opts := cosign.Options{
@@ -245,7 +246,7 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 	statements, err := cosign.FetchAttestations(image, imageVerify, iv.logger)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		return ruleError(iv.rule, utils.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
+		return ruleError(iv.rule, response.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
 	iv.logger.V(4).Info("received attestations", "statements", statements)
@@ -255,25 +256,25 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
 			msg := fmt.Sprintf("predicate type %s not found", ac.PredicateType)
-			return ruleResponse(iv.rule, utils.ImageVerify, msg, response.RuleStatusFail)
+			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
 		}
 
 		for _, s := range statements {
 			val, err := iv.checkAttestations(ac, s, imageInfo)
 			if err != nil {
-				return ruleError(iv.rule, utils.ImageVerify, "failed to check attestation", err)
+				return ruleError(iv.rule, response.ImageVerify, "failed to check attestation", err)
 			}
 
 			if !val {
 				msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				return ruleResponse(iv.rule, utils.ImageVerify, msg, response.RuleStatusFail)
+				return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
 			}
 		}
 	}
 
 	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(iv.rule, utils.ImageVerify, msg, response.RuleStatusPass)
+	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass)
 }
 
 func buildStatementMap(statements []map[string]interface{}) map[string][]map[string]interface{} {

@@ -31,6 +31,9 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
+KIND_VERSION=v0.11.1
+KIND_IMAGE?=kindest/node:v1.23.3
+
 ##################################
 # KYVERNO
 ##################################
@@ -152,7 +155,6 @@ gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
 generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha1/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
@@ -209,9 +211,33 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-create-e2e-infrastruture: docker-build-initContainer-local docker-build-kyverno-local
-	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
-	$(PWD)/scripts/create-e2e-infrastruture.sh
+.PHONY: kind-install
+kind-install: ## Install kind
+ifeq (, $(shell which kind))
+	go install sigs.k8s.io/kind@$(KIND_VERSION)
+endif
+
+.PHONY: kind-e2e-cluster
+kind-e2e-cluster: kind-install ## Create kind cluster for e2e tests
+	kind create cluster --image=$(KIND_IMAGE)
+
+.PHONY: e2e-kustomize
+e2e-kustomize: kustomize ## Build kustomize manifests for e2e tests
+	cd config && \
+	kustomize edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
+	kustomize edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kustomize build config/ -o config/install.yaml
+
+.PHONY: e2e-init-container
+e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: e2e-kyverno-container
+e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: create-e2e-infrastruture
+create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
@@ -268,10 +294,8 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report:
-# generate code coverage report
+code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
-
 	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
@@ -306,7 +330,9 @@ godownloader:
 
 .PHONY: kustomize
 kustomize: ## Install kustomize
+ifeq (, $(shell which kustomize))
 	go install sigs.k8s.io/kustomize/kustomize/v4@latest
+endif
 
 .PHONY: kustomize-crd
 kustomize-crd: kustomize ## Create install.yaml
@@ -331,16 +357,15 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen
+kyverno-crd: controller-gen ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen
+report-crd: controller-gen ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-# install the right version of controller-gen
 .PHONY: install-controller-gen
-install-controller-gen:
+install-controller-gen: ## Install controller-gen
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -351,9 +376,8 @@ install-controller-gen:
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
-# setup controller-gen with the right version, if necessary
 .PHONY: controller-gen
-controller-gen:
+controller-gen: ## Setup controller-gen
 ifeq (, $(shell which controller-gen))
 	@{ \
 	echo "controller-gen not found!";\
@@ -442,3 +466,16 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+
+.PHONY: kind-deploy
+kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	helm upgrade --install kyverno --namespace kyverno --create-namespace ./charts/kyverno \
+		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set extraArgs={--autogenInternals=true}
+	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

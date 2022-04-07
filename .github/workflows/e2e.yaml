@@ -62,7 +62,9 @@ jobs:
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/config/install.yaml | kubectl apply -f -
+          cat ${GITHUB_WORKSPACE}/config/install.yaml | \
+          sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
+          kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50

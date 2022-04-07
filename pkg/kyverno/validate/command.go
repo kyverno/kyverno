@@ -13,7 +13,6 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/spf13/cobra"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -88,11 +87,10 @@ func Command() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&outputType, "output", "o", "", "Prints the mutated policy in yaml or json format")
 	cmd.Flags().StringArrayVarP(&crdPaths, "crd", "c", []string{}, "Path to CRD files")
-	cmd.Flags().BoolVarP(&toggle.AutogenInternals, "autogenInternals", "", toggle.DefaultAutogenInternals, "Use autogen internals")
 	return cmd
 }
 
-func getPolicyFromGivenPath(policyPaths []string) (policies []*v1.ClusterPolicy, err error) {
+func getPolicyFromGivenPath(policyPaths []string) (policies []v1.PolicyInterface, err error) {
 	var errs []error
 	if policyPaths[0] == "-" {
 		if common.IsInputFromPipe() {
@@ -131,7 +129,7 @@ func getPolicyCRD() (v1crd apiextensions.CustomResourceDefinitionSpec, err error
 	return
 }
 
-func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
+func validatePolicyAccordingToPolicyCRD(policy v1.PolicyInterface, v1crd apiextensions.CustomResourceDefinitionSpec) (err error, errList field.ErrorList) {
 	policyBytes, err := json.Marshal(policy)
 	if err != nil {
 		return sanitizederror.NewWithError("failed to marshal policy", err), nil
@@ -155,7 +153,7 @@ func validatePolicyAccordingToPolicyCRD(policy *v1.ClusterPolicy, v1crd apiexten
 	return
 }
 
-func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
+func validatePolicies(policies []v1.PolicyInterface, v1crd apiextensions.CustomResourceDefinitionSpec, openAPIController *openapi.Controller, outputType string) error {
 	invalidPolicyFound := false
 	for _, policy := range policies {
 		err, errorList := validatePolicyAccordingToPolicyCRD(policy, v1crd)
@@ -169,7 +167,7 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 
 		fmt.Println("----------------------------------------------------------------------")
 		if errorList != nil || err != nil {
-			fmt.Printf("Policy %s is invalid.\n", policy.Name)
+			fmt.Printf("Policy %s is invalid.\n", policy.GetName())
 			if errorList != nil {
 				fmt.Printf("Error: invalid policy.\nCause: %s\n\n", errorList)
 			} else {
@@ -177,10 +175,10 @@ func validatePolicies(policies []*v1.ClusterPolicy, v1crd apiextensions.CustomRe
 			}
 			invalidPolicyFound = true
 		} else {
-			fmt.Printf("Policy %s is valid.\n\n", policy.Name)
+			fmt.Printf("Policy %s is valid.\n\n", policy.GetName())
 			if outputType != "" {
 				logger := log.Log.WithName("validate")
-				p, err := common.MutatePolicy(policy, toggle.AutogenInternals, logger)
+				p, err := common.MutatePolicy(policy, logger)
 				if err != nil {
 					if !sanitizederror.IsErrorSanitized(err) {
 						return sanitizederror.NewWithError("failed to mutate policy.", err)

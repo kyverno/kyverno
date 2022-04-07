@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -897,7 +898,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		}
 		resource, _ := utils.ConvertToUnstructured(tc.Resource)
 
-		for _, rule := range policy.GetRules() {
+		for _, rule := range autogen.ComputeRules(&policy) {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
 			if err != nil {
 				if !tc.areErrorsExpected {
@@ -1302,7 +1303,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	}
 
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.ExcludeResources{ResourceDescription: resourceDescriptionExclude}}
+		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
@@ -1444,7 +1445,7 @@ func TestManagedPodResource(t *testing.T) {
 		assert.Assert(t, err == nil, "Test %d/%s invalid policy raw: %v", i+1, tc.name, err)
 
 		resource, _ := utils.ConvertToUnstructured(tc.resource)
-		res := ManagedPodResource(policy, *resource)
+		res := ManagedPodResource(&policy, *resource)
 		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
 }

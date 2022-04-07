@@ -30,9 +30,20 @@ type MatchResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+// GetKinds returns all kinds
+func (m *MatchResources) GetKinds() []string {
+	kinds := m.ResourceDescription.Kinds
+	for _, value := range m.All {
+		kinds = append(kinds, value.ResourceDescription.Kinds...)
+	}
+	for _, value := range m.Any {
+		kinds = append(kinds, value.ResourceDescription.Kinds...)
+	}
+	return kinds
+}
+
 // Validate implements programmatic validation
-func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	if len(m.Any) > 0 && len(m.All) > 0 {
 		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
 	}

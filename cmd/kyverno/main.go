@@ -103,7 +103,7 @@ func main() {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.BoolVar(&toggle.AutogenInternals, "autogenInternals", toggle.DefaultAutogenInternals, "Enables autogen internal policies. When this is 'true' policy rules should not be mutated.")
+	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -243,7 +243,6 @@ func main() {
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		serverIP,
@@ -251,7 +250,8 @@ func main() {
 		debug,
 		autoUpdateWebhooks,
 		stopCh,
-		log.Log)
+		log.Log,
+	)
 
 	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
 	if err != nil {
@@ -337,6 +337,7 @@ func main() {
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
 		kubedynamicInformer,
@@ -355,6 +356,7 @@ func main() {
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		kubedynamicInformer,
 		log.Log.WithName("GenerateCleanUpController"),

@@ -180,30 +180,6 @@ var ConditionOperators = map[string]ConditionOperator{
 	"DurationLessThan":            ConditionOperator("DurationLessThan"),
 }
 
-// ExcludeResources specifies resource and admission review request data for
-// which a policy rule is not applicable.
-type ExcludeResources struct {
-	// Any allows specifying resources which will be ORed
-	// +optional
-	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
-
-	// All allows specifying resources which will be ANDed
-	// +optional
-	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
-
-	// UserInfo contains information about the user performing the operation.
-	// Specifying UserInfo directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
-
-	// ResourceDescription contains information about the resource being created or modified.
-	// Specifying ResourceDescription directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
-}
-
 // ResourceFilters is a slice of ResourceFilter
 type ResourceFilters []ResourceFilter
 
@@ -548,10 +524,4 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
-	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }

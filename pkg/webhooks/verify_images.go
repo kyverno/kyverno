@@ -7,12 +7,13 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"k8s.io/api/admission/v1beta1"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*v1.ClusterPolicy, logger logr.Logger) ([]byte, error) {
+func (ws *WebhookServer) applyImageVerifyPolicies(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []v1.PolicyInterface, logger logr.Logger) ([]byte, error) {
 	ok, message, imagePatches := ws.handleVerifyImages(request, policyContext, policies)
 	if !ok {
 		return nil, errors.New(message)
@@ -22,21 +23,21 @@ func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequ
 	return imagePatches, nil
 }
 
-func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
+func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
-	policies []*v1.ClusterPolicy) (bool, string, []byte) {
+	policies []v1.PolicyInterface) (bool, string, []byte) {
 
 	if len(policies) == 0 {
 		return true, "", nil
 	}
 
-	resourceName := getResourceName(request)
+	resourceName := admissionutils.GetResourceName(request)
 	logger := ws.log.WithValues("action", "verifyImages", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
 	for _, p := range policies {
-		policyContext.Policy = *p
+		policyContext.Policy = p
 		resp := engine.VerifyAndPatchImages(policyContext)
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
@@ -51,5 +52,5 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		return false, getEnforceFailureErrorMsg(engineResponses), nil
 	}
 
-	return true, "", engineutils.JoinPatches(patches)
+	return true, "", jsonutils.JoinPatches(patches...)
 }

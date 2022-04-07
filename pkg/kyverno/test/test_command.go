@@ -18,9 +18,9 @@ import (
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
@@ -295,7 +295,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
-	var testYamlNameCount int
 	var tf = &testFilter{
 		enabled: true,
 	}
@@ -397,11 +396,8 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if file.Name() == fileName || file.Name() == "test.yaml" {
+			if file.Name() == fileName {
 				testYamlCount++
-				if file.Name() == "test.yaml" {
-					testYamlNameCount++
-				}
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
 				if err != nil {
@@ -424,21 +420,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
-		if testYamlNameCount > 0 {
-			fmt.Printf("\n Note : test.yaml file name is deprecated in 1.6.0 release. Please provide test yaml file as kyverno-test.yaml \n")
-		}
 
 	} else {
 		var testFiles int
-		var deprecatedFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, &deprecatedFiles, openAPIController, tf)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
-		}
-		if deprecatedFiles > 0 {
-			fmt.Printf("\n Note: The test.yaml file name is deprecated in 1.6.0 release. Please use kyverno-test.yaml instead. \n")
 		}
 	}
 
@@ -459,7 +448,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, deprecatedFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -468,14 +457,11 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, deprecatedFiles, openAPIController, tf)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf)
 			continue
 		}
-		if file.Name() == fileName || file.Name() == "test.yaml" {
+		if file.Name() == fileName {
 			*testFiles++
-			if strings.Compare(file.Name(), "test.yaml") == 0 {
-				*deprecatedFiles++
-			}
 			// We accept the risk of including files here as we read the test dir only.
 			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
@@ -571,7 +557,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 		}
 
 		for _, rule := range resp.PolicyResponse.Rules {
-			if rule.Type != utils.Mutation.String() {
+			if rule.Type != response.Mutation {
 				continue
 			}
 
@@ -613,7 +599,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != utils.Validation.String() {
+				if rule.Type != string(response.Validation) {
 					continue
 				}
 
@@ -776,10 +762,10 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	var filteredPolicies = []*v1.ClusterPolicy{}
+	var filteredPolicies = []v1.PolicyInterface{}
 	for _, p := range policies {
 		for _, res := range values.Results {
-			if p.Name == res.Policy {
+			if p.GetName() == res.Policy {
 				filteredPolicies = append(filteredPolicies, p)
 				break
 			}
@@ -789,7 +775,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, p := range filteredPolicies {
 		var filteredRules = []v1.Rule{}
 
-		for _, rule := range p.GetRules() {
+		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
 				if rule.Name == res.Rule {
 					filteredRules = append(filteredRules, rule)
@@ -797,7 +783,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				}
 			}
 		}
-		p.Spec.SetRules(filteredRules)
+		p.GetSpec().SetRules(filteredRules)
 	}
 	policies = filteredPolicies
 
@@ -847,7 +833,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	for _, policy := range mutatedPolicies {
 		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
-			log.Log.Error(err, "skipping invalid policy", "name", policy.Name)
+			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue
 		}
 
@@ -857,8 +843,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		if len(variable) > 0 {
 			if len(variables) == 0 {
 				// check policy in variable file
-				if valuesFile == "" || valuesMap[policy.Name] == nil {
-					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.Name)
+				if valuesFile == "" || valuesMap[policy.GetName()] == nil {
+					fmt.Printf("test skipped for policy  %v  (as required variables are not provided by the users) \n \n", policy.GetName())
 				}
 			}
 		}
@@ -868,12 +854,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		for _, resource := range resources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
-				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.Name, resource.GetName()), err)
+				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
 			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
 			if err != nil {
-				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.Name, resource.GetName()).Error(), err)
+				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			engineResponses = append(engineResponses, ers...)
 			pvInfos = append(pvInfos, info)

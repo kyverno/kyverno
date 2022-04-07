@@ -4,23 +4,23 @@ import (
 	"reflect"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -51,11 +51,17 @@ type Controller struct {
 	// policyLister can list/get cluster policy from the shared informer's store
 	policyLister kyvernolister.ClusterPolicyLister
 
+	// policyLister can list/get Namespace policy from the shared informer's store
+	npolicyLister kyvernolister.PolicyLister
+
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
 	// policySynced returns true if the Cluster policy store has been synced at least once
 	policySynced cache.InformerSynced
+
+	// policySynced returns true if the Namespace policy store has been synced at least once
+	npolicySynced cache.InformerSynced
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
@@ -76,6 +82,7 @@ func NewController(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *dclient.Client,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
+	npolicyInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	eventGen event.Interface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
@@ -98,6 +105,8 @@ func NewController(
 
 	c.policySynced = policyInformer.Informer().HasSynced
 
+	c.npolicySynced = npolicyInformer.Informer().HasSynced
+
 	c.grSynced = grInformer.Informer().HasSynced
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
@@ -106,6 +115,7 @@ func NewController(
 	})
 
 	c.policyLister = policyInformer.Lister()
+	c.npolicyLister = npolicyInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
@@ -124,7 +134,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	defer c.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.npolicySynced) {
 		c.log.Info("failed to sync informer cache")
 		return
 	}
@@ -226,7 +236,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
-		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }
@@ -258,7 +268,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range curP.GetRules() {
+	for _, rule := range autogen.ComputeRules(curP) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -283,7 +293,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
-		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }

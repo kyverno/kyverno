@@ -16,6 +16,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+func Test_getAutogenRuleName(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ruleName string
+		prefix   string
+		expected string
+	}{
+		{"valid", "valid-rule-name", "autogen", "autogen-valid-rule-name"},
+		{"truncated", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact"},
+		{"valid-cronjob", "valid-rule-name", "autogen-cronjob", "autogen-cronjob-valid-rule-name"},
+		{"truncated-cronjob", "too-long-this-rule-name-will-be-truncated-to-63-characters", "autogen-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63"},
+	}
+	for _, test := range testCases {
+		res := getAutogenRuleName(test.prefix, test.ruleName)
+		assert.Equal(t, test.expected, res)
+	}
+}
+
+func Test_isAutogenRule(t *testing.T) {
+	testCases := []struct {
+		name     string
+		ruleName string
+		expected bool
+	}{
+		{"normal", "valid-rule-name", false},
+		{"simple", "autogen-simple", true},
+		{"simple-cronjob", "autogen-cronjob-simple", true},
+		{"truncated", "autogen-too-long-this-rule-name-will-be-truncated-to-63-charact", true},
+		{"truncated-cronjob", "autogen-cronjob-too-long-this-rule-name-will-be-truncated-to-63", true},
+	}
+	for _, test := range testCases {
+		res := isAutogenRuleName(test.ruleName)
+		assert.Equal(t, test.expected, res)
+	}
+}
+
 func Test_CanAutoGen(t *testing.T) {
 	testCases := []struct {
 		name                string
@@ -220,28 +256,28 @@ func Test_GetRequestedControllers(t *testing.T) {
 		},
 		{
 			name:                "annotation-empty",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": ""}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: ""}},
 			expectedControllers: nil,
 		},
 		{
 			name:                "annotation-none",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "none"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "none"}},
 			expectedControllers: []string{},
 		},
 		{
 			name:                "annotation-job",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "Job"}},
 			expectedControllers: []string{"Job"},
 		},
 		{
 			name:                "annotation-job-deployment",
-			meta:                metav1.ObjectMeta{Annotations: map[string]string{"pod-policies.kyverno.io/autogen-controllers": "Job,Deployment"}},
+			meta:                metav1.ObjectMeta{Annotations: map[string]string{kyverno.PodControllersAnnotation: "Job,Deployment"}},
 			expectedControllers: []string{"Job", "Deployment"},
 		},
 	}
 
 	for _, test := range testCases {
-		controllers := GetRequestedControllers(test.meta)
+		controllers := GetRequestedControllers(&test.meta)
 		assert.DeepEqual(t, test.expectedControllers, controllers)
 	}
 }
@@ -260,7 +296,8 @@ func Test_Any(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -268,8 +305,7 @@ func Test_Any(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -298,7 +334,8 @@ func Test_All(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.All = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.All = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -306,7 +343,7 @@ func Test_All(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -336,9 +373,10 @@ func Test_Exclude(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec := policy.GetSpec()
+	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -355,7 +393,6 @@ func Test_Exclude(t *testing.T) {
 }
 
 func Test_CronJobOnly(t *testing.T) {
-
 	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -374,7 +411,7 @@ func Test_CronJobOnly(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -400,9 +437,10 @@ func Test_ForEachPod(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec := policy.GetSpec()
+	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -419,7 +457,6 @@ func Test_ForEachPod(t *testing.T) {
 }
 
 func Test_CronJob_hasExclude(t *testing.T) {
-
 	controllers := PodControllerCronJob
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
@@ -439,12 +476,13 @@ func Test_CronJob_hasExclude(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rule := policy.GetRules()[0].DeepCopy()
+	spec := policy.GetSpec()
+	rule := spec.Rules[0].DeepCopy()
 	rule.ExcludeResources.Kinds = []string{"Pod"}
 	rule.ExcludeResources.Namespaces = []string{"test"}
-	policy.GetRules()[0] = *rule
+	spec.Rules[0] = *rule
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -475,7 +513,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -503,7 +541,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 
 	policy := policies[0]
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -512,7 +550,10 @@ func Test_UpdateVariablePath(t *testing.T) {
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-select-secrets-from-volumes","match":{"resources":{"kinds":["CronJob"]}},"context":[{"name":"volsecret","apiCall":{"urlPath":"/api/v1/namespaces/{{request.object.spec.template.metadata.namespace}}/secrets/{{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}}","jmesPath":"metadata.labels.foo"}}],"preconditions":[{"key":"{{ request.operation }}","operator":"Equals","value":"CREATE"}],"validate":{"message":"The Secret named {{request.object.spec.jobTemplate.spec.template.spec.volumes[0].secret.secretName}} is restricted and may not be used.","pattern":{"spec":{"jobTemplate":{"spec":{"template":{"spec":{"containers":[{"image":"registry.domain.com/*"}]}}}}}}}}}`),
 	}
 
-	assert.DeepEqual(t, rulePatches, expectedPatches)
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
 }
 
 func Test_Deny(t *testing.T) {
@@ -529,7 +570,8 @@ func Test_Deny(t *testing.T) {
 	}
 
 	policy := policies[0]
-	policy.GetRules()[0].MatchResources.Any = kyverno.ResourceFilters{
+	spec := policy.GetSpec()
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -537,8 +579,7 @@ func Test_Deny(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(&policy.Spec, PodControllers, log.Log)
-	fmt.Println("utils.JoinPatches(patches)erterter", string(utils.JoinPatches(rulePatches)))
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
