@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -13,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 

@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
-	v1beta1 "k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -78,7 +78,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*v1beta1.AdmissionResponse, error) {
+func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -122,7 +122,7 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 
 		if jsonPatchOnPod(rule) {
 			log.Log.V(1).Info("Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers.")
-			return &v1beta1.AdmissionResponse{
+			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
 				Warnings: []string{"Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers."},
 			}, nil
@@ -237,7 +237,7 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
 			log.Log.V(4).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
-			return &v1beta1.AdmissionResponse{
+			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
 				Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
 			}, nil

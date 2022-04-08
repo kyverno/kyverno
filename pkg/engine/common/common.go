@@ -10,7 +10,6 @@ func convertNumberToString(value interface{}) (string, error) {
 	if value == nil {
 		return "0", nil
 	}
-
 	switch typed := value.(type) {
 	case string:
 		return string(typed), nil
