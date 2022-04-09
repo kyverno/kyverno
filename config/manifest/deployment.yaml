@@ -42,7 +42,7 @@ spec:
       initContainers:
         - name: kyverno-pre
           image: ghcr.io/kyverno/kyvernopre:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           resources:
             limits:
               cpu: 100m
@@ -68,7 +68,7 @@ spec:
       containers:
         - name: kyverno
           image: ghcr.io/kyverno/kyverno:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           args:
           - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
