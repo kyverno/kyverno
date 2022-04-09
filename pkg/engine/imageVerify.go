@@ -123,36 +123,39 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]imageutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]imageutils.ImageInfo) {
 	imagePattern := imageVerify.Image
 
-	for path, imageInfo := range images {
-		image := imageInfo.String()
-		jmespath := utils.JsonPointerToJMESPath(path)
-		changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
-		if err == nil && !changed {
-			iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-			continue
-		}
-
-		if !wildcard.Match(imagePattern, image) {
-			iv.logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
-			continue
-		}
-
-		var ruleResp *response.RuleResponse
-		if len(imageVerify.Attestations) == 0 {
-			var digest string
-			ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
-			if ruleResp.Status == response.RuleStatusPass {
-				iv.patchDigest(path, imageInfo, digest, ruleResp)
+	for _, infoMap := range images {
+		for _, imageInfo := range infoMap {
+			path := imageInfo.Path
+			image := imageInfo.String()
+			jmespath := utils.JsonPointerToJMESPath(path)
+			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
+			if err == nil && !changed {
+				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
+				continue
 			}
-		} else {
-			ruleResp = iv.attestImage(imageVerify, imageInfo)
-		}
 
-		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-		incrementAppliedCount(iv.resp)
+			if !wildcard.Match(imagePattern, image) {
+				iv.logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
+				continue
+			}
+
+			var ruleResp *response.RuleResponse
+			if len(imageVerify.Attestations) == 0 {
+				var digest string
+				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
+				if ruleResp.Status == response.RuleStatusPass {
+					iv.patchDigest(path, imageInfo, digest, ruleResp)
+				}
+			} else {
+				ruleResp = iv.attestImage(imageVerify, imageInfo)
+			}
+
+			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+			incrementAppliedCount(iv.resp)
+		}
 	}
 }
 

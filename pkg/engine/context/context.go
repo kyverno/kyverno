@@ -66,7 +66,7 @@ type Interface interface {
 	AddImageInfos(resource *unstructured.Unstructured) error
 
 	// ImageInfo returns image infos present in the context
-	ImageInfo() map[string]imageutils.ImageInfo
+	ImageInfo() map[string]map[string]imageutils.ImageInfo
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
@@ -88,7 +88,7 @@ type context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	images             map[string]imageutils.ImageInfo
+	images             map[string]map[string]imageutils.ImageInfo
 }
 
 // NewContext returns a new context
@@ -224,7 +224,10 @@ func (ctx *context) AddImageInfo(info imageutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-	images := kubeutils.ExtractImagesFromResource(*resource)
+	images, err := kubeutils.ExtractImagesFromResource(*resource)
+	if err != nil {
+		return err
+	}
 	if len(images) == 0 {
 		return nil
 	}
@@ -232,7 +235,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	return addToContext(ctx, images, "images")
 }
 
-func (ctx *context) ImageInfo() map[string]imageutils.ImageInfo {
+func (ctx *context) ImageInfo() map[string]map[string]imageutils.ImageInfo {
 	return ctx.images
 }
 

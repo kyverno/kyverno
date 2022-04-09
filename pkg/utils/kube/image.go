@@ -2,6 +2,7 @@ package kube
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
@@ -14,48 +15,79 @@ var (
 	cronjobControllerExtractors = BuildStandardExtractors("spec", "jobTemplate", "spec", "template", "spec")
 	registeredExtractors        = map[string][]ImageExtractor{
 		"Pod":         podExtractors,
-		"CronJob":     cronjobControllerExtractors,
-		"Deployment":  podControllerExtractors,
 		"DaemonSet":   podControllerExtractors,
-		"Job":         podControllerExtractors,
+		"Deployment":  podControllerExtractors,
+		"ReplicaSet":  podControllerExtractors,
 		"StatefulSet": podControllerExtractors,
+		"CronJob":     cronjobControllerExtractors,
+		"Job":         podControllerExtractors,
 	}
 )
 
-type ImageExtractor interface {
-	ExtractFromResource(unstructured.Unstructured) map[string]imageutils.ImageInfo
-}
-
-type imageExtractor struct {
+type ImageExtractor struct {
 	fields []string
+	key    string
+	value  string
+	name   string
 }
 
-func (i *imageExtractor) ExtractFromResource(resource unstructured.Unstructured) map[string]imageutils.ImageInfo {
-	if containers, ok, _ := unstructured.NestedSlice(resource.UnstructuredContent(), i.fields...); ok {
-		return extractImageInfos(containers, "/"+strings.Join(i.fields, "/"))
+func (i *ImageExtractor) ExtractFromResource(resource interface{}) (map[string]imageutils.ImageInfo, error) {
+	imageInfo := map[string]imageutils.ImageInfo{}
+	if err := extract(resource, []string{}, i.key, i.value, i.fields, &imageInfo); err != nil {
+		return nil, err
 	}
-	return nil
+	return imageInfo, nil
 }
 
-func extractImageInfos(containers []interface{}, jsonPath string) map[string]imageutils.ImageInfo {
-	infos := map[string]imageutils.ImageInfo{}
-	var errs []string
-	var index = 0
-	for _, ctr := range containers {
-		if container, ok := ctr.(map[string]interface{}); ok {
-			imageInfo, err := imageutils.GetImageInfo(container["image"].(string))
-			if err != nil {
-				errs = append(errs, err.Error())
-				continue
+func extract(obj interface{}, path []string, keyPath, valuePath string, fields []string, imageInfos *map[string]imageutils.ImageInfo) error {
+	if obj == nil {
+		return nil
+	}
+	if len(fields) > 0 && fields[0] == "*" {
+		switch typedObj := obj.(type) {
+		case []interface{}:
+			for i, v := range typedObj {
+				if err := extract(v, append(path, strconv.Itoa(i)), keyPath, valuePath, fields[1:], imageInfos); err != nil {
+					return err
+				}
 			}
-			infos[fmt.Sprintf("%s/%d/image", jsonPath, index)] = *imageInfo
+		case map[string]interface{}:
+			for i, v := range typedObj {
+				if err := extract(v, append(path, i), keyPath, valuePath, fields[1:], imageInfos); err != nil {
+					return err
+				}
+			}
+		case interface{}:
+			return fmt.Errorf("invalid type")
 		}
-		index++
+		return nil
 	}
-	if len(errs) == 0 {
-		return infos
+	output, ok := obj.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid image config")
 	}
-	return infos
+	if len(fields) == 0 {
+		pointer := fmt.Sprintf("/%s/%s", strings.Join(path, "/"), valuePath)
+		key := pointer
+		if keyPath != "" {
+			key, ok = output[keyPath].(string)
+			if !ok {
+				return fmt.Errorf("invalid key")
+			}
+		}
+		value, ok := output[valuePath].(string)
+		if !ok {
+			return fmt.Errorf("invalid value")
+		}
+		if imageInfo, err := imageutils.GetImageInfo(value, pointer); err != nil {
+			return fmt.Errorf("invalid image %s", value)
+		} else {
+			(*imageInfos)[key] = *imageInfo
+		}
+		return nil
+	}
+	currentPath := fields[0]
+	return extract(output[currentPath], append(path, currentPath), keyPath, valuePath, fields[1:], imageInfos)
 }
 
 func BuildStandardExtractors(tags ...string) []ImageExtractor {
@@ -64,7 +96,8 @@ func BuildStandardExtractors(tags ...string) []ImageExtractor {
 		var t []string
 		t = append(t, tags...)
 		t = append(t, tag)
-		extractors = append(extractors, &imageExtractor{fields: t})
+		t = append(t, "*")
+		extractors = append(extractors, ImageExtractor{fields: t, key: "name", value: "image", name: tag})
 	}
 	return extractors
 }
@@ -73,12 +106,14 @@ func LookupImageExtractor(kind string) []ImageExtractor {
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured) map[string]imageutils.ImageInfo {
-	infos := map[string]imageutils.ImageInfo{}
+func ExtractImagesFromResource(resource unstructured.Unstructured) (map[string]map[string]imageutils.ImageInfo, error) {
+	infos := map[string]map[string]imageutils.ImageInfo{}
 	for _, extractor := range LookupImageExtractor(resource.GetKind()) {
-		for key, value := range extractor.ExtractFromResource(resource) {
-			infos[key] = value
+		if infoMap, err := extractor.ExtractFromResource(resource.Object); err != nil {
+			return nil, err
+		} else if infoMap != nil && len(infoMap) > 0 {
+			infos[extractor.name] = infoMap
 		}
 	}
-	return infos
+	return infos, nil
 }

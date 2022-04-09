@@ -14,13 +14,15 @@ func MutateResourceWithImageInfo(raw []byte, ctx Interface) error {
 	if images == nil {
 		return nil
 	}
+	var patches [][]byte
 	buildJSONPatch := func(op, path, value string) []byte {
 		p := fmt.Sprintf(`{ "op": "%s", "path": "%s", "value":"%s" }`, op, path, value)
 		return []byte(p)
 	}
-	var patches [][]byte
-	for path, info := range images {
-		patches = append(patches, buildJSONPatch("replace", path, info.String()))
+	for _, infoMaps := range images {
+		for _, info := range infoMaps {
+			patches = append(patches, buildJSONPatch("replace", info.Pointer, info.String()))
+		}
 	}
 	patchedResource, err := engineutils.ApplyPatches(raw, patches)
 	if err != nil {

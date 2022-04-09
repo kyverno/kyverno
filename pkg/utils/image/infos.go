@@ -22,6 +22,9 @@ type ImageInfo struct {
 
 	// Digest is the image digest portion e.g. `sha256:128c6e3534b842a2eec139999b8ce8aa9a2af9907e2b9269550809d18cd832a3`
 	Digest string `json:"digest,omitempty"`
+
+	// Pointer is the path to the image object in the resource
+	Pointer string `json:"-"`
 }
 
 func (i *ImageInfo) String() string {
@@ -33,7 +36,7 @@ func (i *ImageInfo) String() string {
 	}
 }
 
-func GetImageInfo(image string) (*ImageInfo, error) {
+func GetImageInfo(image string, pointer string) (*ImageInfo, error) {
 	image = addDefaultDomain(image)
 	ref, err := reference.Parse(image)
 	if err != nil {
@@ -61,6 +64,7 @@ func GetImageInfo(image string) (*ImageInfo, error) {
 		Path:     path,
 		Tag:      tag,
 		Digest:   digest,
+		Pointer:  pointer,
 	}, nil
 }
 
