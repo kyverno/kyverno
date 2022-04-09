@@ -402,7 +402,7 @@ func Test_Eval_Equal_Var_Pass(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	err := ctx.AddResource(resourceRaw)
+	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -444,7 +444,7 @@ func Test_Eval_Equal_Var_Fail(t *testing.T) {
 
 	// context
 	ctx := context.NewContext()
-	err := ctx.AddResource(resourceRaw)
+	err := context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
