@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,7 +98,7 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
-			if rule.Type != utils.Validation.String() && rule.Type != utils.ImageVerify.String() {
+			if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 				continue
 			}
 
@@ -284,7 +283,7 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 	for _, rule := range er.PolicyResponse.Rules {
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
-			Type:    rule.Type,
+			Type:    string(rule.Type),
 			Message: rule.Message,
 		}
 

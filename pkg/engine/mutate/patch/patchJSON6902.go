@@ -7,7 +7,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 )
@@ -18,7 +17,7 @@ func ProcessPatchJSON6902(ruleName string, patchesJSON6902 []byte, resource unst
 	startTime := time.Now()
 	logger.V(4).Info("started JSON6902 patch", "startTime", startTime)
 	resp.Name = ruleName
-	resp.Type = utils.Mutation.String()
+	resp.Type = response.Mutation
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)
 		resp.RuleStats.RuleExecutionTimestamp = startTime.Unix()

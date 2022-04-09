@@ -17,4 +17,5 @@ type PolicyInterface interface {
 	Validate(sets.String) field.ErrorList
 	GetKind() string
 	CreateDeepCopy() PolicyInterface
+	IsReady() bool
 }

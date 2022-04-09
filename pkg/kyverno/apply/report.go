@@ -7,7 +7,7 @@ import (
 	"time"
 
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	corev1 "k8s.io/api/core/v1"
@@ -88,7 +88,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyRe
 
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != utils.Validation.String() {
+				if rule.Type != string(response.Validation) {
 					continue
 				}
 

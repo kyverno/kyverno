@@ -10,7 +10,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -19,7 +19,7 @@ import (
 type Interface interface {
 
 	// AddRequest marshals and adds the admission request to the context
-	AddRequest(request *v1beta1.AdmissionRequest) error
+	AddRequest(request *admissionv1.AdmissionRequest) error
 
 	// AddJSON  merges the json with context
 	AddJSON(dataRaw []byte) error
@@ -97,7 +97,7 @@ func (ctx *Context) AddJSONObject(jsonData interface{}) error {
 }
 
 // AddRequest adds an admission request to context
-func (ctx *Context) AddRequest(request *v1beta1.AdmissionRequest) error {
+func (ctx *Context) AddRequest(request *admissionv1.AdmissionRequest) error {
 	modifiedResource := struct {
 		Request interface{} `json:"request"`
 	}{
