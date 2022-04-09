@@ -248,7 +248,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	// get the user info as request info from a different file
 	var userInfo v1.RequestInfo
 	if userInfoPath != "" {
-		userInfo, err = common.GetUserInfoAccordingToUserInfoPath(fs, userInfoPath, false, "")
+		userInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)

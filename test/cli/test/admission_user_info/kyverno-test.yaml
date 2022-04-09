@@ -4,12 +4,6 @@ policies:
 resources:
   -  resource.yaml
 userinfo: user_info.yaml
-# userinfo:
-#   clusterRoles:
-#   - cluster-admin
-#   subjects:
-#     - kind: User
-#       name: molybdenum@somecorp.com
 
 results:
   - policy: disallow-latest-tag

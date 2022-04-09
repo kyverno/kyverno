@@ -752,7 +752,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	// get the user info as request info from a different file
 	var userInfo v1.RequestInfo
 	if userInfoFile != "" {
-		userInfo, err = common.GetUserInfoAccordingToUserInfoPath(fs, userInfoFile, isGit, policyResourcePath)
+		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)

@@ -1051,8 +1051,8 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 	return patchedResource, nil
 }
 
-//GetUserInfoAccordingToUserInfoPath - get the request info as user info from a given path
-func GetUserInfoAccordingToUserInfoPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1.RequestInfo, error) {
+//GetUserInfoFromPath - get the request info as user info from a given path
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1.RequestInfo, error) {
 	userInfo := &v1.RequestInfo{}
 
 	if isGit {
