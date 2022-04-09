@@ -189,7 +189,7 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, resolver)
 }
 
-func SubstituteAllForceMutate(log logr.Logger, ctx *context.Context, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
 	var rule interface{}
 
 	rule, err = DocumentToUntyped(typedRule)

@@ -161,13 +161,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, false, err
 	}
 
-	resourceRaw, err := resource.MarshalJSON()
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return nil, false, err
-	}
-
-	err = ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resource.Object)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, false, err
@@ -185,7 +179,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, false, err
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 

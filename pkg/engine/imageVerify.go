@@ -125,7 +125,7 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]context.ImageInfo) {
 	imagePattern := imageVerify.Image
 
 	for _, imageInfo := range images {
@@ -167,7 +167,7 @@ func getSignatureRepository(imageVerify *v1.ImageVerification) string {
 	return repository
 }
 
-func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo context.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.Info("verifying image", "image", image)
 
@@ -219,7 +219,7 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	return ruleResp, digest
 }
 
-func (iv *imageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+func (iv *imageVerifier) patchDigest(imageInfo context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
 	if imageInfo.Digest == "" {
 		patch, err := makeAddDigestPatch(imageInfo, digest)
 		if err != nil {
@@ -231,7 +231,7 @@ func (iv *imageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string
 	}
 }
 
-func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(imageInfo context.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = imageInfo.JSONPointer
@@ -239,7 +239,7 @@ func makeAddDigestPatch(imageInfo *context.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo context.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
@@ -291,7 +291,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img *context.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img context.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
@@ -304,22 +304,11 @@ func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]inter
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
 
-	if err := iv.policyContext.JSONContext.AddJSONObject(predicate); err != nil {
+	if err := context.AddJSONObject(iv.policyContext.JSONContext, predicate); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
 	}
 
-	imgMap := map[string]interface{}{
-		"image": map[string]interface{}{
-			"image":    img.String(),
-			"registry": img.Registry,
-			"path":     img.Path,
-			"name":     img.Name,
-			"tag":      img.Tag,
-			"digest":   img.Digest,
-		},
-	}
-
-	if err := iv.policyContext.JSONContext.AddJSONObject(imgMap); err != nil {
+	if err := iv.policyContext.JSONContext.AddImageInfo(&img); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
 	}
 

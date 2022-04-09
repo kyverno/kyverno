@@ -35,7 +35,7 @@ func newResponse(status response.RuleStatus, resource unstructured.Unstructured,
 	}
 }
 
-func Mutate(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) *Response {
+func Mutate(rule *kyverno.Rule, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
 	updatedRule, err := variables.SubstituteAllInRule(logger, ctx, *rule)
 	if err != nil {
 		return newErrorResponse("variable substitution failed", err)
@@ -56,14 +56,14 @@ func Mutate(rule *kyverno.Rule, ctx *context.Context, resource unstructured.Unst
 		return newResponse(response.RuleStatusSkip, resource, nil, "no patches applied")
 	}
 
-	if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+	if err := ctx.AddResource(patchedResource.Object); err != nil {
 		return newErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
 	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
-func ForEach(name string, foreach *kyverno.ForEachMutation, ctx *context.Context, resource unstructured.Unstructured, logger logr.Logger) *Response {
+func ForEach(name string, foreach *kyverno.ForEachMutation, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
 	fe, err := substituteAllInForEach(foreach, ctx, logger)
 	if err != nil {
 		return newErrorResponse("variable substitution failed", err)
@@ -83,14 +83,14 @@ func ForEach(name string, foreach *kyverno.ForEachMutation, ctx *context.Context
 		return newResponse(response.RuleStatusSkip, unstructured.Unstructured{}, nil, "no patches applied")
 	}
 
-	if err := ctx.AddResourceAsObject(patchedResource.Object); err != nil {
+	if err := ctx.AddResource(patchedResource.Object); err != nil {
 		return newErrorResponse("failed to update patched resource in the JSON context", err)
 	}
 
 	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
-func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx *context.Context, logger logr.Logger) (*kyverno.ForEachMutation, error) {
+func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyverno.ForEachMutation, error) {
 	jsonObj, err := utils.ToMap(fe)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx *context.Context, l
 	return &updatedForEach, nil
 }
 
-func NewPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, ctx *context.Context, logger logr.Logger) patch.Patcher {
+func NewPatcher(name string, strategicMergePatch apiextensions.JSON, jsonPatch string, r unstructured.Unstructured, ctx context.Interface, logger logr.Logger) patch.Patcher {
 	if strategicMergePatch != nil {
 		return patch.NewPatchStrategicMerge(name, strategicMergePatch, r, ctx, logger)
 	}
