@@ -390,20 +390,6 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
 }
 
-// Attestation are checks for signed in-toto Statements that are used to verify the image.
-// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
-// OCI registry and decodes them into a list of Statements.
-type Attestation struct {
-
-	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
-
-	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
-	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
-	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-}
-
 // Generation defines how new resources should be created and managed.
 type Generation struct {
 	// ResourceSpec contains information to select the resource.

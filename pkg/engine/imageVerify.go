@@ -81,9 +81,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(imageVerify, images.Containers)
-			iv.verify(imageVerify, images.InitContainers)
-			iv.verify(imageVerify, images.EphemeralContainers)
+			iv.verifyImages(imageVerify, images.Containers)
+			iv.verifyImages(imageVerify, images.InitContainers)
+			iv.verifyImages(imageVerify, images.EphemeralContainers)
 		}
 	}
 
@@ -125,11 +125,17 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
-	imagePattern := imageVerify.Image
+func (iv *imageVerifier) verifyImages(imageVerify *v1.ImageVerification, images map[string]*context.ImageInfo) {
+	// For backward compatibility
+	imageVerify = imageVerify.Convert()
 
 	for _, imageInfo := range images {
 		image := imageInfo.String()
+		if !imageMatches(image, imageVerify.ImageReferences) {
+			iv.logger.V(4).Info("image does not match", "image", image, "patterns", imageVerify.ImageReferences)
+			continue
+		}
+
 		jmespath := utils.JsonPointerToJMESPath(imageInfo.JSONPointer)
 		changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
 		if err == nil && !changed {
@@ -137,34 +143,34 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			continue
 		}
 
-		if !wildcard.Match(imagePattern, image) {
-			iv.logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
-			continue
-		}
-
-		var ruleResp *response.RuleResponse
-		if len(imageVerify.Attestations) == 0 {
-			var digest string
-			ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
-			if ruleResp.Status == response.RuleStatusPass {
-				iv.patchDigest(imageInfo, digest, ruleResp)
-			}
-		} else {
-			ruleResp = iv.attestImage(imageVerify, imageInfo)
-		}
-
-		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-		incrementAppliedCount(iv.resp)
+		iv.verifyImage(imageVerify, imageInfo)
 	}
 }
 
-func getSignatureRepository(imageVerify *v1.ImageVerification) string {
-	repository := cosign.ImageSignatureRepository
-	if imageVerify.Repository != "" {
-		repository = imageVerify.Repository
+func imageMatches(image string, imagePatterns []string) bool {
+	for _, imagePattern := range imagePatterns {
+		if wildcard.Match(imagePattern, image) {
+			return true
+		}
 	}
 
-	return repository
+	return false
+}
+
+func (iv *imageVerifier) verifyImage(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) {
+	var ruleResp *response.RuleResponse
+	if len(imageVerify.Attestations) == 0 {
+		var digest string
+		ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
+		if ruleResp.Status == response.RuleStatusPass {
+			iv.patchDigest(imageInfo, digest, ruleResp)
+		}
+	} else {
+		ruleResp = iv.attestImage(imageVerify, imageInfo)
+	}
+
+	iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+	incrementAppliedCount(iv.resp)
 }
 
 func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo *context.ImageInfo) (*response.RuleResponse, string) {
@@ -182,22 +188,20 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 		Log:        iv.logger,
 	}
 
-	if imageVerify.Key != "" {
-		opts.Key = imageVerify.Key
-	} else {
-		opts.Roots = []byte(imageVerify.Roots)
+	attestor := iv.getAttestor(imageVerify)
+	if attestor == nil {
+		ruleResp.Status = response.RuleStatusError
+		ruleResp.Message = fmt.Sprintf("failed to find attestor")
+		return ruleResp, ""
 	}
 
-	if imageVerify.Issuer != "" {
-		opts.Issuer = imageVerify.Issuer
-	}
-
-	if imageVerify.Subject != "" {
-		opts.Subject = imageVerify.Subject
-	}
-
-	if imageVerify.AdditionalExtensions != nil {
-		opts.AdditionalExtensions = imageVerify.AdditionalExtensions
+	if attestor.StaticKey != nil {
+		opts.Key = attestor.StaticKey.Key
+	} else if attestor.Keyless != nil {
+		opts.Roots = []byte(attestor.Keyless.Roots)
+		opts.Issuer = attestor.Keyless.Issuer
+		opts.Subject = attestor.Keyless.Subject
+		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 
 	if imageVerify.Annotations != nil {
@@ -207,7 +211,7 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	start := time.Now()
 	digest, err := cosign.VerifySignature(opts)
 	if err != nil {
-		iv.logger.Info("failed to verify image", "image", image, "error", err, "duration", time.Since(start).Seconds())
+		iv.logger.Info("failed to verifyImages image", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		ruleResp.Status = response.RuleStatusFail
 		ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
 		return ruleResp, ""
@@ -217,6 +221,16 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	ruleResp.Message = fmt.Sprintf("image %s verified", image)
 	iv.logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
 	return ruleResp, digest
+}
+
+func (iv *imageVerifier) getAttestor(imageVerify *v1.ImageVerification) *v1.Attestor {
+	for _, attestorSet := range imageVerify.Attestors {
+		for _, attestor := range attestorSet.Entries {
+			return attestor
+		}
+	}
+
+	return nil
 }
 
 func (iv *imageVerifier) patchDigest(imageInfo *context.ImageInfo, digest string, ruleResp *response.RuleResponse) {
