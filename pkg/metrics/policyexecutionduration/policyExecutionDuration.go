@@ -12,6 +12,7 @@ import (
 
 func registerPolicyExecutionDurationMetric(
 	pc *metrics.PromConfig,
+	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -31,13 +32,21 @@ func registerPolicyExecutionDurationMetric(
 	if ruleType != metrics.Generate || generateRuleLatencyType == "" {
 		generateRuleLatencyType = "-"
 	}
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
+<<<<<<< HEAD
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
 	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+=======
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		return nil
+	}
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
 	pc.Metrics.PolicyExecutionDuration.With(prom.Labels{
@@ -55,12 +64,15 @@ func registerPolicyExecutionDurationMetric(
 		"rule_execution_cause":       string(ruleExecutionCause),
 		"generate_rule_latency_type": generateRuleLatencyType,
 	}).Observe(ruleExecutionLatency)
+
+	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, generateRuleLatencyType, ruleExecutionLatency, m.Log)
+
 	return nil
 }
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponse(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -90,6 +102,7 @@ func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterfac
 		ruleExecutionLatencyInSeconds := float64(rule.RuleStats.ProcessingTime) / float64(1000*1000*1000)
 		if err := registerPolicyExecutionDurationMetric(
 			pc,
+			m,
 			validationMode,
 			policyType,
 			backgroundMode,

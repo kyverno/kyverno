@@ -170,8 +170,12 @@ func (ws *WebhookServer) resourceValidation(logger logr.Logger, request *admissi
 		eventGen:    ws.eventGen,
 		prGenerator: ws.prGenerator,
 	}
+<<<<<<< HEAD
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
+=======
+	ok, msg := vh.handleValidation(ws.promConfig, ws.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(false, msg)

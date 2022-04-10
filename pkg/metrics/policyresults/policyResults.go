@@ -12,6 +12,7 @@ import (
 
 func registerPolicyResultsMetric(
 	pc *metrics.PromConfig,
+	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -26,17 +27,25 @@ func registerPolicyResultsMetric(
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
+<<<<<<< HEAD
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
 	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+=======
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		return nil
+	}
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
 
-	metrics.RecordPolicyResults(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, pc.Log)
+	m.RecordPolicyResults(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, pc.Log)
 
 	pc.Metrics.PolicyResults.With(prom.Labels{
 		"policy_validation_mode":     string(policyValidationMode),
@@ -57,7 +66,7 @@ func registerPolicyResultsMetric(
 
 //policy - policy related data
 //engineResponse - resource and rule related data
-func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponse(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -86,6 +95,7 @@ func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterfac
 		}
 		if err := registerPolicyResultsMetric(
 			pc,
+			m,
 			validationMode,
 			policyType,
 			backgroundMode,

@@ -12,6 +12,7 @@ import (
 
 func registerPolicyRuleInfoMetric(
 	pc *metrics.PromConfig,
+	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -29,13 +30,21 @@ func registerPolicyRuleInfoMetric(
 	default:
 		return fmt.Errorf("unknown metric change type found:  %s", metricChangeType)
 	}
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
+<<<<<<< HEAD
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
 		return nil
 	}
 	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+=======
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		return nil
+	}
+	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
 	if policyType == metrics.Cluster {
@@ -55,10 +64,13 @@ func registerPolicyRuleInfoMetric(
 		"rule_type":              string(ruleType),
 		"status_ready":           status,
 	}).Set(metricValue)
+
+	m.RecordPolicyRuleInfo(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue, m.Log)
+
 	return nil
 }
 
-func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func AddPolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -67,14 +79,14 @@ func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(pc, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(pc, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func RemovePolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func RemovePolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -83,7 +95,7 @@ func RemovePolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error 
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(pc, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(pc, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 			return err
 		}
 	}

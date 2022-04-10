@@ -91,6 +91,8 @@ type PolicyController struct {
 
 	log logr.Logger
 
+	metricsConfig *metrics.MetricsConfig
+
 	promConfig *metrics.PromConfig
 }
 
@@ -110,6 +112,7 @@ func NewPolicyController(
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 ) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -133,6 +136,7 @@ func NewPolicyController(
 		policyReportEraser: policyReportEraser,
 		reconcilePeriod:    reconcilePeriod,
 		promConfig:         promConfig,
+		metricsConfig:      metricsConfig,
 		log:                log,
 	}
 

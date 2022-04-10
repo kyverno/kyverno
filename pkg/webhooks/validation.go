@@ -28,6 +28,7 @@ type validationHandler struct {
 // patchedResource is the (resource + patches) after applying mutation rules
 func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
 	policies []v1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -65,9 +66,9 @@ func (v *validationHandler) handleValidation(
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go registerPolicyResultsMetricValidation(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyResultsMetricValidation(logger, promConfig, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go registerPolicyExecutionDurationMetricValidate(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyExecutionDurationMetricValidate(logger, promConfig, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -101,9 +102,9 @@ func (v *validationHandler) handleValidation(
 		logger.V(4).Info("resource blocked")
 		//registering the kyverno_admission_review_duration_seconds metric concurrently
 		admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-		go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+		go registerAdmissionReviewDurationMetricValidate(logger, promConfig, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
 		//registering the kyverno_admission_requests_total metric concurrently
-		go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
+		go registerAdmissionRequestsMetricValidate(logger, promConfig, metricsConfig, string(request.Operation), engineResponses)
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}
 
@@ -130,10 +131,10 @@ func (v *validationHandler) handleValidation(
 
 	//registering the kyverno_admission_review_duration_seconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go registerAdmissionReviewDurationMetricValidate(logger, promConfig, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
 
 	//registering the kyverno_admission_requests_total metric concurrently
-	go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
+	go registerAdmissionRequestsMetricValidate(logger, promConfig, metricsConfig, string(request.Operation), engineResponses)
 	return true, ""
 }
 

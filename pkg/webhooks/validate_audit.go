@@ -55,6 +55,7 @@ type auditHandler struct {
 	log           logr.Logger
 	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
+	metricsConfig *metrics.MetricsConfig
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
@@ -65,6 +66,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
+<<<<<<< HEAD
 	dynamicConfig config.Configuration,
 	client client.Interface,
 	promConfig *metrics.PromConfig,
@@ -81,6 +83,29 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		configHandler: dynamicConfig,
 		client:        client,
 		promConfig:    promConfig,
+=======
+	dynamicConfig config.Interface,
+	client *client.Client,
+	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig) AuditHandler {
+
+	return &auditHandler{
+		pCache:         pCache,
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		eventGen:       eventGen,
+		rbLister:       rbInformer.Lister(),
+		rbSynced:       rbInformer.Informer().HasSynced,
+		crbLister:      crbInformer.Lister(),
+		crbSynced:      crbInformer.Informer().HasSynced,
+		nsLister:       namespaces.Lister(),
+		nsListerSynced: namespaces.Informer().HasSynced,
+		log:            log,
+		prGenerator:    prGenerator,
+		configHandler:  dynamicConfig,
+		client:         client,
+		promConfig:     promConfig,
+		metricsConfig:  metricsConfig,
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 	}
 }
 
@@ -188,7 +213,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		prGenerator: h.prGenerator,
 	}
 
-	vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
+	vh.handleValidation(h.promConfig, h.metricsConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

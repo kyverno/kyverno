@@ -11,17 +11,26 @@ import (
 
 func registerAdmissionReviewDurationMetric(
 	pc *metrics.PromConfig,
+	m *metrics.MetricsConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	admissionRequestLatency float64,
 ) error {
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
+<<<<<<< HEAD
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
 	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
 		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+=======
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		return nil
+	}
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
+		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+>>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
 	pc.Metrics.AdmissionReviewDuration.With(prom.Labels{
@@ -29,10 +38,13 @@ func registerAdmissionReviewDurationMetric(
 		"resource_namespace":         resourceNamespace,
 		"resource_request_operation": string(resourceRequestOperation),
 	}).Observe(admissionRequestLatency)
+
+	m.RecordAdmissionReviewDuration(resourceKind, resourceNamespace, string(resourceRequestOperation), admissionRequestLatency, m.Log)
+
 	return nil
 }
 
-func ProcessEngineResponses(pc *metrics.PromConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(pc *metrics.PromConfig, m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
@@ -54,5 +66,5 @@ func ProcessEngineResponses(pc *metrics.PromConfig, engineResponses []*response.
 		return nil
 	}
 	admissionReviewLatencyDurationInSeconds := float64(admissionReviewLatencyDuration) / float64(1000*1000*1000)
-	return registerAdmissionReviewDurationMetric(pc, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
+	return registerAdmissionReviewDurationMetric(pc, m, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
 }
