@@ -11330,7 +11330,7 @@ spec:
         - name: TUF_ROOT
           value: /.sigstore
         image: ghcr.io/kyverno/kyverno:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
           httpGet:
@@ -11385,7 +11385,7 @@ spec:
             fieldRef:
               fieldPath: metadata.namespace
         image: ghcr.io/kyverno/kyvernopre:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: kyverno-pre
         resources:
           limits:

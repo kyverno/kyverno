@@ -38,7 +38,7 @@ func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructu
 	var err error
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(transformResource(resource))
+	err = context.AddResource(ctx, transformResource(resource))
 	if err != nil {
 		logger.Error(err, "failed to add transform resource to ctx")
 	}
@@ -48,7 +48,7 @@ func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructu
 		logger.Error(err, "failed to add namespace to ctx")
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
@@ -72,7 +72,7 @@ func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructu
 	return engineResponses
 }
 
-func mutation(policy kyverno.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+func mutation(policy kyverno.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,

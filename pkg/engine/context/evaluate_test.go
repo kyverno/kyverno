@@ -55,7 +55,7 @@ func TestMissingObject(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func createTestContext(obj, oldObj string) *Context {
+func createTestContext(obj, oldObj string) Interface {
 	request := &admissionv1.AdmissionRequest{}
 	request.Operation = "UPDATE"
 	request.Object.Raw = []byte(obj)

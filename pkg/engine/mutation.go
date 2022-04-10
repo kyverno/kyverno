@@ -61,7 +61,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		resource, err := policyContext.JSONContext.Query("request.object")
 		policyContext.JSONContext.Reset()
 		if err == nil && resource != nil {
-			if err := ctx.AddResourceAsObject(resource.(map[string]interface{})); err != nil {
+			if err := ctx.AddResource(resource.(map[string]interface{})); err != nil {
 				logger.Error(err, "unable to update resource object")
 			}
 		} else {
