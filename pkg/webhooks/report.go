@@ -16,67 +16,32 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 
 	// - Admission-Response is SUCCESS
 	//   - Some/All policies failed (policy violations generated)
-	//     - report failure event on policy
-	//     - report failure event on resource
+	//     - Do not generate events on policy or resource (to avoid extra API calls)
 	//   - Some/All policies succeeded
 	//     - report success event on policy
 	//     - report success event on resource
 
-	for _, er := range engineResponses {
-		if !er.IsSuccessful() {
-			// Rules that failed
-			failedRules := er.GetFailedRules()
-			failedRulesStr := strings.Join(failedRules, ";")
-
-			// Event on the policy
-			pe := event.NewEvent(
-				log,
-				er.Policy.GetKind(),
-				kyvernov1alpha2.SchemeGroupVersion.String(),
-				er.PolicyResponse.Policy.Namespace,
-				er.PolicyResponse.Policy.Name,
-				event.PolicyViolation.String(),
-				event.AdmissionController,
-				event.FPolicyApply,
-				failedRulesStr,
-				er.PolicyResponse.Resource.GetKey(),
-			)
-
-			// Event on the resource
-			re := event.NewEvent(
-				log,
-				er.PolicyResponse.Resource.Kind,
-				er.PolicyResponse.Resource.APIVersion,
-				er.PolicyResponse.Resource.Namespace,
-				er.PolicyResponse.Resource.Name,
-				event.PolicyViolation.String(),
-				event.AdmissionController,
-				event.FResourcePolicyApply,
-				failedRulesStr,
-				er.PolicyResponse.Policy.Name,
-			)
-			events = append(events, pe, re)
+		for _, er := range engineResponses {
+	
+			if !er.IsFailed() {
+				successRules := er.GetSuccessRules()
+				successRulesStr := strings.Join(successRules, ";")
+	
+				// Event on the policy
+				e := event.NewEvent(
+					log,
+					er.Policy.GetKind(),
+					kyvernov1alpha2.SchemeGroupVersion.String(),
+					er.PolicyResponse.Policy.Namespace,
+					er.PolicyResponse.Policy.Name,
+					event.PolicyApplied.String(),
+					event.AdmissionController,
+					event.SPolicyApply,
+					successRulesStr,
+					er.PolicyResponse.Resource.GetKey(),
+				)
+				events = append(events, e)
+			}
 		}
-
-		if !er.IsFailed() {
-			successRules := er.GetSuccessRules()
-			successRulesStr := strings.Join(successRules, ";")
-
-			// Event on the policy
-			e := event.NewEvent(
-				log,
-				er.Policy.GetKind(),
-				kyvernov1alpha2.SchemeGroupVersion.String(),
-				er.PolicyResponse.Policy.Namespace,
-				er.PolicyResponse.Policy.Name,
-				event.PolicyApplied.String(),
-				event.AdmissionController,
-				event.SPolicyApply,
-				successRulesStr,
-				er.PolicyResponse.Resource.GetKey(),
-			)
-			events = append(events, e)
-		}
-	}
 	return events
 }
