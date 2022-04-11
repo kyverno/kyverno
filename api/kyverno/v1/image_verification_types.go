@@ -42,6 +42,7 @@ type ImageVerification struct {
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
 
 	// Attestors specified the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
 	Attestors []*AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
 	// Attestations are optional checks for signed in-toto Statements used to verify the image.
@@ -70,6 +71,7 @@ type AttestorSet struct {
 
 	// Entries contains the available attestors. An attestor can be a static key,
 	// attributes for keyless verification, or a nested attestor declaration.
+	// +kubebuilder:validation:Optional
 	Entries []*Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
 }
 
