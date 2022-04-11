@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/kyverno/go-wildcard"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -124,7 +124,8 @@ type imageVerifier struct {
 }
 
 func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]imageutils.ImageInfo) {
-	imagePattern := imageVerify.Image
+	// for backward compatibility
+	imageVerify = imageVerify.Convert()
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
@@ -137,8 +138,8 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
-			if !wildcard.Match(imagePattern, image) {
-				iv.logger.V(4).Info("image does not match pattern", "image", image, "pattern", imagePattern)
+			if !imageMatches(image, imageVerify.ImageReferences) {
+				iv.logger.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
 				continue
 			}
 
@@ -159,13 +160,14 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 	}
 }
 
-func getSignatureRepository(imageVerify *v1.ImageVerification) string {
-	repository := cosign.ImageSignatureRepository
-	if imageVerify.Repository != "" {
-		repository = imageVerify.Repository
+func imageMatches(image string, imagePatterns []string) bool {
+	for _, imagePattern := range imagePatterns {
+		if wildcard.Match(imagePattern, image) {
+			return true
+		}
 	}
 
-	return repository
+	return false
 }
 
 func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo imageutils.ImageInfo) (*response.RuleResponse, string) {
@@ -183,22 +185,20 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 		Log:        iv.logger,
 	}
 
-	if imageVerify.Key != "" {
-		opts.Key = imageVerify.Key
-	} else {
-		opts.Roots = []byte(imageVerify.Roots)
+	attestor := iv.getAttestor(imageVerify)
+	if attestor == nil {
+		ruleResp.Status = response.RuleStatusError
+		ruleResp.Message = "failed to find attestor"
+		return ruleResp, ""
 	}
 
-	if imageVerify.Issuer != "" {
-		opts.Issuer = imageVerify.Issuer
-	}
-
-	if imageVerify.Subject != "" {
-		opts.Subject = imageVerify.Subject
-	}
-
-	if imageVerify.AdditionalExtensions != nil {
-		opts.AdditionalExtensions = imageVerify.AdditionalExtensions
+	if attestor.StaticKey != nil {
+		opts.Key = attestor.StaticKey.Key
+	} else if attestor.Keyless != nil {
+		opts.Roots = []byte(attestor.Keyless.Roots)
+		opts.Issuer = attestor.Keyless.Issuer
+		opts.Subject = attestor.Keyless.Subject
+		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 
 	if imageVerify.Annotations != nil {
@@ -218,6 +218,16 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	ruleResp.Message = fmt.Sprintf("image %s verified", image)
 	iv.logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
 	return ruleResp, digest
+}
+
+func (iv *imageVerifier) getAttestor(imageVerify *v1.ImageVerification) *v1.Attestor {
+	for _, attestorSet := range imageVerify.Attestors {
+		for _, attestor := range attestorSet.Entries {
+			return attestor
+		}
+	}
+
+	return nil
 }
 
 func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
