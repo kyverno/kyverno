@@ -1606,7 +1606,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1655,7 +1655,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1874,7 +1874,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1923,7 +1923,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -2035,7 +2035,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2086,7 +2086,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2120,10 +2120,13 @@ spec:
                                   items:
                                     properties:
                                       attestors:
-                                        description: Attestor is a nested attestor
-                                          used to specify a more complex set of authorities
-                                          to be matched
-                                        items: {}
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
                                         type: array
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -3886,7 +3889,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -3935,7 +3938,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4154,7 +4157,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4203,7 +4206,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4315,7 +4318,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4366,7 +4369,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4400,10 +4403,13 @@ spec:
                                   items:
                                     properties:
                                       attestors:
-                                        description: Attestor is a nested attestor
-                                          used to specify a more complex set of authorities
-                                          to be matched
-                                        items: {}
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
                                         type: array
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -7029,7 +7035,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7078,7 +7084,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7297,7 +7303,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7346,7 +7352,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7458,7 +7464,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -7509,7 +7515,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -7543,10 +7549,13 @@ spec:
                                   items:
                                     properties:
                                       attestors:
-                                        description: Attestor is a nested attestor
-                                          used to specify a more complex set of authorities
-                                          to be matched
-                                        items: {}
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
                                         type: array
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -9310,7 +9319,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9359,7 +9368,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9578,7 +9587,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9627,7 +9636,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9739,7 +9748,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -9790,7 +9799,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -9824,10 +9833,13 @@ spec:
                                   items:
                                     properties:
                                       attestors:
-                                        description: Attestor is a nested attestor
-                                          used to specify a more complex set of authorities
-                                          to be matched
-                                        items: {}
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
                                         type: array
                                       keyless:
                                         description: Keyless is a set of attribute

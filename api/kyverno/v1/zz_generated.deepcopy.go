@@ -126,11 +126,11 @@ func (in *Attestor) DeepCopyInto(out *Attestor) {
 	}
 	if in.Attestors != nil {
 		in, out := &in.Attestors, &out.Attestors
-		*out = make([]*AttestorSet, len(*in))
+		*out = make([]*apiextensionsv1.JSON, len(*in))
 		for i := range *in {
 			if (*in)[i] != nil {
 				in, out := &(*in)[i], &(*out)[i]
-				*out = new(AttestorSet)
+				*out = new(apiextensionsv1.JSON)
 				(*in).DeepCopyInto(*out)
 			}
 		}

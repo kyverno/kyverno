@@ -266,14 +266,12 @@ See <a href="https://github.com/sigstore/cosign/blob/main/KEYLESS.md">https://gi
 <td>
 <code>attestors</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.AttestorSet">
-[]*./api/kyverno/v1.AttestorSet
-</a>
+[]*k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
-<p>Attestor is a nested attestor used to specify a more complex set of authorities
-to be matched</p>
+<p>Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.</p>
 </td>
 </tr>
 </tbody>
@@ -636,7 +634,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 <td>
 <em>(Optional)</em>
 <p>Value is the conditional value, or set of values. The values can be fixed set
-or can be variables declared using using JMESPath.</p>
+or can be variables declared using JMESPath.</p>
 </td>
 </tr>
 </tbody>

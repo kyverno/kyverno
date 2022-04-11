@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"encoding/json"
+	"github.com/pkg/errors"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
@@ -86,10 +89,10 @@ type Attestor struct {
 	// +kubebuilder:validation:Optional
 	Keyless *KeylessAttestor `json:"keyless,omitempty" yaml:"keyless,omitempty"`
 
-	// Attestor is a nested attestor used to specify a more complex set of authorities
-	// to be matched
+	// Attestor is a nested AttestorSet used to specify a more complex set of match authorities
 	// +kubebuilder:validation:Optional
-	Attestors []*AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	// TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.
+	Attestors []*apiextv1.JSON `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 }
 
 type StaticKeyAttestor struct {
@@ -171,6 +174,10 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 }
 
 func (as *AttestorSet) Validate(path *field.Path) (errs field.ErrorList) {
+	return validateAttestorSet(as, path)
+}
+
+func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorList) {
 	if as.Count != nil {
 		if *as.Count > len(as.Entries) {
 			errs = append(errs, field.Invalid(path, as, "Count cannot exceed length of entries"))
@@ -213,12 +220,28 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 	}
 
 	attestorsPath := path.Child("attestors")
-	for i, na := range a.Attestors {
-		attestorErrors := na.Validate(attestorsPath.Index(i))
+	for i, rawJson := range a.Attestors {
+		attestorSet, err := AttestorSetUnmarshal(rawJson)
+		if err != nil {
+			fieldErr :=  field.Invalid(attestorsPath.Index(i), rawJson, err.Error())
+			errs = append(errs, fieldErr)
+			continue
+		}
+
+		attestorErrors := validateAttestorSet(attestorSet, attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
 	}
 
 	return errs
+}
+
+func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
+	var as AttestorSet
+	if err := json.Unmarshal(o.Raw, &as); err != nil {
+		return nil, errors.Wrapf(err, "failed to unmarshal attestor set %s", string(o.Raw))
+	}
+
+	return &as, nil
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
