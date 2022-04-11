@@ -211,7 +211,7 @@ func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imag
 	start := time.Now()
 	digest, err := cosign.VerifySignature(opts)
 	if err != nil {
-		iv.logger.Info("failed to verifyImages image", "image", image, "error", err, "duration", time.Since(start).Seconds())
+		iv.logger.Info("failed to verify image", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		ruleResp.Status = response.RuleStatusFail
 		ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
 		return ruleResp, ""
