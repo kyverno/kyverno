@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -223,7 +224,7 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 	for i, rawJson := range a.Attestors {
 		attestorSet, err := AttestorSetUnmarshal(rawJson)
 		if err != nil {
-			fieldErr :=  field.Invalid(attestorsPath.Index(i), rawJson, err.Error())
+			fieldErr := field.Invalid(attestorsPath.Index(i), rawJson, err.Error())
 			errs = append(errs, fieldErr)
 			continue
 		}
