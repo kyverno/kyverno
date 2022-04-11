@@ -181,7 +181,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		return errors.Wrap(err, "failed create parse resource")
 	}
 
-	if err := ctx.AddImageInfo(&newResource); err != nil {
+	if err := ctx.AddImageInfos(&newResource); err != nil {
 		return errors.Wrap(err, "failed add image information to policy rule context\"")
 	}
 

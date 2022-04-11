@@ -228,7 +228,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 

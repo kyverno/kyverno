@@ -45,7 +45,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *admissionv1.AdmissionReq
 func (ws *WebhookServer) handleGenerate(
 	request *admissionv1.AdmissionRequest,
 	policies []kyverno.PolicyInterface,
-	ctx *context.Context,
+	ctx context.Interface,
 	userRequestInfo kyverno.RequestInfo,
 	dynamicConfig config.Interface,
 	admissionRequestTimestamp int64,

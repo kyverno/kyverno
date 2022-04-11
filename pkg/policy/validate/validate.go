@@ -103,8 +103,8 @@ func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
 		return fmt.Errorf("foreach.list is required")
 	}
 
-	if !strings.HasPrefix(foreach.List, "request.object") {
-		return fmt.Errorf("foreach.list must start with 'request.object' e.g. 'request.object.spec.containers'")
+	if !strings.HasPrefix(foreach.List, "request.object") && !strings.HasPrefix(foreach.List, "request.userInfo") {
+		return fmt.Errorf("foreach.list must start with either 'request.object' or 'request.userInfo', e.g. 'request.object.spec.containers', 'request.userInfo.groups'")
 	}
 
 	count := foreachElemCount(foreach)
