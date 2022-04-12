@@ -238,9 +238,9 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		var podOnlyMap = make(map[string]bool) //Validate that Kind is only Pod
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
-			msg := "Policies that match Pods apply to all Pods including those managed by controllers excluded " +
-				"in the autogen annotation. Use preconditions to exclude Pods managed controllers excluded in " +
-				"the autogen annotation. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
+			msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
+				"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
+				"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
 
 			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
