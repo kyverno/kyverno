@@ -442,7 +442,7 @@ func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error)
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, policyReport bool,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
@@ -568,7 +568,7 @@ OuterLoop:
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels}
+		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels, AdmissionInfo: userInfo}
 		validateResponse = engine.Validate(policyCtx)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
@@ -754,6 +754,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 
 func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
+
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
@@ -1046,4 +1047,53 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 	}
 
 	return patchedResource, nil
+}
+
+//GetUserInfoFromPath - get the request info as user info from a given path
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1.RequestInfo, error) {
+	userInfo := &v1.RequestInfo{}
+
+	if isGit {
+		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
+		if err != nil {
+			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)
+		}
+		bytes, err := ioutil.ReadAll(filep)
+		if err != nil {
+			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+		}
+		userInfoBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			fmt.Printf("failed to convert to JSON: %v", err)
+		}
+
+		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
+			fmt.Printf("failed to decode yaml: %v", err)
+		}
+	} else {
+		var errors []error
+		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
+		if err != nil {
+			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
+		}
+		userInfoBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
+		}
+
+		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
+			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
+		}
+		if len(errors) > 0 {
+			return *userInfo, sanitizederror.NewWithErrors("failed to read file", errors)
+		}
+
+		if len(errors) > 0 && log.Log.V(1).Enabled() {
+			fmt.Printf("ignoring errors: \n")
+			for _, e := range errors {
+				fmt.Printf("    %v \n", e.Error())
+			}
+		}
+	}
+	return *userInfo, nil
 }
