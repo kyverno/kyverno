@@ -14,7 +14,7 @@ import (
 	wildcard "github.com/kyverno/go-wildcard"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,6 +24,53 @@ import (
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
+
+// CopyMap creates a full copy of the target map
+func CopyMap(m map[string]interface{}) map[string]interface{} {
+	mapCopy := make(map[string]interface{})
+	for k, v := range m {
+		mapCopy[k] = v
+	}
+
+	return mapCopy
+}
+
+// CopySlice creates a full copy of the target slice
+func CopySlice(s []interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	copy(sliceCopy, s)
+
+	return sliceCopy
+}
+
+// CopySliceOfMaps creates a full copy of the target slice
+func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	for i, v := range s {
+		sliceCopy[i] = CopyMap(v)
+	}
+
+	return sliceCopy
+}
+
+func ToMap(data interface{}) (map[string]interface{}, error) {
+	if m, ok := data.(map[string]interface{}); ok {
+		return m, nil
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	mapData := make(map[string]interface{})
+	err = json.Unmarshal(b, &mapData)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapData, nil
+}
 
 // Contains checks if a string is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
@@ -90,7 +137,7 @@ func isCRDInstalled(discoveryClient client.IDiscovery, kind string) bool {
 }
 
 // ExtractResources extracts the new and old resource as unstructured
-func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+func ExtractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
 	var newResource unstructured.Unstructured
 	var oldResource unstructured.Unstructured

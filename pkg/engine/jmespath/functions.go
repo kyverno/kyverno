@@ -212,6 +212,7 @@ func GetFunctions() []*FunctionEntry {
 				},
 				Handler: jpRegexMatch,
 			},
+			ReturnType: []JpType{JpBool},
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{Name: patternMatch,

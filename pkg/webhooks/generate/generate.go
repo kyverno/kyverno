@@ -12,7 +12,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -21,13 +21,13 @@ import (
 
 // GenerateRequests provides interface to manage generate requests
 type GenerateRequests interface {
-	Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error
+	Apply(gr kyverno.GenerateRequestSpec, action admissionv1.Operation) error
 }
 
 // GeneratorChannel ...
 type GeneratorChannel struct {
 	spec   kyverno.GenerateRequestSpec
-	action v1beta1.Operation
+	action admissionv1.Operation
 }
 
 // Generator defines the implementation to mange generate request resource
@@ -54,7 +54,7 @@ func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Ge
 }
 
 // Apply creates generate request resource (blocking call if channel is full)
-func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
+func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action admissionv1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
 
@@ -91,7 +91,7 @@ func (g *Generator) processApply(m GeneratorChannel) {
 	}
 }
 
-func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.Operation) error {
+func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action admissionv1.Operation) error {
 	// create/update a generate request
 
 	if err := retryApplyResource(g.client, grSpec, g.log, action, g.grLister); err != nil {
@@ -104,7 +104,7 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action v1beta1.
 // use worker pattern to read and create the CR resource
 
 func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.GenerateRequestSpec,
-	log logr.Logger, action v1beta1.Operation, grLister kyvernolister.GenerateRequestNamespaceLister) error {
+	log logr.Logger, action admissionv1.Operation, grLister kyvernolister.GenerateRequestNamespaceLister) error {
 
 	var i int
 	var err error
@@ -122,7 +122,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 		// Initial state "Pending"
 		// generate requests created in kyverno namespace
 		isExist := false
-		if action == v1beta1.Create || action == v1beta1.Update {
+		if action == admissionv1.Create || action == admissionv1.Update {
 			log.V(4).Info("querying all generate requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
 				"generate.kyverno.io/policy-name":        policyName,

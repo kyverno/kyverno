@@ -29,7 +29,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/pkg/errors"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -204,7 +204,7 @@ func NewWebhookServer(
 	return ws, nil
 }
 
-func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
+func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
 	userRequestInfo := v1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
@@ -228,11 +228,11 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
-	if request.Kind.Kind == "Secret" && request.Operation == v1beta1.Update {
+	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
 		resource, err = utils.NormalizeSecret(&resource)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
@@ -248,7 +248,7 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		Client:              ws.client,
 	}
 
-	if request.Operation == v1beta1.Update {
+	if request.Operation == admissionv1.Update {
 		policyContext.OldResource = resource
 	}
 
