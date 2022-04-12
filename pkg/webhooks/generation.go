@@ -22,7 +22,7 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	gen "github.com/kyverno/kyverno/pkg/generate"
+	gen "github.com/kyverno/kyverno/pkg/updaterequest/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -186,9 +186,9 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 		grAnnotations = make(map[string]string)
 	}
 	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
-	ws.mu.Unlock()
 	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)

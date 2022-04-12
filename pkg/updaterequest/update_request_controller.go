@@ -1,4 +1,4 @@
-package generate
+package updaterequest
 
 import (
 	"reflect"
@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	common "github.com/kyverno/kyverno/pkg/updaterequest/common"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +44,7 @@ type Controller struct {
 	eventGen event.Interface
 
 	// grStatusControl is used to update GR status
-	statusControl StatusControlInterface
+	statusControl common.StatusControlInterface
 
 	// GR that need to be synced
 	queue workqueue.RateLimitingInterface
@@ -101,7 +102,7 @@ func NewController(
 		Config:          dynamicConfig,
 	}
 
-	c.statusControl = StatusControl{client: kyvernoClient}
+	c.statusControl = common.StatusControl{Client: kyvernoClient}
 
 	c.policySynced = policyInformer.Informer().HasSynced
 
@@ -221,7 +222,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	return c.processGR(gr)
+	return c.ProcessGR(gr)
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {

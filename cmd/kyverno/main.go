@@ -26,8 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/generate"
-	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -39,6 +37,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/updaterequest"
+	generatecleanup "github.com/kyverno/kyverno/pkg/updaterequest/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -332,7 +332,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
-	grc, err := generate.NewController(
+	grc, err := updaterequest.NewController(
 		kubeClient,
 		pclient,
 		client,
