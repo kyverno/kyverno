@@ -93,8 +93,6 @@ type WebhookServer struct {
 
 	urController *background.Controller
 
-	promConfig *metrics.PromConfig
-
 	metricsConfig *metrics.MetricsConfig
 
 	mu sync.RWMutex
@@ -125,8 +123,12 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
+<<<<<<< HEAD
 	urc *background.Controller,
 	promConfig *metrics.PromConfig,
+=======
+	grc *background.Controller,
+>>>>>>> 19e9d653b (remove current prometheus config)
 	metricsConfig *metrics.MetricsConfig,
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
@@ -153,7 +155,6 @@ func NewWebhookServer(
 		auditHandler:      auditHandler,
 		log:               log,
 		openAPIController: openAPIController,
-		promConfig:        promConfig,
 		metricsConfig:     metricsConfig,
 	}
 	mux := httprouter.New()

@@ -171,11 +171,15 @@ func (ws *WebhookServer) resourceValidation(logger logr.Logger, request *admissi
 		prGenerator: ws.prGenerator,
 	}
 <<<<<<< HEAD
+<<<<<<< HEAD
 
 	ok, msg := vh.handleValidation(ws.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
 =======
 	ok, msg := vh.handleValidation(ws.promConfig, ws.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
+=======
+	ok, msg := vh.handleValidation(ws.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
+>>>>>>> 19e9d653b (remove current prometheus config)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(false, msg)

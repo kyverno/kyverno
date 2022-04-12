@@ -6,11 +6,9 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
-	prom "github.com/prometheus/client_golang/prometheus"
 )
 
 func registerPolicyChangesMetric(
-	pc *metrics.PromConfig,
 	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
@@ -39,25 +37,17 @@ func registerPolicyChangesMetric(
 		return nil
 	}
 
-	m.RecordPolicyChanges(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, string(policyChangeType), pc.Log)
+	m.RecordPolicyChanges(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, string(policyChangeType), m.Log)
 
-	pc.Metrics.PolicyChanges.With(prom.Labels{
-		"policy_validation_mode": string(policyValidationMode),
-		"policy_type":            string(policyType),
-		"policy_background_mode": string(policyBackgroundMode),
-		"policy_namespace":       policyNamespace,
-		"policy_name":            policyName,
-		"policy_change_type":     string(policyChangeType),
-	}).Inc()
 	return nil
 }
 
-func RegisterPolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface, policyChangeType PolicyChangeType) error {
+func RegisterPolicy(m *metrics.MetricsConfig, policy kyverno.PolicyInterface, policyChangeType PolicyChangeType) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
 	}
-	if err = registerPolicyChangesMetric(pc, m, validationMode, policyType, backgroundMode, namespace, name, policyChangeType); err != nil {
+	if err = registerPolicyChangesMetric(m, validationMode, policyType, backgroundMode, namespace, name, policyChangeType); err != nil {
 		return err
 	}
 	return nil

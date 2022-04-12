@@ -29,7 +29,7 @@ func registerMetric(logger logr.Logger, m string, requestOperation string, r rep
 
 func (ws *WebhookServer) registerAdmissionReviewDurationMetricMutate(logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
 	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionReviewDuration.ProcessEngineResponses(ws.promConfig, ws.metricsConfig, engineResponses, admissionReviewLatencyDuration, op)
+		return admissionReviewDuration.ProcessEngineResponses(ws.metricsConfig, engineResponses, admissionReviewLatencyDuration, op)
 	})
 }
 
@@ -37,13 +37,13 @@ func (ws *WebhookServer) registerAdmissionReviewDurationMetricGenerate(logger lo
 	defer close(*latencyReceiver)
 	defer close(*engineResponsesReceiver)
 	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionReviewDuration.ProcessEngineResponses(ws.promConfig, ws.metricsConfig, <-(*engineResponsesReceiver), <-(*latencyReceiver), op)
+		return admissionReviewDuration.ProcessEngineResponses(ws.metricsConfig, <-(*engineResponsesReceiver), <-(*latencyReceiver), op)
 	})
 }
 
-func registerAdmissionReviewDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, metricsConfig *metrics.MetricsConfig, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
+func registerAdmissionReviewDurationMetricValidate(logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64) {
 	registerMetric(logger, "kyverno_admission_review_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionReviewDuration.ProcessEngineResponses(promConfig, metricsConfig, engineResponses, admissionReviewLatencyDuration, op)
+		return admissionReviewDuration.ProcessEngineResponses(metricsConfig, engineResponses, admissionReviewLatencyDuration, op)
 	})
 }
 
@@ -51,20 +51,20 @@ func registerAdmissionReviewDurationMetricValidate(logger logr.Logger, promConfi
 
 func (ws *WebhookServer) registerAdmissionRequestsMetricMutate(logger logr.Logger, requestOperation string, engineResponses []*response.EngineResponse) {
 	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionRequests.ProcessEngineResponses(ws.promConfig, ws.metricsConfig, engineResponses, op)
+		return admissionRequests.ProcessEngineResponses(ws.metricsConfig, engineResponses, op)
 	})
 }
 
 func (ws *WebhookServer) registerAdmissionRequestsMetricGenerate(logger logr.Logger, requestOperation string, engineResponsesReceiver *chan []*response.EngineResponse) {
 	defer close(*engineResponsesReceiver)
 	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionRequests.ProcessEngineResponses(ws.promConfig, ws.metricsConfig, <-(*engineResponsesReceiver), op)
+		return admissionRequests.ProcessEngineResponses(ws.metricsConfig, <-(*engineResponsesReceiver), op)
 	})
 }
 
-func registerAdmissionRequestsMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, metricsConfig *metrics.MetricsConfig, requestOperation string, engineResponses []*response.EngineResponse) {
+func registerAdmissionRequestsMetricValidate(logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, engineResponses []*response.EngineResponse) {
 	registerMetric(logger, "kyverno_admission_requests_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return admissionRequests.ProcessEngineResponses(promConfig, metricsConfig, engineResponses, op)
+		return admissionRequests.ProcessEngineResponses(metricsConfig, engineResponses, op)
 	})
 }
 
@@ -72,23 +72,27 @@ func registerAdmissionRequestsMetricValidate(logger logr.Logger, promConfig *met
 
 func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyResults.ProcessEngineResponse(ws.promConfig, ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+		return policyResults.ProcessEngineResponse(ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 func registerPolicyResultsMetricValidation(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 =======
 func registerPolicyResultsMetricValidation(logger logr.Logger, promConfig *metrics.PromConfig, metricsConfig *metrics.MetricsConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
+=======
+func registerPolicyResultsMetricValidation(logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+>>>>>>> 19e9d653b (remove current prometheus config)
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyResults.ProcessEngineResponse(promConfig, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+		return policyResults.ProcessEngineResponse(metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
 func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyResults.ProcessEngineResponse(ws.promConfig, ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
+		return policyResults.ProcessEngineResponse(ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
 }
 
@@ -96,22 +100,26 @@ func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logge
 
 func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyExecutionDuration.ProcessEngineResponse(ws.promConfig, ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+		return policyExecutionDuration.ProcessEngineResponse(ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
 	})
 }
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 =======
 func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, metricsConfig *metrics.MetricsConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
+=======
+func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, metricsConfig *metrics.MetricsConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+>>>>>>> 19e9d653b (remove current prometheus config)
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyExecutionDuration.ProcessEngineResponse(promConfig, metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+		return policyExecutionDuration.ProcessEngineResponse(metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
 	})
 }
 
 func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
-		return policyExecutionDuration.ProcessEngineResponse(ws.promConfig, ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
+		return policyExecutionDuration.ProcessEngineResponse(ws.metricsConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
 	})
 }

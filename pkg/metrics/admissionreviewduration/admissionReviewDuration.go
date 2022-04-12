@@ -6,11 +6,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
-	prom "github.com/prometheus/client_golang/prometheus"
 )
 
 func registerAdmissionReviewDurationMetric(
-	pc *metrics.PromConfig,
 	m *metrics.MetricsConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
@@ -33,18 +31,13 @@ func registerAdmissionReviewDurationMetric(
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
-	pc.Metrics.AdmissionReviewDuration.With(prom.Labels{
-		"resource_kind":              resourceKind,
-		"resource_namespace":         resourceNamespace,
-		"resource_request_operation": string(resourceRequestOperation),
-	}).Observe(admissionRequestLatency)
 
 	m.RecordAdmissionReviewDuration(resourceKind, resourceNamespace, string(resourceRequestOperation), admissionRequestLatency, m.Log)
 
 	return nil
 }
 
-func ProcessEngineResponses(pc *metrics.PromConfig, m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
@@ -66,5 +59,5 @@ func ProcessEngineResponses(pc *metrics.PromConfig, m *metrics.MetricsConfig, en
 		return nil
 	}
 	admissionReviewLatencyDurationInSeconds := float64(admissionReviewLatencyDuration) / float64(1000*1000*1000)
-	return registerAdmissionReviewDurationMetric(pc, m, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
+	return registerAdmissionReviewDurationMetric(m, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
 }

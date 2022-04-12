@@ -6,11 +6,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
-	prom "github.com/prometheus/client_golang/prometheus"
 )
 
 func registerAdmissionRequestsMetric(
-	pc *metrics.PromConfig,
 	m *metrics.MetricsConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
@@ -32,18 +30,13 @@ func registerAdmissionRequestsMetric(
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 		return nil
 	}
-	pc.Metrics.AdmissionRequests.With(prom.Labels{
-		"resource_kind":              resourceKind,
-		"resource_namespace":         resourceNamespace,
-		"resource_request_operation": string(resourceRequestOperation),
-	}).Inc()
 
-	m.RecordAdmissionRequests(resourceKind, resourceNamespace, resourceRequestOperation, pc.Log)
+	m.RecordAdmissionRequests(resourceKind, resourceNamespace, resourceRequestOperation, m.Log)
 
 	return nil
 }
 
-func ProcessEngineResponses(pc *metrics.PromConfig, m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
@@ -64,5 +57,5 @@ func ProcessEngineResponses(pc *metrics.PromConfig, m *metrics.MetricsConfig, en
 	if validateRulesCount == 0 && mutateRulesCount == 0 && generateRulesCount == 0 {
 		return nil
 	}
-	return registerAdmissionRequestsMetric(pc, m, resourceKind, resourceNamespace, resourceRequestOperation)
+	return registerAdmissionRequestsMetric(m, resourceKind, resourceNamespace, resourceRequestOperation)
 }

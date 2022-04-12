@@ -12,6 +12,14 @@ import (
 	"strings"
 	"time"
 
+<<<<<<< HEAD
+=======
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
+
+>>>>>>> 19e9d653b (remove current prometheus config)
 	"github.com/kyverno/kyverno/pkg/background"
 	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -82,9 +90,14 @@ func main() {
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true', to enable exposing the metrics.")
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 	flag.StringVar(&otel, "otel-config", "grpc", "Set this flag to 'prometheus', to enable exposing metrics directly to prometheus. Or else set to grpc to export metrics to an Opentelemetry collector")
 	flag.StringVar(&otelCollector, "otel-collector", "opentelemetrycollector.kyverno.svc.cluster.local:4317", "Set this flag to the OpenTelemetry Collector Receiver endpoint")
+=======
+	flag.StringVar(&otel, "otelConfig", "grpc", "Set this flag to 'prometheus', to enable exposing metrics directly to prometheus. Or else set to grpc to export metrics to an Opentelemetry collector")
+	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local:4317", "Set this flag to the OpenTelemetry Collector Receiver endpoint")
+>>>>>>> 19e9d653b (remove current prometheus config)
 	// deprecated
 	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000. Deprecated and will be removed in 1.6.0. ")
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
@@ -142,7 +155,6 @@ func main() {
 	}
 
 	var metricsServerMux *http.ServeMux
-	var promConfig *metrics.PromConfig
 	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
@@ -245,6 +257,7 @@ func main() {
 		os.Exit(1)
 	}
 
+<<<<<<< HEAD
 	if !disableMetricsExport {
 		promConfig, err = metrics.NewPromConfig(metricsConfigData)
 		if err != nil {
@@ -264,25 +277,30 @@ func main() {
 	}
 
 	// OpenTelemetry Configuration
+=======
+	// Metrics Configuration
+>>>>>>> 19e9d653b (remove current prometheus config)
 	if !disableMetricsExport {
 		if otel == "grpc" {
+			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
 			setupLog.Info("enabling otel grpc metrics", "address", ":4317")
-			// TODO: Get collector endpoint from the user using a cmd flag
-			metricsConfig, err = metrics.NewOTLPGRPCConfig(otelCollector, metricsConfigData, log.Log.WithName("OtelMetrics"))
+			metricsConfig, err = metrics.NewOTLPGRPCConfig(otelCollector, metricsConfigData, log.Log.WithName("Opentelemetry-Metrics"))
 			if err != nil {
 				setupLog.Error(err, "failed to enable otel metrics")
 				os.Exit(1)
 			}
 		} else if otel == "prometheus" {
-			// NewPrometheusConfig
+			// Prometheus Server will serve metrics on metrics-port
 			metricsAddr := ":" + metricsPort
 			setupLog.Info("enabling prometheus metrics", "address", metricsAddr)
-			// TODO: Get collector endpoint from the user using a cmd flag
-			metricsConfig, err = metrics.NewPrometheusConfig(metricsAddr, metricsConfigData, log.Log.WithName("Prometheus-Config"))
-			if err != nil {
-				setupLog.Error(err, "failed to enable prometheus metrics")
-				os.Exit(1)
-			}
+			metricsConfig, metricsServerMux, err = metrics.NewPrometheusConfig(metricsConfigData, log.Log.WithName("Prometheus-Metrics"))
+			go func() {
+				setupLog.Info("enabling metrics service", "address", metricsAddr)
+				if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+					setupLog.Error(err, "failed to enable metrics service", "address", metricsAddr)
+					os.Exit(1)
+				}
+			}()
 		}
 	}
 
@@ -304,7 +322,7 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
-		promConfig,
+		// promConfig,
 		metricsConfig,
 	)
 
@@ -360,9 +378,15 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("ValidateAuditHandler"),
+<<<<<<< HEAD
 		configuration,
 		dynamicClient,
 		promConfig,
+=======
+		configData,
+		client,
+		// promConfig,
+>>>>>>> 19e9d653b (remove current prometheus config)
 		metricsConfig,
 	)
 
@@ -466,8 +490,13 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
+<<<<<<< HEAD
 		urc,
 		promConfig,
+=======
+		grc,
+		// promConfig,
+>>>>>>> 19e9d653b (remove current prometheus config)
 		metricsConfig,
 	)
 

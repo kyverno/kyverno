@@ -53,8 +53,12 @@ type auditHandler struct {
 	nsLister  listerv1.NamespaceLister
 
 	log           logr.Logger
+<<<<<<< HEAD
 	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
+=======
+	configHandler config.Interface
+>>>>>>> 19e9d653b (remove current prometheus config)
 	metricsConfig *metrics.MetricsConfig
 }
 
@@ -86,7 +90,6 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 =======
 	dynamicConfig config.Interface,
 	client *client.Client,
-	promConfig *metrics.PromConfig,
 	metricsConfig *metrics.MetricsConfig) AuditHandler {
 
 	return &auditHandler{
@@ -103,7 +106,6 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 		prGenerator:    prGenerator,
 		configHandler:  dynamicConfig,
 		client:         client,
-		promConfig:     promConfig,
 		metricsConfig:  metricsConfig,
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
 	}
@@ -213,7 +215,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		prGenerator: h.prGenerator,
 	}
 
-	vh.handleValidation(h.promConfig, h.metricsConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
+	vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 

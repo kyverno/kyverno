@@ -7,11 +7,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
-	prom "github.com/prometheus/client_golang/prometheus"
 )
 
 func registerPolicyRuleInfoMetric(
-	pc *metrics.PromConfig,
 	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
@@ -54,23 +52,12 @@ func registerPolicyRuleInfoMetric(
 	if ready {
 		status = "true"
 	}
-	pc.Metrics.PolicyRuleInfo.With(prom.Labels{
-		"policy_validation_mode": string(policyValidationMode),
-		"policy_type":            string(policyType),
-		"policy_background_mode": string(policyBackgroundMode),
-		"policy_namespace":       policyNamespace,
-		"policy_name":            policyName,
-		"rule_name":              ruleName,
-		"rule_type":              string(ruleType),
-		"status_ready":           status,
-	}).Set(metricValue)
-
 	m.RecordPolicyRuleInfo(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleType, status, metricValue, m.Log)
 
 	return nil
 }
 
-func AddPolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
+func AddPolicy(m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -79,14 +66,14 @@ func AddPolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(pc, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleCreated, ready); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func RemovePolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
+func RemovePolicy(m *metrics.MetricsConfig, policy kyverno.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -95,7 +82,7 @@ func RemovePolicy(pc *metrics.PromConfig, m *metrics.MetricsConfig, policy kyver
 	for _, rule := range autogen.ComputeRules(policy) {
 		ruleName := rule.Name
 		ruleType := metrics.ParseRuleType(rule)
-		if err = registerPolicyRuleInfoMetric(pc, m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
+		if err = registerPolicyRuleInfoMetric(m, validationMode, policyType, backgroundMode, namespace, name, ruleName, ruleType, PolicyRuleDeleted, ready); err != nil {
 			return err
 		}
 	}

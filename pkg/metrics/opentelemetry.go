@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -24,6 +23,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/export/aggregation"
 	processor "go.opentelemetry.io/otel/sdk/metric/processor/basic"
 	"go.opentelemetry.io/otel/sdk/metric/selector/simple"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 const (
@@ -134,6 +135,15 @@ func NewOTLPGRPCConfig(endpoint string, metricsConfigData *config.MetricsConfigD
 		return nil, err
 	}
 
+	res, err := resource.New(context.Background(),
+		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno-svc-metrics")),
+		resource.WithAttributes(semconv.ServiceNamespaceKey.String("kyverno")),
+		resource.WithSchemaURL(semconv.SchemaURL),
+	)
+	if err != nil {
+		log.Error(err, "failed creating resource")
+	}
+
 	// create controller and bind the exporter with it
 	pusher := controller.New(
 		processor.NewFactory(
@@ -141,6 +151,7 @@ func NewOTLPGRPCConfig(endpoint string, metricsConfigData *config.MetricsConfigD
 			metricExp,
 		),
 		controller.WithExporter(metricExp),
+		controller.WithResource(res),
 		controller.WithCollectPeriod(2*time.Second),
 	)
 	global.SetMeterProvider(pusher)
@@ -187,8 +198,17 @@ func NewOTLPGRPCConfig(endpoint string, metricsConfigData *config.MetricsConfigD
 	return m, nil
 }
 
-func NewPrometheusConfig(endpoint string, metricsConfigData *config.MetricsConfigData, log logr.Logger) (*MetricsConfig, error) {
+func NewPrometheusConfig(metricsConfigData *config.MetricsConfigData, log logr.Logger) (*MetricsConfig, *http.ServeMux, error) {
 	config := prometheus.Config{}
+
+	res, err := resource.New(context.Background(),
+		resource.WithAttributes(semconv.ServiceNameKey.String("kyverno-svc-metrics")),
+		resource.WithAttributes(semconv.ServiceNamespaceKey.String("kyverno")),
+		resource.WithSchemaURL(semconv.SchemaURL),
+	)
+	if err != nil {
+		log.Error(err, "failed creating resource")
+	}
 
 	c := controller.New(
 		processor.NewFactory(
@@ -196,11 +216,13 @@ func NewPrometheusConfig(endpoint string, metricsConfigData *config.MetricsConfi
 			aggregation.CumulativeTemporalitySelector(),
 			processor.WithMemory(true),
 		),
+		controller.WithResource(res),
 	)
+
 	exporter, err := prometheus.New(config, c)
 	if err != nil {
 		log.Error(err, "failed to initialize prometheus exporter")
-		return nil, err
+		return nil, nil, err
 	}
 
 	global.SetMeterProvider(exporter.MeterProvider())
@@ -210,17 +232,14 @@ func NewPrometheusConfig(endpoint string, metricsConfigData *config.MetricsConfi
 	m.Config = metricsConfigData
 	m, err = initializeMetrics(m)
 
-	http.HandleFunc("/", exporter.ServeHTTP)
-	go func() {
-		if err = http.ListenAndServe(endpoint, nil); err != nil {
-			log.Error(err, "failed to enable prometheus metrics on port: %v", endpoint)
-			os.Exit(1)
-		}
-	}()
+	if err != nil {
+		log.Error(err, "failed to initialize metrics config")
+	}
 
-	log.Info("Prometheus server running on :%s", endpoint)
+	metricsServerMux := http.NewServeMux()
+	metricsServerMux.HandleFunc("/metrics", exporter.ServeHTTP)
 
-	return m, nil
+	return m, metricsServerMux, nil
 }
 
 func (m *MetricsConfig) RecordPolicyResults(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
