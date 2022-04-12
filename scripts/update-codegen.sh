@@ -26,4 +26,4 @@ ${CODEGEN_PKG}/generate-groups.sh \
     "deepcopy,client,informer,lister" \
     ${NIRMATA_PKG}/pkg/client \
     ${NIRMATA_PKG}/pkg/api \
-    "kyverno:v1 kyverno:v1beta1 policyreport:v1alpha2 kyverno:v1alpha2"
+    "kyverno:v1 kyverno:v1beta1 kyverno:v1alpha2 policyreport:v1alpha2"
