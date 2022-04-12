@@ -236,6 +236,7 @@ type Test struct {
 	Policies  []string      `json:"policies"`
 	Resources []string      `json:"resources"`
 	Variables string        `json:"variables"`
+	UserInfo  string        `json:"userinfo"`
 	Results   []TestResults `json:"results"`
 }
 
@@ -410,7 +411,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-
 				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
@@ -717,8 +717,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	var variablesString string
 	var pvInfos []policyreport.Info
 	var resultCounts common.ResultCounts
-	store.SetMock(true)
 
+	store.SetMock(true)
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
@@ -739,12 +739,24 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	fmt.Printf("\nExecuting %s...", values.Name)
 	valuesFile := values.Variables
+	userInfoFile := values.UserInfo
+
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, values.Variables, fs, isGit, policyResourcePath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 		return err
+	}
+
+	// get the user info as request info from a different file
+	var userInfo v1.RequestInfo
+	if userInfoFile != "" {
+		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
+		if err != nil {
+			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
+			os.Exit(1)
+		}
 	}
 
 	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)
@@ -857,7 +869,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
-			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, true, namespaceSelectorMap, false, &resultCounts, false)
+			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
