@@ -848,6 +848,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				}
 			}
 		}
+		globalValMap = common.SetDefaultValueOfRequestOperationToCreate(matches, globalValMap)
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 

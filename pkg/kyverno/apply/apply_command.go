@@ -291,6 +291,7 @@ func applyCommandHelper(resourcePaths []string, cluster bool, policyReport bool,
 				}
 			}
 		}
+		globalValMap = common.SetDefaultValueOfRequestOperationToCreate(matches, globalValMap)
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 

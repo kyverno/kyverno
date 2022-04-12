@@ -360,14 +360,8 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 				if val, ok := r.Values["request.operation"]; ok {
 					if val == "" {
 						r.Values["request.operation"] = "CREATE"
-						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
+						log.Log.V(3).Info("value of request.operation is empty, defaulting it to CREATE", "policy", p.Name)
 					}
-				} else {
-					if r.Values == nil {
-						r.Values = make(map[string]string)
-					}
-					r.Values["request.operation"] = "CREATE"
-					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 				}
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
@@ -1046,4 +1040,28 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 	}
 
 	return patchedResource, nil
+}
+
+// Setting request.operation value equal to CREATE by default
+func SetDefaultValueOfRequestOperationToCreate(matches [][]string, globalValMap map[string]string) map[string]string {
+	for _, vars := range matches {
+		vari := strings.Join(vars, " ")
+		if strings.Contains(vari, "request.operation") {
+			if globalValMap["request.operation"] == "" {
+				if globalValMap == nil {
+					globalValMap = make(map[string]string)
+					// set globally, request.operation to CREATE
+					globalValMap["request.operation"] = "CREATE"
+					log.Log.V(3).Info("variable request.operation found in policy, by default globally set to CREATE.")
+					break
+				} else {
+					// set globally, request.operation to CREATE
+					globalValMap["request.operation"] = "CREATE"
+					log.Log.V(3).Info("variable request.operation found in policy, by default globally set to CREATE.")
+					break
+				}
+			}
+		}
+	}
+	return globalValMap
 }
