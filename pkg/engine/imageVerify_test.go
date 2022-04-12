@@ -149,7 +149,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 
 	er := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
-	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
 
 func buildContext(t *testing.T, policy, resource string) *PolicyContext {

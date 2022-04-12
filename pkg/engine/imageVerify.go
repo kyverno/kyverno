@@ -153,13 +153,20 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
+			// if imageVerify.DigestMutate == nil {
+			// 	digest := true
+			// 	imageVerify.DigestMutate = &digest
+			// }
+
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
 				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && imageVerify.DigestMutate && ruleResp.Status == response.RuleStatusPass {
 					iv.patchDigest(path, imageInfo, digest, ruleResp)
+					fmt.Println("hi1")
 				}
+				fmt.Println("hi2")
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && imageVerify.DigestMutate {
@@ -169,7 +176,9 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 					}
 					imgData, ok := imageData.(map[string]interface{})
 					if ok {
+						fmt.Println(imgData["digest"].(string))
 						iv.patchDigest(path, imageInfo, imgData["digest"].(string), ruleResp)
+						fmt.Println(ruleResp.Patches)
 					}
 				}
 			}
