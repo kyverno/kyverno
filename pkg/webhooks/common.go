@@ -13,9 +13,7 @@ import (
 	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 // returns true -> if there is even one policy that blocks resource request
@@ -72,7 +70,7 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 }
 
 // patchRequest applies patches to the request.Object and returns a new copy of the request
-func patchRequest(patches []byte, request *v1beta1.AdmissionRequest, logger logr.Logger) *v1beta1.AdmissionRequest {
+func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
@@ -142,48 +140,6 @@ func checkForRBACInfo(rule kyverno.Rule) bool {
 	return false
 }
 
-// extracts the new and old resource as unstructured
-func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
-	var emptyResource unstructured.Unstructured
-
-	// New Resource
-	if newRaw == nil {
-		newRaw = request.Object.Raw
-	}
-	if newRaw == nil {
-		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
-	}
-
-	new, err := convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
-	}
-
-	// Old Resource - Optional
-	oldRaw := request.OldObject.Raw
-	if oldRaw == nil {
-		return new, emptyResource, nil
-	}
-
-	old, err := convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
-	}
-	return new, old, err
-}
-
-// convertResource converts raw bytes to an unstructured object
-func convertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
-	obj, err := engineutils.ConvertToUnstructured(raw)
-	if err != nil {
-		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
-	}
-
-	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
-	obj.SetNamespace(namespace)
-	return *obj, nil
-}
-
 func excludeKyvernoResources(kind string) bool {
 	switch kind {
 	case "ClusterPolicyReport":
@@ -201,7 +157,7 @@ func excludeKyvernoResources(kind string) bool {
 	}
 }
 
-func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (*enginectx.Context, error) {
+func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, errors.Wrap(err, "failed to load incoming request in context")

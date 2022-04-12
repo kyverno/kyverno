@@ -23,7 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -146,13 +146,13 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 	}
 
 	requestString := gr.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	var request v1beta1.AdmissionRequest
+	var request admissionv1.AdmissionRequest
 	err = json.Unmarshal([]byte(requestString), &request)
 	if err != nil {
 		logger.Error(err, "error parsing the request string")
 	}
 
-	if gr.Spec.Context.AdmissionRequestInfo.Operation == v1beta1.Update {
+	if gr.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Update {
 		request.Operation = gr.Spec.Context.AdmissionRequestInfo.Operation
 	}
 
@@ -161,13 +161,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, false, err
 	}
 
-	resourceRaw, err := resource.MarshalJSON()
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return nil, false, err
-	}
-
-	err = ctx.AddResource(resourceRaw)
+	err = ctx.AddResource(resource.Object)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, false, err
@@ -185,7 +179,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 		return nil, false, err
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 

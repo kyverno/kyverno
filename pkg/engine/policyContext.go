@@ -33,7 +33,7 @@ type PolicyContext struct {
 	ExcludeResourceFunc func(kind, namespace, name string) bool
 
 	// JSONContext is the variable context
-	JSONContext *context.Context
+	JSONContext context.Interface
 
 	// NamespaceLabels stores the label of namespace to be processed by namespace selector
 	NamespaceLabels map[string]string

@@ -21,7 +21,6 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -506,9 +505,9 @@ OuterLoop:
 	ctx := context.NewContext()
 
 	if operationIsDelete {
-		err = ctx.AddResourceInOldObject(resourceRaw)
+		err = context.AddOldResource(ctx, resourceRaw)
 	} else {
-		err = ctx.AddResourceAsObject(updated_resource.Object)
+		err = context.AddResource(ctx, resourceRaw)
 	}
 
 	if err != nil {
@@ -516,14 +515,13 @@ OuterLoop:
 	}
 
 	for key, value := range variables {
-		jsonData := pkgcommon.VariableToJSON(key, value)
-		err = ctx.AddJSON(jsonData)
+		err = ctx.AddVariable(key, value)
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
 		}
 	}
 
-	if err := ctx.AddImageInfo(resource); err != nil {
+	if err := ctx.AddImageInfos(resource); err != nil {
 		if err != nil {
 			log.Log.Error(err, "failed to add image variables to context")
 		}
@@ -762,7 +760,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 				ruleFoundInEngineResponse = true
 				vrule := v1.ViolatedRule{
 					Name:    valResponseRule.Name,
-					Type:    valResponseRule.Type,
+					Type:    string(valResponseRule.Type),
 					Message: valResponseRule.Message,
 				}
 

@@ -21,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
@@ -558,7 +557,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 		}
 
 		for _, rule := range resp.PolicyResponse.Rules {
-			if rule.Type != utils.Mutation.String() {
+			if rule.Type != response.Mutation {
 				continue
 			}
 
@@ -600,7 +599,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != utils.Validation.String() {
+				if rule.Type != string(response.Validation) {
 					continue
 				}
 
