@@ -15,101 +15,70 @@ import (
 )
 
 const (
-	clusterrolekind = "ClusterRole"
-	rolekind        = "Role"
-	// SaPrefix represents service account prefix in admission requests
-	SaPrefix = "system:serviceaccount:"
-	// KyvernoSuffix ...
-	KyvernoSuffix = "kyverno:"
+	clusterroleKind = "ClusterRole"
+	roleKind        = "Role"
+	// saPrefix represents service account prefix in admission requests
+	saPrefix = "system:serviceaccount:"
 )
 
-type allRolesStruct struct {
-	RoleType string
-	Role     []string
-}
-
-var allRoles []allRolesStruct
-
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Interface) (roles []string, clusterRoles []string, err error) {
+func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Interface) ([]string, []string, error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
 	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
-		return
+		return nil, nil, nil
 	}
-
 	// rolebindings
-	roleBindings, err := rbLister.List(labels.NewSelector())
+	roleBindings, err := rbLister.List(labels.Everything())
 	if err != nil {
-		return roles, clusterRoles, fmt.Errorf("failed to list rolebindings: %v", err)
+		return nil, nil, fmt.Errorf("failed to list rolebindings: %v", err)
 	}
-
-	rs, crs, err := getRoleRefByRoleBindings(roleBindings, request.UserInfo)
-	if err != nil {
-		return roles, clusterRoles, err
-	}
-	roles = append(roles, rs...)
-	clusterRoles = append(clusterRoles, crs...)
-
+	rs, crs := getRoleRefByRoleBindings(roleBindings, request.UserInfo)
 	// clusterrolebindings
 	clusterroleBindings, err := crbLister.List(labels.NewSelector())
 	if err != nil {
-		return roles, clusterRoles, fmt.Errorf("failed to list clusterrolebindings: %v", err)
+		return nil, nil, fmt.Errorf("failed to list clusterrolebindings: %v", err)
 	}
-
-	crs, err = getRoleRefByClusterRoleBindings(clusterroleBindings, request.UserInfo)
-	if err != nil {
-		return roles, clusterRoles, err
-	}
-	clusterRoles = append(clusterRoles, crs...)
-
-	return roles, clusterRoles, nil
+	crs = append(crs, getRoleRefByClusterRoleBindings(clusterroleBindings, request.UserInfo)...)
+	return rs, crs, nil
 }
 
-func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) (roles []string, clusterRoles []string, err error) {
+func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) (roles []string, clusterRoles []string) {
 	for _, rolebinding := range roleBindings {
 		for _, subject := range rolebinding.Subjects {
-			if !matchSubjectsMap(subject, userInfo) {
-				continue
-			}
-
-			switch rolebinding.RoleRef.Kind {
-			case rolekind:
-				roles = append(roles, rolebinding.Namespace+":"+rolebinding.RoleRef.Name)
-			case clusterrolekind:
-				clusterRoles = append(clusterRoles, rolebinding.RoleRef.Name)
+			if matchSubjectsMap(subject, userInfo) {
+				switch rolebinding.RoleRef.Kind {
+				case roleKind:
+					roles = append(roles, rolebinding.Namespace+":"+rolebinding.RoleRef.Name)
+				case clusterroleKind:
+					clusterRoles = append(clusterRoles, rolebinding.RoleRef.Name)
+				}
 			}
 		}
 	}
-
-	return roles, clusterRoles, nil
+	return roles, clusterRoles
 }
 
 // RoleRef in ClusterRoleBindings can only reference a ClusterRole in the global namespace
-func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) (clusterRoles []string, err error) {
+func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) (clusterRoles []string) {
 	for _, clusterRoleBinding := range clusterroleBindings {
 		for _, subject := range clusterRoleBinding.Subjects {
-			if !matchSubjectsMap(subject, userInfo) {
-				continue
-			}
-
-			if clusterRoleBinding.RoleRef.Kind == clusterrolekind {
-				clusterRoles = append(clusterRoles, clusterRoleBinding.RoleRef.Name)
+			if matchSubjectsMap(subject, userInfo) {
+				if clusterRoleBinding.RoleRef.Kind == clusterroleKind {
+					clusterRoles = append(clusterRoles, clusterRoleBinding.RoleRef.Name)
+				}
 			}
 		}
 	}
-	return clusterRoles, nil
+	return clusterRoles
 }
 
 // matchSubjectsMap checks if userInfo found in subject
 // return true directly if found a match
 // subject.kind can only be ServiceAccount, User and Group
 func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
-	// ServiceAccount
-	if strings.Contains(userInfo.Username, SaPrefix) {
+	if strings.Contains(userInfo.Username, saPrefix) {
 		return matchServiceAccount(subject, userInfo)
 	}
-
-	// User or Group
 	return matchUserOrGroup(subject, userInfo)
 }
 
@@ -117,10 +86,9 @@ func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 // serviceaccount represents as saPrefix:namespace:name in userInfo
 func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
 	subjectServiceAccount := subject.Namespace + ":" + subject.Name
-	if userInfo.Username[len(SaPrefix):] != subjectServiceAccount {
+	if userInfo.Username[len(saPrefix):] != subjectServiceAccount {
 		return false
 	}
-
 	log.Log.V(3).Info(fmt.Sprintf("found a matched service account not match: %s", subjectServiceAccount))
 	return true
 }
@@ -134,81 +102,5 @@ func matchUserOrGroup(subject rbacv1.Subject, userInfo authenticationv1.UserInfo
 			return true
 		}
 	}
-
 	return false
-}
-
-//IsRoleAuthorize is role authorize or not
-func IsRoleAuthorize(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, rLister rbaclister.RoleLister, crLister rbaclister.ClusterRoleLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Interface) (bool, error) {
-	if strings.Contains(request.UserInfo.Username, SaPrefix) {
-		roles, clusterRoles, err := GetRoleRef(rbLister, crbLister, request, dynamicConfig)
-		if err != nil {
-			return false, err
-		}
-		allRoles := append(allRoles, allRolesStruct{
-			RoleType: "ClusterRole",
-			Role:     clusterRoles,
-		}, allRolesStruct{
-			RoleType: "Role",
-			Role:     roles,
-		})
-		for _, r := range allRoles {
-			for _, e := range r.Role {
-				if strings.Contains(e, KyvernoSuffix) {
-					return true, nil
-				}
-				var labels map[string]string
-				if r.RoleType == "Role" {
-					roleData := strings.Split(e, ":")
-					role, err := rLister.Roles(roleData[0]).Get(strings.Join(roleData[1:], ":"))
-					if err != nil {
-						return false, err
-					}
-					labels = role.GetLabels()
-				} else {
-					role, err := crLister.Get(e)
-					if err != nil {
-						return false, err
-					}
-					labels = role.GetLabels()
-				}
-				if !strings.Contains(e, KyvernoSuffix) {
-					if labels["kubernetes.io/bootstrapping"] == "rbac-defaults" {
-						return true, nil
-					}
-				}
-			}
-		}
-		return true, nil
-	}
-	// User or Group
-	for _, e := range dynamicConfig.GetExcludeUsername() {
-		if strings.Contains(request.UserInfo.Username, e) {
-			return true, nil
-		}
-	}
-
-	// Restrict Development Roles
-	for _, e := range dynamicConfig.RestrictDevelopmentUsername() {
-		if strings.Contains(request.UserInfo.Username, strings.TrimSpace(e)) {
-			return false, nil
-		}
-	}
-
-	var matchedRoles []bool
-	excludeGroupRule := append(dynamicConfig.GetExcludeGroupRole(), KyvernoSuffix)
-	for _, e := range request.UserInfo.Groups {
-		for _, defaultSuffix := range excludeGroupRule {
-
-			if strings.Contains(strings.TrimSpace(e), strings.TrimSpace(defaultSuffix)) {
-				matchedRoles = append(matchedRoles, true)
-				break
-			}
-		}
-	}
-	if len(matchedRoles) == len(request.UserInfo.Groups) {
-		return true, nil
-	}
-
-	return false, nil
 }
