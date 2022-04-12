@@ -2173,8 +2173,6 @@ spec:
                               Deprecated. Use ImageReferences instead.'
                             type: string
                           imageReferences:
-                            default:
-                            - '*'
                             description: 'ImageReferences is a list of matching image
                               reference patterns. At least one pattern in the list
                               must match the image for the rule to apply. Each image
@@ -4457,8 +4455,6 @@ spec:
                               Deprecated. Use ImageReferences instead.'
                             type: string
                           imageReferences:
-                            default:
-                            - '*'
                             description: 'ImageReferences is a list of matching image
                               reference patterns. At least one pattern in the list
                               must match the image for the rule to apply. Each image

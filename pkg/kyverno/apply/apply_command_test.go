@@ -71,7 +71,7 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, false, true, "", "", "", "", tc.PolicyPaths, false, false)
+		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, "", false, true, "", "", "", "", tc.PolicyPaths, false, false)
 		resps := buildPolicyReports(info)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
