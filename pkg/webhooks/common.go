@@ -13,7 +13,7 @@ import (
 	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 // returns true -> if there is even one policy that blocks resource request
@@ -70,7 +70,7 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 }
 
 // patchRequest applies patches to the request.Object and returns a new copy of the request
-func patchRequest(patches []byte, request *v1beta1.AdmissionRequest, logger logr.Logger) *v1beta1.AdmissionRequest {
+func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
 	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
 	newRequest := request.DeepCopy()
 	newRequest.Object.Raw = patchedResource
@@ -157,7 +157,7 @@ func excludeKyvernoResources(kind string) bool {
 	}
 }
 
-func newVariablesContext(request *v1beta1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (*enginectx.Context, error) {
+func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (enginectx.Interface, error) {
 	ctx := enginectx.NewContext()
 	if err := ctx.AddRequest(request); err != nil {
 		return nil, errors.Wrap(err, "failed to load incoming request in context")

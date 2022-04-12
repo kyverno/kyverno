@@ -76,6 +76,19 @@ type PolicyStats struct {
 	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }
 
+type RuleType string
+
+const (
+	//Mutation type for mutation rule
+	Mutation RuleType = "Mutation"
+	//Validation type for validation rule
+	Validation RuleType = "Validation"
+	//Generation type for generation rule
+	Generation RuleType = "Generation"
+	// ImageVerify type for image verification
+	ImageVerify RuleType = "All"
+)
+
 //RuleResponse details for each rule application
 type RuleResponse struct {
 
@@ -83,7 +96,7 @@ type RuleResponse struct {
 	Name string `json:"name"`
 
 	// rule type (Mutation,Generation,Validation) for Kyverno Policy
-	Type string `json:"type"`
+	Type RuleType `json:"type"`
 
 	// message response from the rule application
 	Message string `json:"message"`

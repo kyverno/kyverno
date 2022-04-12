@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
 func ParsePolicyValidationMode(validationFailureAction kyverno.ValidationFailureAction) (PolicyValidationMode, error) {
@@ -51,4 +52,30 @@ func ParseResourceRequestOperation(requestOperationStr string) (ResourceRequestO
 	default:
 		return "", fmt.Errorf("unknown request operation made by resource: %s. Allowed requests: 'CREATE', 'UPDATE', 'DELETE', 'CONNECT'", requestOperationStr)
 	}
+}
+
+func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) RuleType {
+	switch rule.Type {
+	case "Validation":
+		return Validate
+	case "Mutation":
+		return Mutate
+	case "Generation":
+		return Generate
+	default:
+		return EmptyRuleType
+	}
+}
+
+func GetPolicyInfos(policy kyverno.PolicyInterface) (string, string, PolicyType, PolicyBackgroundMode, PolicyValidationMode, error) {
+	name := policy.GetName()
+	namespace := ""
+	policyType := Cluster
+	if policy.IsNamespaced() {
+		namespace = policy.GetNamespace()
+		policyType = Namespaced
+	}
+	backgroundMode := ParsePolicyBackgroundMode(policy)
+	validationMode, err := ParsePolicyValidationMode(policy.GetSpec().GetValidationFailureAction())
+	return name, namespace, policyType, backgroundMode, validationMode, err
 }

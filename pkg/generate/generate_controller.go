@@ -4,11 +4,8 @@ import (
 	"reflect"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -16,12 +13,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -237,7 +236,7 @@ func (c *Controller) updateGenericResource(old, cur interface{}) {
 
 	// re-evaluate the GR as the resource was updated
 	for _, gr := range grs {
-		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }
@@ -294,7 +293,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the GR as the policy was updated
 	for _, gr := range grs {
-		gr.Spec.Context.AdmissionRequestInfo.Operation = v1beta1.Update
+		gr.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueGenerateRequest(gr)
 	}
 }
