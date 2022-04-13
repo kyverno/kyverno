@@ -354,7 +354,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 	return obj, newRes
 }
 
-//HandleDelete handles admission-requests for delete
+//HandleDelete handles DELETE admission-requests for generate policies
 func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)

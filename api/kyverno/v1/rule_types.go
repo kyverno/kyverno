@@ -81,6 +81,10 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+func (r *Rule) MutatingExisting() bool {
+	return r.Mutation.MutateExisting
+}
+
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }

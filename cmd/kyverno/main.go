@@ -460,6 +460,7 @@ func main() {
 		client,
 		tlsPair,
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
