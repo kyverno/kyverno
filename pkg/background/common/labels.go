@@ -1,4 +1,4 @@
-package generate
+package common
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func manageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured) {
+func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured) {
 	// add managedBY label if not defined
 	labels := unstr.GetLabels()
 	if labels == nil {
