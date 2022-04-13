@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -22,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	tlsutils "github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/updaterequest"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -114,7 +114,7 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	grController *updaterequest.Controller
+	grController *background.Controller
 
 	promConfig *metrics.PromConfig
 
@@ -145,7 +145,7 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	grc *updaterequest.Controller,
+	grc *background.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 	if tlsPair == nil {

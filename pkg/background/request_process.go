@@ -1,8 +1,8 @@
-package updaterequest
+package background
 
 import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/updaterequest/generate"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 )
 
 func (c *Controller) ProcessGR(gr *kyverno.GenerateRequest) error {

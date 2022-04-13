@@ -12,6 +12,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
 	"github.com/kyverno/kyverno/pkg/autogen"
+	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -22,7 +23,6 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	gen "github.com/kyverno/kyverno/pkg/updaterequest/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	admissionv1 "k8s.io/api/admission/v1"
