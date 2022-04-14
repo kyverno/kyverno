@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
@@ -14,14 +15,14 @@ import (
 func TestMatchesResourceDescription(t *testing.T) {
 	tcs := []struct {
 		Description       string
-		AdmissionInfo     v1.RequestInfo
+		AdmissionInfo     v1beta1.RequestInfo
 		Resource          []byte
 		Policy            []byte
 		areErrorsExpected bool
 	}{
 		{
 			Description: "Match Any matches the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -106,7 +107,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Match Any does not match the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -191,7 +192,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Match All matches the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -276,7 +277,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Match All does not match the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -361,7 +362,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Exclude Any excludes the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -461,7 +462,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Exclude Any does not exclude the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -561,7 +562,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Exclude All excludes the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -661,7 +662,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Exclude All does not exclude the Pod",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource: []byte(`{
@@ -761,7 +762,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should match pod and not exclude it",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
@@ -770,7 +771,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should exclude resource since it matches the exclude block",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"system:node"},
 			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
@@ -809,7 +810,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should fail since resource does not match policy",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
@@ -818,7 +819,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should not fail since resource does not match exclude block",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"system:node"},
 			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world2","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
@@ -827,7 +828,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should pass since group, version, kind match",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
@@ -836,7 +837,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should pass since version and kind match",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
@@ -845,7 +846,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should fail since resource does not match ",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Service","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
@@ -854,7 +855,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should fail since version not match",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1beta1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
@@ -863,7 +864,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Should fail since cluster role version not match",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "kind": "ClusterRole", "apiVersion": "rbac.authorization.k8s.io/v1", "metadata": { "name": "secret-reader-demo", "namespace": "default" }, "rules": [ { "apiGroups": [ "" ], "resources": [ "secrets" ], "verbs": [ "get", "watch", "list" ] } ] }`),
@@ -872,7 +873,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Test for GVK case sensitive",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "v1", "kind": "Pod", "metadata": { "name": "myapp-pod2", "labels": { "app": "myapp2" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx" } ] } }`),
@@ -881,7 +882,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 		},
 		{
 			Description: "Test should pass for GVK case sensitive",
-			AdmissionInfo: v1.RequestInfo{
+			AdmissionInfo: v1beta1.RequestInfo{
 				ClusterRoles: []string{"admin"},
 			},
 			Resource:          []byte(`{ "apiVersion": "apps/v1", "kind": "Deployment", "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "name": "qos-demo", "labels": { "test": "qos" } }, "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "nginx" } }, "template": { "metadata": { "creationTimestamp": "2020-09-21T12:56:35Z", "labels": { "app": "nginx" } }, "spec": { "containers": [ { "name": "nginx", "image": "nginx:latest", "resources": { "limits": { "cpu": "50m" } } } ]}}}}`),
@@ -967,7 +968,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 
@@ -1028,7 +1029,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1088,7 +1089,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1156,7 +1157,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1225,7 +1226,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err != nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
 	}
 }
@@ -1305,7 +1306,7 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
 		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
 
-	if err := MatchesResourceDescription(*resource, rule, v1.RequestInfo{}, []string{}, nil, ""); err == nil {
+	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")
 	}
 }

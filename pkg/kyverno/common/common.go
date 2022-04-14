@@ -13,19 +13,19 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -442,7 +442,7 @@ func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error)
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1.RequestInfo, policyReport bool,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
@@ -1050,8 +1050,8 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 }
 
 //GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1.RequestInfo, error) {
-	userInfo := &v1.RequestInfo{}
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, error) {
+	userInfo := &v1beta1.RequestInfo{}
 
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))

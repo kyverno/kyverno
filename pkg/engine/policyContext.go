@@ -2,6 +2,7 @@ package engine
 
 import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,7 +23,7 @@ type PolicyContext struct {
 	Element unstructured.Unstructured
 
 	// AdmissionInfo contains the admission request information
-	AdmissionInfo kyverno.RequestInfo
+	AdmissionInfo urkyverno.RequestInfo
 
 	// Dynamic client - used by generate
 	Client *client.Client

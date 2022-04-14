@@ -23,7 +23,7 @@ import (
 
 // GenerateRequests provides interface to manage update requests
 type Interface interface {
-	Apply(gr urkyverno.UpdateRequest, action admissionv1.Operation) error
+	Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error
 }
 
 // info object stores message data to create update request
