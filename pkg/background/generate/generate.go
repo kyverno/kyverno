@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
@@ -74,6 +75,7 @@ func NewGenerateController(
 	npolicyLister kyvernolister.PolicyLister,
 	grLister kyvernolister.GenerateRequestNamespaceLister,
 	eventGen event.Interface,
+	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 ) (*GenerateController, error) {
@@ -90,6 +92,13 @@ func NewGenerateController(
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
+
+	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
+	if err != nil {
+		return nil, err
+	}
+
+	c.nsInformer = dynamicInformer.ForResource(gvr)
 
 	return &c, nil
 }
@@ -185,7 +194,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 
 	logger.V(3).Info("applying generate policy rule")
 
-	policySpec, err := c.getPolicySpec(gr)
+	policy, err := c.getPolicySpec(gr)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			for _, e := range gr.Status.GeneratedResources {
@@ -246,9 +255,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
-	policy := kyverno.ClusterPolicy{
-		Spec: policySpec,
-	}
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		Policy:              &policy,
@@ -300,26 +306,31 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(gr urkyverno.UpdateRequest) (kyverno.Spec, error) {
-	var policySpec kyverno.Spec
+func (c *GenerateController) getPolicySpec(gr urkyverno.UpdateRequest) (kyverno.ClusterPolicy, error) {
+	var policy kyverno.ClusterPolicy
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
 	if err != nil {
-		return policySpec, err
+		return policy, err
 	}
 
 	if pNamespace == "" {
 		policyObj, err := c.policyLister.Get(pName)
 		if err != nil {
-			return policySpec, err
+			return policy, err
 		}
-		return policyObj.Spec, err
+		return *policyObj, err
 	} else {
 		npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
 		if err != nil {
-			return policySpec, err
+			return policy, err
 		}
-		return npolicyObj.Spec, nil
+		return kyverno.ClusterPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: pName,
+			},
+			Spec: npolicyObj.Spec,
+		}, nil
 	}
 }
 
