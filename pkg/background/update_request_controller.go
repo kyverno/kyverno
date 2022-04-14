@@ -124,9 +124,9 @@ func NewController(
 
 	c.urSynced = urInformer.Informer().HasSynced
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGR,
-		UpdateFunc: c.updateGR,
-		DeleteFunc: c.deleteGR,
+		AddFunc:    c.addUR,
+		UpdateFunc: c.updateUR,
+		DeleteFunc: c.deleteUR,
 	})
 
 	c.policyLister = policyInformer.Lister()
@@ -390,4 +390,40 @@ func (c *Controller) updateUR(old, cur interface{}) {
 		return
 	}
 	c.enqueueGenerateRequest(curUr)
+}
+
+func (c *Controller) deleteUR(obj interface{}) {
+	logger := c.log
+	gr, ok := obj.(*urkyverno.UpdateRequest)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			return
+		}
+		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		if !ok {
+			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
+			return
+		}
+	}
+
+	for _, resource := range gr.Status.GeneratedResources {
+		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+		if err != nil && !apierrors.IsNotFound(err) {
+			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+			continue
+		}
+
+		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			}
+		}
+	}
+
+	logger.V(3).Info("deleting generate request", "name", gr.Name)
+
+	// sync Handler will remove it from the queue
+	c.enqueueGenerateRequest(gr)
 }
