@@ -1,4 +1,4 @@
-package generate
+package common
 
 import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -17,7 +17,7 @@ type StatusControlInterface interface {
 
 // StatusControl is default implementaation of GRStatusControlInterface
 type StatusControl struct {
-	client kyvernoclient.Interface
+	Client kyvernoclient.Interface
 }
 
 //Failed sets gr status.state to failed with message
@@ -31,7 +31,7 @@ func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genRe
 			GeneratedResources: genResources, // Update Generated Resources
 		},
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.client, "status")
+	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
 		return err
@@ -51,7 +51,7 @@ func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyver
 			GeneratedResources: genResources, // Update Generated Resources
 		},
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.client, "status")
+	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
 		return err
@@ -71,7 +71,7 @@ func (sc StatusControl) Skip(gr kyverno.GenerateRequest, genResources []kyverno.
 			GeneratedResources: genResources, // Update Generated Resources
 		},
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.client, "status")
+	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
 		return err

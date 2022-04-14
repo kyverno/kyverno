@@ -12,7 +12,11 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/common"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
 
 	"github.com/go-logr/logr"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
@@ -28,10 +32,69 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
 )
 
-func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
+type GenerateController struct {
+	//	GenerateController updaterequest.GenerateController
+	client *dclient.Client
+
+	// typed client for Kyverno CRDs
+	kyvernoClient *kyvernoclient.Clientset
+
+	// grStatusControl is used to update GR status
+	statusControl common.StatusControlInterface
+
+	// event generator interface
+	eventGen event.Interface
+
+	log logr.Logger
+
+	// grLister can list/get generate request from the shared informer's store
+	grLister kyvernolister.GenerateRequestNamespaceLister
+
+	// only support Namespaces for re-evaluation on resource updates
+	nsInformer informers.GenericInformer
+
+	// policyLister can list/get cluster policy from the shared informer's store
+	policyLister kyvernolister.ClusterPolicyLister
+
+	// policyLister can list/get Namespace policy from the shared informer's store
+	npolicyLister kyvernolister.PolicyLister
+
+	Config config.Interface
+}
+
+//NewGenerateController returns an instance of the Generate-Request Controller
+func NewGenerateController(
+	kyvernoClient *kyvernoclient.Clientset,
+	client *dclient.Client,
+	policyLister kyvernolister.ClusterPolicyLister,
+	npolicyLister kyvernolister.PolicyLister,
+	grLister kyvernolister.GenerateRequestNamespaceLister,
+	eventGen event.Interface,
+	log logr.Logger,
+	dynamicConfig config.Interface,
+) (*GenerateController, error) {
+
+	c := GenerateController{
+		client:        client,
+		kyvernoClient: kyvernoClient,
+		eventGen:      eventGen,
+		log:           log,
+		Config:        dynamicConfig,
+		policyLister:  policyLister,
+		npolicyLister: npolicyLister,
+		grLister:      grLister,
+	}
+
+	c.statusControl = common.StatusControl{Client: kyvernoClient}
+
+	return &c, nil
+}
+
+func (c *GenerateController) ProcessGR(gr *kyverno.GenerateRequest) error {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	var err error
 	var resource *unstructured.Unstructured
@@ -113,7 +176,7 @@ func (c *Controller) processGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
+func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -237,7 +300,7 @@ func (c *Controller) applyGenerate(resource unstructured.Unstructured, gr kyvern
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *Controller) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, error) {
+func (c *GenerateController) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, error) {
 	var policySpec kyverno.Spec
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
@@ -260,7 +323,7 @@ func (c *Controller) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, er
 	}
 }
 
-func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
+func updateStatus(statusControl common.StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
 		return statusControl.Failed(gr, err.Error(), genResources)
 	} else if precreatedResource {
@@ -271,7 +334,7 @@ func updateStatus(statusControl StatusControlInterface, gr kyverno.GenerateReque
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *Controller) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
+func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -417,7 +480,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	// "kyverno.io/generated-by-kind": kind (trigger resource)
 	// "kyverno.io/generated-by-namespace": namespace (trigger resource)
 	// "kyverno.io/generated-by-name": name (trigger resource)
-	manageLabels(newResource, resource)
+	common.ManageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
 	label["policy.kyverno.io/policy-name"] = policy
@@ -587,7 +650,7 @@ func GetUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) 
 	return utils.ConvertToUnstructured(ruleData)
 }
 
-func (c *Controller) ApplyResource(resource *unstructured.Unstructured) error {
+func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) error {
 	kind, _, namespace, apiVersion, err := getResourceInfo(resource.Object)
 	if err != nil {
 		return err
@@ -602,7 +665,7 @@ func (c *Controller) ApplyResource(resource *unstructured.Unstructured) error {
 }
 
 // GetUnstrResource converts ResourceSpec object to type Unstructured
-func (c *Controller) GetUnstrResource(genResourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
+func (c *GenerateController) GetUnstrResource(genResourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
 	resource, err := c.client.GetResource(genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
 	if err != nil {
 		return nil, err

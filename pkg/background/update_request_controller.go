@@ -1,4 +1,4 @@
-package generate
+package background
 
 import (
 	"reflect"
@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -43,7 +44,7 @@ type Controller struct {
 	eventGen event.Interface
 
 	// grStatusControl is used to update GR status
-	statusControl StatusControlInterface
+	statusControl common.StatusControlInterface
 
 	// GR that need to be synced
 	queue workqueue.RateLimitingInterface
@@ -101,7 +102,7 @@ func NewController(
 		Config:          dynamicConfig,
 	}
 
-	c.statusControl = StatusControl{client: kyvernoClient}
+	c.statusControl = common.StatusControl{Client: kyvernoClient}
 
 	c.policySynced = policyInformer.Informer().HasSynced
 
@@ -221,7 +222,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	return c.processGR(gr)
+	return c.ProcessGR(gr)
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {
