@@ -10,3 +10,4 @@ results:
     generatedResource: generatedResource.yaml
     kind: Deployment
     result: pass
+    namespace: hello-world
