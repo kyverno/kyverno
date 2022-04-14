@@ -148,7 +148,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				var digest string
 				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
 				if ruleResp.Status == response.RuleStatusPass {
-					iv.patchDigest(path, imageInfo, digest, ruleResp)
+					iv.patchDigest(imageInfo, digest, ruleResp)
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
@@ -230,11 +230,11 @@ func (iv *imageVerifier) getAttestor(imageVerify *v1.ImageVerification) *v1.Atte
 	return nil
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+func (iv *imageVerifier) patchDigest(imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
 	if imageInfo.Digest == "" {
-		patch, err := makeAddDigestPatch(path, imageInfo, digest)
+		patch, err := makeAddDigestPatch(imageInfo, digest)
 		if err != nil {
-			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
+			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", imageInfo.Pointer)
 		} else {
 			iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 			ruleResp.Patches = [][]byte{patch}
@@ -242,10 +242,10 @@ func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo
 	}
 }
 
-func makeAddDigestPatch(path string, imageInfo imageutils.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(imageInfo imageutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
-	patch["path"] = path
+	patch["path"] = imageInfo.Pointer
 	patch["value"] = imageInfo.String() + "@" + digest
 	return json.Marshal(patch)
 }
