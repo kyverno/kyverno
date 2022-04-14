@@ -68,7 +68,7 @@ type ImageVerification struct {
 
 	// DigestMutate is an optional field which handles the tag-to-digest mutation for the provided image paths.
 	// Defaults to true.
-	DigestMutate bool `json:"digestMutate,omitempty" yaml:"digestMutate,omitempty"`
+	DigestMutate *bool `json:"digestMutate,omitempty" yaml:"digestMutate,omitempty"`
 }
 
 type AttestorSet struct {

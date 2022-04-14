@@ -11499,7 +11499,7 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: ghcr.io/kyverno/kyverno:1.7-dev-latest
+        image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
