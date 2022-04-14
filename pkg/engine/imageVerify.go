@@ -163,7 +163,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				var digest string
 				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && *imageVerify.DigestMutate && ruleResp.Status == response.RuleStatusPass {
-					iv.patchDigest(path, imageInfo, digest, ruleResp)
+					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
+					if err != nil {
+						ruleResp.Message = err.Error()
+						ruleResp.Status = response.RuleStatusFail
+					}
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
@@ -174,7 +178,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 					}
 					imgData, ok := imageData.(map[string]interface{})
 					if ok {
-						iv.patchDigest(path, imageInfo, imgData["digest"].(string), ruleResp)
+						err := iv.patchDigest(path, imageInfo, imgData["digest"].(string), ruleResp)
+						if err != nil {
+							ruleResp.Message = err.Error()
+							ruleResp.Status = response.RuleStatusFail
+						}
 					}
 				}
 			}
@@ -310,14 +318,15 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	return opts, path
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
 	patch, err := makeAddDigestPatch(path, imageInfo, digest)
 	if err != nil {
-		iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
+		return errors.Wrapf(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
 	} else {
 		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 		ruleResp.Patches = [][]byte{patch}
 	}
+	return nil
 }
 
 func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {

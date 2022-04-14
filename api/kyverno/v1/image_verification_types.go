@@ -68,6 +68,8 @@ type ImageVerification struct {
 
 	// DigestMutate is an optional field which handles the tag-to-digest mutation for the provided image paths.
 	// Defaults to true.
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:Optional
 	DigestMutate *bool `json:"digestMutate,omitempty" yaml:"digestMutate,omitempty"`
 }
 

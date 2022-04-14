@@ -2200,6 +2200,7 @@ spec:
                               type: object
                             type: array
                           digestMutate:
+                            default: true
                             description: DigestMutate is an optional field which handles
                               the tag-to-digest mutation for the provided image paths.
                               Defaults to true.
@@ -4522,6 +4523,7 @@ spec:
                               type: object
                             type: array
                           digestMutate:
+                            default: true
                             description: DigestMutate is an optional field which handles
                               the tag-to-digest mutation for the provided image paths.
                               Defaults to true.
