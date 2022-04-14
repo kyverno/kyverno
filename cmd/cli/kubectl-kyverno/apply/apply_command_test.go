@@ -16,8 +16,8 @@ func Test_Apply(t *testing.T) {
 
 	testcases := []TestCase{
 		{
-			PolicyPaths:   []string{"../../../test/best_practices/disallow_latest_tag.yaml"},
-			ResourcePaths: []string{"../../../test/resources/pod_with_version_tag.yaml"},
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
@@ -31,8 +31,8 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../test/best_practices/disallow_latest_tag.yaml"},
-			ResourcePaths: []string{"../../../test/resources/pod_with_latest_tag.yaml"},
+			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+			ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
@@ -46,8 +46,8 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../test/cli/apply/policies"},
-			ResourcePaths: []string{"../../../test/cli/apply/resource"},
+			PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
+			ResourcePaths: []string{"../../../../test/cli/apply/resource"},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{

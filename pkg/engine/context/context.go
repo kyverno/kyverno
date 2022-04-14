@@ -68,6 +68,10 @@ type Interface interface {
 	// ImageInfo returns image infos present in the context
 	ImageInfo() map[string]map[string]imageutils.ImageInfo
 
+	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
+	// and updates the context
+	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]imageutils.ImageInfo, error)
+
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
 
@@ -224,7 +228,7 @@ func (ctx *context) AddImageInfo(info imageutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-	images, err := kubeutils.ExtractImagesFromResource(*resource)
+	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
 		return err
 	}
@@ -233,6 +237,17 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	}
 	ctx.images = images
 	return addToContext(ctx, images, "images")
+}
+
+func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]imageutils.ImageInfo, error) {
+	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, nil
+	}
+	return images, addToContext(ctx, images, "images")
 }
 
 func (ctx *context) ImageInfo() map[string]map[string]imageutils.ImageInfo {

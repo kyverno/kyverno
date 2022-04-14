@@ -7,7 +7,7 @@ import (
 
 func (c *Controller) ProcessGR(gr *kyverno.GenerateRequest) error {
 	ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-		c.policyLister, c.npolicyLister, c.grLister, c.eventGen, c.log, c.Config,
+		c.policyLister, c.npolicyLister, c.grLister, c.eventGen, c.dynamicInformer, c.log, c.Config,
 	)
 	return ctrl.ProcessGR(gr)
 }
