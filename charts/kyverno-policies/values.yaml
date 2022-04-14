@@ -48,6 +48,21 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
+# -- Add preconditions to individual policies
+# Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.
+policyPreconditions: {}
+  # # Exclude resources from individual policies
+  # require-run-as-non-root-user:
+  #   any:
+  #   - key: "{{ request.object.metadata.name }}"
+  #     operator: NotEquals
+  #     value: "dcgm-exporter*"
+  # # Policies with multiple rules can have individual rules excluded
+  # adding-capabilities-strict:
+  #  any:
+  #  - key: "{{ request.object.metadata.name }}"
+  #    operator: NotEquals
+  #    value: "dcgm-exporter*"
 
 # -- Name override.
 nameOverride:
