@@ -4,7 +4,7 @@ import (
 	"reflect"
 
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/sanitizedError"
+	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

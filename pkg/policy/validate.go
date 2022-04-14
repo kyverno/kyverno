@@ -12,7 +12,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/common"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"

@@ -6,7 +6,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	preport "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/common"
+	kyvCommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"gotest.tools/assert"
