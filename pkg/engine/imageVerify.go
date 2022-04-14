@@ -23,9 +23,6 @@ import (
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
-	if images == nil {
-		return
-	}
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
@@ -67,6 +64,19 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 			continue
 		}
 
+		ruleImages := images
+		var err error
+		if rule.ImageExtractors != nil {
+			if ruleImages, err = policyContext.JSONContext.GenerateCustomImageInfo(&policyContext.NewResource, rule.ImageExtractors); err != nil {
+				appendError(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
+				continue
+			}
+		}
+
+		if ruleImages == nil {
+			continue
+		}
+
 		ruleCopy, err := substituteVariables(rule, policyContext.JSONContext, logger)
 		if err != nil {
 			appendError(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
@@ -81,7 +91,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(imageVerify, images)
+			iv.verify(imageVerify, ruleImages)
 		}
 	}
 
@@ -129,7 +139,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
-			path := imageInfo.Path
+			path := imageInfo.Pointer
 			image := imageInfo.String()
 			jmespath := utils.JsonPointerToJMESPath(path)
 			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)

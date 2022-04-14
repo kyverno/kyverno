@@ -11,8 +11,9 @@ import (
 
 func Test_extractImageInfo(t *testing.T) {
 	tests := []struct {
-		raw    []byte
-		images map[string]map[string]imageutils.ImageInfo
+		extractionConfig ImageExtractorConfigs
+		raw              []byte
+		images           map[string]map[string]imageutils.ImageInfo
 	}{
 		{
 			raw: []byte(`{"apiVersion": "v1","kind": "Pod","metadata": {"name": "myapp"},"spec": {"initContainers": [{"name": "init","image": "index.docker.io/busybox:v1.2.3"}],"containers": [{"name": "nginx","image": "nginx:latest"}], "ephemeralContainers": [{"name": "ephemeral", "image":"test/nginx:latest"}]}}`),
@@ -58,12 +59,70 @@ func Test_extractImageInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			extractionConfig: ImageExtractorConfigs{
+				"Task": []*ImageExtractorConfig{
+					{Path: "/spec/steps/*/image"},
+				},
+			},
+			raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"example-task-name"},"spec":{"params":[{"name":"pathToDockerFile","type":"string","description":"The path to the dockerfile to build","default":"/workspace/workspace/Dockerfile"}],"resources":{"inputs":[{"name":"workspace","type":"git"}],"outputs":[{"name":"builtImage","type":"image"}]},"steps":[{"name":"ubuntu-example","image":"ubuntu","args":["ubuntu-build-example","SECRETS-example.md"]},{"image":"gcr.io/example-builders/build-example","command":["echo"],"args":["$(params.pathToDockerFile)"]},{"name":"dockerfile-pushexample","image":"gcr.io/example-builders/push-example","args":["push","$(resources.outputs.builtImage.url)"],"volumeMounts":[{"name":"docker-socket-example","mountPath":"/var/run/docker.sock"}]}],"volumes":[{"name":"example-volume","emptyDir":{}}]}}`),
+			images: map[string]map[string]imageutils.ImageInfo{
+				"custom": {
+					"/spec/steps/0/image": {
+						Registry: "docker.io",
+						Name:     "ubuntu",
+						Path:     "ubuntu",
+						Tag:      "latest",
+						Pointer:  "/spec/steps/0/image",
+					},
+					"/spec/steps/1/image": {
+						Registry: "gcr.io",
+						Name:     "build-example",
+						Path:     "example-builders/build-example",
+						Tag:      "latest",
+						Pointer:  "/spec/steps/1/image",
+					},
+					"/spec/steps/2/image": {
+						Registry: "gcr.io",
+						Name:     "push-example",
+						Path:     "example-builders/push-example",
+						Tag:      "latest",
+						Pointer:  "/spec/steps/2/image",
+					},
+				},
+			},
+		},
+		{
+			extractionConfig: ImageExtractorConfigs{
+				"Task": []*ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			}, raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"example-task-name"},"spec":{"steps":[{"name":"ubuntu-example","image":"ubuntu","args":["ubuntu-build-example","SECRETS-example.md"]},{"name":"dockerfile-pushexample","image":"gcr.io/example-builders/push-example","args":["push","$(resources.outputs.builtImage.url)"]}]}}`),
+			images: map[string]map[string]imageutils.ImageInfo{
+				"steps": {
+					"dockerfile-pushexample": {
+						Registry: "gcr.io",
+						Name:     "push-example",
+						Path:     "example-builders/push-example",
+						Tag:      "latest",
+						Pointer:  "/spec/steps/1/image",
+					},
+					"ubuntu-example": {
+						Registry: "docker.io",
+						Name:     "ubuntu",
+						Path:     "ubuntu",
+						Tag:      "latest",
+						Pointer:  "/spec/steps/0/image",
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		resource, err := utils.ConvertToUnstructured(test.raw)
 		assert.NilError(t, err)
-		images, err := ExtractImagesFromResource(*resource)
+		images, err := ExtractImagesFromResource(*resource, test.extractionConfig)
 		assert.DeepEqual(t, test.images, images)
 	}
 }
