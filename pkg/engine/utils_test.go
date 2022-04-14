@@ -791,7 +791,10 @@ func TestMatchesResourceDescription(t *testing.T) {
 			areErrorsExpected: true,
 		},
 		{
-			Description:       "Should pass since resource matches a name in the names field",
+			Description: "Should pass since resource matches a name in the names field",
+			AdmissionInfo: v1beta1.RequestInfo{
+				ClusterRoles: []string{"system:node"},
+			},
 			Resource:          []byte(`{"apiVersion":"v1","kind":"Pod","metadata":{"name":"hello-world","labels":{"name":"hello-world"}},"spec":{"containers":[{"name":"hello-world","image":"hello-world","ports":[{"containerPort":81}],"resources":{"limits":{"memory":"30Mi","cpu":"0.2"},"requests":{"memory":"20Mi","cpu":"0.1"}}}]}}`),
 			Policy:            []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"hello-world-policy"},"spec":{"background":false,"rules":[{"name":"hello-world-policy","match":{"resources":{"kinds":["Pod"],"names": ["dev-*","hello-world"]},"clusterRoles":["system:node"]},"mutate":{"overlay":{"spec":{"containers":[{"(image)":"*","imagePullPolicy":"IfNotPresent"}]}}}}]}}`),
 			areErrorsExpected: false,
@@ -903,7 +906,7 @@ func TestMatchesResourceDescription(t *testing.T) {
 			err := MatchesResourceDescription(*resource, rule, tc.AdmissionInfo, []string{}, nil, "")
 			if err != nil {
 				if !tc.areErrorsExpected {
-					t.Errorf("Testcase %d Unexpected error: %v", i+1, err)
+					t.Errorf("Testcase %d Unexpected error: %v\nmsg: %s", i+1, err, tc.Description)
 				}
 			} else {
 				if tc.areErrorsExpected {

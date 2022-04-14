@@ -127,7 +127,8 @@ Kubernetes admission/v1.Operation
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
+<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -209,8 +210,8 @@ string
 <td>
 <code>conditions</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.AnyAllConditions">
-[]*./api/kyverno/v1.AnyAllConditions
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
 </a>
 </em>
 </td>
@@ -306,8 +307,8 @@ value N, then N must be less than or equal to the size of entries, and at least 
 <td>
 <code>entries</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestor">
-[]*./api/kyverno/v1.Attestor
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.Attestor">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.Attestor
 </a>
 </em>
 </td>
@@ -1506,8 +1507,8 @@ Deprecated.</p>
 <td>
 <code>attestors</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.AttestorSet">
-[]*./api/kyverno/v1.AttestorSet
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.AttestorSet">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.AttestorSet
 </a>
 </em>
 </td>
@@ -1519,8 +1520,8 @@ Deprecated.</p>
 <td>
 <code>attestations</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestation">
-[]*./api/kyverno/v1.Attestation
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.Attestation">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.Attestation
 </a>
 </em>
 </td>
@@ -1722,6 +1723,35 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
+<code>mutateExisting</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>mutateExisting controls whether to mutate existing resource ONLY
+The existing resources will be mutated ONLY if set to &ldquo;true&rdquo;.
+Otherwise all resources including admission requests are mutated.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targets</code></br>
+<em>
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.TargetMutation">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.TargetMutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Targets defines the target resources to be mutated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patchStrategicMerge</code></br>
 <em>
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
@@ -1751,8 +1781,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachMutation">
-[]*./api/kyverno/v1.ForEachMutation
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ForEachMutation">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.ForEachMutation
 </a>
 </em>
 </td>
@@ -2234,7 +2264,7 @@ ResourceDescription
 </table>
 <hr />
 <h3 id="kyverno.io/v1.ResourceFilters">ResourceFilters
-(<code>[]./api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
+(<code>[]github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
@@ -2248,7 +2278,8 @@ ResourceDescription
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
 <a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
-<a href="#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
 </p>
 <p>
 <p>ResourceSpec contains information to identify a resource.</p>
@@ -2449,8 +2480,8 @@ Generation
 <td>
 <code>verifyImages</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ImageVerification">
-[]*./api/kyverno/v1.ImageVerification
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification
 </a>
 </em>
 </td>
@@ -2616,6 +2647,51 @@ specified or can be a variable reference to a key specified in a ConfigMap (see
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.TargetMutation">TargetMutation
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code></br>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResourceSpec specifies the target resource information.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preconditions</code></br>
+<em>
+<a href="#kyverno.io/v1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
+See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.UserInfo">UserInfo
 </h3>
 <p>
@@ -2708,8 +2784,8 @@ string
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachValidation">
-[]*./api/kyverno/v1.ForEachValidation
+<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ForEachValidation">
+[]*github.com/kyverno/kyverno/api/kyverno/v1.ForEachValidation
 </a>
 </em>
 </td>
