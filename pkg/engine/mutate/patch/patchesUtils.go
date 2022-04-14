@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/mattbaird/jsonpatch"
-	"github.com/minio/pkg/wildcard"
 )
 
 func generatePatches(src, dst []byte) ([][]byte, error) {

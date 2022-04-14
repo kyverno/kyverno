@@ -14,7 +14,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -603,9 +603,10 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified. Specifying ResourceDescription
-                            directly under exclude is being deprecated. Please specify
-                            under "any" or "all" instead.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -832,6 +833,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -1616,7 +1651,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1665,7 +1700,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1884,7 +1919,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1933,7 +1968,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1963,7 +1998,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -2045,7 +2080,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2096,7 +2131,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2108,18 +2143,103 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      attestors:
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        type: array
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA
+                                              certificate chain
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -2129,11 +2249,13 @@ spec:
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -2160,6 +2282,8 @@ spec:
                 items:
                   properties:
                     action:
+                      description: ValidationFailureAction defines the policy validation
+                        failure action
                       enum:
                       - audit
                       - enforce
@@ -2208,13 +2332,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -2794,9 +2917,10 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified. Specifying ResourceDescription
-                            directly under exclude is being deprecated. Please specify
-                            under "any" or "all" instead.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -3023,6 +3147,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -3807,7 +3965,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -3856,7 +4014,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4075,7 +4233,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4124,7 +4282,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4154,7 +4312,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -4236,7 +4394,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4287,7 +4445,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4299,18 +4457,103 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      attestors:
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        type: array
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA
+                                              certificate chain
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -4320,11 +4563,13 @@ spec:
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -4351,7 +4596,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -4398,318 +4643,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: ClusterPolicyReport is the Schema for the clusterpolicyreports
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                data:
-                  additionalProperties:
-                    type: string
-                  description: Data provides additional information for the policy
-                    rule
-                  type: object
-                message:
-                  description: Message is a short user friendly description of the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name of the policy
-                  type: string
-                resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
-                  items:
-                    description: 'ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      .'
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                  type: array
-                rule:
-                  description: Rule is the name of the policy rule
-                  type: string
-                scored:
-                  description: Scored indicates if this policy rule is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy severity
-                  enum:
-                  - high
-                  - low
-                  - medium
-                  type: string
-                status:
-                  description: Status indicates the result of the policy rule check
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: false
-    subresources: {}
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -4805,26 +4738,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -5031,7 +4964,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -5078,318 +5011,6 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                data:
-                  additionalProperties:
-                    type: string
-                  description: Data provides additional information for the policy
-                    rule
-                  type: object
-                message:
-                  description: Message is a short user friendly description of the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name of the policy
-                  type: string
-                resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
-                  items:
-                    description: 'ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      .'
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                  type: array
-                rule:
-                  description: Rule is the name of the policy rule
-                  type: string
-                scored:
-                  description: Scored indicates if this policy rule is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy severity
-                  enum:
-                  - high
-                  - low
-                  - medium
-                  type: string
-                status:
-                  description: Status indicates the result of the policy rule check
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: false
-    subresources: {}
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -5485,26 +5106,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -5711,7 +5332,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -5908,7 +5529,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6498,9 +6119,10 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified. Specifying ResourceDescription
-                            directly under exclude is being deprecated. Please specify
-                            under "any" or "all" instead.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -6727,6 +6349,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -7511,7 +7167,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7560,7 +7216,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7779,7 +7435,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7828,7 +7484,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7858,7 +7514,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -7940,7 +7596,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -7991,7 +7647,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -8003,18 +7659,103 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      attestors:
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        type: array
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA
+                                              certificate chain
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -8024,11 +7765,13 @@ spec:
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -8055,6 +7798,8 @@ spec:
                 items:
                   properties:
                     action:
+                      description: ValidationFailureAction defines the policy validation
+                        failure action
                       enum:
                       - audit
                       - enforce
@@ -8104,13 +7849,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -8690,9 +8434,10 @@ spec:
                           type: array
                         resources:
                           description: ResourceDescription contains information about
-                            the resource being created or modified. Specifying ResourceDescription
-                            directly under exclude is being deprecated. Please specify
-                            under "any" or "all" instead.
+                            the resource being created or modified. Requires at least
+                            one tag to be specified when under MatchResources. Specifying
+                            ResourceDescription directly under match is being deprecated.
+                            Please specify under "any" or "all" instead.
                           properties:
                             annotations:
                               additionalProperties:
@@ -8919,6 +8664,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -9703,7 +9482,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9752,7 +9531,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9971,7 +9750,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -10020,7 +9799,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -10050,7 +9829,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -10132,7 +9911,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -10183,7 +9962,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -10195,18 +9974,103 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      attestors:
+                                        description: 'Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities TODO: Nested typed declarations
+                                          are cause issues with OpenAPIv3 Schemas.
+                                          Need to revisit.'
+                                        items:
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        type: array
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA
+                                              certificate chain
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -10216,11 +10080,13 @@ spec:
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -10247,7 +10113,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10267,317 +10133,6 @@ spec:
     singular: policyreport
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: PolicyReport is the Schema for the policyreports API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                data:
-                  additionalProperties:
-                    type: string
-                  description: Data provides additional information for the policy
-                    rule
-                  type: object
-                message:
-                  description: Message is a short user friendly description of the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name of the policy
-                  type: string
-                resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
-                  items:
-                    description: 'ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      .'
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                  type: array
-                rule:
-                  description: Rule is the name of the policy rule
-                  type: string
-                scored:
-                  description: Scored indicates if this policy rule is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy severity
-                  enum:
-                  - high
-                  - low
-                  - medium
-                  type: string
-                status:
-                  description: Status indicates the result of the policy rule check
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: false
-    subresources: {}
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
@@ -10699,26 +10254,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -10925,7 +10480,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10945,318 +10500,6 @@ spec:
     singular: reportchangerequest
   scope: Namespaced
   versions:
-  - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
-      type: string
-    - jsonPath: .summary.pass
-      name: Pass
-      type: integer
-    - jsonPath: .summary.fail
-      name: Fail
-      type: integer
-    - jsonPath: .summary.warn
-      name: Warn
-      type: integer
-    - jsonPath: .summary.error
-      name: Error
-      type: integer
-    - jsonPath: .summary.skip
-      name: Skip
-      type: integer
-    - jsonPath: .metadata.creationTimestamp
-      name: Age
-      type: date
-    name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        description: ReportChangeRequest is the Schema for the ReportChangeRequests
-          API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          results:
-            description: PolicyReportResult provides result details
-            items:
-              description: PolicyReportResult provides the result for an individual
-                policy
-              properties:
-                category:
-                  description: Category indicates policy category
-                  type: string
-                data:
-                  additionalProperties:
-                    type: string
-                  description: Data provides additional information for the policy
-                    rule
-                  type: object
-                message:
-                  description: Message is a short user friendly description of the
-                    policy rule
-                  type: string
-                policy:
-                  description: Policy is the name of the policy
-                  type: string
-                resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
-                  properties:
-                    matchExpressions:
-                      description: matchExpressions is a list of label selector requirements.
-                        The requirements are ANDed.
-                      items:
-                        description: A label selector requirement is a selector that
-                          contains values, a key, and an operator that relates the
-                          key and values.
-                        properties:
-                          key:
-                            description: key is the label key that the selector applies
-                              to.
-                            type: string
-                          operator:
-                            description: operator represents a key's relationship
-                              to a set of values. Valid operators are In, NotIn, Exists
-                              and DoesNotExist.
-                            type: string
-                          values:
-                            description: values is an array of string values. If the
-                              operator is In or NotIn, the values array must be non-empty.
-                              If the operator is Exists or DoesNotExist, the values
-                              array must be empty. This array is replaced during a
-                              strategic merge patch.
-                            items:
-                              type: string
-                            type: array
-                        required:
-                        - key
-                        - operator
-                        type: object
-                      type: array
-                    matchLabels:
-                      additionalProperties:
-                        type: string
-                      description: matchLabels is a map of {key,value} pairs. A single
-                        {key,value} in the matchLabels map is equivalent to an element
-                        of matchExpressions, whose key field is "key", the operator
-                        is "In", and the values array contains only "value". The requirements
-                        are ANDed.
-                      type: object
-                  type: object
-                resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
-                  items:
-                    description: 'ObjectReference contains enough information to let
-                      you inspect or modify the referred object. --- New uses of this
-                      type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
-                      fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
-                      Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
-                      it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
-                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                      .'
-                    properties:
-                      apiVersion:
-                        description: API version of the referent.
-                        type: string
-                      fieldPath:
-                        description: 'If referring to a piece of an object instead
-                          of an entire object, this string should contain a valid
-                          JSON/Go field access statement, such as desiredState.manifest.containers[2].
-                          For example, if the object reference is to a container within
-                          a pod, this would take on a value like: "spec.containers{name}"
-                          (where "name" refers to the name of the container that triggered
-                          the event) or if no container name is specified "spec.containers[2]"
-                          (container with index 2 in this pod). This syntax is chosen
-                          only to have some well-defined way of referencing a part
-                          of an object. TODO: this design is not final and this field
-                          is subject to change in the future.'
-                        type: string
-                      kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                        type: string
-                      name:
-                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                        type: string
-                      namespace:
-                        description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                        type: string
-                      resourceVersion:
-                        description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                        type: string
-                      uid:
-                        description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                        type: string
-                    type: object
-                  type: array
-                rule:
-                  description: Rule is the name of the policy rule
-                  type: string
-                scored:
-                  description: Scored indicates if this policy rule is scored
-                  type: boolean
-                severity:
-                  description: Severity indicates policy severity
-                  enum:
-                  - high
-                  - low
-                  - medium
-                  type: string
-                status:
-                  description: Status indicates the result of the policy rule check
-                  enum:
-                  - pass
-                  - fail
-                  - warn
-                  - error
-                  - skip
-                  type: string
-              required:
-              - policy
-              type: object
-            type: array
-          scope:
-            description: Scope is an optional reference to the report scope (e.g.
-              a Deployment, Namespace, or Node)
-            properties:
-              apiVersion:
-                description: API version of the referent.
-                type: string
-              fieldPath:
-                description: 'If referring to a piece of an object instead of an entire
-                  object, this string should contain a valid JSON/Go field access
-                  statement, such as desiredState.manifest.containers[2]. For example,
-                  if the object reference is to a container within a pod, this would
-                  take on a value like: "spec.containers{name}" (where "name" refers
-                  to the name of the container that triggered the event) or if no
-                  container name is specified "spec.containers[2]" (container with
-                  index 2 in this pod). This syntax is chosen only to have some well-defined
-                  way of referencing a part of an object. TODO: this design is not
-                  final and this field is subject to change in the future.'
-                type: string
-              kind:
-                description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-                type: string
-              name:
-                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
-                type: string
-              namespace:
-                description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
-                type: string
-              resourceVersion:
-                description: 'Specific resourceVersion to which this reference is
-                  made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
-                type: string
-              uid:
-                description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
-                type: string
-            type: object
-          scopeSelector:
-            description: ScopeSelector is an optional selector for multiple scopes
-              (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
-              should be specified.
-            properties:
-              matchExpressions:
-                description: matchExpressions is a list of label selector requirements.
-                  The requirements are ANDed.
-                items:
-                  description: A label selector requirement is a selector that contains
-                    values, a key, and an operator that relates the key and values.
-                  properties:
-                    key:
-                      description: key is the label key that the selector applies
-                        to.
-                      type: string
-                    operator:
-                      description: operator represents a key's relationship to a set
-                        of values. Valid operators are In, NotIn, Exists and DoesNotExist.
-                      type: string
-                    values:
-                      description: values is an array of string values. If the operator
-                        is In or NotIn, the values array must be non-empty. If the
-                        operator is Exists or DoesNotExist, the values array must
-                        be empty. This array is replaced during a strategic merge
-                        patch.
-                      items:
-                        type: string
-                      type: array
-                  required:
-                  - key
-                  - operator
-                  type: object
-                type: array
-              matchLabels:
-                additionalProperties:
-                  type: string
-                description: matchLabels is a map of {key,value} pairs. A single {key,value}
-                  in the matchLabels map is equivalent to an element of matchExpressions,
-                  whose key field is "key", the operator is "In", and the values array
-                  contains only "value". The requirements are ANDed.
-                type: object
-            type: object
-          summary:
-            description: PolicyReportSummary provides a summary of results
-            properties:
-              error:
-                description: Error provides the count of policies that could not be
-                  evaluated
-                type: integer
-              fail:
-                description: Fail provides the count of policies whose requirements
-                  were not met
-                type: integer
-              pass:
-                description: Pass provides the count of policies whose requirements
-                  were met
-                type: integer
-              skip:
-                description: Skip indicates the count of policies that were not selected
-                  for evaluation
-                type: integer
-              warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
-                type: integer
-            type: object
-        type: object
-    served: true
-    storage: false
-    subresources: {}
   - additionalPrinterColumns:
     - jsonPath: .scope.kind
       name: Kind
@@ -11379,26 +10622,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -12210,6 +11453,7 @@ spec:
       - args:
         - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
         - -v=2
+        - --autogenInternals=false
         env:
         - name: INIT_CONFIG
           value: kyverno

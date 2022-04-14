@@ -164,17 +164,17 @@ func buildContext(t *testing.T, policy, resource string) *PolicyContext {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
 
 	policyContext := &PolicyContext{
-		Policy:      cpol,
+		Policy:      &cpol,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 
-	if err := ctx.AddImageInfo(resourceUnstructured); err != nil {
+	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
 		t.Errorf("unable to add image info to variables context: %v", err)
 		t.Fail()
 	}

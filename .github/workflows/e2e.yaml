@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.16.15, v1.17.17, v1.18.19, v1.19.11, v1.20.7, v1.21.2, v1.22.5, v1.23.3]
+        k8s-version: [v1.20.15, v1.21.10, v1.22.7, v1.23.5]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -62,7 +62,9 @@ jobs:
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/config/install.yaml | kubectl apply -f -
+          cat ${GITHUB_WORKSPACE}/config/install.yaml | \
+          sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
+          kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50

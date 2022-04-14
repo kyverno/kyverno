@@ -9,9 +9,8 @@ import (
 
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
-
 	// Policy is the policy to be processed
-	Policy kyverno.ClusterPolicy
+	Policy kyverno.PolicyInterface
 
 	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured
@@ -34,7 +33,7 @@ type PolicyContext struct {
 	ExcludeResourceFunc func(kind, namespace, name string) bool
 
 	// JSONContext is the variable context
-	JSONContext *context.Context
+	JSONContext context.Interface
 
 	// NamespaceLabels stores the label of namespace to be processed by namespace selector
 	NamespaceLabels map[string]string

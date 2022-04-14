@@ -27,27 +27,21 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 }
 
 // ValidatePolicyName validates policy name
-func ValidatePolicyName(path *field.Path, name string) field.ErrorList {
-	var errs field.ErrorList
+func ValidateAutogenAnnotation(path *field.Path, annotations map[string]string) (errs field.ErrorList) {
+	value, ok := annotations[PodControllersAnnotation]
+	if ok {
+		if value == "all" {
+			errs = append(errs, field.Forbidden(path, "Autogen annotation does not support 'all' anymore, remove the annotation or set it to a valid value"))
+		}
+	}
+	return errs
+}
+
+// ValidatePolicyName validates policy name
+func ValidatePolicyName(path *field.Path, name string) (errs field.ErrorList) {
 	// policy name is stored in the label of the report change request
 	if len(name) > 63 {
 		errs = append(errs, field.TooLong(path, name, 63))
 	}
 	return errs
-}
-
-// ViolatedRule stores the information regarding the rule.
-type ViolatedRule struct {
-	// Name specifies violated rule name.
-	Name string `json:"name" yaml:"name"`
-
-	// Type specifies violated rule type.
-	Type string `json:"type" yaml:"type"`
-
-	// Message specifies violation message.
-	// +optional
-	Message string `json:"message" yaml:"message"`
-
-	// Status shows the rule response status
-	Status string `json:"status" yaml:"status"`
 }

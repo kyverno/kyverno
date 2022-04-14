@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/pkg/wildcard"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,22 +42,6 @@ func transformResource(resource unstructured.Unstructured) []byte {
 	return data
 }
 
-// convertPoliciesToClusterPolicies - convert array of Policy to array of ClusterPolicy
-func convertPoliciesToClusterPolicies(nsPolicies []*kyverno.Policy) []*kyverno.ClusterPolicy {
-	var cpols []*kyverno.ClusterPolicy
-	for _, pol := range nsPolicies {
-		cpol := kyverno.ClusterPolicy(*pol)
-		cpols = append(cpols, &cpol)
-	}
-	return cpols
-}
-
-// ConvertPolicyToClusterPolicy - convert Policy to ClusterPolicy
-func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
-	cpol := kyverno.ClusterPolicy(*nsPolicies)
-	return &cpol
-}
-
 func ParseNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")
@@ -85,7 +70,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 
 	var wildcards []string
 	for _, nsName := range rule.MatchResources.Namespaces {
-		if HasWildcard(nsName) {
+		if stringutils.ContainsWildcard(nsName) {
 			wildcards = append(wildcards, nsName)
 		}
 
@@ -98,15 +83,6 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 	}
 
 	return pc.configHandler.FilterNamespaces(matchedNS)
-}
-
-// HasWildcard ...
-func HasWildcard(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
 // GetMatchingNamespaces ...
