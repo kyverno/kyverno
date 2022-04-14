@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -20,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
