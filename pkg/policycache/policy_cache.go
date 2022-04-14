@@ -13,7 +13,7 @@ import (
 type Interface interface {
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, string, string) []kyverno.PolicyInterface
+	GetPolicies(pType PolicyType, kind string, namespace string) []kyverno.PolicyInterface
 
 	// add adds a policy to the cache
 	add(kyverno.PolicyInterface)

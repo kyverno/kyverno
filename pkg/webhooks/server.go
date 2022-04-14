@@ -13,7 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -26,8 +28,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
-	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -48,6 +50,12 @@ type WebhookServer struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+
+	// urLister can list/get update requests from the shared informer's store
+	urLister urlister.UpdateRequestNamespaceLister
+
+	// urSynced returns true if the Update Request store has been synced at least once
+	urSynced cache.InformerSynced
 
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
@@ -128,6 +136,7 @@ func NewWebhookServer(
 	client *client.Client,
 	tlsPair *tlsutils.PemPair,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -160,6 +169,8 @@ func NewWebhookServer(
 		kyvernoClient:     kyvernoClient,
 		grLister:          grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
 		grSynced:          grInformer.Informer().HasSynced,
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urSynced:          urInformer.Informer().HasSynced,
 		pLister:           pInformer.Lister(),
 		pSynced:           pInformer.Informer().HasSynced,
 		rbLister:          rbInformer.Lister(),
@@ -257,7 +268,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
 		ws.log.Info("failed to sync informer cache")
 	}
 	go func() {

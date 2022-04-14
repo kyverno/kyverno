@@ -43,7 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/background"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -460,6 +460,7 @@ func main() {
 		client,
 		tlsPair,
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
