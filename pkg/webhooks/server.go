@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -109,7 +109,7 @@ type WebhookServer struct {
 	prGenerator policyreport.GeneratorInterface
 
 	// generate request generator
-	grGenerator *webhookgenerate.Generator
+	grGenerator webhookgenerate.Interface
 
 	nsLister listerv1.NamespaceLister
 
@@ -149,7 +149,7 @@ func NewWebhookServer(
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	grGenerator *webhookgenerate.Generator,
+	grGenerator webhookgenerate.Interface,
 	auditHandler AuditHandler,
 	cleanUp chan<- struct{},
 	log logr.Logger,
@@ -216,7 +216,7 @@ func NewWebhookServer(
 }
 
 func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
-	userRequestInfo := v1.RequestInfo{
+	userRequestInfo := v1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 

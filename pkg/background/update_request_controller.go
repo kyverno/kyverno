@@ -6,11 +6,14 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -58,6 +61,8 @@ type Controller struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	urLister urlister.UpdateRequestNamespaceLister
+
 	// policySynced returns true if the Cluster policy store has been synced at least once
 	policySynced cache.InformerSynced
 
@@ -66,6 +71,7 @@ type Controller struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+	urSynced cache.InformerSynced
 
 	// dynamic shared informer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
@@ -85,6 +91,7 @@ func NewController(
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urkyvernoinformer.UpdateRequestInformer,
 	eventGen event.Interface,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
@@ -115,9 +122,17 @@ func NewController(
 		DeleteFunc: c.deleteGR,
 	})
 
+	c.urSynced = urInformer.Informer().HasSynced
+	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addGR,
+		UpdateFunc: c.updateGR,
+		DeleteFunc: c.deleteGR,
+	})
+
 	c.policyLister = policyInformer.Lister()
 	c.npolicyLister = npolicyInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
 	if err != nil {
@@ -135,7 +150,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	defer c.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.npolicySynced) {
+	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.urSynced, c.npolicySynced) {
 		c.log.Info("failed to sync informer cache")
 		return
 	}
@@ -212,7 +227,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	gr, err := c.grLister.Get(grName)
+	gr, err := c.urLister.Get(grName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -247,14 +262,14 @@ func (c *Controller) EnqueueGenerateRequestFromWebhook(gr *kyverno.GenerateReque
 	c.enqueueGenerateRequest(gr)
 }
 
-func (c *Controller) enqueueGenerateRequest(gr *kyverno.GenerateRequest) {
-	c.log.V(5).Info("enqueuing generate request", "gr", gr.Name)
-	key, err := cache.MetaNamespaceKeyFunc(gr)
+func (c *Controller) enqueueGenerateRequest(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		c.log.Error(err, "failed to extract name")
 		return
 	}
 
+	c.log.V(5).Info("enqueued update request", "ur", key)
 	c.queue.Add(key)
 }
 
@@ -354,4 +369,25 @@ func (c *Controller) deleteGR(obj interface{}) {
 
 	// sync Handler will remove it from the queue
 	c.enqueueGenerateRequest(gr)
+}
+
+func (c *Controller) addUR(obj interface{}) {
+	ur := obj.(*urkyverno.UpdateRequest)
+	c.enqueueGenerateRequest(ur)
+}
+
+func (c *Controller) updateUR(old, cur interface{}) {
+	oldUr := old.(*urkyverno.UpdateRequest)
+	curUr := cur.(*urkyverno.UpdateRequest)
+	if oldUr.ResourceVersion == curUr.ResourceVersion {
+		// Periodic resync will send update events for all known Namespace.
+		// Two different versions of the same replica set will always have different RVs.
+		return
+	}
+	// only process the ones that are in "Pending"/"Completed" state
+	// if the Generate Request fails due to incorrect policy, it will be requeued during policy update
+	if curUr.Status.State == urkyverno.Failed {
+		return
+	}
+	c.enqueueGenerateRequest(curUr)
 }

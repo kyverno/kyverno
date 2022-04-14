@@ -10,22 +10,22 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/event"
-
-	"github.com/go-logr/logr"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +94,7 @@ func NewGenerateController(
 	return &c, nil
 }
 
-func (c *GenerateController) ProcessGR(gr *kyverno.GenerateRequest) error {
+func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	var err error
 	var resource *unstructured.Unstructured
@@ -139,7 +139,7 @@ func (c *GenerateController) ProcessGR(gr *kyverno.GenerateRequest) error {
 
 		if updateAnnotation {
 			gr.SetAnnotations(grAnnotations)
-			_, err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update annotation in generate request for the resource", "generate request", gr.Name)
 				return err
@@ -176,7 +176,7 @@ func (c *GenerateController) ProcessGR(gr *kyverno.GenerateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, gr kyverno.GenerateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
+func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, gr urkyverno.UpdateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
 	logger := c.log.WithValues("name", gr.Name, "policy", gr.Spec.Policy, "kind", gr.Spec.Resource.Kind, "apiVersion", gr.Spec.Resource.APIVersion, "namespace", gr.Spec.Resource.Namespace, "name", gr.Spec.Resource.Name)
 	// Get the list of rules to be applied
 	// get policy
@@ -300,7 +300,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.Spec, error) {
+func (c *GenerateController) getPolicySpec(gr urkyverno.UpdateRequest) (kyverno.Spec, error) {
 	var policySpec kyverno.Spec
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
@@ -323,7 +323,7 @@ func (c *GenerateController) getPolicySpec(gr kyverno.GenerateRequest) (kyverno.
 	}
 }
 
-func updateStatus(statusControl common.StatusControlInterface, gr kyverno.GenerateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
+func updateStatus(statusControl common.StatusControlInterface, gr urkyverno.UpdateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
 		return statusControl.Failed(gr, err.Error(), genResources)
 	} else if precreatedResource {
@@ -334,7 +334,7 @@ func updateStatus(statusControl common.StatusControlInterface, gr kyverno.Genera
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
+func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr urkyverno.UpdateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -412,7 +412,7 @@ func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiv
 	return
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr kyverno.GenerateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, gr urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode

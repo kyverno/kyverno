@@ -10,6 +10,7 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
@@ -365,14 +366,14 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator updaterequest.Interface, userRequestInfo kyverno.RequestInfo,
+func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")
 	}
-	admissionRequestInfo := kyverno.AdmissionRequestInfoObject{
+	admissionRequestInfo := urkyverno.AdmissionRequestInfoObject{
 		AdmissionRequest: string(requestBytes),
 		Operation:        action,
 	}
@@ -387,7 +388,7 @@ func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator upd
 	return
 }
 
-func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
+func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRequestInfo urkyverno.RequestInfo, er *response.EngineResponse) urkyverno.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
 	if er.PolicyResponse.Policy.Namespace != "" {
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
@@ -395,7 +396,7 @@ func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequ
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
 	}
 
-	gr := kyverno.GenerateRequestSpec{
+	gr := urkyverno.UpdateRequestSpec{
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
@@ -403,7 +404,7 @@ func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequ
 			Name:       er.PolicyResponse.Resource.Name,
 			APIVersion: er.PolicyResponse.Resource.APIVersion,
 		},
-		Context: kyverno.GenerateRequestContext{
+		Context: urkyverno.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,
 			AdmissionRequestInfo: admissionRequestInfo,
 		},
@@ -413,7 +414,7 @@ func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequ
 }
 
 type generateRequestResponse struct {
-	gr  kyverno.GenerateRequestSpec
+	gr  urkyverno.UpdateRequestSpec
 	err error
 }
 
@@ -425,7 +426,7 @@ func (resp generateRequestResponse) error() string {
 	return resp.err.Error()
 }
 
-func failedEvents(err error, gr kyverno.GenerateRequestSpec, resource unstructured.Unstructured) []event.Info {
+func failedEvents(err error, gr urkyverno.UpdateRequestSpec, resource unstructured.Unstructured) []event.Info {
 	re := event.Info{}
 	re.Kind = resource.GetKind()
 	re.Namespace = resource.GetNamespace()

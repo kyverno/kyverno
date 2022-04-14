@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -201,7 +202,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 		}
 	}
 
-	userRequestInfo := kyverno.RequestInfo{
+	userRequestInfo := urkyverno.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),

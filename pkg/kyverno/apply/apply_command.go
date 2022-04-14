@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
@@ -246,7 +246,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	}
 
 	// get the user info as request info from a different file
-	var userInfo v1.RequestInfo
+	var userInfo v1beta1.RequestInfo
 	if userInfoPath != "" {
 		userInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
 		if err != nil {

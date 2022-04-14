@@ -3,12 +3,12 @@ package generate
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func failedEvents(err error, gr kyverno.GenerateRequest, resource unstructured.Unstructured) []event.Info {
+func failedEvents(err error, gr urkyverno.UpdateRequest, resource unstructured.Unstructured) []event.Info {
 	re := event.Info{}
 	re.Kind = resource.GetKind()
 	re.Namespace = resource.GetNamespace()

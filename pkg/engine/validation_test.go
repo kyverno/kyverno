@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
@@ -2110,7 +2110,7 @@ func executeTest(t *testing.T, err error, test testCase) {
 		t.Fatal(err)
 	}
 
-	var userInfo kyverno.RequestInfo
+	var userInfo urkyverno.RequestInfo
 	err = json.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
