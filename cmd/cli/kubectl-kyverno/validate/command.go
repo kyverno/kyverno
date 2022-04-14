@@ -8,9 +8,9 @@ import (
 	"os"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
-	"github.com/kyverno/kyverno/pkg/kyverno/crds"
-	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/crds"
+	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/utils"

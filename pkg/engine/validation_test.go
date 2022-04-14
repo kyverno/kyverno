@@ -8,9 +8,9 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 	admissionv1 "k8s.io/api/admission/v1"
