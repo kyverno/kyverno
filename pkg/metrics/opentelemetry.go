@@ -148,7 +148,8 @@ func NewOTLPGRPCConfig(endpoint string, metricsConfigData *config.MetricsConfigD
 	pusher := controller.New(
 		processor.NewFactory(
 			simple.NewWithHistogramDistribution(),
-			metricExp,
+			aggregation.CumulativeTemporalitySelector(),
+			processor.WithMemory(true),
 		),
 		controller.WithExporter(metricExp),
 		controller.WithResource(res),
