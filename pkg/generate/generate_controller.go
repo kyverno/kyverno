@@ -355,6 +355,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 	c.enqueueGenerateRequest(gr)
 }
 
+// NewControllerWithOnlyClient returns an instance of Controller with only the client.
 func NewControllerWithOnlyClient(client *dclient.Client) *Controller {
 	c := Controller{
 		client: client,

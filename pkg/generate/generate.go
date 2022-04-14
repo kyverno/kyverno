@@ -601,6 +601,7 @@ func (c *Controller) ApplyResource(resource *unstructured.Unstructured) error {
 	return nil
 }
 
+// GetUnstrResource converts ResourceSpec object to type Unstructured
 func (c *Controller) GetUnstrResource(genResourceSpec kyverno.ResourceSpec) (*unstructured.Unstructured, error) {
 	resource, err := c.client.GetResource(genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
 	if err != nil {

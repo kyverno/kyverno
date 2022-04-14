@@ -1057,6 +1057,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 	return resource, nil
 }
 
+// initializeMockController initializes a basic Generate Controller with a fake dynamic client.
 func initializeMockController(objects []runtime.Object) (*generate.Controller, error) {
 
 	dclient, err := client.NewMockClient(runtime.NewScheme(), nil, objects...)
@@ -1070,6 +1071,7 @@ func initializeMockController(objects []runtime.Object) (*generate.Controller, e
 	return c, nil
 }
 
+// handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 
 	objects := []runtime.Object{&policyContext.NewResource}
