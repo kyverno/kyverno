@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -817,6 +816,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -2414,13 +2447,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -3230,6 +3262,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
