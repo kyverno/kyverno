@@ -594,7 +594,7 @@ OuterLoop:
 			JSONContext:     context.NewContext(),
 			NamespaceLabels: namespaceLabels,
 		}
-		generateResponse := engine.Generate(policyContext)
+		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil {
 			engineResponses = append(engineResponses, generateResponse)
 		}

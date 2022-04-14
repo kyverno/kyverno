@@ -195,6 +195,18 @@ type ResourceFilter struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+
+	// mutateExisting controls whether to mutate existing resource ONLY
+	// The existing resources will be mutated ONLY if set to "true".
+	// Otherwise all resources including admission requests are mutated.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	MutateExisting bool `json:"mutateExisting,omitempty" yaml:"mutatingExisting,omitempty"`
+
+	// Targets defines the target resources to be mutated.
+	// +optional
+	Targets []*TargetMutation `json:"targets,omitempty" yaml:"targets,omitempty"`
+
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
@@ -209,6 +221,19 @@ type Mutation struct {
 	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+type TargetMutation struct {
+	// ResourceSpec specifies the target resource information.
+	// +optional
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	// See: https://kyverno.io/docs/writing-policies/preconditions/
+	// +kubebuilder:validation:XPreserveUnknownFields
+	// +optional
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
