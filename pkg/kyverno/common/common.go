@@ -21,12 +21,12 @@ import (
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/generate"
 	sanitizederror "github.com/kyverno/kyverno/pkg/kyverno/sanitizedError"
 	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -1058,7 +1058,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 }
 
 // initializeMockController initializes a basic Generate Controller with a fake dynamic client.
-func initializeMockController(objects []runtime.Object) (*generate.Controller, error) {
+func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
 
 	dclient, err := client.NewMockClient(runtime.NewScheme(), nil, objects...)
 	if err != nil {
@@ -1067,7 +1067,7 @@ func initializeMockController(objects []runtime.Object) (*generate.Controller, e
 	}
 
 	dclient.DiscoveryClient = client.NewFakeDiscoveryClient(nil)
-	c := generate.NewControllerWithOnlyClient(dclient)
+	c := generate.NewGenerateControllerWithOnlyClient(dclient)
 	return c, nil
 }
 

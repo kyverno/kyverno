@@ -355,11 +355,3 @@ func (c *Controller) deleteGR(obj interface{}) {
 	// sync Handler will remove it from the queue
 	c.enqueueGenerateRequest(gr)
 }
-
-// NewControllerWithOnlyClient returns an instance of Controller with only the client.
-func NewControllerWithOnlyClient(client *dclient.Client) *Controller {
-	c := Controller{
-		client: client,
-	}
-	return &c
-}

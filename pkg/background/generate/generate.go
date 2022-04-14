@@ -334,7 +334,7 @@ func updateStatus(statusControl common.StatusControlInterface, gr kyverno.Genera
 	return statusControl.Success(gr, genResources)
 }
 
-func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
+func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, gr kyverno.GenerateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -662,6 +662,14 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 	}
 
 	return nil
+}
+
+// NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
+func NewGenerateControllerWithOnlyClient(client *dclient.Client) *GenerateController {
+	c := GenerateController{
+		client: client,
+	}
+	return &c
 }
 
 // GetUnstrResource converts ResourceSpec object to type Unstructured
