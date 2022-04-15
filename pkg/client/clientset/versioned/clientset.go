@@ -55,7 +55,7 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 
 // KyvernoV1 retrieves the KyvernoV1Client
 func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
-	return c.KyvernoV1beta1()
+	return c.kyvernoV1beta1
 }
 
 // KyvernoV1alpha2 retrieves the KyvernoV1alpha2Client
