@@ -20,6 +20,7 @@ limitations under the License.
 package v1
 
 import (
+	"github.com/kyverno/kyverno/pkg/utils/kube"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -979,6 +980,27 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	}
 	in.MatchResources.DeepCopyInto(&out.MatchResources)
 	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.ImageExtractors != nil {
+		in, out := &in.ImageExtractors, &out.ImageExtractors
+		*out = make(kube.ImageExtractorConfigs, len(*in))
+		for key, val := range *in {
+			var outVal []*kube.ImageExtractorConfig
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = make([]*kube.ImageExtractorConfig, len(*in))
+				for i := range *in {
+					if (*in)[i] != nil {
+						in, out := &(*in)[i], &(*out)[i]
+						*out = new(kube.ImageExtractorConfig)
+						**out = **in
+					}
+				}
+			}
+			(*out)[key] = outVal
+		}
+	}
 	if in.RawAnyAllConditions != nil {
 		in, out := &in.RawAnyAllConditions, &out.RawAnyAllConditions
 		*out = new(apiextensionsv1.JSON)

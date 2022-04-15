@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '1'
   creationTimestamp: null
   labels:
@@ -520,6 +520,28 @@ spec:
                         synchronize:
                           description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within 'path' that will be used to uniquely identify an image. Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to ImageExtractorConfigs. This config is only valid for verifyImages rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -1527,7 +1549,7 @@ spec:
               conditions:
                 description: Conditions is a list of conditions that apply to the policy
                 items:
-                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
+                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -2028,6 +2050,28 @@ spec:
                         synchronize:
                           description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within 'path' that will be used to uniquely identify an image. Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to ImageExtractorConfigs. This config is only valid for verifyImages rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -3001,7 +3045,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '2'
   creationTimestamp: null
   labels:
@@ -3114,7 +3158,7 @@ spec:
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs. 1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage. 2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted". Those cannot be well described when embedded. 3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen. 4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple and the version of the actual struct is irrelevant. 5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -3272,7 +3316,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '3'
   creationTimestamp: null
   labels:
@@ -3385,7 +3429,7 @@ spec:
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs. 1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage. 2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted". Those cannot be well described when embedded. 3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen. 4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple and the version of the actual struct is irrelevant. 5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -3543,7 +3587,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '4'
   creationTimestamp: null
   labels:
@@ -3724,7 +3768,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '5'
   creationTimestamp: null
   labels:
@@ -4241,6 +4285,28 @@ spec:
                         synchronize:
                           description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within 'path' that will be used to uniquely identify an image. Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to ImageExtractorConfigs. This config is only valid for verifyImages rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -5248,7 +5314,7 @@ spec:
               conditions:
                 description: Conditions is a list of conditions that apply to the policy
                 items:
-                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{     // Represents the observations of a foo's current state.     // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type     // +patchStrategy=merge     // +listType=map     // +listMapKey=type     Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n     // other fields }"
+                  description: "Condition contains details for one aspect of the current state of this API Resource. --- This struct is intended for direct use as an array at the field path .status.conditions.  For example, type FooStatus struct{ // Represents the observations of a foo's current state. // Known .status.conditions.type are: \"Available\", \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge // +listType=map // +listMapKey=type Conditions []metav1.Condition `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition transitioned from one status to another. This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
@@ -5749,6 +5815,28 @@ spec:
                         synchronize:
                           description: Synchronize controls if generated resources should be kept in-sync with their source resource. If Synchronize is set to "true" changes to generated resources will be overwritten with resource data from Data or the resource specified in the Clone declaration. Optional. Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within 'path' that will be used to uniquely identify an image. Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to ImageExtractorConfigs. This config is only valid for verifyImages rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should be applied. The match criteria can include resource information (e.g. kind, name, namespace, labels) and admission review request information like the user name or role. At least one kind is required.
@@ -6722,7 +6810,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '6'
   creationTimestamp: null
   labels:
@@ -6835,7 +6923,7 @@ spec:
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs. 1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage. 2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted". Those cannot be well described when embedded. 3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen. 4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple and the version of the actual struct is irrelevant. 5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -6993,7 +7081,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '7'
   creationTimestamp: null
   labels:
@@ -7106,7 +7194,7 @@ spec:
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
-                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs.  1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage.  2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular     restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted".     Those cannot be well described when embedded.  3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen.  4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity     during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple     and the version of the actual struct is irrelevant.  5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type     will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
+                    description: 'ObjectReference contains enough information to let you inspect or modify the referred object. --- New uses of this type are discouraged because of difficulty describing its usage when embedded in APIs. 1. Ignored fields.  It includes many fields which are not generally honored.  For instance, ResourceVersion and FieldPath are both very rarely valid in actual usage. 2. Invalid usage help.  It is impossible to add specific help for individual usage.  In most embedded usages, there are particular restrictions like, "must refer only to types A and B" or "UID not honored" or "name must be restricted". Those cannot be well described when embedded. 3. Inconsistent validation.  Because the usages are different, the validation rules are different by usage, which makes it hard for users to predict what will happen. 4. The fields are both imprecise and overly precise.  Kind is not a precise mapping to a URL. This can produce ambiguity during interpretation and require a REST mapping.  In most cases, the dependency is on the group,resource tuple and the version of the actual struct is irrelevant. 5. We cannot easily change it.  Because this type is embedded in many locations, updates to this type will affect numerous schemas.  Don''t make new APIs embed an underspecified API type they do not control. Instead of using this type, create a locally provided and used type that is well-focused on your reference. For example, ServiceReferences for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533 .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
