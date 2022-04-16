@@ -828,6 +828,29 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	resources = filteredResources
 
+	var noDuplicateResources = []*unstructured.Unstructured{}
+	var duplicateResources []string
+	for i, resource := range resources {
+		for j, dummy_resource := range resources {
+			if resource.GetName() == dummy_resource.GetName() && resource.GetKind() == dummy_resource.GetKind() && i != j {
+				fmt.Println("skipping duplicate resource, resource :", resource)
+				duplicateResources = append(duplicateResources, resource.GetName())
+			}
+		}
+	}
+	for _, resource := range resources {
+		flag := 0
+		for _, dupResource := range duplicateResources {
+			if resource.GetName() == dupResource {
+				flag = 1
+				break
+			}
+		}
+		if flag == 0 {
+			noDuplicateResources = append(noDuplicateResources, resource)
+		}
+	}
+
 	msgPolicies := "1 policy"
 	if len(mutatedPolicies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
@@ -863,7 +886,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
-		for _, resource := range resources {
+		for _, resource := range noDuplicateResources {
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
