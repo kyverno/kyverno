@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/kyverno/go-wildcard"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -16,7 +18,6 @@ import (
 	imageUtils "github.com/kyverno/kyverno/pkg/utils/image"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"time"
 )
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {

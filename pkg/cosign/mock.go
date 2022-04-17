@@ -29,7 +29,7 @@ func SetMock(image string, data [][]byte) error {
 	return nil
 }
 
-func ClearMock()  {
+func ClearMock() {
 	client = &driver{}
 }
 
