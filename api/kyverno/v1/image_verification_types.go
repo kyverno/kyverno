@@ -58,10 +58,12 @@ type ImageVerification struct {
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.
+	// Deprecated. Use annotations per Attestor instead.
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
-	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
+	// Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
+	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
@@ -93,8 +95,16 @@ type Attestor struct {
 
 	// Attestor is a nested AttestorSet used to specify a more complex set of match authorities
 	// +kubebuilder:validation:Optional
-	// TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.
-	Attestors []*apiextv1.JSON `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	Attestor *apiextv1.JSON `json:"attestor,omitempty" yaml:"attestor,omitempty"`
+
+	// Annotations are used for image verification.
+	// Every specified key-value pair must exist and match in the verified payload.
+	// The payload may contain other key-value pairs.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+
+	// Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
+	// If specified Repository will override other OCI image repository locations for this Attestor.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 type StaticKeyAttestor struct {
@@ -103,6 +113,10 @@ type StaticKeyAttestor struct {
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
 	// https://kyverno.io/docs/writing-policies/variables/).
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+
+	// Roots is a PEM encoded CA certificate chain
+	// +kubebuilder:validation:Optional
+	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 }
 
 type KeylessAttestor struct {
@@ -202,10 +216,10 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 }
 
 func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if (a.StaticKey != nil && (a.Keyless != nil || len(a.Attestors) != 0)) ||
-		(a.Keyless != nil && (a.StaticKey != nil || len(a.Attestors) != 0)) ||
-		(len(a.Attestors) > 0 && (a.StaticKey != nil || a.Keyless != nil)) ||
-		(a.StaticKey == nil && a.Keyless == nil && len(a.Attestors) == 0) {
+	if (a.StaticKey != nil && (a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Keyless != nil && (a.StaticKey != nil || a.Attestor != nil)) ||
+		(a.Attestor != nil && (a.StaticKey != nil || a.Keyless != nil)) ||
+		(a.StaticKey == nil && a.Keyless == nil && a.Attestor == nil) {
 		errs = append(errs, field.Invalid(path, a, "One of static key, keyless, or nested attestor is required"))
 	}
 
@@ -221,17 +235,16 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, keylessErrors...)
 	}
 
-	attestorsPath := path.Child("attestors")
-	for i, rawJson := range a.Attestors {
-		attestorSet, err := AttestorSetUnmarshal(rawJson)
+	if a.Attestor != nil {
+		attestorPath := path.Child("attestor")
+		attestorSet, err := AttestorSetUnmarshal(a.Attestor)
 		if err != nil {
-			fieldErr := field.Invalid(attestorsPath.Index(i), rawJson, err.Error())
+			fieldErr := field.Invalid(attestorPath, a.Attestor, err.Error())
 			errs = append(errs, fieldErr)
-			continue
+		} else {
+			attestorErrors := validateAttestorSet(attestorSet, attestorPath)
+			errs = append(errs, attestorErrors...)
 		}
-
-		attestorErrors := validateAttestorSet(attestorSet, attestorsPath.Index(i))
-		errs = append(errs, attestorErrors...)
 	}
 
 	return errs
@@ -278,7 +291,10 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.ImageReferences = []string{iv.Image}
 	}
 
-	var attestor Attestor
+	attestor := &Attestor{
+		Annotations: iv.Annotations,
+	}
+
 	if iv.Key != "" {
 		attestor.StaticKey = &StaticKeyAttestor{
 			Key: iv.Key,
@@ -292,7 +308,7 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	}
 
 	attestorSet := &AttestorSet{}
-	attestorSet.Entries = append(attestorSet.Entries, &attestor)
+	attestorSet.Entries = append(attestorSet.Entries, attestor)
 
 	copy.Attestors = append(copy.Attestors, attestorSet)
 	return copy

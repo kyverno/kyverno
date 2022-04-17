@@ -1245,7 +1245,7 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs. Deprecated. Use annotations per Attestor instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed in-toto Statements used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statement declarations.
@@ -1342,11 +1342,14 @@ spec:
                                   description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet used to specify a more complex set of match authorities TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -1365,11 +1368,17 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA certificate chain
                                             type: string
                                         type: object
                                     type: object
@@ -1391,7 +1400,7 @@ spec:
                             description: Key is the PEM encoded public key that the image or attestation is signed with. Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           repository:
-                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
@@ -2683,7 +2692,7 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs. Deprecated. Use annotations per Attestor instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed in-toto Statements used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statement declarations.
@@ -2780,11 +2789,14 @@ spec:
                                   description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet used to specify a more complex set of match authorities TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -2803,11 +2815,17 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA certificate chain
                                             type: string
                                         type: object
                                     type: object
@@ -2829,7 +2847,7 @@ spec:
                             description: Key is the PEM encoded public key that the image or attestation is signed with. Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           repository:
-                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
@@ -4830,7 +4848,7 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs. Deprecated. Use annotations per Attestor instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed in-toto Statements used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statement declarations.
@@ -4927,11 +4945,14 @@ spec:
                                   description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet used to specify a more complex set of match authorities TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -4950,11 +4971,17 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA certificate chain
                                             type: string
                                         type: object
                                     type: object
@@ -4976,7 +5003,7 @@ spec:
                             description: Key is the PEM encoded public key that the image or attestation is signed with. Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           repository:
-                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
@@ -6268,7 +6295,7 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                            description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs. Deprecated. Use annotations per Attestor instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed in-toto Statements used to verify the image. See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the OCI registry and decodes them into a list of Statement declarations.
@@ -6365,11 +6392,14 @@ spec:
                                   description: Entries contains the available attestors. An attestor can be a static key, attributes for keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet used to specify a more complex set of match authorities TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image verification. Every specified key-value pair must exist and match in the verified payload. The payload may contain other key-value pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -6388,11 +6418,17 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is a PEM encoded CA certificate chain
                                             type: string
                                         type: object
                                     type: object
@@ -6414,7 +6450,7 @@ spec:
                             description: Key is the PEM encoded public key that the image or attestation is signed with. Deprecated. Use StaticKeyAttestor instead.
                             type: string
                           repository:
-                            description: Repository is an optional alternate OCI repository to use for image signatures that match this rule. If specified Repository will override the default OCI image repository configured for the installation.
+                            description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
