@@ -212,10 +212,10 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 			nestedAttestorSet, err := v1.AttestorSetUnmarshal(a.Attestor)
 			if err != nil {
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
+			} else {
+				attestorPath += ".attestor"
+				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
 			}
-
-			attestorPath += ".attestor"
-			digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
 			digest, entryError = cosign.VerifySignature(*opts)
