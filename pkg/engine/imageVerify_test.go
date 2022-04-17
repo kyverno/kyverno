@@ -305,72 +305,68 @@ var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource)
-
+	cosign.ClearMock()
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
 
 func Test_SignatureUnsigned(t *testing.T) {
+	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
 
 func Test_SignatureWrongKey(t *testing.T) {
+	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
 
 func Test_SignaturesMultiKey(t *testing.T) {
+	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-
 	policyContext := buildContext(t, policy, testSampleResource)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
 
 func Test_SignaturesMultiKeyFail(t *testing.T) {
+	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-
 	policyContext := buildContext(t, policy, testSampleResource)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
 
 func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
+	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
-
 	policyContext := buildContext(t, policy, testSampleResource)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
 
 func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
+	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testOtherKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
-
 	policyContext := buildContext(t, policy, testSampleResource)
-
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
@@ -438,6 +434,8 @@ var testNestedAttestorPolicy = `
 `
 
 func Test_NestedAttestors(t *testing.T) {
+	cosign.ClearMock()
+
 	policy := strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
