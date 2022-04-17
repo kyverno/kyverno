@@ -322,7 +322,6 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
-		// promConfig,
 		metricsConfig,
 	)
 
@@ -385,8 +384,11 @@ func main() {
 =======
 		configData,
 		client,
+<<<<<<< HEAD
 		// promConfig,
 >>>>>>> 19e9d653b (remove current prometheus config)
+=======
+>>>>>>> 1d4bb2cda (remove unecessary comments)
 		metricsConfig,
 	)
 
@@ -495,8 +497,11 @@ func main() {
 		promConfig,
 =======
 		grc,
+<<<<<<< HEAD
 		// promConfig,
 >>>>>>> 19e9d653b (remove current prometheus config)
+=======
+>>>>>>> 1d4bb2cda (remove unecessary comments)
 		metricsConfig,
 	)
 

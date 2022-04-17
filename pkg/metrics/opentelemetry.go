@@ -33,7 +33,7 @@ const (
 
 // TODO: Clear map memory after certain intervals
 var (
-	ruleInfo = make(map[[8]string]float64, 0)
+	ruleInfo = make(map[[8]string]float64)
 )
 
 type MetricsConfig struct {
@@ -231,6 +231,8 @@ func NewPrometheusConfig(metricsConfigData *config.MetricsConfigData, log logr.L
 	m := new(MetricsConfig)
 	m.Log = log
 	m.Config = metricsConfigData
+	m.cron = cron.New()
+
 	m, err = initializeMetrics(m)
 
 	if err != nil {
@@ -239,6 +241,28 @@ func NewPrometheusConfig(metricsConfigData *config.MetricsConfigData, log logr.L
 
 	metricsServerMux := http.NewServeMux()
 	metricsServerMux.HandleFunc("/metrics", exporter.ServeHTTP)
+
+	// configuring metrics periodic refresh
+	if m.Config.GetMetricsRefreshInterval() != 0 {
+		if len(m.cron.Entries()) > 0 {
+			m.Log.Info("Skipping the configuration of metrics refresh. Already found cron expiration to be set.")
+		} else {
+			_, err := m.cron.AddFunc(fmt.Sprintf("@every %s", m.Config.GetMetricsRefreshInterval()), func() {
+				m.Log.Info("Resetting the metrics as per their periodic refresh")
+				// reset metrics here - clear map values
+				for k := range ruleInfo {
+					delete(ruleInfo, k)
+				}
+			})
+			if err != nil {
+				return nil, nil, err
+			}
+			log.Info(fmt.Sprintf("Configuring metrics refresh at a periodic rate of %s", m.Config.GetMetricsRefreshInterval()))
+			m.cron.Start()
+		}
+	} else {
+		m.Log.Info("Skipping the configuration of metrics refresh as 'metricsRefreshInterval' wasn't specified in values.yaml at the time of installing kyverno")
+	}
 
 	return m, metricsServerMux, nil
 }
