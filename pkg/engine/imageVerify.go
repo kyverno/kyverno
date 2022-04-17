@@ -265,15 +265,16 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		path = path + ".staticKey"
 		opts.Key = attestor.StaticKey.Key
 		opts.Roots = []byte(attestor.StaticKey.Roots)
-		if attestor.Repository != "" {
-			opts.Repository = attestor.Repository
-		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
 		opts.Roots = []byte(attestor.Keyless.Roots)
 		opts.Issuer = attestor.Keyless.Issuer
 		opts.Subject = attestor.Keyless.Subject
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
+	}
+
+	if attestor.Repository != "" {
+		opts.Repository = attestor.Repository
 	}
 
 	if attestor.Annotations != nil {
