@@ -3,24 +3,20 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"time"
-
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/go-wildcard"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	imageUtils "github.com/kyverno/kyverno/pkg/utils/image"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"time"
 )
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
@@ -144,7 +140,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 		for _, imageInfo := range infoMap {
 			path := imageInfo.Pointer
 			image := imageInfo.String()
-			jmespath := utils.JsonPointerToJMESPath(path)
+			jmespath := engineUtils.JsonPointerToJMESPath(path)
 			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
 			if err == nil && !changed {
 				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
@@ -282,16 +278,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	}
 
 	return opts, path
-}
-
-func (iv *imageVerifier) getAttestor(imageVerify *v1.ImageVerification) *v1.Attestor {
-	for _, attestorSet := range imageVerify.Attestors {
-		for _, attestor := range attestorSet.Entries {
-			return attestor
-		}
-	}
-
-	return nil
 }
 
 func (iv *imageVerifier) patchDigest(path string, imageInfo imageUtils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
