@@ -644,6 +644,15 @@ func ruleOnlyDealsWithResourceMetaData(rule kyverno.Rule) bool {
 }
 
 func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
+
+	if path, err := validateMatchRequestTypes(rule.MatchResources); err != nil {
+		return fmt.Sprintf("resources.%s", path), err
+	}
+
+	if path, err := validateMatchRequestTypes(rule.ExcludeResources); err != nil {
+		return fmt.Sprintf("resources.%s", path), err
+	}
+
 	// validate userInfo in match and exclude
 	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
 		return "exclude", errs.ToAggregate()
@@ -694,6 +703,24 @@ func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 			if path, err := validateConditions(target, "conditions"); err != nil {
 				return fmt.Sprintf("validate.deny.%s", path), err
 			}
+		}
+	}
+	return "", nil
+}
+
+func validateMatchRequestTypes(rt kyverno.MatchResources) (string, error) {
+	for i := 0; i < len(rt.RequestTypes); i++ {
+		if (reflect.TypeOf(rt.RequestTypes[i]).Kind()) != reflect.String {
+			return fmt.Sprint("Type: ", reflect.TypeOf(rt.RequestTypes[i]).Kind()), fmt.Errorf("only string type of values are allowed in feild 'requestTypes'")
+		}
+		valuesAllowed := map[string]bool{
+			"CREATE":  true,
+			"UPDATE":  true,
+			"DELETE":  true,
+			"CONNECT": true,
+		}
+		if !valuesAllowed[rt.RequestTypes[i]] {
+			return fmt.Sprint("requestTypes: ", rt.RequestTypes[i]), fmt.Errorf("unknown value '%s' found under the 'requestTypes' field. Only the following values are allowed: [CREATE, UPDATE, DELETE, CONNECT]", rt.RequestTypes[i])
 		}
 	}
 	return "", nil

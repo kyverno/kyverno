@@ -375,6 +375,13 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
                           properties:
@@ -781,6 +788,13 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
@@ -1791,6 +1805,13 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
                           properties:
@@ -2197,6 +2218,13 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
@@ -3916,6 +3944,13 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
                           properties:
@@ -4322,6 +4357,13 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
@@ -5332,6 +5374,13 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.
                           properties:
@@ -5738,6 +5787,13 @@ spec:
                           description: ClusterRoles is the list of cluster-wide role names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about the resource being created or modified. Requires at least one tag to be specified when under MatchResources. Specifying ResourceDescription directly under match is being deprecated. Please specify under "any" or "all" instead.

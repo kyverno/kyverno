@@ -46,6 +46,93 @@ func Test_Validate_ResourceDescription_MatchedValid(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func Test_Validate_Match_RequestTypes_Empty(t *testing.T) {
+	rq := []byte(`{}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.NilError(t, err)
+}
+
+func Test_Validate_Match_RequestTypes(t *testing.T) {
+	rq := []byte(`{
+		"requestTypes":[
+			"CREATE",
+			"DELETE",
+			"CONNECT",
+			"UPDATE"
+		]
+	}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.NilError(t, err)
+}
+
+func Test_Validate_Match_RequestTypes_Invalid(t *testing.T) {
+	rq := []byte(`{
+		"requestTypes":[
+			"foobar"
+		]
+	}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.Assert(t, err != nil)
+}
+
+func Test_Validate_Exclude_RequestTypes_Empty(t *testing.T) {
+	rq := []byte(`{}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.NilError(t, err)
+}
+
+func Test_Validate_Exclude_RequestTypes(t *testing.T) {
+	rq := []byte(`{
+		"requestTypes":[
+			"CREATE",
+			"DELETE",
+			"CONNECT",
+			"UPDATE"
+		]
+	}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.NilError(t, err)
+}
+func Test_Validate_Exclude_RequestTypes_Invalid(t *testing.T) {
+	rq := []byte(`{
+		"requestTypes":[
+			"foobar"
+		]
+	}`)
+
+	var rt kyverno.MatchResources
+	err := json.Unmarshal(rq, &rt)
+	assert.NilError(t, err)
+
+	_, err = validateMatchRequestTypes(rt)
+	assert.Assert(t, err != nil)
+}
+
 func Test_Validate_DenyConditions_KeyRequestOperation_Empty(t *testing.T) {
 	denyConditions := []byte(`[]`)
 
