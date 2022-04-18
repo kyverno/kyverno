@@ -57,7 +57,7 @@ func (ws *WebhookServer) admissionHandler(filter bool, inner handlers.AdmissionH
 	if filter {
 		inner = handlers.Filter(ws.configHandler, inner)
 	}
-	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(ws.log, inner))
+	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(ws.log.WithName("handlerFunc"), inner))
 }
 
 func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
