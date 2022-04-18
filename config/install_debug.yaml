@@ -2205,12 +2205,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          digestMutate:
-                            default: true
-                            description: DigestMutate is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
-                            type: boolean
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
@@ -2237,6 +2231,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -4528,12 +4528,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          digestMutate:
-                            default: true
-                            description: DigestMutate is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
-                            type: boolean
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
@@ -4560,6 +4554,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -7715,12 +7715,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          digestMutate:
-                            default: true
-                            description: DigestMutate is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
-                            type: boolean
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
@@ -7747,6 +7741,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -10039,12 +10039,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          digestMutate:
-                            default: true
-                            description: DigestMutate is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
-                            type: boolean
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
@@ -10071,6 +10065,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match

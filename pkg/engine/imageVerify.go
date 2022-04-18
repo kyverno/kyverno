@@ -153,16 +153,16 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
-			if imageVerify.DigestMutate == nil {
-				digest := true
-				imageVerify.DigestMutate = &digest
+			if imageVerify.MutateDigest == nil {
+				mutate := true
+				imageVerify.MutateDigest = &mutate
 			}
 
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
 				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
-				if imageInfo.Digest == "" && *imageVerify.DigestMutate && ruleResp.Status == response.RuleStatusPass {
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
 					if err != nil {
 						ruleResp.Message = err.Error()
@@ -171,18 +171,15 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
-				if imageInfo.Digest == "" && *imageVerify.DigestMutate {
-					imageData, err := fetchImageDataMap(imageInfo.String())
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest {
+					digest, err := fetchImageDigest(imageInfo.String())
 					if err != nil {
 						iv.logger.V(4).Info("fetching image data from registry", "error", err)
 					}
-					imgData, ok := imageData.(map[string]interface{})
-					if ok {
-						err := iv.patchDigest(path, imageInfo, imgData["digest"].(string), ruleResp)
-						if err != nil {
-							ruleResp.Message = err.Error()
-							ruleResp.Status = response.RuleStatusFail
-						}
+					err = iv.patchDigest(path, imageInfo, digest, ruleResp)
+					if err != nil {
+						ruleResp.Message = err.Error()
+						ruleResp.Status = response.RuleStatusFail
 					}
 				}
 			}

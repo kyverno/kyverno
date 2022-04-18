@@ -647,8 +647,8 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 			(*out)[key] = val
 		}
 	}
-	if in.DigestMutate != nil {
-		in, out := &in.DigestMutate, &out.DigestMutate
+	if in.MutateDigest != nil {
+		in, out := &in.MutateDigest, &out.MutateDigest
 		*out = new(bool)
 		**out = **in
 	}

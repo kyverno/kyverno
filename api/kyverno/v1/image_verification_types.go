@@ -66,11 +66,11 @@ type ImageVerification struct {
 	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 
-	// DigestMutate is an optional field which handles the tag-to-digest mutation for the provided image paths.
+	// MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths.
 	// Defaults to true.
-	// +kubebuilder:default:=true
+	// +kubebuilder:default=true
 	// +kubebuilder:validation:Optional
-	DigestMutate *bool `json:"digestMutate,omitempty" yaml:"digestMutate,omitempty"`
+	MutateDigest *bool `json:"mutateDigest,omitempty" yaml:"mutateDigest,omitempty"`
 }
 
 type AttestorSet struct {
