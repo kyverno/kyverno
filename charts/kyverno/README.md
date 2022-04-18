@@ -63,7 +63,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespace | string | `nil` | Namespace the chart deploys to |
-| mode | string | `"standalone"` | Mode for Kyverno installation |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -79,7 +78,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| replicaCount | int | `0` | Desired number of pods |
+| replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
@@ -170,6 +169,13 @@ You can however override the default resource filters by setting the `config.res
 It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+
+## High availability
+
+Running highly available Kyverno is crucial as the Kubernetes api server will invoke Kyverno webhook for almost all resource operations in the cluster.
+
+In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
 
 ## Source Code
 

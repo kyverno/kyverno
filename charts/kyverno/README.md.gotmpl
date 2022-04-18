@@ -92,6 +92,13 @@ It contains an array of string templates that are passed through the `tpl` Helm 
 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
 
+## High availability
+
+Running highly available Kyverno is crucial as the Kubernetes api server will invoke Kyverno webhook for almost all resource operations in the cluster.
+
+In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
+
 {{ template "chart.sourcesSection" . }}
 
 {{ template "chart.requirementsSection" . }}

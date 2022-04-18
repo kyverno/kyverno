@@ -6,7 +6,7 @@ metadata:
     app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-  replicas: {{ include "kyverno.replicaCount" . }}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
   {{- if .Values.updateStrategy }}
