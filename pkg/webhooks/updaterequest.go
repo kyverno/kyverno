@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -27,7 +28,7 @@ func (ws *WebhookServer) createUpdateRequests(request *admissionv1.AdmissionRequ
 func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
 
 	logger := ws.log.WithValues("action", "mutateExisting", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
-	logger.V(6).Info("update request")
+	logger.V(4).Info("update request")
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
@@ -52,9 +53,9 @@ func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequ
 		go ws.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
 	}
 
-	if failedResponse := applyGenerateRequest(request, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+	if failedResponse := applyGenerateRequest(request, urkyverno.Mutate, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedGR := range failedResponse {
-			events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, policyContext.NewResource)
+			events := failedEvents(fmt.Errorf("failed to create update request: %v", failedGR.err), failedGR.gr, policyContext.NewResource)
 			ws.eventGen.Add(events...)
 		}
 	}

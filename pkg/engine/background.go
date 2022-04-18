@@ -58,7 +58,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 }
 
 func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleResponse {
-	if !rule.HasGenerate() || !rule.IsMutateExisting() {
+	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
 
