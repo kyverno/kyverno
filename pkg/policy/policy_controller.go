@@ -16,7 +16,9 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -71,6 +73,9 @@ type PolicyController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestLister
 
+	// urLister can list/get update request from the shared informer's store
+	urLister urkyvernolister.UpdateRequestLister
+
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister listerv1.NamespaceLister
 
@@ -85,6 +90,9 @@ type PolicyController struct {
 
 	// grListerSynced returns true if the generate request store has been synced at least once
 	grListerSynced cache.InformerSynced
+
+	// urListerSynced returns true if the update request store has been synced at least once
+	urListerSynced cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -112,6 +120,7 @@ func NewPolicyController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urkyvernoinformer.UpdateRequestInformer,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
@@ -152,12 +161,14 @@ func NewPolicyController(
 
 	pc.nsLister = namespaces.Lister()
 	pc.grLister = grInformer.Lister()
+	pc.urLister = urInformer.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
 	pc.nsListerSynced = namespaces.Informer().HasSynced
 	pc.grListerSynced = grInformer.Informer().HasSynced
+	pc.urListerSynced = urInformer.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -415,7 +426,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced, pc.urListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}

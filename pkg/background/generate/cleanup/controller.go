@@ -3,14 +3,14 @@ package cleanup
 import (
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -40,6 +41,7 @@ type Controller struct {
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
 	grInformer kyvernoinformer.GenerateRequestInformer
+	urInformer urkyvernoinformer.UpdateRequestInformer
 
 	// control is used to delete the GR
 	control ControlInterface
@@ -56,6 +58,9 @@ type Controller struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	// urLister can list/get update request from the shared informer's store
+	urLister urkyvernolister.UpdateRequestNamespaceLister
+
 	// pSynced returns true if the cluster policy has been synced at least once
 	pSynced cache.InformerSynced
 
@@ -64,6 +69,9 @@ type Controller struct {
 
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
+
+	// urSynced returns true if the update request store has been synced at least once
+	urSynced cache.InformerSynced
 
 	// dynamic sharedinformer factory
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
@@ -83,6 +91,7 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urkyvernoinformer.UpdateRequestInformer,
 	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
 	log logr.Logger,
 ) (*Controller, error) {
@@ -91,6 +100,7 @@ func NewController(
 		client:          client,
 		pInformer:       pInformer,
 		grInformer:      grInformer,
+		urInformer:      urInformer,
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 		dynamicInformer: dynamicInformer,
 		log:             log,
@@ -105,6 +115,7 @@ func NewController(
 	c.pSynced = pInformer.Informer().HasSynced
 	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
+	c.urSynced = urInformer.Informer().HasSynced
 
 	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
 	if err != nil {
@@ -258,7 +269,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.npSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.urSynced, c.npSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}

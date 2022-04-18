@@ -13,7 +13,7 @@ spec:
     listKind: UpdateRequestList
     plural: updaterequests
     shortNames:
-    - gr
+    - ur
     singular: updaterequest
   scope: Namespaced
   versions:
@@ -123,15 +123,12 @@ spec:
               policy:
                 description: Specifies the name of the policy.
                 type: string
-<<<<<<< HEAD
               requestType:
                 description: Type represents request type for background processing
                 enum:
                 - mutate
                 - generate
                 type: string
-=======
->>>>>>> main
               resource:
                 description: ResourceSpec is the information to identify the update
                   request.

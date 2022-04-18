@@ -61,6 +61,7 @@ type Controller struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	// urLister can list/get update request from the shared informer's store
 	urLister urlister.UpdateRequestNamespaceLister
 
 	// policySynced returns true if the Cluster policy store has been synced at least once
@@ -71,6 +72,8 @@ type Controller struct {
 
 	// grSynced returns true if the Generate Request store has been synced at least once
 	grSynced cache.InformerSynced
+
+	// urSynced returns true if the Update Request store has been synced at least once
 	urSynced cache.InformerSynced
 
 	// dynamic shared informer factory
