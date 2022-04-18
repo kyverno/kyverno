@@ -13,7 +13,7 @@ spec:
     listKind: UpdateRequestList
     plural: updaterequests
     shortNames:
-    - gr
+    - ur
     singular: updaterequest
   scope: Namespaced
   versions:
