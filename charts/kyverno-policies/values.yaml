@@ -48,7 +48,7 @@ policyExclude: {}
   #       - Pod
   #       namespaces:
   #       - kube-system
-# -- Add preconditions to individual policies
+# -- Add preconditions to individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map.
 policyPreconditions: {}
   # # Exclude resources from individual policies
