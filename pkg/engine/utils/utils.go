@@ -12,6 +12,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+type RuleType int
+
+const (
+	//Mutation type for mutation rule
+	Mutation RuleType = iota
+	//Validation type for validation rule
+	Validation
+	//Generation type for generation rule
+	Generation
+	// ImageVerify type for image verification
+	ImageVerify
+)
+
+func (ri RuleType) String() string {
+	return [...]string{
+		"Mutation",
+		"Validation",
+		"Generation",
+		"ImageVerify",
+	}[ri]
+}
+
 // ApplyPatches patches given resource with given patches and returns patched document
 // return original resource if any error occurs
 func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
