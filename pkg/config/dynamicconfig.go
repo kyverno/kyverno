@@ -324,7 +324,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 			reconcilePolicyReport = true
 		}
 	}
-
 	return
 }
 
