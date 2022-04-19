@@ -80,6 +80,7 @@ The following table lists the configurable parameters of the kyverno chart and t
 | `fullnameOverride` | override the expanded name of the chart | `nil` |
 | `generatecontrollerExtraResources` | extra resource type Kyverno is allowed to generate | `[]` |
 | `hostNetwork` | Use the host network's namespace. Set it to `true` when dealing with a custom CNI over Amazon EKS | `false` |
+| imagePullSecrets | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. | `{}` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `image.pullSecrets` | Specify image pull secrets | `[]` (does not add image pull secrets to deployed pods) |
 | `image.repository` | Image repository | `ghcr.io/kyverno/kyverno` |
