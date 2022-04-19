@@ -38,6 +38,7 @@ type Options struct {
 	ImageRef             string
 	Key                  string
 	Roots                []byte
+	Intermediates        []byte
 	Subject              string
 	Issuer               string
 	AdditionalExtensions map[string]string
