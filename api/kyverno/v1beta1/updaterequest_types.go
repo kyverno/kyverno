@@ -150,3 +150,7 @@ type UpdateRequestList struct {
 func init() {
 	SchemeBuilder.Register(&UpdateRequest{}, &UpdateRequestList{})
 }
+
+func (s *UpdateRequestSpec) GetRequestType() RequestType {
+	return s.Type
+}

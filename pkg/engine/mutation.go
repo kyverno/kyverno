@@ -22,7 +22,12 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{
 		Policy: policy,
 	}
+
 	patchedResource := policyContext.NewResource
+	if policyContext.ExistingResource != nil {
+		patchedResource = *policyContext.ExistingResource
+	}
+
 	ctx := policyContext.JSONContext
 	var skippedRules []string
 
@@ -39,6 +44,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 
 	var err error
 
+	sameMutateExistingResource := reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasMutate() {
 			continue
@@ -50,7 +56,14 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			excludeResource = policyContext.ExcludeGroupRole
 		}
 
-		if err = MatchesResourceDescription(patchedResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.GetNamespace()); err != nil {
+		// matchResource is the resource that triggers the mutate policy
+		// matchResource and patchedResource could be different for mutateExisting rules
+		matchResource := patchedResource
+		if rule.IsMutateExisting() && !sameMutateExistingResource {
+			matchResource = policyContext.NewResource
+		}
+
+		if err = MatchesResourceDescription(matchResource, rule, policyContext.AdmissionInfo, excludeResource, policyContext.NamespaceLabels, policyContext.Policy.GetNamespace()); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			skippedRules = append(skippedRules, rule.Name)
 			continue
