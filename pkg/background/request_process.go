@@ -5,9 +5,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/generate"
 )
 
-func (c *Controller) ProcessGR(gr *urkyverno.UpdateRequest) error {
-	ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-		c.policyLister, c.npolicyLister, c.grLister, c.eventGen, c.dynamicInformer, c.log, c.Config,
-	)
-	return ctrl.ProcessGR(gr)
+func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
+	switch ur.Spec.Type {
+	case urkyverno.Mutate:
+		// TODO (shuting): invoke mutate handler
+	case urkyverno.Generate:
+		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
+			c.policyLister, c.npolicyLister, c.grLister, c.eventGen, c.dynamicInformer, c.log, c.Config,
+		)
+		return ctrl.ProcessGR(ur)
+	}
+	return nil
 }

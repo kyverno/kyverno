@@ -434,7 +434,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 	for _, p := range policies {
 		spec := p.GetSpec()
-		if spec.HasValidate() || spec.HasGenerate() {
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() {
 			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
@@ -740,7 +740,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 		}
 
 		if (updateValidate && rule.HasValidate()) ||
-			(!updateValidate && rule.HasMutate()) ||
+			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
+			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
 			(!updateValidate && rule.HasVerifyImages()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
