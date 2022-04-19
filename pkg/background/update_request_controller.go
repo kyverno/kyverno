@@ -240,7 +240,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 		return err
 	}
 
-	return c.ProcessGR(gr)
+	return c.ProcessUR(gr)
 }
 
 func (c *Controller) updateGenericResource(old, cur interface{}) {

@@ -73,7 +73,7 @@ func (ws *WebhookServer) handleGenerate(
 			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
-		if failedResponse := applyGenerateRequest(request, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+		if failedResponse := applyGenerateRequest(request, urkyverno.Generate, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedGR := range failedResponse {
 				events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, policyContext.NewResource)
@@ -366,7 +366,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
+func applyGenerateRequest(request *admissionv1.AdmissionRequest, ruleType urkyverno.RequestType, gnGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
@@ -379,7 +379,7 @@ func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator upd
 	}
 
 	for _, er := range engineResponses {
-		gr := transform(admissionRequestInfo, userRequestInfo, er)
+		gr := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
 		if err := gnGenerator.Apply(gr, action); err != nil {
 			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
@@ -388,7 +388,7 @@ func applyGenerateRequest(request *admissionv1.AdmissionRequest, gnGenerator upd
 	return
 }
 
-func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRequestInfo urkyverno.RequestInfo, er *response.EngineResponse) urkyverno.UpdateRequestSpec {
+func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRequestInfo urkyverno.RequestInfo, er *response.EngineResponse, ruleType urkyverno.RequestType) urkyverno.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
 	if er.PolicyResponse.Policy.Namespace != "" {
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
@@ -397,6 +397,7 @@ func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRe
 	}
 
 	gr := urkyverno.UpdateRequestSpec{
+		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,

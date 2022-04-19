@@ -92,7 +92,7 @@ func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 
 func (g *Generator) processApply(i info) {
 	if err := g.generate(i); err != nil {
-		logger.Error(err, "failed to generate request CR")
+		logger.Error(err, "failed to update request CR")
 	}
 }
 
@@ -113,26 +113,37 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 	if err != nil {
 		return err
 	}
+
 	applyResource := func() error {
 		ur := urkyverno.UpdateRequest{
 			Spec: urSpec,
 		}
 
-		ur.SetNamespace(config.KyvernoNamespace)
-		// Initial state "Pending"
-		// generate requests created in kyverno namespace
-		isExist := false
-		if action == admissionv1.Create || action == admissionv1.Update {
-			log.V(4).Info("querying all generate requests")
-			selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		queryLabels := make(map[string]string)
+		if ur.Spec.Type == urkyverno.Mutate {
+			queryLabels = labels.Set(map[string]string{
+				"mutate.updaterequest.kyverno.io/policy-name":       ur.Spec.Policy,
+				"mutate.updaterequest.kyverno.io/trigger-name":      ur.Spec.Resource.Name,
+				"mutate.updaterequest.kyverno.io/trigger-namespace": ur.Spec.Resource.Namespace,
+				"mutate.updaterequest.kyverno.io/trigger-kind":      ur.Spec.Resource.Kind,
+			})
+		} else if ur.Spec.Type == urkyverno.Generate {
+			queryLabels = labels.Set(map[string]string{
 				"generate.kyverno.io/policy-name":        policyName,
 				"generate.kyverno.io/resource-name":      urSpec.Resource.Name,
 				"generate.kyverno.io/resource-kind":      urSpec.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": urSpec.Resource.Namespace,
-			}))
-			urList, err := urLister.List(selector)
+			})
+		}
+
+		ur.SetNamespace(config.KyvernoNamespace)
+		isExist := false
+		if action == admissionv1.Create || action == admissionv1.Update {
+			log.V(4).Info("creating update requests", "ruleType", ur.Spec.Type)
+
+			urList, err := urLister.List(labels.SelectorFromSet(queryLabels))
 			if err != nil {
-				logger.Error(err, "failed to get generate request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
+				logger.Error(err, "failed to get update request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 				return err
 			}
 
@@ -156,13 +167,8 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			}
 
 			if !isExist {
-				ur.SetGenerateName("gr-")
-				ur.SetLabels(map[string]string{
-					"generate.kyverno.io/policy-name":        policyName,
-					"generate.kyverno.io/resource-name":      urSpec.Resource.Name,
-					"generate.kyverno.io/resource-kind":      urSpec.Resource.Kind,
-					"generate.kyverno.io/resource-namespace": urSpec.Resource.Namespace,
-				})
+				ur.SetGenerateName("ur-")
+				ur.SetLabels(queryLabels)
 				_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &ur, metav1.CreateOptions{})
 				if err != nil {
 					return err
@@ -170,7 +176,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			}
 		}
 
-		log.V(4).Info("retrying update generate request CR", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
+		log.V(4).Info("retrying update update request CR", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 		i++
 		return err
 	}
