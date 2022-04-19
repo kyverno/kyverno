@@ -258,13 +258,27 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		Log:         iv.logger,
 	}
 
+	if imageVerify.Roots != "" {
+		opts.Roots = []byte(imageVerify.Roots)
+	}
+
 	if attestor.StaticKey != nil {
 		path = path + ".staticKey"
 		opts.Key = attestor.StaticKey.Key
-		opts.Roots = []byte(attestor.StaticKey.Roots)
+		if attestor.StaticKey.Roots != "" {
+			opts.Roots = []byte(attestor.StaticKey.Roots)
+		}
+		if attestor.StaticKey.Intermediates != "" {
+			opts.Intermediates = []byte(attestor.StaticKey.Intermediates)
+		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
-		opts.Roots = []byte(attestor.Keyless.Roots)
+		if attestor.Keyless.Roots != "" {
+			opts.Roots = []byte(attestor.Keyless.Roots)
+		}
+		if attestor.Keyless.Intermediates != "" {
+			opts.Intermediates = []byte(attestor.Keyless.Intermediates)
+		}
 		opts.Issuer = attestor.Keyless.Issuer
 		opts.Subject = attestor.Keyless.Subject
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions

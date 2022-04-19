@@ -1624,13 +1624,27 @@ string
 </tr>
 <tr>
 <td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>roots</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Roots is a PEM encoded CA certificate chain</p>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 <tr>
@@ -2654,13 +2668,27 @@ specified or can be a variable reference to a key specified in a ConfigMap (see
 </tr>
 <tr>
 <td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>roots</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Roots is a PEM encoded CA certificate chain</p>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

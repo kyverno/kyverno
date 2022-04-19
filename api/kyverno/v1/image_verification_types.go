@@ -114,7 +114,14 @@ type StaticKeyAttestor struct {
 	// https://kyverno.io/docs/writing-policies/variables/).
 	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 
-	// Roots is a PEM encoded CA certificate chain
+	// Intermediates is an optional PEM encoded set of certificates that are not trust
+	// anchors, but can be used to form a chain from the leaf certificate to a
+	// root certificate.
+	// +kubebuilder:validation:Optional
+	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
+
+	// Roots is an optional set of PEM encoded trusted root certificates.
+	// If not provided, the system roots are used.
 	// +kubebuilder:validation:Optional
 	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 }
@@ -129,7 +136,14 @@ type KeylessAttestor struct {
 	// +kubebuilder:validation:Required
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
-	// Roots is a PEM encoded CA certificate chain
+	// Intermediates is an optional PEM encoded set of certificates that are not trust
+	// anchors, but can be used to form a chain from the leaf certificate to a
+	// root certificate.
+	// +kubebuilder:validation:Optional
+	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
+
+	// Roots is an optional set of PEM encoded trusted root certificates.
+	// If not provided, the system roots are used.
 	// +kubebuilder:validation:Optional
 	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 

@@ -1358,11 +1358,14 @@ spec:
                                               type: string
                                             description: AdditionalExtensions are certificate-extensions used for keyless signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
@@ -1374,11 +1377,14 @@ spec:
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                         type: object
                                     type: object
@@ -2805,11 +2811,14 @@ spec:
                                               type: string
                                             description: AdditionalExtensions are certificate-extensions used for keyless signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
@@ -2821,11 +2830,14 @@ spec:
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                         type: object
                                     type: object
@@ -4961,11 +4973,14 @@ spec:
                                               type: string
                                             description: AdditionalExtensions are certificate-extensions used for keyless signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
@@ -4977,11 +4992,14 @@ spec:
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                         type: object
                                     type: object
@@ -6408,11 +6426,14 @@ spec:
                                               type: string
                                             description: AdditionalExtensions are certificate-extensions used for keyless signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
@@ -6424,11 +6445,14 @@ spec:
                                       staticKey:
                                         description: StaticKey is a set of attributes used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
                                           key:
                                             description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
                                             type: string
                                           roots:
-                                            description: Roots is a PEM encoded CA certificate chain
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
                                             type: string
                                         type: object
                                     type: object
