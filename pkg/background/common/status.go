@@ -11,8 +11,8 @@ import (
 
 //StatusControlInterface provides interface to update status subresource
 type StatusControlInterface interface {
-	Failed(gr urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error
-	Success(gr urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
+	Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error
+	Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
 	Skip(gr urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
 }
 

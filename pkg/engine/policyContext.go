@@ -19,13 +19,16 @@ type PolicyContext struct {
 	// OldResource is the prior resource for an update, or nil
 	OldResource unstructured.Unstructured
 
+	// ExistingResource is the existing resource to be mutated by mutateExisting rules
+	ExistingResource *unstructured.Unstructured
+
 	// Element is set when the context is used for processing a foreach loop
 	Element unstructured.Unstructured
 
 	// AdmissionInfo contains the admission request information
 	AdmissionInfo urkyverno.RequestInfo
 
-	// Dynamic client - used by generate
+	// Dynamic client - used for api lookups
 	Client *client.Client
 
 	// Config handler
