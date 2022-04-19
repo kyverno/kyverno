@@ -131,6 +131,6 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 
 {{- define "kyverno.imagePullSecretNames" -}}
 {{- if .Values.imagePullSecrets }}
-{{- range .Values.imagePullSecrets }}{{(print .name) }},{{- end }}
+{{- range $name, $secret := .Values.imagePullSecrets }}{{(print $name) }},{{- end }}
 {{- end }}
 {{- end }}

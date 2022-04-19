@@ -147,15 +147,15 @@ extraArgs:
   - --autogenInternals=false
 
 # -- Image pull secrets for image verify and imageData policies.
-# This will define the `--imagePullSecrets` Kyverno argument with values for `name`.
-imagePullSecrets: []
+# This will define the `--imagePullSecrets` Kyverno argument.
+imagePullSecrets: {}
   # Define two image pull secrets
   # imagePullSecrets:
-  #   - name: regcred
+  #   regcred:
   #     registry: foo.example.com
   #     username: foobar
   #     password: secret
-  #   - name: regcred2
+  #   regcred2:
   #     registry: bar.example.com
   #     username: barbaz
   #     password: secret2
