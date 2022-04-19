@@ -63,8 +63,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
 		return
 	}
-	c.Cache.remove(pOld)
-	c.Cache.add(pNew)
+	c.Cache.update(pOld, pNew)
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {

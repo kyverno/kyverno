@@ -21,6 +21,9 @@ type Interface interface {
 	// remove removes a policy from the cache
 	remove(kyverno.PolicyInterface)
 
+	// update update a policy from the cache
+	update(kyverno.PolicyInterface, kyverno.PolicyInterface)
+
 	get(PolicyType, string, string) []string
 }
 
@@ -81,6 +84,12 @@ func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []kyver
 func (pc *policyCache) remove(p kyverno.PolicyInterface) {
 	pc.pMap.remove(p)
 	pc.logger.V(4).Info("policy is removed from cache", "name", p.GetName())
+}
+
+func (pc *policyCache) update(oldP kyverno.PolicyInterface, newP kyverno.PolicyInterface) {
+	pc.pMap.remove(oldP)
+	pc.pMap.add(newP)
+	pc.logger.V(4).Info("policy is updated from cache", "name", newP.GetName())
 }
 
 func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []kyverno.PolicyInterface) {
