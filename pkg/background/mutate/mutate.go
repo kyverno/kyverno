@@ -14,7 +14,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/validate"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cache "k8s.io/client-go/tools/cache"
@@ -127,7 +127,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 		}
 	}
 
-	return updateURStatus(c.statusControl, *ur, validate.CombineErrors(errs))
+	return updateURStatus(c.statusControl, *ur, engineUtils.CombineErrors(errs))
 }
 
 func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {

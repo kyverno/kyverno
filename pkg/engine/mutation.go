@@ -29,7 +29,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
 		"namespace", matchedResource.GetNamespace(), "name", matchedResource.GetName())
 
-	logger.V(4).Info("start policy processing", "startTime", startTime)
+	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
 
 	startMutateResultResponse(resp, policy, matchedResource)
 	defer endMutateResultResponse(logger, resp, startTime)

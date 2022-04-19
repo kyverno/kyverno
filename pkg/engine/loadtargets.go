@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/validate"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -57,5 +57,5 @@ func loadTargets(logger logr.Logger, targets []*kyverno.TargetMutation, ctx *Pol
 		targetObjects = append(targetObjects, *obj)
 	}
 
-	return targetObjects, validate.CombineErrors(errors)
+	return targetObjects, engineUtils.CombineErrors(errors)
 }

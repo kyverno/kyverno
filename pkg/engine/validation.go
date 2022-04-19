@@ -30,7 +30,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 
 	logger := buildLogger(policyContext)
-	logger.V(4).Info("start policy processing", "startTime", startTime)
+	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	defer func() {
 		buildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
