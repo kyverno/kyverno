@@ -368,7 +368,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 		}
 	}
 
-	logger.V(3).Info("deleting generate request", "name", gr.Name)
+	logger.V(3).Info("deleting update request", "name", gr.Name)
 
 	// sync Handler will remove it from the queue
 	c.enqueueGenerateRequest(gr)
@@ -411,21 +411,23 @@ func (c *Controller) deleteUR(obj interface{}) {
 		}
 	}
 
-	for _, resource := range gr.Status.GeneratedResources {
-		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
-			continue
-		}
+	if gr.Spec.GetRequestType() == urkyverno.Generate {
+		for _, resource := range gr.Status.GeneratedResources {
+			r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
+			if err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
+				continue
+			}
 
-		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+			if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
+				if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
+					logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
+				}
 			}
 		}
-	}
 
-	logger.V(3).Info("deleting generate request", "name", gr.Name)
+		logger.V(3).Info("deleting update request", "name", gr.Name)
+	}
 
 	// sync Handler will remove it from the queue
 	c.enqueueGenerateRequest(gr)
