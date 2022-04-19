@@ -90,8 +90,14 @@ spec:
         - name: kyverno
           image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.extraArgs }}
-          args: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          args:
+            {{- if .Values.extraArgs -}}
+              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.imagePullSecrets }}
+            - --imagePullSecrets={{ include "kyverno.imagePullSecretNames" . | trimSuffix "," }}
+            {{- end }}
           {{- end }}
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}

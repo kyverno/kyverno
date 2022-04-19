@@ -122,3 +122,15 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{ toYaml .Values.securityContext }}
 {{- end }}
 {{- end }}
+
+{{- define "kyverno.imagePullSecret" }}
+{{- with index . 0 }}
+{{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.imagePullSecretNames" -}}
+{{- if .Values.imagePullSecrets }}
+{{- range .Values.imagePullSecrets }}{{(print .name) }},{{- end }}
+{{- end }}
+{{- end }}
