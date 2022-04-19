@@ -128,9 +128,3 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
 {{- end }}
 {{- end }}
-
-{{- define "kyverno.imagePullSecretNames" -}}
-{{- if .Values.imagePullSecrets }}
-{{- range $name, $secret := .Values.imagePullSecrets }}{{(print $name) }},{{- end }}
-{{- end }}
-{{- end }}
