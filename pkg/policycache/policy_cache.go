@@ -87,10 +87,7 @@ func (pc *policyCache) remove(p kyverno.PolicyInterface) {
 }
 
 func (pc *policyCache) update(oldP kyverno.PolicyInterface, newP kyverno.PolicyInterface) {
-	pc.pMap.lock.Lock()
-	defer pc.pMap.lock.Unlock()
-	pc.pMap.remove(oldP)
-	pc.pMap.add(newP)
+	pc.pMap.update(oldP, newP)
 	pc.logger.V(4).Info("policy is updated from cache", "name", newP.GetName())
 }
 

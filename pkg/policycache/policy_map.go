@@ -113,6 +113,13 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 	}
 }
 
+func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.remove(old)
+	m.add(new)
+}
+
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
 	for _, gvk := range rmr.Kinds {
 		_, k := kubeutils.GetKindFromGVK(gvk)
