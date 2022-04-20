@@ -1,4 +1,4 @@
-package generate
+package common
 
 import (
 	"time"
@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func getResource(client *dclient.Client, resourceSpec kyverno.ResourceSpec, log logr.Logger) (*unstructured.Unstructured, error) {
+func GetResource(client *dclient.Client, resourceSpec kyverno.ResourceSpec, log logr.Logger) (*unstructured.Unstructured, error) {
 
 	get := func() (*unstructured.Unstructured, error) {
 		if resourceSpec.Kind == "Namespace" {

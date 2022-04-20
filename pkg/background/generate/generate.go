@@ -27,7 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -111,7 +110,7 @@ func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 	var precreatedResource bool
 
 	// 1 - Check if the resource exists
-	resource, err = getResource(c.client, gr.Spec.Resource, c.log)
+	resource, err = common.GetResource(c.client, gr.Spec.Resource, c.log)
 	if err != nil {
 		// Don't update status
 		// re-queueing the GR by updating the annotation
@@ -175,7 +174,7 @@ func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 		}
 
 		// 3 - Report failure Events
-		events := failedEvents(err, *gr, *resource)
+		events := common.FailedEvents(err, gr.Spec.Policy, "", event.GeneratePolicyController, *resource)
 		c.eventGen.Add(events...)
 	}
 
@@ -190,7 +189,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 	// Get the list of rules to be applied
 	// get policy
 	// build context
-	ctx := context.NewContext()
 
 	logger.V(3).Info("applying generate policy rule")
 
@@ -217,53 +215,9 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 		return nil, false, err
 	}
 
-	requestString := gr.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	var request admissionv1.AdmissionRequest
-	err = json.Unmarshal([]byte(requestString), &request)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &gr, &policy, &resource, nil, c.Config, namespaceLabels)
 	if err != nil {
-		logger.Error(err, "error parsing the request string")
-	}
-
-	if gr.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Update {
-		request.Operation = gr.Spec.Context.AdmissionRequestInfo.Operation
-	}
-
-	if err := ctx.AddRequest(&request); err != nil {
-		logger.Error(err, "failed to load request in context")
-		return nil, false, err
-	}
-
-	err = ctx.AddResource(resource.Object)
-	if err != nil {
-		logger.Error(err, "failed to load resource in context")
-		return nil, false, err
-	}
-
-	err = ctx.AddUserInfo(gr.Spec.Context.UserRequestInfo)
-	if err != nil {
-		logger.Error(err, "failed to load SA in context")
-		return nil, false, err
-	}
-
-	err = ctx.AddServiceAccount(gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
-	if err != nil {
-		logger.Error(err, "failed to load UserInfo in context")
-		return nil, false, err
-	}
-
-	if err := ctx.AddImageInfos(&resource); err != nil {
-		logger.Error(err, "unable to add image info to variables context")
-	}
-
-	policyContext := &engine.PolicyContext{
-		NewResource:         resource,
-		Policy:              &policy,
-		AdmissionInfo:       gr.Spec.Context.UserRequestInfo,
-		ExcludeGroupRole:    c.Config.GetExcludeGroupRole(),
-		ExcludeResourceFunc: c.Config.ToFilter,
-		JSONContext:         ctx,
-		NamespaceLabels:     namespaceLabels,
-		Client:              c.client,
+		return nil, precreatedResource, err
 	}
 
 	// check if the policy still applies to the resource

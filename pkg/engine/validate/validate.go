@@ -153,7 +153,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	return "", nil
 }
 
-func combineErrors(errors []error) error {
+func CombineErrors(errors []error) error {
 	if len(errors) == 0 {
 		return nil
 	}
@@ -214,7 +214,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  combineErrors(skipErrors),
+				Err:  CombineErrors(skipErrors),
 				Path: path,
 				Skip: true,
 			}
@@ -248,7 +248,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  combineErrors(skipErrors),
+			Err:  CombineErrors(skipErrors),
 			Path: path,
 			Skip: true,
 		}

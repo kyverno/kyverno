@@ -208,7 +208,7 @@ func (v *validator) validate() *response.RuleResponse {
 	}
 
 	if !preconditionsPassed && v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit {
-		return ruleResponse(v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
 	if v.deny != nil {
@@ -249,7 +249,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	} else if !preconditionsPassed && v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit {
-		return ruleResponse(v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip)
+		return ruleResponse(v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
 	foreachList := v.rule.Validation.ForEachValidation
@@ -279,10 +279,10 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(v.rule, response.Validation, "rule skipped", response.RuleStatusSkip)
+		return ruleResponse(v.rule, response.Validation, "rule skipped", response.RuleStatusSkip, nil)
 	}
 
-	return ruleResponse(v.rule, response.Validation, "rule passed", response.RuleStatusPass)
+	return ruleResponse(v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
 func (v *validator) validateElements(foreach *kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
@@ -309,13 +309,13 @@ func (v *validator) validateElements(foreach *kyverno.ForEachValidation, element
 			continue
 		} else if r.Status != response.RuleStatusPass {
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
-			return ruleResponse(v.rule, response.Validation, msg, r.Status), applyCount
+			return ruleResponse(v.rule, response.Validation, msg, r.Status, nil), applyCount
 		}
 
 		applyCount++
 	}
 
-	return ruleResponse(v.rule, response.Validation, "", response.RuleStatusPass), applyCount
+	return ruleResponse(v.rule, response.Validation, "", response.RuleStatusPass, nil), applyCount
 }
 
 func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope bool) error {
@@ -366,10 +366,10 @@ func (v *validator) validateDeny() *response.RuleResponse {
 
 	deny := variables.EvaluateConditions(v.log, v.ctx.JSONContext, denyConditions)
 	if deny {
-		return ruleResponse(v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusFail)
+		return ruleResponse(v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusFail, nil)
 	}
 
-	return ruleResponse(v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusPass)
+	return ruleResponse(v.rule, response.Validation, v.getDenyMessage(deny), response.RuleStatusPass, nil)
 }
 
 func (v *validator) getDenyMessage(deny bool) string {
@@ -473,22 +473,22 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 				v.log.V(3).Info("validation error", "path", pe.Path, "error", err.Error())
 
 				if pe.Skip {
-					return ruleResponse(v.rule, response.Validation, pe.Error(), response.RuleStatusSkip)
+					return ruleResponse(v.rule, response.Validation, pe.Error(), response.RuleStatusSkip, nil)
 				}
 
 				if pe.Path == "" {
-					return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, ""), response.RuleStatusError)
+					return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, ""), response.RuleStatusError, nil)
 				}
 
-				return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail)
+				return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusFail, nil)
 			}
 
-			return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError)
+			return ruleResponse(v.rule, response.Validation, v.buildErrorMessage(err, pe.Path), response.RuleStatusError, nil)
 		}
 
 		v.log.V(4).Info("successfully processed rule")
 		msg := fmt.Sprintf("validation rule '%s' passed.", v.rule.Name)
-		return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusPass)
+		return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 	}
 
 	if v.anyPattern != nil {
@@ -498,14 +498,14 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 		anyPatterns, err := deserializeAnyPattern(v.anyPattern)
 		if err != nil {
 			msg := fmt.Sprintf("failed to deserialize anyPattern, expected type array: %v", err)
-			return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusError)
+			return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusError, nil)
 		}
 
 		for idx, pattern := range anyPatterns {
 			err := validate.MatchPattern(v.log, resource.Object, pattern)
 			if err == nil {
 				msg := fmt.Sprintf("validation rule '%s' anyPattern[%d] passed.", v.rule.Name, idx)
-				return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusPass)
+				return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 			}
 
 			if pe, ok := err.(*validate.PatternError); ok {
@@ -529,11 +529,11 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 
 			v.log.V(4).Info(fmt.Sprintf("Validation rule '%s' failed. %s", v.rule.Name, errorStr))
 			msg := buildAnyPatternErrorMessage(v.rule, errorStr)
-			return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusFail)
+			return ruleResponse(v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 		}
 	}
 
-	return ruleResponse(v.rule, response.Validation, v.rule.Validation.Message, response.RuleStatusPass)
+	return ruleResponse(v.rule, response.Validation, v.rule.Validation.Message, response.RuleStatusPass, nil)
 }
 
 func deserializeAnyPattern(anyPattern apiextensions.JSON) ([]interface{}, error) {
