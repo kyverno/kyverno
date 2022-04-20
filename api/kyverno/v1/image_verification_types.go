@@ -192,10 +192,6 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, iv, "Either a static key, keyless, or an attestor is required"))
 	}
 
-	if hasKeyless && (!hasIssuer || !hasSubject) {
-		errs = append(errs, field.Invalid(path, iv, "An issuer and a subject are required for keyless verification"))
-	}
-
 	if len(iv.Attestors) > 1 {
 		errs = append(errs, field.Invalid(path, iv, "Only one attestor is currently supported"))
 	}
