@@ -114,7 +114,7 @@ type Condition struct {
 	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
 
 	// Value is the conditional value, or set of values. The values can be fixed set
-	// or can be variables declared using using JMESPath.
+	// or can be variables declared using JMESPath.
 	// +optional
 	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
 }
@@ -178,30 +178,6 @@ var ConditionOperators = map[string]ConditionOperator{
 	"DurationGreaterThan":         ConditionOperator("DurationGreaterThan"),
 	"DurationLessThanOrEquals":    ConditionOperator("DurationLessThanOrEquals"),
 	"DurationLessThan":            ConditionOperator("DurationLessThan"),
-}
-
-// ExcludeResources specifies resource and admission review request data for
-// which a policy rule is not applicable.
-type ExcludeResources struct {
-	// Any allows specifying resources which will be ORed
-	// +optional
-	Any ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
-
-	// All allows specifying resources which will be ANDed
-	// +optional
-	All ResourceFilters `json:"all,omitempty" yaml:"all,omitempty"`
-
-	// UserInfo contains information about the user performing the operation.
-	// Specifying UserInfo directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	UserInfo `json:",omitempty" yaml:",omitempty"`
-
-	// ResourceDescription contains information about the resource being created or modified.
-	// Specifying ResourceDescription directly under exclude is being deprecated.
-	// Please specify under "any" or "all" instead.
-	// +optional
-	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
 // ResourceFilters is a slice of ResourceFilter
@@ -414,20 +390,6 @@ func (v *ForEachValidation) SetAnyPattern(in apiextensions.JSON) {
 	v.RawAnyPattern = ToJSON(in)
 }
 
-// Attestation are checks for signed in-toto Statements that are used to verify the image.
-// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
-// OCI registry and decodes them into a list of Statements.
-type Attestation struct {
-
-	// PredicateType defines the type of Predicate contained within the Statement.
-	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
-
-	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
-	// the attestation check is satisfied as long there are predicates that match the predicate type.
-	// +optional
-	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
-}
-
 // Generation defines how new resources should be created and managed.
 type Generation struct {
 	// ResourceSpec contains information to select the resource.
@@ -548,10 +510,4 @@ type ResourceSpec struct {
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
-	Action     string   `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
 }

@@ -106,12 +106,12 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 
 {{- define "kyverno.replicaCount" -}}
-{{- if not (empty .Values.replicaCount) }}
-replicas: {{ .Values.replicaCount }}
-{{- else if eq .Values.mode "standalone" }}
-replicas: 1
-{{- else if eq .Values.mode "ha" }}
-replicas: 3
+{{- if not (empty .Values.replicaCount) -}}
+{{- .Values.replicaCount -}}
+{{- else if eq .Values.mode "standalone" -}}
+1
+{{- else if eq .Values.mode "ha" -}}
+3
 {{- end }}
 {{- end }}
 
@@ -121,4 +121,8 @@ replicas: 3
 {{- else }}
 {{ toYaml .Values.securityContext }}
 {{- end }}
+{{- end }}
+
+{{- define "kyverno.imagePullSecret" }}
+{{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
 {{- end }}

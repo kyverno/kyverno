@@ -29,13 +29,9 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			failedRulesStr := strings.Join(failedRules, ";")
 
 			// Event on the policy
-			kind := "ClusterPolicy"
-			if er.PolicyResponse.Policy.Namespace != "" {
-				kind = "Policy"
-			}
 			pe := event.NewEvent(
 				log,
-				kind,
+				er.Policy.GetKind(),
 				kyvernov1alpha2.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
@@ -67,13 +63,9 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			successRulesStr := strings.Join(successRules, ";")
 
 			// Event on the policy
-			kind := "ClusterPolicy"
-			if er.PolicyResponse.Policy.Namespace != "" {
-				kind = "Policy"
-			}
 			e := event.NewEvent(
 				log,
-				kind,
+				er.Policy.GetKind(),
 				kyvernov1alpha2.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,

@@ -49,7 +49,6 @@ type Interface interface {
 
 //NewEventGenerator to generate a new event controller
 func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
-
 	gen := Generator{
 		client:               client,
 		cpLister:             cpInformer.Lister(),
@@ -85,10 +84,15 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 	}
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
-			Interface: eventInterface})
+			Interface: eventInterface,
+		},
+	)
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{Component: eventSource.String()})
+		v1.EventSource{
+			Component: eventSource.String(),
+		},
+	)
 	return recorder
 }
 

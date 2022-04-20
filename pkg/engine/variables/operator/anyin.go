@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/minio/pkg/wildcard"
 )
 
 //NewAnyInHandler returns handler to manage AnyIn operations
@@ -63,7 +63,7 @@ func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) {
 				return false, true
 			}
 		}

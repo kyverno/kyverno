@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/kustomize/api/filters/patchstrategicmerge"
 	filtersutil "sigs.k8s.io/kustomize/kyaml/filtersutil"
@@ -21,7 +20,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	logger := log.WithName("ProcessStrategicMergePatch").WithValues("rule", ruleName)
 	logger.V(4).Info("started applying strategicMerge patch", "startTime", startTime)
 	resp.Name = ruleName
-	resp.Type = utils.Mutation.String()
+	resp.Type = response.Mutation
 
 	defer func() {
 		resp.RuleStats.ProcessingTime = time.Since(startTime)

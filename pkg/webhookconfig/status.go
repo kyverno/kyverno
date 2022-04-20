@@ -10,11 +10,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
-var deployName string = config.KyvernoDeploymentName
-var deployNamespace string = config.KyvernoNamespace
+var leaseName string = "kyverno"
+var leaseNamespace string = config.KyvernoNamespace
 
 const (
 	annWebhookStatus   string = "kyverno.io/webhookActive"
@@ -23,9 +23,9 @@ const (
 
 //statusControl controls the webhook status
 type statusControl struct {
-	deployClient appsv1.DeploymentInterface
-	eventGen     event.Interface
-	log          logr.Logger
+	eventGen    event.Interface
+	log         logr.Logger
+	leaseClient coordinationv1.LeaseInterface
 }
 
 //success ...
@@ -39,47 +39,48 @@ func (vc statusControl) failure() error {
 }
 
 // NewStatusControl creates a new webhook status control
-func newStatusControl(deployClient appsv1.DeploymentInterface, eventGen event.Interface, log logr.Logger) *statusControl {
+func newStatusControl(leaseClient coordinationv1.LeaseInterface, eventGen event.Interface, log logr.Logger) *statusControl {
 	return &statusControl{
-		deployClient: deployClient,
-		eventGen:     eventGen,
-		log:          log,
+		eventGen:    eventGen,
+		log:         log,
+		leaseClient: leaseClient,
 	}
 }
 
 func (vc statusControl) setStatus(status string) error {
-	logger := vc.log.WithValues("name", deployName, "namespace", deployNamespace)
+	logger := vc.log.WithValues("name", leaseName, "namespace", leaseNamespace)
 	var ann map[string]string
 	var err error
-	deploy, err := vc.deployClient.Get(context.TODO(), deployName, metav1.GetOptions{})
+
+	lease, err := vc.leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
-		logger.Error(err, "failed to get deployment")
+		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")
 		return err
 	}
 
-	ann = deploy.GetAnnotations()
+	ann = lease.GetAnnotations()
 	if ann == nil {
 		ann = map[string]string{}
 		ann[annWebhookStatus] = status
 	}
 
-	deployStatus, ok := ann[annWebhookStatus]
+	leaseStatus, ok := ann[annWebhookStatus]
 	if ok {
-		if deployStatus == status {
+		if leaseStatus == status {
 			logger.V(4).Info(fmt.Sprintf("annotation %s already set to '%s'", annWebhookStatus, status))
 			return nil
 		}
 	}
 
 	ann[annWebhookStatus] = status
-	deploy.SetAnnotations(ann)
+	lease.SetAnnotations(ann)
 
-	_, err = vc.deployClient.Update(context.TODO(), deploy, metav1.UpdateOptions{})
+	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "key %s, val %s", annWebhookStatus, status)
 	}
 
-	logger.Info("updated deployment annotation", "key", annWebhookStatus, "val", status)
+	logger.Info("updated lease annotation", "key", annWebhookStatus, "val", status)
 
 	// create event on kyverno deployment
 	createStatusUpdateEvent(status, vc.eventGen)
@@ -88,22 +89,31 @@ func (vc statusControl) setStatus(status string) error {
 
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
-	e.Kind = "Deployment"
-	e.Namespace = deployNamespace
-	e.Name = deployName
+	e.Kind = "Lease"
+	e.Namespace = leaseNamespace
+	e.Name = leaseName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
 	eventGen.Add(e)
 }
 
 func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
-	deploy, err := vc.deployClient.Get(context.TODO(), deployName, metav1.GetOptions{})
+
+	lease, err := vc.leaseClient.Get(context.TODO(), leaseName, metav1.GetOptions{})
 	if err != nil {
-		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "failed to get deployment")
+		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")
 		return err
 	}
 
-	annotation := deploy.GetAnnotations()
+	//add label to lease
+	label := lease.GetLabels()
+	if len(label) == 0 {
+		label = make(map[string]string)
+		label["app.kubernetes.io/name"] = "kyverno"
+	}
+	lease.SetLabels(label)
+
+	annotation := lease.GetAnnotations()
 	if annotation == nil {
 		annotation = make(map[string]string)
 	}
@@ -114,10 +124,12 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 	}
 
 	annotation[annLastRequestTime] = string(t)
-	deploy.SetAnnotations(annotation)
-	_, err = vc.deployClient.Update(context.TODO(), deploy, metav1.UpdateOptions{})
+	lease.SetAnnotations(annotation)
+
+	//update annotations in lease
+	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
-		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, deploy.GetName(), deploy.GetNamespace())
+		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, lease.GetName(), lease.GetNamespace())
 	}
 
 	return nil
