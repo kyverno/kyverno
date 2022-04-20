@@ -27,9 +27,9 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	var skippedRules []string
 
 	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", patchedResource.GetKind(),
-		"namespace", patchedResource.GetNamespace(), "skippedRules", patchedResource.GetName())
+		"namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
-	logger.V(4).Info("start policy processing", "startTime", startTime)
+	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
 
 	startMutateResultResponse(resp, policy, patchedResource)
 	defer endMutateResultResponse(logger, resp, startTime)

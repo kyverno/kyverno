@@ -27,7 +27,9 @@ type pMap struct {
 func (m *pMap) add(policy kyverno.PolicyInterface) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-
+	m.addPolicyToCache(policy)
+}
+func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 	spec := policy.GetSpec()
 	enforcePolicy := spec.GetValidationFailureAction() == kyverno.Enforce
 	for _, k := range spec.ValidationFailureActionOverrides {
@@ -69,6 +71,7 @@ func (m *pMap) add(policy kyverno.PolicyInterface) {
 	m.nameCacheMap[ValidateAudit] = validateAuditMap
 	m.nameCacheMap[Generate] = generateMap
 	m.nameCacheMap[VerifyImages] = imageVerifyMap
+
 }
 
 func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
@@ -91,6 +94,10 @@ func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 func (m *pMap) remove(policy kyverno.PolicyInterface) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	m.removePolicyFromCache(policy)
+
+}
+func (m *pMap) removePolicyFromCache(policy kyverno.PolicyInterface) {
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
@@ -111,6 +118,13 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 			removeCacheHelper(r, m, pName)
 		}
 	}
+}
+
+func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.removePolicyFromCache(old)
+	m.addPolicyToCache(new)
 }
 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
