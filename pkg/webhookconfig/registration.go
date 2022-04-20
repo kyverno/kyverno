@@ -901,7 +901,7 @@ func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.
 		return fmt.Errorf("failed to get %s %s: %v", kindMutating, targetConfig.Name, err)
 	}
 	// Create a map of the target webhooks.
-	targetWebhooksMap := make(map[string]admregapi.MutatingWebhook, 0)
+	targetWebhooksMap := make(map[string]admregapi.MutatingWebhook)
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
@@ -952,7 +952,7 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregap
 		return fmt.Errorf("failed to get %s %s: %v", kindValidating, targetConfig.Name, err)
 	}
 	// Create a map of the target webhooks.
-	targetWebhooksMap := make(map[string]admregapi.ValidatingWebhook, 0)
+	targetWebhooksMap := make(map[string]admregapi.ValidatingWebhook)
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
