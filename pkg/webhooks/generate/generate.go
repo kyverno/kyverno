@@ -15,7 +15,6 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -65,24 +64,6 @@ func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action admissionv1.Ope
 	}
 	go g.processApply(message)
 	return nil
-}
-
-// Run starts the generate request spec
-func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
-	logger := g.log
-	defer utilruntime.HandleCrash()
-
-	logger.V(4).Info("starting")
-	defer func() {
-		logger.V(4).Info("shutting down")
-	}()
-
-	if !cache.WaitForCacheSync(stopCh, g.grSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
-
-	<-g.stopCh
 }
 
 func (g *Generator) processApply(m GeneratorChannel) {
