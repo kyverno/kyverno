@@ -162,18 +162,6 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	return untyped, nil
 }
 
-func fetchImageDigest(ref string) (string, error) {
-	parsedRef, err := name.ParseReference(ref)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
-	}
-	return desc.Digest.String(), nil
-}
-
 func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
 	jsonData, err := fetchAPIData(logger, entry, ctx)
 	if err != nil {

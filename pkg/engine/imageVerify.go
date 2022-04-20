@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/go-wildcard"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -171,15 +173,16 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
-				if imageInfo.Digest == "" && *imageVerify.MutateDigest {
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					digest, err := fetchImageDigest(imageInfo.String())
 					if err != nil {
-						iv.logger.V(4).Info("fetching image data from registry", "error", err)
-					}
-					err = iv.patchDigest(path, imageInfo, digest, ruleResp)
-					if err != nil {
-						ruleResp.Message = err.Error()
-						ruleResp.Status = response.RuleStatusFail
+						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+					} else {
+						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
+						if err != nil {
+							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+						}
 					}
 				}
 			}
@@ -188,6 +191,18 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			incrementAppliedCount(iv.resp)
 		}
 	}
+}
+
+func fetchImageDigest(ref string) (string, error) {
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+	}
+	return desc.Digest.String(), nil
 }
 
 func imageMatches(image string, imagePatterns []string) bool {
