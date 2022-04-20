@@ -8,12 +8,12 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
@@ -1471,7 +1471,7 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1564,7 +1564,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1625,7 +1625,7 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1716,7 +1716,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1809,7 +1809,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1914,7 +1914,7 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -1967,7 +1967,7 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		assert.NilError(t, err)
 
 		ctx := context.NewContext()
-		err = ctx.AddResource(test.resourceRaw)
+		err = context.AddResource(ctx, test.resourceRaw)
 		assert.NilError(t, err)
 
 		policyContext := &PolicyContext{
@@ -2104,7 +2104,7 @@ func executeTest(t *testing.T, err error, test testCase) {
 		t.Fatal(err)
 	}
 
-	var request *v1beta1.AdmissionRequest
+	var request *admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)
@@ -2327,7 +2327,7 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
@@ -2416,7 +2416,7 @@ func Test_StringInDenyCondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
@@ -3002,7 +3002,7 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
@@ -3066,7 +3066,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContextCreate := &PolicyContext{

@@ -146,6 +146,20 @@ envVars: {}
 extraArgs:
   - --autogenInternals=false
 
+# -- Image pull secrets for image verify and imageData policies.
+# This will define the `--imagePullSecrets` Kyverno argument.
+imagePullSecrets: {}
+  # Define two image pull secrets
+  # imagePullSecrets:
+  #   regcred:
+  #     registry: foo.example.com
+  #     username: foobar
+  #     password: secret
+  #   regcred2:
+  #     registry: bar.example.com
+  #     username: barbaz
+  #     password: secret2
+
 resources:
   # -- Pod resource limits
   limits:
@@ -279,7 +293,6 @@ config:
 
   # Or provide an existing metrics config-map by uncommenting the below line
   # existingMetricsConfig: sample-metrics-configmap. Refer to the ./templates/metricsconfigmap.yaml for the structure of metrics configmap.
-
 # -- Deployment update strategy.
 # Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy
 # @default -- See [values.yaml](values.yaml)

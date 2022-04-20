@@ -8,11 +8,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []v1.PolicyInterface, logger logr.Logger) ([]byte, error) {
+func (ws *WebhookServer) applyImageVerifyPolicies(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []v1.PolicyInterface, logger logr.Logger) ([]byte, error) {
 	ok, message, imagePatches := ws.handleVerifyImages(request, policyContext, policies)
 	if !ok {
 		return nil, errors.New(message)
@@ -22,7 +23,7 @@ func (ws *WebhookServer) applyImageVerifyPolicies(request *v1beta1.AdmissionRequ
 	return imagePatches, nil
 }
 
-func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
+func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
 	policies []v1.PolicyInterface) (bool, string, []byte) {
 
@@ -30,7 +31,7 @@ func (ws *WebhookServer) handleVerifyImages(request *v1beta1.AdmissionRequest,
 		return true, "", nil
 	}
 
-	resourceName := getResourceName(request)
+	resourceName := admissionutils.GetResourceName(request)
 	logger := ws.log.WithValues("action", "verifyImages", "resource", resourceName, "operation", request.Operation, "gvk", request.Kind.String())
 
 	var engineResponses []*response.EngineResponse

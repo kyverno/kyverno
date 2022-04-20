@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -17,7 +18,6 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/generate"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
@@ -29,7 +29,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	"github.com/pkg/errors"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	informers "k8s.io/client-go/informers/core/v1"
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -114,7 +114,7 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	grController *generate.Controller
+	grController *background.Controller
 
 	promConfig *metrics.PromConfig
 
@@ -145,7 +145,7 @@ func NewWebhookServer(
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	grc *generate.Controller,
+	grc *background.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
@@ -204,7 +204,7 @@ func NewWebhookServer(
 	return ws, nil
 }
 
-func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
+func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
 	userRequestInfo := v1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
@@ -228,11 +228,11 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
-	if request.Kind.Kind == "Secret" && request.Operation == v1beta1.Update {
+	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
 		resource, err = utils.NormalizeSecret(&resource)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
@@ -248,7 +248,7 @@ func (ws *WebhookServer) buildPolicyContext(request *v1beta1.AdmissionRequest, a
 		Client:              ws.client,
 	}
 
-	if request.Operation == v1beta1.Update {
+	if request.Operation == admissionv1.Update {
 		policyContext.OldResource = resource
 	}
 

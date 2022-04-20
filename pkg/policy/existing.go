@@ -30,8 +30,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.PolicyInterf
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
-
-		matchKinds := rule.MatchKinds()
+		matchKinds := rule.MatchResources.GetKinds()
 		pc.processExistingKinds(matchKinds, policy, rule, logger)
 	}
 }
@@ -63,13 +62,13 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyverno.PolicyInte
 }
 
 func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyResults.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyResults.ProcessEngineResponse(pc.promConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ParsePromConfig(*pc.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ProcessEngineResponse(pc.promConfig, policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
