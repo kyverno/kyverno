@@ -1370,6 +1370,9 @@ spec:
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
@@ -1381,7 +1384,7 @@ spec:
                                             description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
@@ -2823,6 +2826,9 @@ spec:
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
@@ -2834,7 +2840,7 @@ spec:
                                             description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
@@ -4985,6 +4991,9 @@ spec:
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
@@ -4996,7 +5005,7 @@ spec:
                                             description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
@@ -6438,6 +6447,9 @@ spec:
                                           subject:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
@@ -6449,7 +6461,7 @@ spec:
                                             description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key used to verify image signatures. The key can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.

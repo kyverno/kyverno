@@ -2197,6 +2197,10 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the
+                                              transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -2217,11 +2221,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set
@@ -4549,6 +4558,10 @@ spec:
                                               used for keyless signing, for example
                                               the email address
                                             type: string
+                                          url:
+                                            description: URL is the address of the
+                                              transparency log service
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -4569,11 +4582,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set

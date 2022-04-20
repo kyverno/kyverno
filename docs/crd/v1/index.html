@@ -1602,6 +1602,17 @@ The repository can also be overridden per Attestor or Attestation.</p>
 <tbody>
 <tr>
 <td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the address of the transparency log service</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>issuer</code></br>
 <em>
 string
@@ -2661,9 +2672,11 @@ string
 </em>
 </td>
 <td>
-<p>Key is an X.509 public key used to verify image signatures. The key can be directly
+<p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>.</p>
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
+key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+attestors and the count is applied across the keys.</p>
 </td>
 </tr>
 <tr>

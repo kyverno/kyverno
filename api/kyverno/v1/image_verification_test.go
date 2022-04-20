@@ -150,7 +150,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						StaticKey: &StaticKeyAttestor{Key: "bla"},
+						StaticKey: &StaticKeyAttestor{Keys: "bla"},
 					}}},
 				},
 			},

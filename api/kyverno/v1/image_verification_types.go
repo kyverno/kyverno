@@ -109,10 +109,12 @@ type Attestor struct {
 
 type StaticKeyAttestor struct {
 
-	// Key is an X.509 public key used to verify image signatures. The key can be directly
+	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
-	// https://kyverno.io/docs/writing-policies/variables/).
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
+	// key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+	// attestors and the count is applied across the keys.
+	Keys string `json:"key,omitempty" yaml:"key,omitempty"`
 
 	// Intermediates is an optional PEM encoded set of certificates that are not trust
 	// anchors, but can be used to form a chain from the leaf certificate to a
@@ -128,12 +130,16 @@ type StaticKeyAttestor struct {
 
 type KeylessAttestor struct {
 
+	// URL is the address of the transparency log service
+	// +kubebuilder:validation:Optional
+	URL string `json:"url,omitempty" yaml:"url,omitempty"`
+
 	// Issuer is the certificate issuer used for keyless signing.
 	// +kubebuilder:validation:Required
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
 	// Subject is the verified identity used for keyless signing, for example the email address
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
 	// Intermediates is an optional PEM encoded set of certificates that are not trust
@@ -274,21 +280,14 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ska.Key == "" {
+	if ska.Keys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
 	}
 
 	return errs
 }
 
-func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ka.Issuer == "" {
-		errs = append(errs, field.Invalid(path, ka, "An issuer is required"))
-	}
-
-	if ka.Subject == "" {
-		errs = append(errs, field.Invalid(path, ka, "A subject is required"))
-	}
+func (ka *KeylessAttestor) Validate(_ *field.Path) (errs field.ErrorList) {
 
 	return errs
 }
@@ -311,7 +310,7 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 
 	if iv.Key != "" {
 		attestor.StaticKey = &StaticKeyAttestor{
-			Key: iv.Key,
+			Keys: iv.Key,
 		}
 	} else if iv.Issuer != "" {
 		attestor.Keyless = &KeylessAttestor{

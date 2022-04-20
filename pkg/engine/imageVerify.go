@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -203,7 +204,9 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
+	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
+
 	for i, a := range attestorSet.Entries {
 		var digest string
 		var entryError error
@@ -241,6 +244,41 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 	return "", err
 }
 
+func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
+	var entries []*v1.Attestor
+	for _, e := range attestorSet.Entries {
+		if e.StaticKey != nil {
+			keys := strings.SplitAfter(e.StaticKey.Keys, "-----END PUBLIC KEY-----")
+			if len(keys) > 1 {
+				moreEntries := createStaticKeyAttestors(e.StaticKey, keys)
+				entries = append(entries, moreEntries...)
+				continue
+			}
+		}
+
+		entries = append(entries, e)
+	}
+
+	return attestorSet
+}
+
+func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
+	var attestors []*v1.Attestor
+	for _, k := range keys {
+		a := &v1.Attestor{
+			StaticKey: &v1.StaticKeyAttestor{
+				Keys:          k,
+				Intermediates: ska.Intermediates,
+				Roots:         ska.Roots,
+			},
+		}
+
+		attestors = append(attestors, a)
+	}
+
+	return attestors
+}
+
 func getRequiredCount(as *v1.AttestorSet) int {
 	if as.Count == nil || *as.Count == 0 {
 		return len(as.Entries)
@@ -264,7 +302,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 
 	if attestor.StaticKey != nil {
 		path = path + ".staticKey"
-		opts.Key = attestor.StaticKey.Key
+		opts.Key = attestor.StaticKey.Keys
 		if attestor.StaticKey.Roots != "" {
 			opts.Roots = []byte(attestor.StaticKey.Roots)
 		}
@@ -273,6 +311,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
+		opts.RekorURL = attestor.Keyless.URL
 		if attestor.Keyless.Roots != "" {
 			opts.Roots = []byte(attestor.Keyless.Roots)
 		}
