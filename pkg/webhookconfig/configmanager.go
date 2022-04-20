@@ -810,9 +810,15 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
 	}
 
-	dst.rule[apiGroups] = removeDuplicates(groups)
-	dst.rule[apiVersions] = removeDuplicates(versions)
-	dst.rule[resources] = removeDuplicates(rsrcs)
+	if len(groups) > 0 {
+		dst.rule[apiGroups] = removeDuplicates(groups)
+	}
+	if len(versions) > 0 {
+		dst.rule[apiVersions] = removeDuplicates(versions)
+	}
+	if len(rsrcs) > 0 {
+		dst.rule[resources] = removeDuplicates(rsrcs)
+	}
 
 	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
