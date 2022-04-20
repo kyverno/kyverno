@@ -264,14 +264,38 @@ See <a href="https://github.com/sigstore/cosign/blob/main/KEYLESS.md">https://gi
 </tr>
 <tr>
 <td>
-<code>attestors</code></br>
+<code>attestor</code></br>
 <em>
-[]*k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 </em>
 </td>
 <td>
-<p>Attestor is a nested AttestorSet used to specify a more complex set of match authorities
-TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.</p>
+<p>Attestor is a nested AttestorSet used to specify a more complex set of match authorities</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
+If specified Repository will override other OCI image repository locations for this Attestor.</p>
 </td>
 </tr>
 </tbody>
@@ -1540,7 +1564,8 @@ map[string]string
 <td>
 <p>Annotations are used for image verification.
 Every specified key-value pair must exist and match in the verified payload.
-The payload may contain other key-value pairs.</p>
+The payload may contain other key-value pairs.
+Deprecated. Use annotations per Attestor instead.</p>
 </td>
 </tr>
 <tr>
@@ -1551,8 +1576,9 @@ string
 </em>
 </td>
 <td>
-<p>Repository is an optional alternate OCI repository to use for image signatures that match this rule.
-If specified Repository will override the default OCI image repository configured for the installation.</p>
+<p>Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
+If specified Repository will override the default OCI image repository configured for the installation.
+The repository can also be overridden per Attestor or Attestation.</p>
 </td>
 </tr>
 </tbody>
@@ -1598,13 +1624,27 @@ string
 </tr>
 <tr>
 <td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>roots</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Roots is a PEM encoded CA certificate chain</p>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 <tr>
@@ -2624,6 +2664,31 @@ string
 <p>Key is an X.509 public key used to verify image signatures. The key can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
 <a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roots</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

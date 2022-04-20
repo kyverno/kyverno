@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
+![Version: v2.3.2](https://img.shields.io/badge/Version-v2.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.2](https://img.shields.io/badge/AppVersion-v1.6.2-informational?style=flat-square)
 
 ## About
 
@@ -98,6 +98,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
 | extraArgs | list | `["--autogenInternals=false"]` | Extra arguments to give to the binary. |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
