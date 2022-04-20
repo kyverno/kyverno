@@ -99,7 +99,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
-	rr := ruleResponse(rule, response.ImageVerify, msg, status)
+	rr := ruleResponse(rule, response.ImageVerify, msg, status, nil)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -277,7 +277,7 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
 			msg := fmt.Sprintf("predicate type %s not found", ac.PredicateType)
-			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 		}
 
 		for _, s := range statements {
@@ -288,14 +288,14 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 
 			if !val {
 				msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+				return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 			}
 		}
 	}
 
 	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass)
+	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil)
 }
 
 func buildStatementMap(statements []map[string]interface{}) map[string][]map[string]interface{} {

@@ -190,6 +190,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		ExcludeResourceFunc: h.configHandler.ToFilter,
 		JSONContext:         ctx,
 		Client:              h.client,
+		AdmissionOperation:  true,
 	}
 
 	vh := &validationHandler{

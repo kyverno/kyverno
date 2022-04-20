@@ -227,13 +227,6 @@ type TargetMutation struct {
 	// ResourceSpec specifies the target resource information.
 	// +optional
 	ResourceSpec `json:",omitempty" yaml:",omitempty"`
-
-	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
-	// set of conditions. The declaration can contain nested `any` or `all` statements.
-	// See: https://kyverno.io/docs/writing-policies/preconditions/
-	// +kubebuilder:validation:XPreserveUnknownFields
-	// +optional
-	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {

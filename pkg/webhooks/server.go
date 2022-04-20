@@ -257,6 +257,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
+		AdmissionOperation:  true,
 	}
 
 	if request.Operation == admissionv1.Update {
