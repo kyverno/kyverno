@@ -18,6 +18,8 @@ import (
 	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kyverno/kyverno/pkg/background"
+	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
@@ -26,8 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/generate"
-	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -332,7 +332,7 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
-	grc, err := generate.NewController(
+	grc, err := background.NewController(
 		kubeClient,
 		pclient,
 		client,

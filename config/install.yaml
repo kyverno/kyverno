@@ -14,7 +14,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -834,6 +834,40 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                       type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
+                      type: object
                     match:
                       description: MatchResources defines when this policy rule should
                         be applied. The match criteria can include resource information
@@ -1617,7 +1651,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1666,7 +1700,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1885,7 +1919,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1934,7 +1968,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -1964,7 +1998,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -1972,7 +2006,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -2046,7 +2081,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2097,7 +2132,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -2109,32 +2144,155 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -2211,13 +2369,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -3028,6 +3185,40 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                       type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
+                      type: object
                     match:
                       description: MatchResources defines when this policy rule should
                         be applied. The match criteria can include resource information
@@ -3811,7 +4002,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -3860,7 +4051,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4079,7 +4270,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4128,7 +4319,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -4158,7 +4349,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -4166,7 +4357,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -4240,7 +4432,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4291,7 +4483,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -4303,32 +4495,155 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -4355,7 +4670,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -4497,26 +4812,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -4723,7 +5038,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -4865,26 +5180,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -5091,7 +5406,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -5288,7 +5603,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6109,6 +6424,40 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                       type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
+                      type: object
                     match:
                       description: MatchResources defines when this policy rule should
                         be applied. The match criteria can include resource information
@@ -6892,7 +7241,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -6941,7 +7290,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7160,7 +7509,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7209,7 +7558,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -7239,7 +7588,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -7247,7 +7596,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -7321,7 +7671,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -7372,7 +7722,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -7384,32 +7734,155 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -7487,13 +7960,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -8304,6 +8776,40 @@ spec:
                             Defaults to "false" if not specified.
                           type: boolean
                       type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
+                      type: object
                     match:
                       description: MatchResources defines when this policy rule should
                         be applied. The match criteria can include resource information
@@ -9087,7 +9593,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9136,7 +9642,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9355,7 +9861,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9404,7 +9910,7 @@ spec:
                                           description: Value is the conditional value,
                                             or set of values. The values can be fixed
                                             set or can be variables declared using
-                                            using JMESPath.
+                                            JMESPath.
                                           x-kubernetes-preserve-unknown-fields: true
                                       type: object
                                     type: array
@@ -9434,7 +9940,7 @@ spec:
                             additionalProperties:
                               type: string
                             description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing.
+                              used for keyless signing. Deprecated.
                             type: object
                           annotations:
                             additionalProperties:
@@ -9442,7 +9948,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -9516,7 +10023,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -9567,7 +10074,7 @@ spec:
                                               description: Value is the conditional
                                                 value, or set of values. The values
                                                 can be fixed set or can be variables
-                                                declared using using JMESPath.
+                                                declared using JMESPath.
                                               x-kubernetes-preserve-unknown-fields: true
                                           type: object
                                         type: array
@@ -9579,32 +10086,155 @@ spec:
                                   type: string
                               type: object
                             type: array
+                          attestors:
+                            description: Attestors specified the required attestors
+                              (i.e. authorities)
+                            items:
+                              properties:
+                                count:
+                                  description: Count specifies the required number
+                                    of entries that must match. If the count is null,
+                                    all entries must match (a logical AND). If the
+                                    count is 1, at least one entry must match (a logical
+                                    OR). If the count contains a value N, then N must
+                                    be less than or equal to the size of entries,
+                                    and at least N entries must match.
+                                  minimum: 1
+                                  type: integer
+                                entries:
+                                  description: Entries contains the available attestors.
+                                    An attestor can be a static key, attributes for
+                                    keyless verification, or a nested attestor declaration.
+                                  items:
+                                    properties:
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
+                                          used to specify a more complex set of match
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      keyless:
+                                        description: Keyless is a set of attribute
+                                          used to verify a Sigstore keyless attestor.
+                                          See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
+                                        properties:
+                                          additionalExtensions:
+                                            additionalProperties:
+                                              type: string
+                                            description: AdditionalExtensions are
+                                              certificate-extensions used for keyless
+                                              signing.
+                                            type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          issuer:
+                                            description: Issuer is the certificate
+                                              issuer used for keyless signing.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                          subject:
+                                            description: Subject is the verified identity
+                                              used for keyless signing, for example
+                                              the email address
+                                            type: string
+                                        type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
+                                      staticKey:
+                                        description: StaticKey is a set of attributes
+                                          used to verify an X.509 public key
+                                        properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
+                                          key:
+                                            description: Key is an X.509 public key
+                                              used to verify image signatures. The
+                                              key can be directly specified or can
+                                              be a variable reference to a key specified
+                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
+                                            type: string
+                                        type: object
+                                    type: object
+                                  type: array
+                              type: object
+                            type: array
                           image:
                             description: 'Image is the image name consisting of the
                               registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
+                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
+                              Deprecated. Use ImageReferences instead.'
                             type: string
+                          imageReferences:
+                            description: 'ImageReferences is a list of matching image
+                              reference patterns. At least one pattern in the list
+                              must match the image for the rule to apply. Each image
+                              reference consists of a registry address (defaults to
+                              docker.io), repository, image, and tag (defaults to
+                              latest). Wildcards (''*'' and ''?'') are allowed. See:
+                              https://kubernetes.io/docs/concepts/containers/images.'
+                            items:
+                              type: string
+                            type: array
                           issuer:
                             description: Issuer is the certificate issuer used for
-                              keyless signing.
+                              keyless signing. Deprecated. Use KeylessAttestor instead.
                             type: string
                           key:
                             description: Key is the PEM encoded public key that the
-                              image or attestation is signed with.
+                              image or attestation is signed with. Deprecated. Use
+                              StaticKeyAttestor instead.
                             type: string
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
                           roots:
                             description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing
+                              chain used for keyless signing Deprecated. Use KeylessAttestor
+                              instead.
                             type: string
                           subject:
-                            description: Subject is the verified identity used for
-                              keyless signing, for example the email address
+                            description: Subject is the identity used for keyless
+                              signing, for example an email address Deprecated. Use
+                              KeylessAttestor instead.
                             type: string
                         type: object
                       type: array
@@ -9631,7 +10261,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -9772,26 +10402,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:
@@ -9998,7 +10628,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -10140,26 +10770,26 @@ spec:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
                       type are discouraged because of difficulty describing its usage
-                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      when embedded in APIs. 1. Ignored fields.  It includes many
                       fields which are not generally honored.  For instance, ResourceVersion
-                      and FieldPath are both very rarely valid in actual usage.  2.
+                      and FieldPath are both very rarely valid in actual usage. 2.
                       Invalid usage help.  It is impossible to add specific help for
-                      individual usage.  In most embedded usages, there are particular     restrictions
-                      like, "must refer only to types A and B" or "UID not honored"
-                      or "name must be restricted".     Those cannot be well described
-                      when embedded.  3. Inconsistent validation.  Because the usages
-                      are different, the validation rules are different by usage,
-                      which makes it hard for users to predict what will happen.  4.
-                      The fields are both imprecise and overly precise.  Kind is not
-                      a precise mapping to a URL. This can produce ambiguity     during
-                      interpretation and require a REST mapping.  In most cases, the
-                      dependency is on the group,resource tuple     and the version
-                      of the actual struct is irrelevant.  5. We cannot easily change
+                      individual usage.  In most embedded usages, there are particular
+                      restrictions like, "must refer only to types A and B" or "UID
+                      not honored" or "name must be restricted". Those cannot be well
+                      described when embedded. 3. Inconsistent validation.  Because
+                      the usages are different, the validation rules are different
+                      by usage, which makes it hard for users to predict what will
+                      happen. 4. The fields are both imprecise and overly precise.  Kind
+                      is not a precise mapping to a URL. This can produce ambiguity
+                      during interpretation and require a REST mapping.  In most cases,
+                      the dependency is on the group,resource tuple and the version
+                      of the actual struct is irrelevant. 5. We cannot easily change
                       it.  Because this type is embedded in many locations, updates
-                      to this type     will affect numerous schemas.  Don''t make
-                      new APIs embed an underspecified API type they do not control.
-                      Instead of using this type, create a locally provided and used
-                      type that is well-focused on your reference. For example, ServiceReferences
+                      to this type will affect numerous schemas.  Don''t make new
+                      APIs embed an underspecified API type they do not control. Instead
+                      of using this type, create a locally provided and used type
+                      that is well-focused on your reference. For example, ServiceReferences
                       for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
                       .'
                     properties:

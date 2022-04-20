@@ -2,7 +2,7 @@
 
 Kubernetes Pod Security Standards implemented as Kyverno policies
 
-![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
+![Version: v2.3.2](https://img.shields.io/badge/Version-v2.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.2](https://img.shields.io/badge/AppVersion-v1.6.2-informational?style=flat-square)
 
 ## About
 
@@ -70,6 +70,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | validationFailureAction | string | `"audit"` | Validation failure action (`audit`, `enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
 | policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
+| policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
 | nameOverride | string | `nil` | Name override. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |

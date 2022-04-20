@@ -8,6 +8,8 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
+	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -58,13 +60,17 @@ type Interface interface {
 	AddElement(data map[string]interface{}, index int) error
 
 	// AddImageInfo adds image info to the context
-	AddImageInfo(info *ImageInfo) error
+	AddImageInfo(info imageutils.ImageInfo) error
 
 	// AddImageInfos adds image infos to the context
 	AddImageInfos(resource *unstructured.Unstructured) error
 
 	// ImageInfo returns image infos present in the context
-	ImageInfo() *Images
+	ImageInfo() map[string]map[string]imageutils.ImageInfo
+
+	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
+	// and updates the context
+	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]imageutils.ImageInfo, error)
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
@@ -86,7 +92,7 @@ type context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	images             *Images
+	images             map[string]map[string]imageutils.ImageInfo
 }
 
 // NewContext returns a new context
@@ -209,7 +215,7 @@ func (ctx *context) AddElement(data map[string]interface{}, index int) error {
 	return addToContext(ctx, data)
 }
 
-func (ctx *context) AddImageInfo(info *ImageInfo) error {
+func (ctx *context) AddImageInfo(info imageutils.ImageInfo) error {
 	data := map[string]interface{}{
 		"image":    info.String(),
 		"registry": info.Registry,
@@ -222,16 +228,29 @@ func (ctx *context) AddImageInfo(info *ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-	initContainersImgs, containersImgs, ephemeralContainersImgs := extractImageInfo(resource, logger)
-	if len(initContainersImgs) == 0 && len(containersImgs) == 0 && len(ephemeralContainersImgs) == 0 {
+	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
+	if err != nil {
+		return err
+	}
+	if len(images) == 0 {
 		return nil
 	}
-	images := newImages(initContainersImgs, containersImgs, ephemeralContainersImgs)
-	ctx.images = &images
+	ctx.images = images
 	return addToContext(ctx, images, "images")
 }
 
-func (ctx *context) ImageInfo() *Images {
+func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]imageutils.ImageInfo, error) {
+	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, nil
+	}
+	return images, addToContext(ctx, images, "images")
+}
+
+func (ctx *context) ImageInfo() map[string]map[string]imageutils.ImageInfo {
 	return ctx.images
 }
 
