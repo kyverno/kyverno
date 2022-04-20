@@ -324,7 +324,7 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		stopCh,
-		log.Log.WithName("GenerateRequestGenerator"))
+		log.Log.WithName("UpdateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -338,7 +338,7 @@ func main() {
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubedynamicInformer,
-		log.Log.WithName("GenerateController"),
+		log.Log.WithName("BackgroundController"),
 		configData,
 	)
 	if err != nil {

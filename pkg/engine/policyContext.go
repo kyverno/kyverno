@@ -19,9 +19,6 @@ type PolicyContext struct {
 	// OldResource is the prior resource for an update, or nil
 	OldResource unstructured.Unstructured
 
-	// ExistingResource is the existing resource to be mutated by mutateExisting rules
-	ExistingResource *unstructured.Unstructured
-
 	// Element is set when the context is used for processing a foreach loop
 	Element unstructured.Unstructured
 
@@ -41,6 +38,9 @@ type PolicyContext struct {
 
 	// NamespaceLabels stores the label of namespace to be processed by namespace selector
 	NamespaceLabels map[string]string
+
+	// AdmissionOperation represents if the caller is from the webhook server
+	AdmissionOperation bool
 }
 
 func (pc *PolicyContext) Copy() *PolicyContext {

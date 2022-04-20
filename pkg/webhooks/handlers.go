@@ -235,6 +235,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
+		AdmissionOperation:  true,
 	}
 
 	vh := &validationHandler{
