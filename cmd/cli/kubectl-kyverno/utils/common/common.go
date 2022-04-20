@@ -52,8 +52,9 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
+	Name          string              `json:"name"`
+	Values        map[string]string   `json:"values"`
+	ForeachValues map[string][]string `json:"foreachValues"`
 }
 
 type Values struct {
@@ -405,8 +406,9 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range ruleMap {
 			storeRules = append(storeRules, store.Rule{
-				Name:   rule.Name,
-				Values: rule.Values,
+				Name:          rule.Name,
+				Values:        rule.Values,
+				ForeachValues: rule.ForeachValues,
 			})
 		}
 		storePolicies = append(storePolicies, store.Policy{

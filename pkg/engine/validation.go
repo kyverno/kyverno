@@ -16,6 +16,7 @@ import (
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -291,6 +292,7 @@ func (v *validator) validateElements(foreach *kyverno.ForEachValidation, element
 	applyCount := 0
 
 	for i, e := range elements {
+		store.SetForeachElement(i)
 		v.ctx.JSONContext.Reset()
 
 		ctx := v.ctx.Copy()

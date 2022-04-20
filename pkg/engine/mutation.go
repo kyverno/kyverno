@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -191,6 +192,7 @@ func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyCo
 	for i, e := range elements {
 		ctx.JSONContext.Reset()
 		ctx := ctx.Copy()
+		store.SetForeachElement(i)
 		if err := addElementToContext(ctx, e, i, false); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
