@@ -84,3 +84,9 @@ $ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies -f
 ```
 
 > **Tip**: You can use the default [values.yaml](values.yaml)
+
+## Changes
+
+### v2.3.3
+
+* Add policyPreconditions value to allow policies and rules to have preconditions added

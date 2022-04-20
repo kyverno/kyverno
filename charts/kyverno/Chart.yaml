@@ -18,3 +18,6 @@ maintainers:
     url: https://kyverno.io/
 engine: gotpl
 kubeVersion: ">=1.16.0-0"
+annotations:
+  artifacthub.io/changes: |
+    - "Allow defining imagePullSecrets"
