@@ -163,12 +163,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
-				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
+				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
 					if err != nil {
-						ruleResp.Message = err.Error()
-						ruleResp.Status = response.RuleStatusFail
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
 					}
 				}
 			} else {
@@ -330,7 +329,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	return opts, path
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
+func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
 	patch, err := makeAddDigestPatch(path, imageInfo, digest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
