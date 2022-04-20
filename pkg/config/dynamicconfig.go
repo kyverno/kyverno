@@ -26,6 +26,7 @@ var defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-sys
 
 type WebhookConfig struct {
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty" protobuf:"bytes,5,opt,name=namespaceSelector"`
+	ObjectSelector    *metav1.LabelSelector `json:"objectSelector,omitempty" protobuf:"bytes,11,opt,name=objectSelector"`
 }
 
 // ConfigData stores the configuration
@@ -323,7 +324,6 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 			reconcilePolicyReport = true
 		}
 	}
-
 	return
 }
 

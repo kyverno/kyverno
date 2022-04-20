@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -14,7 +15,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 
 	// Original policy
-	Policy *kyverno.ClusterPolicy
+	Policy kyverno.PolicyInterface
 
 	// Policy Response
 	PolicyResponse PolicyResponse
@@ -75,6 +76,19 @@ type PolicyStats struct {
 	PolicyExecutionTimestamp int64 `json:"policyExecutionTimestamp"`
 }
 
+type RuleType string
+
+const (
+	//Mutation type for mutation rule
+	Mutation RuleType = "Mutation"
+	//Validation type for validation rule
+	Validation RuleType = "Validation"
+	//Generation type for generation rule
+	Generation RuleType = "Generation"
+	// ImageVerify type for image verification
+	ImageVerify RuleType = "All"
+)
+
 //RuleResponse details for each rule application
 type RuleResponse struct {
 
@@ -82,7 +96,7 @@ type RuleResponse struct {
 	Name string `json:"name"`
 
 	// rule type (Mutation,Generation,Validation) for Kyverno Policy
-	Type string `json:"type"`
+	Type RuleType `json:"type"`
 
 	// message response from the rule application
 	Message string `json:"message"`
@@ -174,6 +188,20 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	}
 
 	return rules
+}
+
+func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailureAction {
+	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
+		if v.Action != kyverno.Enforce && v.Action != kyverno.Audit {
+			continue
+		}
+		for _, ns := range v.Namespaces {
+			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+				return v.Action
+			}
+		}
+	}
+	return er.PolicyResponse.ValidationFailureAction
 }
 
 type ValidationFailureActionOverride struct {

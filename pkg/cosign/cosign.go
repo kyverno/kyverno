@@ -9,25 +9,22 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
-	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
-
-	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
-	"github.com/sigstore/cosign/pkg/oci/remote"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	wildcard "github.com/kyverno/go-wildcard"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
+	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/pkg/oci/remote"
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -41,6 +38,7 @@ type Options struct {
 	ImageRef             string
 	Key                  string
 	Roots                []byte
+	Intermediates        []byte
 	Subject              string
 	Issuer               string
 	AdditionalExtensions map[string]string
@@ -269,7 +267,7 @@ func decodeStatement(payloadBase64 string) (map[string]interface{}, error) {
 		// - in_toto.PredicateLinkV1
 		// - in_toto.PredicateSPDX
 		// any other custom predicate
-		return common.ToMap(statement)
+		return utils.ToMap(statement)
 	}
 
 	return decodeCosignCustomProvenanceV01(statement)
@@ -297,7 +295,7 @@ func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]in
 		statement.Predicate = predicate
 	}
 
-	return common.ToMap(statement)
+	return utils.ToMap(statement)
 }
 
 func stringToJSONMap(i interface{}) (map[string]interface{}, error) {

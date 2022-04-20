@@ -9,9 +9,9 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -75,7 +75,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -86,7 +86,7 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 		t.Error(err)
 	}
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
@@ -155,11 +155,11 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Mutate(policyContext)
@@ -250,11 +250,11 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -353,16 +353,16 @@ func Test_chained_rules(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResourceAsObject(resource.Object)
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
 
-	err = ctx.AddImageInfo(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
 	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -447,11 +447,11 @@ func Test_precondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -544,11 +544,11 @@ func Test_nonZeroIndexNumberPatchesJson6902(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured,
 	}
@@ -632,16 +632,16 @@ func Test_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResourceAsObject(resource.Object)
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
 
-	err = ctx.AddImageInfo(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
 	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -739,16 +739,16 @@ func Test_foreach_element_mutation(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResourceAsObject(resource.Object)
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
 
-	err = ctx.AddImageInfo(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
 	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -865,16 +865,16 @@ func Test_Container_InitContainer_foreach(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResourceAsObject(resource.Object)
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
 
-	err = ctx.AddImageInfo(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
 	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)
@@ -992,16 +992,16 @@ func Test_foreach_order_mutation_(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResourceAsObject(resource.Object)
+	err = ctx.AddResource(resource.Object)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resource,
 	}
 
-	err = ctx.AddImageInfo(resource)
+	err = ctx.AddImageInfos(resource)
 	assert.NilError(t, err)
 
 	err = context.MutateResourceWithImageInfo(resourceRaw, ctx)

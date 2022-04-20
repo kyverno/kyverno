@@ -110,8 +110,8 @@ string
 <td>
 <code>operation</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#operation-v1beta1-admission">
-Kubernetes admission/v1beta1.Operation
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#operation-v1-admission">
+Kubernetes admission/v1.Operation
 </a>
 </em>
 </td>
@@ -218,6 +218,126 @@ string
 <em>(Optional)</em>
 <p>Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 the attestation check is satisfied as long there are predicates that match the predicate type.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Attestor">Attestor
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>staticKey</code></br>
+<em>
+<a href="#kyverno.io/v1.StaticKeyAttestor">
+StaticKeyAttestor
+</a>
+</em>
+</td>
+<td>
+<p>StaticKey is a set of attributes used to verify an X.509 public key</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>keyless</code></br>
+<em>
+<a href="#kyverno.io/v1.KeylessAttestor">
+KeylessAttestor
+</a>
+</em>
+</td>
+<td>
+<p>Keyless is a set of attribute used to verify a Sigstore keyless attestor.
+See <a href="https://github.com/sigstore/cosign/blob/main/KEYLESS.md">https://github.com/sigstore/cosign/blob/main/KEYLESS.md</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>attestor</code></br>
+<em>
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<p>Attestor is a nested AttestorSet used to specify a more complex set of match authorities</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
+If specified Repository will override other OCI image repository locations for this Attestor.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.AttestorSet">AttestorSet
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>count</code></br>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count specifies the required number of entries that must match. If the count is null, all entries must match
+(a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a
+value N, then N must be less than or equal to the size of entries, and at least N entries must match.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>entries</code></br>
+<em>
+<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestor">
+[]*./api/kyverno/v1.Attestor
+</a>
+</em>
+</td>
+<td>
+<p>Entries contains the available attestors. An attestor can be a static key,
+attributes for keyless verification, or a nested attestor declaration.</p>
 </td>
 </tr>
 </tbody>
@@ -538,7 +658,7 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
 <td>
 <em>(Optional)</em>
 <p>Value is the conditional value, or set of values. The values can be fixed set
-or can be variables declared using using JMESPath.</p>
+or can be variables declared using JMESPath.</p>
 </td>
 </tr>
 </tbody>
@@ -1328,6 +1448,21 @@ string
 </td>
 <td>
 <p>Image is the image name consisting of the registry address, repository, image, and tag.
+Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https://kubernetes.io/docs/concepts/containers/images">https://kubernetes.io/docs/concepts/containers/images</a>.
+Deprecated. Use ImageReferences instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>imageReferences</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>ImageReferences is a list of matching image reference patterns. At least one pattern in the
+list must match the image for the rule to apply. Each image reference consists of a registry
+address (defaults to docker.io), repository, image, and tag (defaults to latest).
 Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https://kubernetes.io/docs/concepts/containers/images">https://kubernetes.io/docs/concepts/containers/images</a>.</p>
 </td>
 </tr>
@@ -1339,7 +1474,8 @@ string
 </em>
 </td>
 <td>
-<p>Key is the PEM encoded public key that the image or attestation is signed with.</p>
+<p>Key is the PEM encoded public key that the image or attestation is signed with.
+Deprecated. Use StaticKeyAttestor instead.</p>
 </td>
 </tr>
 <tr>
@@ -1350,7 +1486,8 @@ string
 </em>
 </td>
 <td>
-<p>Roots is the PEM encoded Root certificate chain used for keyless signing</p>
+<p>Roots is the PEM encoded Root certificate chain used for keyless signing
+Deprecated. Use KeylessAttestor instead.</p>
 </td>
 </tr>
 <tr>
@@ -1361,7 +1498,8 @@ string
 </em>
 </td>
 <td>
-<p>Subject is the verified identity used for keyless signing, for example the email address</p>
+<p>Subject is the identity used for keyless signing, for example an email address
+Deprecated. Use KeylessAttestor instead.</p>
 </td>
 </tr>
 <tr>
@@ -1372,7 +1510,8 @@ string
 </em>
 </td>
 <td>
-<p>Issuer is the certificate issuer used for keyless signing.</p>
+<p>Issuer is the certificate issuer used for keyless signing.
+Deprecated. Use KeylessAttestor instead.</p>
 </td>
 </tr>
 <tr>
@@ -1383,32 +1522,21 @@ map[string]string
 </em>
 </td>
 <td>
-<p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
+<p>AdditionalExtensions are certificate-extensions used for keyless signing.
+Deprecated.</p>
 </td>
 </tr>
 <tr>
 <td>
-<code>annotations</code></br>
+<code>attestors</code></br>
 <em>
-map[string]string
+<a href="#kyverno.io/v1.*./api/kyverno/v1.AttestorSet">
+[]*./api/kyverno/v1.AttestorSet
+</a>
 </em>
 </td>
 <td>
-<p>Annotations are used for image verification.
-Every specified key-value pair must exist and match in the verified payload.
-The payload may contain other key-value pairs.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>repository</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Repository is an optional alternate OCI repository to use for image signatures that match this rule.
-If specified Repository will override the default OCI image repository configured for the installation.</p>
+<p>Attestors specified the required attestors (i.e. authorities)</p>
 </td>
 </tr>
 <tr>
@@ -1424,6 +1552,110 @@ If specified Repository will override the default OCI image repository configure
 <p>Attestations are optional checks for signed in-toto Statements used to verify the image.
 See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
 OCI registry and decodes them into a list of Statement declarations.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>Annotations are used for image verification.
+Every specified key-value pair must exist and match in the verified payload.
+The payload may contain other key-value pairs.
+Deprecated. Use annotations per Attestor instead.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
+If specified Repository will override the default OCI image repository configured for the installation.
+The repository can also be overridden per Attestor or Attestation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.KeylessAttestor">KeylessAttestor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestor">Attestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>issuer</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Issuer is the certificate issuer used for keyless signing.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>subject</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Subject is the verified identity used for keyless signing, for example the email address</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roots</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>additionalExtensions</code></br>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<p>AdditionalExtensions are certificate-extensions used for keyless signing.</p>
 </td>
 </tr>
 </tbody>
@@ -1736,6 +1968,11 @@ Deprecated. Policy metrics are available via the metrics endpoint</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.PolicyInterface">PolicyInterface
+</h3>
+<p>
+<p>PolicyInterface abstracts the concrete policy type (Policy vs ClusterPolicy)</p>
+</p>
 <h3 id="kyverno.io/v1.PolicyStatus">PolicyStatus
 </h3>
 <p>
@@ -2192,6 +2429,19 @@ and admission review request information like the name or role.</p>
 </tr>
 <tr>
 <td>
+<code>imageExtractors</code></br>
+<em>
+github.com/kyverno/kyverno/pkg/utils/kube.ImageExtractorConfigs
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
+This config is only valid for verifyImages rules.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>preconditions</code></br>
 <em>
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
@@ -2382,6 +2632,63 @@ int32
 <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestor">Attestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Key is an X.509 public key used to verify image signatures. The key can be directly
+specified or can be a variable reference to a key specified in a ConfigMap (see
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roots</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

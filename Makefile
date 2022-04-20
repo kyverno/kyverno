@@ -10,7 +10,7 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.4.0
+CONTROLLER_GEN_REQ_VERSION := v0.8.0
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -395,9 +395,8 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-# Bootstrap auto-generable code associated with deepcopy
 .PHONY: deepcopy-autogen
-deepcopy-autogen: controller-gen
+deepcopy-autogen: controller-gen ## Generate deep copy code
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
@@ -421,7 +420,7 @@ verify-config: kyverno-crd report-crd ## Check config is up to date
 verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
 .PHONY: goimports
-goimports:
+goimports: ## Install goimports if needed
 ifeq (, $(shell which goimports))
 	@{ \
 	echo "goimports not found!";\
@@ -432,13 +431,12 @@ else
 GO_IMPORTS=$(shell which goimports)
 endif
 
-# Run go fmt against code
 .PHONY: fmt
-fmt: goimports
+fmt: goimports ## Run go fmt
 	go fmt ./... && $(GO_IMPORTS) -w ./
 
 .PHONY: vet
-vet:
+vet: ## Run go vet
 	go vet ./...
 
 ##################################
@@ -466,3 +464,15 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 .PHONY: help
 help: ## Shows the available commands
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: kind-deploy
+kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set extraArgs={--autogenInternals=false}
+	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

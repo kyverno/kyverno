@@ -12,7 +12,6 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/pkg/errors"
 
@@ -427,7 +426,7 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 // ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
+func ManagedPodResource(policy kyverno.PolicyInterface, resource unstructured.Unstructured) bool {
 	podControllers, ok := policy.GetAnnotations()[kyverno.PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
 		return false
@@ -473,15 +472,15 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyverno.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
 	return ruleResponse(rule, ruleType, msg, response.RuleStatusError)
 }
 
-func ruleResponse(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
+func ruleResponse(rule *kyverno.Rule, ruleType response.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
 	return &response.RuleResponse{
 		Name:    rule.Name,
-		Type:    ruleType.String(),
+		Type:    ruleType,
 		Message: msg,
 		Status:  status,
 	}

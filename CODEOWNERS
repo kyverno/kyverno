@@ -7,8 +7,12 @@
 /pkg/policycache @vyankyGH
 /pkg/policy/validate @vyankyGH
 /test @vyankyGH
-/pkg @samj1912
-/cmd @samj1912
+/pkg/cosign @samj1912
+/pkg/engine @samj1912
+/pkg/kyverno @samj1912
+/pkg/policy @samj1912
+/pkg/registryclient @samj1912
+/api/kyverno/v1 @samj1912
 /pkg/webhooks @prateekpandey14
 /pkg/engine @prateekpandey14
 /pkg/generate @prateekpandey14

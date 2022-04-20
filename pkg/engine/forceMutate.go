@@ -14,13 +14,14 @@ import (
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
 // It is used to validate mutation logic, and for tests.
-func ForceMutate(ctx *context.Context, policy kyverno.ClusterPolicy, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
-	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.Name, "kind", resource.GetKind(),
+func ForceMutate(ctx context.Interface, policy kyverno.PolicyInterface, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
+	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.GetName(), "kind", resource.GetKind(),
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource
 	// TODO: if we apply autogen, tests will fail
-	for _, rule := range policy.Spec.Rules {
+	spec := policy.GetSpec()
+	for _, rule := range spec.Rules {
 		if !rule.HasMutate() {
 			continue
 		}

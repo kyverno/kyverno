@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -35,6 +36,11 @@ type Rule struct {
 	// and admission review request information like the name or role.
 	// +optional
 	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+
+	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
+	// This config is only valid for verifyImages rules.
+	// +optional
+	ImageExtractors kube.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -81,31 +87,6 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
-// MatchKinds returns a slice of all kinds to match
-func (r *Rule) MatchKinds() []string {
-	matchKinds := r.MatchResources.ResourceDescription.Kinds
-	for _, value := range r.MatchResources.All {
-		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-	}
-	for _, value := range r.MatchResources.Any {
-		matchKinds = append(matchKinds, value.ResourceDescription.Kinds...)
-	}
-
-	return matchKinds
-}
-
-// ExcludeKinds returns a slice of all kinds to exclude
-func (r *Rule) ExcludeKinds() []string {
-	excludeKinds := r.ExcludeResources.ResourceDescription.Kinds
-	for _, value := range r.ExcludeResources.All {
-		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-	}
-	for _, value := range r.ExcludeResources.Any {
-		excludeKinds = append(excludeKinds, value.ResourceDescription.Kinds...)
-	}
-	return excludeKinds
-}
-
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }
@@ -115,8 +96,7 @@ func (r *Rule) SetAnyAllConditions(in apiextensions.JSON) {
 }
 
 // ValidateRuleType checks only one type of rule is defined per rule
-func (r *Rule) ValidateRuleType(path *field.Path) field.ErrorList {
-	var errs field.ErrorList
+func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	ruleTypes := []bool{r.HasMutate(), r.HasValidate(), r.HasGenerate(), r.HasVerifyImages()}
 	count := 0
 	for _, v := range ruleTypes {
@@ -128,6 +108,10 @@ func (r *Rule) ValidateRuleType(path *field.Path) field.ErrorList {
 		errs = append(errs, field.Invalid(path, r, fmt.Sprintf("No operation defined in the rule '%s'.(supported operations: mutate,validate,generate,verifyImages)", r.Name)))
 	} else if count != 1 {
 		errs = append(errs, field.Invalid(path, r, fmt.Sprintf("Multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)))
+	}
+
+	if r.ImageExtractors != nil && !r.HasVerifyImages() {
+		errs = append(errs, field.Invalid(path.Child("imageExtractors"), r, fmt.Sprintf("Invalid rule spec for rule '%s', imageExtractors can only be defined for verifyImages rule", r.Name)))
 	}
 	return errs
 }
@@ -298,8 +282,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 }
 
 // Validate implements programmatic validation
-func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) field.ErrorList {
-	var errs field.ErrorList
+func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
