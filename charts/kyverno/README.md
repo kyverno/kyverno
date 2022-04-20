@@ -97,6 +97,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
 | extraArgs | list | `["--autogenInternals=false"]` | Extra arguments to give to the binary. |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -172,10 +173,12 @@ Please consult the [values.yaml](./values.yaml) file before overriding `config.r
 
 ## High availability
 
-Running highly available Kyverno is crucial as the Kubernetes api server will invoke Kyverno webhook for almost all resource operations in the cluster.
+Running a highly-available Kyverno installation is crucial in a production environment.
 
 In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
 You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
+
+Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
 
 ## Source Code
 
