@@ -875,7 +875,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 							break
 						}
 
-						if genClone != nil && len(genClone) != 0 {
+						if len(genClone) != 0 {
 							ruleToCloneSourceResource[rule.Name] = res.CloneSourceResource
 						}
 					}
