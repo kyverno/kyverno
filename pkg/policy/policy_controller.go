@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -497,7 +498,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	grList, err := pc.grLister.List(labels.Everything())
+	grList, err := pc.urLister.List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list generate request")
 	}
@@ -531,18 +532,18 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
-			err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete gr", "name", v.GetName())
+				logger.Error(err, "failed to delete ur", "name", v.GetName())
 			}
 		}
 	}
 }
 
-func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels
@@ -557,7 +558,7 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			gr.SetLabels(grLabels)
 
-			_, err = kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+			_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", gr.GetName())
 			}
