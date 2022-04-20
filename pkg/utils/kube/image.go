@@ -9,7 +9,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-type ImageExtractorConfigs map[string][]*ImageExtractorConfig
+type ImageInfo struct {
+	imageutils.ImageInfo
+	// Pointer is the path to the image object in the resource
+	Pointer string `json:"-"`
+}
+
+type ImageExtractorConfigs map[string][]ImageExtractorConfig
 
 type ImageExtractorConfig struct {
 	// Path is the path to the object containing the image field in a custom resource.
@@ -52,15 +58,15 @@ type imageExtractor struct {
 	Name   string
 }
 
-func (i *imageExtractor) ExtractFromResource(resource interface{}) (map[string]imageutils.ImageInfo, error) {
-	imageInfo := map[string]imageutils.ImageInfo{}
+func (i *imageExtractor) ExtractFromResource(resource interface{}) (map[string]ImageInfo, error) {
+	imageInfo := map[string]ImageInfo{}
 	if err := extract(resource, []string{}, i.Key, i.Value, i.Fields, &imageInfo); err != nil {
 		return nil, err
 	}
 	return imageInfo, nil
 }
 
-func extract(obj interface{}, path []string, keyPath, valuePath string, fields []string, imageInfos *map[string]imageutils.ImageInfo) error {
+func extract(obj interface{}, path []string, keyPath, valuePath string, fields []string, imageInfos *map[string]ImageInfo) error {
 	if obj == nil {
 		return nil
 	}
@@ -100,10 +106,10 @@ func extract(obj interface{}, path []string, keyPath, valuePath string, fields [
 		if !ok {
 			return fmt.Errorf("invalid value")
 		}
-		if imageInfo, err := imageutils.GetImageInfo(value, pointer); err != nil {
+		if imageInfo, err := imageutils.GetImageInfo(value); err != nil {
 			return fmt.Errorf("invalid image %s", value)
 		} else {
-			(*imageInfos)[key] = *imageInfo
+			(*imageInfos)[key] = ImageInfo{*imageInfo, pointer}
 		}
 		return nil
 	}
@@ -160,8 +166,8 @@ func lookupImageExtractor(kind string, configs ImageExtractorConfigs) []imageExt
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured, configs ImageExtractorConfigs) (map[string]map[string]imageutils.ImageInfo, error) {
-	infos := map[string]map[string]imageutils.ImageInfo{}
+func ExtractImagesFromResource(resource unstructured.Unstructured, configs ImageExtractorConfigs) (map[string]map[string]ImageInfo, error) {
+	infos := map[string]map[string]ImageInfo{}
 	for _, extractor := range lookupImageExtractor(resource.GetKind(), configs) {
 		if infoMap, err := extractor.ExtractFromResource(resource.Object); err != nil {
 			return nil, err
