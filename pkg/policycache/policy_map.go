@@ -114,8 +114,8 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 }
 
 func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 	m.remove(old)
 	m.add(new)
 }
