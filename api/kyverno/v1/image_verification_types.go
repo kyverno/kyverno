@@ -135,7 +135,7 @@ type KeylessAttestor struct {
 	URL string `json:"url,omitempty" yaml:"url,omitempty"`
 
 	// Issuer is the certificate issuer used for keyless signing.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
 	// Subject is the verified identity used for keyless signing, for example the email address
