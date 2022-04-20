@@ -12,6 +12,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
 	"github.com/kyverno/kyverno/pkg/autogen"
+	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -22,7 +23,6 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	gen "github.com/kyverno/kyverno/pkg/generate"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -45,7 +45,7 @@ func (ws *WebhookServer) applyGeneratePolicies(request *admissionv1.AdmissionReq
 func (ws *WebhookServer) handleGenerate(
 	request *admissionv1.AdmissionRequest,
 	policies []kyverno.PolicyInterface,
-	ctx *context.Context,
+	ctx context.Interface,
 	userRequestInfo kyverno.RequestInfo,
 	dynamicConfig config.Interface,
 	admissionRequestTimestamp int64,
@@ -186,9 +186,9 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 		grAnnotations = make(map[string]string)
 	}
 	ws.mu.Lock()
+	defer ws.mu.Unlock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
-	ws.mu.Unlock()
 	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
 	if err != nil {
 		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)

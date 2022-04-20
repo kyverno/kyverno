@@ -195,7 +195,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	if err != nil {
 		return errorResponse(logger, err, "failed create parse resource")
 	}
-	if err := ctx.AddImageInfo(&newResource); err != nil {
+	if err := ctx.AddImageInfos(&newResource); err != nil {
 		return errorResponse(logger, err, "failed add image information to policy rule context")
 	}
 	policyContext := &engine.PolicyContext{

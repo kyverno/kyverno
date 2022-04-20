@@ -12,12 +12,12 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -121,10 +121,12 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		}
 
 		if jsonPatchOnPod(rule) {
-			log.Log.V(1).Info("Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers.")
+			msg := "Pods managed by workload controllers should not be directly mutated using policies. " +
+				"Use the autogen feature or write policies that match Pod controllers."
+			log.Log.V(1).Info(msg)
 			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
-				Warnings: []string{"Pods managed by workload controllers cannot be mutated using policies. Use the autogen feature or write policies that match Pod controllers."},
+				Warnings: []string{msg},
 			}, nil
 		}
 
@@ -236,10 +238,13 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		var podOnlyMap = make(map[string]bool) //Validate that Kind is only Pod
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
-			log.Log.V(4).Info("Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s).")
+			msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
+				"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
+				"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
+
 			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
-				Warnings: []string{"Pod controllers excluded from autogen require adding of preconditions to also exclude the desired controller(s)."},
+				Warnings: []string{msg},
 			}, nil
 		}
 
@@ -1010,7 +1015,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 	val, ok := annotations[kyverno.PodControllersAnnotation]
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && strings.ToLower(val) == "none" || reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
+	if ok && reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
 		return true
 	}
 	return false

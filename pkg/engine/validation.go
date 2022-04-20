@@ -10,6 +10,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
@@ -29,7 +30,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	startTime := time.Now()
 
 	logger := buildLogger(policyContext)
-	logger.V(4).Info("start policy processing", "startTime", startTime)
+	logger.V(4).Info("start validate policy processing", "startTime", startTime)
 	defer func() {
 		buildResponse(policyContext, resp, startTime)
 		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "validationRulesApplied", resp.PolicyResponse.RulesAppliedCount)
@@ -118,11 +119,11 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) 
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
 
-	if err := ctxCopy.JSONContext.ReplaceResourceAsObject(ctxCopy.NewResource.Object); err != nil {
+	if err := context.ReplaceResource(ctxCopy.JSONContext, ctxCopy.NewResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace object in the JSON context")
 	}
 
-	if err := ctxCopy.JSONContext.ReplaceResourceAsOldObject(ctxCopy.OldResource.Object); err != nil {
+	if err := context.ReplaceOldResource(ctxCopy.JSONContext, ctxCopy.OldResource.Object); err != nil {
 		return nil, errors.Wrapf(err, "failed to replace old object in the JSON context")
 	}
 
@@ -322,22 +323,14 @@ func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, el
 	if err != nil {
 		return err
 	}
-
-	jsonData := map[string]interface{}{
-		"element":      data,
-		"elementIndex": elementIndex,
-	}
-
-	if err := ctx.JSONContext.AddJSONObject(jsonData); err != nil {
+	if err := ctx.JSONContext.AddElement(data, elementIndex); err != nil {
 		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
 	}
-
 	if elementScope {
 		u := unstructured.Unstructured{}
 		u.SetUnstructuredContent(data)
 		ctx.Element = u
 	}
-
 	return nil
 }
 
