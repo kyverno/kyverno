@@ -332,7 +332,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
 	patch, err := makeAddDigestPatch(path, imageInfo, digest)
 	if err != nil {
-		return errors.Wrapf(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
+		return errors.Wrapf(err, "failed to patch image with digest. image: %s, jsonPath: %s", imageInfo.String(), path)
 	} else {
 		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
 		ruleResp.Patches = [][]byte{patch}
