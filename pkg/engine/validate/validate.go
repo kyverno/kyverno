@@ -3,12 +3,13 @@ package validate
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 )
 
 type PatternError struct {
@@ -153,24 +154,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	return "", nil
 }
 
-func combineErrors(errors []error) error {
-	if len(errors) == 0 {
-		return nil
-	}
-
-	if len(errors) == 1 {
-		return errors[0]
-	}
-
-	messages := make([]string, len(errors))
-	for i := range errors {
-		messages[i] = errors[i].Error()
-	}
-
-	msg := strings.Join(messages, "; ")
-	return fmt.Errorf(msg)
-}
-
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
 	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern Array empty")
@@ -214,7 +197,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  combineErrors(skipErrors),
+				Err:  engineUtils.CombineErrors(skipErrors),
 				Path: path,
 				Skip: true,
 			}
@@ -248,7 +231,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  combineErrors(skipErrors),
+			Err:  engineUtils.CombineErrors(skipErrors),
 			Path: path,
 			Skip: true,
 		}

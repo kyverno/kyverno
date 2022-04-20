@@ -98,3 +98,21 @@ func JsonPointerToJMESPath(jsonPointer string) string {
 
 	return sb.String()
 }
+
+func CombineErrors(errors []error) error {
+	if len(errors) == 0 {
+		return nil
+	}
+
+	if len(errors) == 1 {
+		return errors[0]
+	}
+
+	messages := make([]string, len(errors))
+	for i := range errors {
+		messages[i] = errors[i].Error()
+	}
+
+	msg := strings.Join(messages, "; ")
+	return fmt.Errorf(msg)
+}
