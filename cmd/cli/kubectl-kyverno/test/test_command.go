@@ -1042,7 +1042,7 @@ func printTestResult(resps map[string]report.PolicyReportResult, testResults []T
 				rc.Pass++
 			}
 		} else {
-			log.Log.V(2).Info("result mismatch", "expected", testRes.Result, "received", v.Result, "key", resultKey)
+			log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
 		}

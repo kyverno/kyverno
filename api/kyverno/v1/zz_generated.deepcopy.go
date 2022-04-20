@@ -125,15 +125,16 @@ func (in *Attestor) DeepCopyInto(out *Attestor) {
 		*out = new(KeylessAttestor)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Attestors != nil {
-		in, out := &in.Attestors, &out.Attestors
-		*out = make([]*apiextensionsv1.JSON, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(apiextensionsv1.JSON)
-				(*in).DeepCopyInto(*out)
-			}
+	if in.Attestor != nil {
+		in, out := &in.Attestor, &out.Attestor
+		*out = new(apiextensionsv1.JSON)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Annotations != nil {
+		in, out := &in.Annotations, &out.Annotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
 		}
 	}
 }

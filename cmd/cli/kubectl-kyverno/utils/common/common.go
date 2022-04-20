@@ -506,7 +506,7 @@ OuterLoop:
 		log.Log.Error(err, "failed to marshal resource")
 	}
 
-	updated_resource, err := ut.ConvertToUnstructured(resourceRaw)
+	updatedResource, err := ut.ConvertToUnstructured(resourceRaw)
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
@@ -538,7 +538,8 @@ OuterLoop:
 	if err := context.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updated_resource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+
+	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updatedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
