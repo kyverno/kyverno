@@ -78,9 +78,6 @@ type Controller struct {
 	// urSynced returns true if the Update Request store has been synced at least once
 	urSynced cache.InformerSynced
 
-	// namespaceInformer for re-evaluation on namespace updates
-	namespaceInformer corelister.NamespaceLister
-
 	nsSynced cache.InformerSynced
 
 	log logr.Logger

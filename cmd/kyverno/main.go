@@ -397,7 +397,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, setupLog)
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
 		webhookCfg.Start()

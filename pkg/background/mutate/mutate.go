@@ -73,14 +73,10 @@ func NewMutateExistingController(
 	return &c, nil
 }
 
-// TODO(shuting):
-// - test if variables are resolved in UpdateRequest.ResourceSpec
-// - check messages are different for each rule response when a rule has multiple targets
 func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
 	var errs []error
 
-	// list trigger and target resources
 	policy, err := c.getPolicy(ur.Spec.Policy)
 	if err != nil {
 		logger.Error(err, "failed to get policy")
@@ -92,7 +88,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 			continue
 		}
 
-		trigger, err := common.GetResource(c.client, ur.Spec.Resource, c.log)
+		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 			errs = append(errs, err)
@@ -107,22 +103,29 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 		er := engine.Mutate(policyContext)
 		for _, r := range er.PolicyResponse.Rules {
 			patched := r.PatchedTarget
-			if patched == nil {
-				continue
-			}
+			switch r.Status {
+			case response.RuleStatusFail, response.RuleStatusError, response.RuleStatusWarn:
+				err := fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message)
+				logger.Error(err, "")
+				errs = append(errs, err)
+				c.report(err, ur.Spec.Policy, rule.Name, patched)
 
-			if r.Status == response.RuleStatusPass {
-				_, updateErr := c.client.UpdateResource(patched.GetAPIVersion(), patched.GetKind(), patched.GetNamespace(), patched.Object, false)
-				if updateErr != nil {
-					errs = append(errs, updateErr)
-					logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patched.GetNamespace(), "name", patched.GetName())
-				} else {
-					logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patched.GetNamespace(), "name", patched.GetName())
+			case response.RuleStatusSkip:
+				logger.Info("mutate existing rule skipped", "rule", r.Name, "message", r.Message)
+				c.report(err, ur.Spec.Policy, rule.Name, patched)
+
+			case response.RuleStatusPass:
+				if r.Status == response.RuleStatusPass {
+					_, updateErr := c.client.UpdateResource(patched.GetAPIVersion(), patched.GetKind(), patched.GetNamespace(), patched.Object, false)
+					if updateErr != nil {
+						errs = append(errs, updateErr)
+						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patched.GetNamespace(), "name", patched.GetName())
+					} else {
+						logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patched.GetNamespace(), "name", patched.GetName())
+					}
+
+					c.report(updateErr, ur.Spec.Policy, rule.Name, patched)
 				}
-
-				c.report(updateErr, ur.Spec.Policy, rule.Name, patched)
-			} else {
-				c.report(fmt.Errorf("failed to mutate existing resource, rule response%v: %s", r.Status, r.Message), ur.Spec.Policy, rule.Name, patched)
 			}
 		}
 	}
@@ -145,6 +148,10 @@ func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterf
 
 func (c *MutateExistingController) report(err error, policy, rule string, target *unstructured.Unstructured) {
 	var events []event.Info
+
+	if target == nil {
+		c.log.WithName("mutateExisting").Info("cannot generate events for empty target resource", "policy", policy, "rule", rule, "err", err.Error())
+	}
 
 	if err != nil {
 		events = common.FailedEvents(err, policy, rule, event.MutateExistingController, *target)

@@ -30,11 +30,16 @@ func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequ
 	logger := ws.log.WithValues("action", "mutateExisting", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("update request")
 
+	if request.Operation == admissionv1.Delete {
+		policyContext.NewResource = policyContext.OldResource
+	}
+
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
 		var rules []response.RuleResponse
 		policyContext.Policy = policy
 		engineResponse := engine.ApplyBackgroundChecks(policyContext)
+
 		for _, rule := range engineResponse.PolicyResponse.Rules {
 			if rule.Status == response.RuleStatusPass {
 				rules = append(rules, rule)

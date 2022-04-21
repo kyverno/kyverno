@@ -500,7 +500,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 
 	grList, err := pc.urLister.List(labels.Everything())
 	if err != nil {
-		logger.Error(err, "failed to list generate request")
+		logger.Error(err, "failed to list update request")
 	}
 
 	policy, err := pc.getPolicy(key)

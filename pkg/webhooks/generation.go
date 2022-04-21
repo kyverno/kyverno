@@ -348,6 +348,10 @@ func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return
 		}
+
+		if gr.Spec.Type == urkyverno.Mutate {
+			return
+		}
 		ws.updateAnnotationInGR(gr, logger)
 	}
 }

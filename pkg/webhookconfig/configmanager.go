@@ -525,7 +525,8 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 		return err
 	}
 
-	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, m.log)
+	msg := "getWebhook: unable to get webhook configuration"
+	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, msg, m.log)
 	if err := retryGetWebhook(); err != nil {
 		return nil, err
 	}

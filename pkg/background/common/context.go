@@ -10,6 +10,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	utils "github.com/kyverno/kyverno/pkg/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -27,16 +28,28 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 		logger.Error(err, "error parsing the request string")
 	}
 
-	if ur.Spec.Context.AdmissionRequestInfo.Operation == admissionv1.Update {
-		request.Operation = ur.Spec.Context.AdmissionRequestInfo.Operation
-	}
-
 	if err := ctx.AddRequest(&request); err != nil {
 		logger.Error(err, "failed to load request in context")
 		return nil, false, err
 	}
 
-	err = ctx.AddResource(trigger.Object)
+	_, old, err := utils.ExtractResources(nil, &request)
+	if err != nil {
+		logger.Error(err, "failed to load request in context")
+	}
+
+	var triggerNew unstructured.Unstructured
+	if trigger == nil {
+		triggerNew = old
+	}
+
+	err = ctx.AddResource(triggerNew.Object)
+	if err != nil {
+		logger.Error(err, "failed to load resource in context")
+		return nil, false, err
+	}
+
+	err = ctx.AddOldResource(old.Object)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, false, err
@@ -54,13 +67,13 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 		return nil, false, err
 	}
 
-	if err := ctx.AddImageInfos(trigger); err != nil {
+	if err := ctx.AddImageInfos(&triggerNew); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
 	policyContext := &engine.PolicyContext{
-		NewResource: *trigger,
-		// ExistingResource:    target,
+		NewResource:         triggerNew,
+		OldResource:         old,
 		Policy:              policy,
 		AdmissionInfo:       ur.Spec.Context.UserRequestInfo,
 		ExcludeGroupRole:    cfg.GetExcludeGroupRole(),

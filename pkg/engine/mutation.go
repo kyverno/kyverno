@@ -92,6 +92,11 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		for _, patchedResource := range patchedResources {
+			if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
+				continue
+			}
+
+			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
 			var ruleResp *response.RuleResponse
 			if rule.Mutation.ForEachMutation != nil {
 				ruleResp, patchedResource = mutateForEach(ruleCopy, policyContext, patchedResource, logger)
@@ -132,7 +137,7 @@ func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructure
 	}
 
 	if !preconditionsPassed {
-		return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, nil), resource
+		return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &resource), resource
 	}
 
 	mutateResp := mutate.Mutate(rule, ctx.JSONContext, resource, logger)
@@ -162,7 +167,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 		}
 
 		if !preconditionsPassed {
-			return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, nil), resource
+			return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource), resource
 		}
 
 		elements, err := evaluateList(foreach.List, ctx.JSONContext)
@@ -187,7 +192,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, nil), resource
+		return ruleResponse(rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, &resource), resource
 	}
 
 	r := ruleResponse(rule, response.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass, &patchedResource)

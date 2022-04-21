@@ -103,7 +103,7 @@ func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 	var precreatedResource bool
 
 	// 1 - Check if the resource exists
-	resource, err = common.GetResource(c.client, gr.Spec.Resource, c.log)
+	resource, err = common.GetResource(c.client, gr.Spec, c.log)
 	if err != nil {
 		// Don't update status
 		// re-queueing the GR by updating the annotation
