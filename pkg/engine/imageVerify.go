@@ -271,7 +271,7 @@ func splitPEM(pem string) []string {
 		return keys
 	}
 
-	return keys[0:len(keys)-1]
+	return keys[0 : len(keys)-1]
 }
 
 func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {

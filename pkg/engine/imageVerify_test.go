@@ -468,7 +468,7 @@ func Test_ExpandKeys(t *testing.T) {
 	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey))
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey + testOtherKey + testOtherKey))
 	assert.Equal(t, 3, len(as.Entries))
 }
 
