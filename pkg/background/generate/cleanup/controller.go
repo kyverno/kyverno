@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -169,24 +170,24 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 		for _, gr := range grs {
 			logger.V(4).Info("enqueue the gr for cleanup", "gr name", gr.Name)
-			c.addGR(gr)
+			c.addUR(gr)
 		}
 	}
 }
 
-func (c *Controller) addGR(obj interface{}) {
-	gr := obj.(*kyverno.GenerateRequest)
+func (c *Controller) addUR(obj interface{}) {
+	gr := obj.(*urkyverno.UpdateRequest)
 	c.enqueue(gr)
 }
 
-func (c *Controller) updateGR(old, cur interface{}) {
-	gr := cur.(*kyverno.GenerateRequest)
+func (c *Controller) updateUR(old, cur interface{}) {
+	gr := cur.(*urkyverno.UpdateRequest)
 	c.enqueue(gr)
 }
 
-func (c *Controller) deleteGR(obj interface{}) {
+func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	gr, ok := obj.(*kyverno.GenerateRequest)
+	gr, ok := obj.(*urkyverno.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -194,7 +195,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
 			return
@@ -221,9 +222,9 @@ func (c *Controller) deleteGR(obj interface{}) {
 	c.enqueue(gr)
 }
 
-func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
+func (c *Controller) enqueue(gr *urkyverno.UpdateRequest) {
 	// skip enqueueing Pending requests
-	if gr.Status.State == kyverno.Pending {
+	if gr.Status.State == urkyverno.Pending {
 		return
 	}
 
@@ -256,9 +257,9 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	})
 
 	c.grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGR,
-		UpdateFunc: c.updateGR,
-		DeleteFunc: c.deleteGR,
+		AddFunc:    c.addUR,
+		UpdateFunc: c.updateUR,
+		DeleteFunc: c.deleteUR,
 	})
 
 	for i := 0; i < workers; i++ {
@@ -326,7 +327,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-	gr, err := c.grLister.Get(grName)
+	gr, err := c.urLister.Get(grName)
 	if err != nil {
 		return err
 	}
