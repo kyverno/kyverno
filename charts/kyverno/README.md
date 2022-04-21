@@ -157,3 +157,9 @@ If `createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and
 ## Kyverno CLI
 
 See: https://kyverno.io/docs/kyverno-cli/
+
+## Changes
+
+### v2.3.3
+
+* Allow defining imagePullSecrets
