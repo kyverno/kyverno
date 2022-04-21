@@ -19,5 +19,6 @@ func (s Source) String() string {
 		"admission-controller",
 		"policy-controller",
 		"generate-policy-controller",
+		"mutate-existing-controller",
 	}[s]
 }
