@@ -28,8 +28,6 @@ func (dl dummyLister) ListResources(selector labels.Selector) (ret []*kyverno.Cl
 	return nil, fmt.Errorf("not implemented")
 }
 
-//policyCounter int64
-
 // type dymmyNsNamespace struct {}
 
 type dummyNsLister struct {

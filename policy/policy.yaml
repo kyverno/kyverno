@@ -1,0 +1,36 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: unique-ingress-path
+spec:
+  validationFailureAction: enforce
+  background: false
+  rules:
+    - name: check-path
+      match:
+        resources:
+          kinds:
+            - Ingress
+      context:
+        - name: allHosts
+          apiCall:
+            urlPath: "/apis/networking.k8s.io/v1/ingresses"
+            jmesPath: "items[].spec.rules[].host"
+      validate:
+        message: "test for duplicate ingress"
+        foreach:
+        - list: "request.object.spec.rules"
+          context:
+          - name: pathsForHost
+            apiCall:
+              urlPath: "/apis/networking.k8s.io/v1/ingresses"
+              jmesPath: "items[].spec.rules[?host=='{{ element.host }}'].http.paths[][].path"
+          deny:
+            conditions:
+              all:
+                - key: "{{ request.object.spec.rules[?host=='{{ element.host }}'].http.paths[].path }}"
+                  operator: AnyIn
+                  value: "{{ pathsForHost }}"
+                - key: "{{ element.host }}"
+                  operator: Equals
+                  value: "{{ allHosts }}"
