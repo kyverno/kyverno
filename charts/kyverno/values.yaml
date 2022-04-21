@@ -7,9 +7,6 @@ fullnameOverride:
 # -- Namespace the chart deploys to
 namespace:
 
-# -- Mode for Kyverno installation
-mode: standalone
-
 # -- Additional labels
 customLabels: {}
 
@@ -58,8 +55,8 @@ testImage:
   # Defaults to image.pullPolicy if omitted
   pullPolicy:
 
-# -- Desired number of pods
-replicaCount: 0
+# -- (int) Desired number of pods
+replicaCount: ~
 
 # -- Additional labels to add to each pod
 podLabels: {}
@@ -145,6 +142,20 @@ envVars: {}
 # -- Extra arguments to give to the binary.
 extraArgs:
   - --autogenInternals=false
+
+# -- Image pull secrets for image verify and imageData policies.
+# This will define the `--imagePullSecrets` Kyverno argument.
+imagePullSecrets: {}
+  # Define two image pull secrets
+  # imagePullSecrets:
+  #   regcred:
+  #     registry: foo.example.com
+  #     username: foobar
+  #     password: secret
+  #   regcred2:
+  #     registry: bar.example.com
+  #     username: barbaz
+  #     password: secret2
 
 resources:
   # -- Pod resource limits
