@@ -337,7 +337,7 @@ func main() {
 		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("BackgroundController"),
 		configData,
 	)
@@ -356,7 +356,7 @@ func main() {
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
 	if err != nil {

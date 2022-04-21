@@ -19,12 +19,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
+	coreinformers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	corelister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -64,6 +63,9 @@ type Controller struct {
 	// urLister can list/get update request from the shared informer's store
 	urLister urlister.UpdateRequestNamespaceLister
 
+	// nsLister can list/get namespaces from the shared informer's store
+	nsLister corelister.NamespaceLister
+
 	// policySynced returns true if the Cluster policy store has been synced at least once
 	policySynced cache.InformerSynced
 
@@ -76,12 +78,12 @@ type Controller struct {
 	// urSynced returns true if the Update Request store has been synced at least once
 	urSynced cache.InformerSynced
 
-	// dynamic shared informer factory
-	dynamicInformer dynamicinformer.DynamicSharedInformerFactory
+	// namespaceInformer for re-evaluation on namespace updates
+	namespaceInformer corelister.NamespaceLister
 
-	// only support Namespaces for re-evaluation on resource updates
-	nsInformer informers.GenericInformer
-	log        logr.Logger
+	nsSynced cache.InformerSynced
+
+	log logr.Logger
 
 	Config config.Interface
 }
@@ -96,20 +98,19 @@ func NewController(
 	grInformer kyvernoinformer.GenerateRequestInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
 	eventGen event.Interface,
-	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
+	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 ) (*Controller, error) {
 
 	c := Controller{
-		client:          client,
-		kyvernoClient:   kyvernoClient,
-		policyInformer:  policyInformer,
-		eventGen:        eventGen,
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
-		dynamicInformer: dynamicInformer,
-		log:             log,
-		Config:          dynamicConfig,
+		client:         client,
+		kyvernoClient:  kyvernoClient,
+		policyInformer: policyInformer,
+		eventGen:       eventGen,
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		log:            log,
+		Config:         dynamicConfig,
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
@@ -119,6 +120,7 @@ func NewController(
 	c.npolicySynced = npolicyInformer.Informer().HasSynced
 
 	c.grSynced = grInformer.Informer().HasSynced
+
 	grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addGR,
 		UpdateFunc: c.updateGR,
@@ -137,12 +139,8 @@ func NewController(
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 
-	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
-	if err != nil {
-		return nil, err
-	}
-
-	c.nsInformer = dynamicInformer.ForResource(gvr)
+	c.nsLister = namespaceInformer.Lister()
+	c.nsSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
 }
@@ -153,7 +151,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	defer c.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.urSynced, c.npolicySynced) {
+	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.grSynced, c.urSynced, c.npolicySynced, c.nsSynced) {
 		c.log.Info("failed to sync informer cache")
 		return
 	}
@@ -161,10 +159,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
 		// Deletion of policy will be handled by cleanup controller
-	})
-
-	c.nsInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updateGenericResource,
 	})
 
 	for i := 0; i < workers; i++ {
@@ -241,23 +235,6 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	}
 
 	return c.ProcessUR(gr)
-}
-
-func (c *Controller) updateGenericResource(old, cur interface{}) {
-	logger := c.log
-	curR := cur.(*unstructured.Unstructured)
-
-	grs, err := c.grLister.GetGenerateRequestsForResource(curR.GetKind(), curR.GetNamespace(), curR.GetName())
-	if err != nil {
-		logger.Error(err, "failed to get generate request CR for the resource", "kind", curR.GetKind(), "name", curR.GetName(), "namespace", curR.GetNamespace())
-		return
-	}
-
-	// re-evaluate the GR as the resource was updated
-	for _, gr := range grs {
-		gr.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
-		c.enqueueGenerateRequest(gr)
-	}
 }
 
 // EnqueueGenerateRequestFromWebhook - enqueueing generate requests from webhook

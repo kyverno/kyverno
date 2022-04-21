@@ -12,6 +12,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -22,6 +23,7 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -133,7 +135,7 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 				"generate.kyverno.io/policy-name": policyName,
 			}))
 
-			grList, err := ws.grLister.List(selector)
+			grList, err := ws.urLister.List(selector)
 			if err != nil {
 				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
 				return
@@ -149,18 +151,25 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 
 // updateAnnotationInGR - function used to update GR annotation
 // updating GR will trigger reprocessing of GR and recreation/updation of generated resource
-func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logger logr.Logger) {
+func (ws *WebhookServer) updateAnnotationInGR(gr *urkyverno.UpdateRequest, logger logr.Logger) {
 	grAnnotations := gr.Annotations
 	if len(grAnnotations) == 0 {
 		grAnnotations = make(map[string]string)
 	}
 	ws.mu.Lock()
-	defer ws.mu.Unlock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
-	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+	ws.mu.Unlock()
+
+	patch := jsonutils.NewPatch(
+		"/metadata/annotations",
+		"replace",
+		gr.Annotations,
+	)
+
+	_, err := gencommon.PatchGenerateRequest(gr, patch, ws.kyvernoClient)
 	if err != nil {
-		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
+		logger.Error(err, "failed to update generate request update-time annotations for the resource", "generate request", gr.Name)
 		return
 	}
 }
@@ -218,7 +227,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1
 
 	if enqueueBool {
 		grName := resLabels["policy.kyverno.io/gr-name"]
-		gr, err := ws.grLister.Get(grName)
+		gr, err := ws.urLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return
@@ -334,7 +343,7 @@ func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 	resLabels := resource.GetLabels()
 	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == admissionv1.Delete {
 		grName := resLabels["policy.kyverno.io/gr-name"]
-		gr, err := ws.grLister.Get(grName)
+		gr, err := ws.urLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return

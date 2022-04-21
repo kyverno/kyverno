@@ -31,8 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
+	corelister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -54,8 +53,8 @@ type GenerateController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
-	// only support Namespaces for re-evaluation on resource updates
-	nsInformer informers.GenericInformer
+	// nsLister can list/get namespaces from the shared informer's store
+	nsLister corelister.NamespaceLister
 
 	// policyLister can list/get cluster policy from the shared informer's store
 	policyLister kyvernolister.ClusterPolicyLister
@@ -74,7 +73,7 @@ func NewGenerateController(
 	npolicyLister kyvernolister.PolicyLister,
 	grLister kyvernolister.GenerateRequestNamespaceLister,
 	eventGen event.Interface,
-	dynamicInformer dynamicinformer.DynamicSharedInformerFactory,
+	nsLister corelister.NamespaceLister,
 	log logr.Logger,
 	dynamicConfig config.Interface,
 ) (*GenerateController, error) {
@@ -91,13 +90,7 @@ func NewGenerateController(
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
-
-	gvr, err := client.DiscoveryClient.GetGVRFromKind("Namespace")
-	if err != nil {
-		return nil, err
-	}
-
-	c.nsInformer = dynamicInformer.ForResource(gvr)
+	c.nsLister = nsLister
 
 	return &c, nil
 }
@@ -163,7 +156,7 @@ func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 	}
 
 	// 2 - Apply the generate policy on the resource
-	namespaceLabels := pkgcommon.GetNamespaceSelectorsFromGenericInformer(resource.GetKind(), resource.GetNamespace(), c.nsInformer, logger)
+	namespaceLabels := pkgcommon.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), c.nsLister, logger)
 	genResources, precreatedResource, err = c.applyGenerate(*resource, *gr, namespaceLabels)
 
 	if err != nil {
@@ -520,8 +513,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 				}
 			}
 		}
-
-		logger.V(2).Info("updated generate target resource")
+		logger.V(3).Info("updated generate target resource")
 	}
 
 	return newGenResource, nil
