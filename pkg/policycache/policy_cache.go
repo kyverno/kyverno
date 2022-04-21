@@ -1,6 +1,8 @@
 package policycache
 
 import (
+	"sync/atomic"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -24,6 +26,8 @@ type Interface interface {
 	// update update a policy from the cache
 	update(kyverno.PolicyInterface, kyverno.PolicyInterface)
 
+	HasPolicySynced() bool
+
 	get(PolicyType, string, string) []string
 }
 
@@ -37,10 +41,12 @@ type policyCache struct {
 
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
+
+	policyCounter int64
 }
 
 // newPolicyCache ...
-func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
+func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister, policyCounter int64) Interface {
 	namesCache := map[PolicyType]map[string]bool{
 		Mutate:          make(map[string]bool),
 		ValidateEnforce: make(map[string]bool),
@@ -57,12 +63,13 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 		log,
 		pLister,
 		npLister,
+		policyCounter,
 	}
 }
 
 // Add a policy to cache
 func (pc *policyCache) add(policy kyverno.PolicyInterface) {
-	pc.pMap.add(policy)
+	pc.pMap.add(policy, pc.policyCounter)
 	pc.logger.V(4).Info("policy is added to cache", "name", policy.GetName())
 }
 
@@ -82,12 +89,12 @@ func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []kyver
 
 // Remove a policy from cache
 func (pc *policyCache) remove(p kyverno.PolicyInterface) {
-	pc.pMap.remove(p)
+	pc.pMap.remove(p, pc.policyCounter)
 	pc.logger.V(4).Info("policy is removed from cache", "name", p.GetName())
 }
 
 func (pc *policyCache) update(oldP kyverno.PolicyInterface, newP kyverno.PolicyInterface) {
-	pc.pMap.update(oldP, newP)
+	pc.pMap.update(oldP, newP, pc.policyCounter)
 	pc.logger.V(4).Info("policy is updated from cache", "name", newP.GetName())
 }
 
@@ -111,4 +118,8 @@ func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string
 		}
 	}
 	return policyObject
+}
+
+func (pc *policyCache) HasPolicySynced() bool {
+	return atomic.LoadInt64(&pc.policyCounter) == 0
 }

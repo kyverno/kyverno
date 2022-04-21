@@ -3,6 +3,7 @@ package policycache
 import (
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -24,10 +25,12 @@ type pMap struct {
 	nameCacheMap map[PolicyType]map[string]bool
 }
 
-func (m *pMap) add(policy kyverno.PolicyInterface) {
+func (m *pMap) add(policy kyverno.PolicyInterface, pCouter int64) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	atomic.AddInt64(&pCouter, int64(1))
 	m.addPolicyToCache(policy)
+	atomic.AddInt64(&pCouter, ^int64(0))
 }
 func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 	spec := policy.GetSpec()
@@ -91,10 +94,12 @@ func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	return names
 }
 
-func (m *pMap) remove(policy kyverno.PolicyInterface) {
+func (m *pMap) remove(policy kyverno.PolicyInterface, pCouter int64) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	atomic.AddInt64(&pCouter, int64(1))
 	m.removePolicyFromCache(policy)
+	atomic.AddInt64(&pCouter, ^int64(0))
 
 }
 func (m *pMap) removePolicyFromCache(policy kyverno.PolicyInterface) {
@@ -120,11 +125,13 @@ func (m *pMap) removePolicyFromCache(policy kyverno.PolicyInterface) {
 	}
 }
 
-func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) {
+func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface, pCouter int64) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+	atomic.AddInt64(&pCouter, int64(1))
 	m.removePolicyFromCache(old)
 	m.addPolicyToCache(new)
+	atomic.AddInt64(&pCouter, ^int64(0))
 }
 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {

@@ -70,6 +70,7 @@ var (
 	clientRateLimitBurst         int
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
+	policyCounter                int64
 )
 
 func main() {
@@ -370,6 +371,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("PolicyCacheController"),
+		policyCounter,
 	)
 
 	auditHandler := webhooks.NewValidateAuditHandler(

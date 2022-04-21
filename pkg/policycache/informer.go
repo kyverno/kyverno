@@ -1,6 +1,7 @@
 package policycache
 
 import (
+	"os"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -25,10 +26,11 @@ type Controller struct {
 func NewPolicyCacheController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	nspInformer kyvernoinformer.PolicyInformer,
-	log logr.Logger) *Controller {
+	log logr.Logger,
+	policyCounter int64) *Controller {
 
 	pc := Controller{
-		Cache: newPolicyCache(log, pInformer.Lister(), nspInformer.Lister()),
+		Cache: newPolicyCache(log, pInformer.Lister(), nspInformer.Lister(), policyCounter),
 		log:   log,
 	}
 
@@ -99,9 +101,9 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynched) {
-		logger.Info("failed to sync informer cache")
-		return
+	if !cache.WaitForCacheSync(stopCh, c.pSynched, c.nspSynched) {
+		logger.Error(nil, "Failed to sync informer cache")
+		os.Exit(1)
 	}
 
 	<-stopCh
