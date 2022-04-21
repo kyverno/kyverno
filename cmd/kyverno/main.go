@@ -340,7 +340,7 @@ func main() {
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateController"),
 		configData,
 	)
@@ -358,7 +358,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
 	if err != nil {
@@ -524,7 +524,6 @@ func main() {
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go grgen.Run(10, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {

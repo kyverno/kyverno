@@ -994,19 +994,13 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 		in, out := &in.ImageExtractors, &out.ImageExtractors
 		*out = make(kube.ImageExtractorConfigs, len(*in))
 		for key, val := range *in {
-			var outVal []*kube.ImageExtractorConfig
+			var outVal []kube.ImageExtractorConfig
 			if val == nil {
 				(*out)[key] = nil
 			} else {
 				in, out := &val, &outVal
-				*out = make([]*kube.ImageExtractorConfig, len(*in))
-				for i := range *in {
-					if (*in)[i] != nil {
-						in, out := &(*in)[i], &(*out)[i]
-						*out = new(kube.ImageExtractorConfig)
-						**out = **in
-					}
-				}
+				*out = make([]kube.ImageExtractorConfig, len(*in))
+				copy(*out, *in)
 			}
 			(*out)[key] = outVal
 		}
