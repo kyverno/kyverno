@@ -12,6 +12,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 
 	"github.com/kyverno/kyverno/pkg/autogen"
+	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -24,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/generate"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -186,12 +188,19 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logge
 		grAnnotations = make(map[string]string)
 	}
 	ws.mu.Lock()
-	defer ws.mu.Unlock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
-	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+	ws.mu.Unlock()
+
+	patch := jsonutils.NewPatch(
+		"/metadata/annotations",
+		"replace",
+		gr.Annotations,
+	)
+
+	_, err := gencommon.PatchGenerateRequest(gr, patch, ws.kyvernoClient)
 	if err != nil {
-		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
+		logger.Error(err, "failed to update generate request update-time annotations for the resource", "generate request", gr.Name)
 		return
 	}
 }
