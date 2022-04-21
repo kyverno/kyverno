@@ -896,7 +896,7 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(webhookCfg confi
 // the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
 func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.MutatingWebhookConfiguration) error {
 	// Fetch the existing webhook.
-	obj, err := wrc.client.GetResource("", kindMutating, "", targetConfig.Name)
+	currentConfiguration, err := wrc.mwcLister.Get(targetConfig.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get %s %s: %v", kindMutating, targetConfig.Name, err)
 	}
@@ -905,14 +905,8 @@ func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
-	// Convert the existing webhook.
-	newWebhooks := make([]admregapi.MutatingWebhook, 0)
-	var currentConfiguration *admregapi.MutatingWebhookConfiguration
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &currentConfiguration)
-	if err != nil {
-		return fmt.Errorf("failed to convert %s %s from unstructured: %v", kindMutating, targetConfig.Name, err)
-	}
 	// Update the webhooks.
+	newWebhooks := make([]admregapi.MutatingWebhook, 0)
 	for _, w := range currentConfiguration.Webhooks {
 		target, exist := targetWebhooksMap[w.Name]
 		if !exist {
@@ -947,7 +941,7 @@ func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.
 // the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
 func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregapi.ValidatingWebhookConfiguration) error {
 	// Fetch the existing webhook.
-	obj, err := wrc.client.GetResource("", kindValidating, "", targetConfig.Name)
+	currentConfiguration, err := wrc.vwcLister.Get(targetConfig.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get %s %s: %v", kindValidating, targetConfig.Name, err)
 	}
@@ -956,14 +950,8 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregap
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
-	// Convert the existing webhook.
-	newWebhooks := make([]admregapi.ValidatingWebhook, 0)
-	var currentConfiguration *admregapi.ValidatingWebhookConfiguration
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &currentConfiguration)
-	if err != nil {
-		return fmt.Errorf("failed to convert %s %s from unstructured: %v", kindValidating, targetConfig.Name, err)
-	}
 	// Update the webhooks.
+	newWebhooks := make([]admregapi.ValidatingWebhook, 0)
 	for _, w := range currentConfiguration.Webhooks {
 		target, exist := targetWebhooksMap[w.Name]
 		if !exist {
