@@ -82,8 +82,8 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
 			targets, err := loadTargets(logger, ruleCopy.Mutation.Targets, policyContext)
 			if err != nil {
-				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules,
-					*ruleResponse(&rule, response.Mutation, err.Error(), response.RuleStatusError, nil))
+				rr := ruleResponse(&rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
+				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 			} else {
 				patchedResources = append(patchedResources, targets...)
 			}

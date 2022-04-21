@@ -78,9 +78,6 @@ type Controller struct {
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
 
-	// namespaceInformer for re-evaluation on namespace updates
-	namespaceInformer coreinformers.NamespaceInformer
-
 	// logger
 	log logr.Logger
 }
@@ -98,13 +95,12 @@ func NewController(
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{
-		kyvernoClient:     kyvernoclient,
-		client:            client,
-		pInformer:         pInformer,
-		grInformer:        grInformer,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		namespaceInformer: namespaceInformer,
-		log:               log,
+		kyvernoClient: kyvernoclient,
+		client:        client,
+		pInformer:     pInformer,
+		grInformer:    grInformer,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
+		log:           log,
 	}
 
 	c.control = Control{client: kyvernoclient}
@@ -117,6 +113,7 @@ func NewController(
 	c.pSynced = pInformer.Informer().HasSynced
 	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
+	c.urSynced = urInformer.Informer().HasSynced
 	c.nsListerSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
