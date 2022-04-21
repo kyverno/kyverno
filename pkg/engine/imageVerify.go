@@ -248,7 +248,7 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 	var entries []*v1.Attestor
 	for _, e := range attestorSet.Entries {
 		if e.StaticKey != nil {
-			keys := strings.SplitAfter(e.StaticKey.Keys, "-----END PUBLIC KEY-----")
+			keys := splitPEM(e.StaticKey.Keys)
 			if len(keys) > 1 {
 				moreEntries := createStaticKeyAttestors(e.StaticKey, keys)
 				entries = append(entries, moreEntries...)
@@ -263,6 +263,15 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 		Count:   attestorSet.Count,
 		Entries: entries,
 	}
+}
+
+func splitPEM(pem string) []string {
+	keys := strings.SplitAfter(pem, "-----END PUBLIC KEY-----")
+	if len(keys) < 1 {
+		return keys
+	}
+
+	return keys[0:len(keys)-1]
 }
 
 func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {

@@ -160,7 +160,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "", Subject: ""},
+						Keyless: &KeylessAttestor{CTLog: &CTLog{}, Issuer: "", Subject: ""},
 					}}},
 				},
 			},
@@ -171,7 +171,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "bla", Subject: "bla"},
+						Keyless: &KeylessAttestor{CTLog: &CTLog{}, Issuer: "bla", Subject: "bla"},
 					}}},
 				},
 			},

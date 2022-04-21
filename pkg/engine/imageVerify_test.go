@@ -460,3 +460,26 @@ func Test_NestedAttestors(t *testing.T) {
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
+
+func Test_ExpandKeys(t *testing.T) {
+	as := expandStaticKeys(createStaticKeyAttestorSet(""))
+	assert.Equal(t, 1, len(as.Entries))
+
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey))
+	assert.Equal(t, 1, len(as.Entries))
+
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey))
+	assert.Equal(t, 3, len(as.Entries))
+}
+
+func createStaticKeyAttestorSet(s string) *kyverno.AttestorSet {
+	return &kyverno.AttestorSet{
+		Entries: []*kyverno.Attestor{
+			{
+				StaticKey: &kyverno.StaticKeyAttestor{
+					Keys: s,
+				},
+			},
+		},
+	}
+}
