@@ -1,6 +1,32 @@
 apiVersion: v1
 entries:
   kyverno:
+  - annotations:
+      artifacthub.io/changes: |
+        - "Allow defining imagePullSecrets"
+    apiVersion: v1
+    appVersion: v1.6.2
+    created: "2022-04-21T05:16:57.521593345Z"
+    description: Kubernetes Native Policy Management
+    digest: 98427e2263567e5dccb923604ff00479e76b6907883a601152d73b83a5578239
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v2.3.3.tgz
+    version: v2.3.3
   - apiVersion: v1
     appVersion: v1.6.2
     created: "2022-03-31T08:51:11.578945491Z"
@@ -2041,6 +2067,32 @@ entries:
     - https://kyverno.github.io/kyverno/kyverno-crds-v2.0.2.tgz
     version: v2.0.2
   kyverno-policies:
+  - annotations:
+      artifacthub.io/changes: |
+        - "Add policyPreconditions value to allow policies and rules to have preconditions added"
+    apiVersion: v1
+    appVersion: v1.6.2
+    created: "2022-04-21T05:16:57.518933286Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 69232bf54303d1f2cb50e8fe9453e665a86dfcd0dc041c448d91c07be555f20d
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.3.3.tgz
+    version: v2.3.3
   - apiVersion: v1
     appVersion: v1.6.2
     created: "2022-03-31T08:51:11.574849779Z"
@@ -2800,4 +2852,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-03-31T08:51:11.573714876Z"
+generated: "2022-04-21T05:16:57.517939601Z"
