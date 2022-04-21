@@ -398,6 +398,36 @@ automatically generating rules.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.CTLog">CTLog
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.CloneFrom">CloneFrom
 </h3>
 <p>
@@ -1602,13 +1632,16 @@ The repository can also be overridden per Attestor or Attestation.</p>
 <tbody>
 <tr>
 <td>
-<code>url</code></br>
+<code>ctlog</code></br>
 <em>
-string
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
 </em>
 </td>
 <td>
-<p>URL is the address of the transparency log service</p>
+<p>CTLog provides the location of the transparency log service. If the value is nil,
+the transparency log is not checked.</p>
 </td>
 </tr>
 <tr>

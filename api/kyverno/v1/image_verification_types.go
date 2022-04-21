@@ -130,9 +130,10 @@ type StaticKeyAttestor struct {
 
 type KeylessAttestor struct {
 
-	// URL is the address of the transparency log service
+	// CTLog provides the location of the transparency log service. If the value is nil,
+	// the transparency log is not checked.
 	// +kubebuilder:validation:Optional
-	URL string `json:"url,omitempty" yaml:"url,omitempty"`
+	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
 
 	// Issuer is the certificate issuer used for keyless signing.
 	// +kubebuilder:validation:Optional
@@ -156,6 +157,13 @@ type KeylessAttestor struct {
 	// AdditionalExtensions are certificate-extensions used for keyless signing.
 	// +kubebuilder:validation:Optional
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
+}
+
+type CTLog struct {
+	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:Default:=https://rekor.sigstore.dev
+	URL string `json:"url" yaml:"url"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
@@ -283,7 +291,10 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	return errs
 }
 
-func (ka *KeylessAttestor) Validate(_ *field.Path) (errs field.ErrorList) {
+func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
+	if ka.CTLog == nil && ka.Roots == "" {
+		errs = append(errs, field.Invalid(path, ka, "Either ctlog or roots are required"))
+	}
 
 	return errs
 }

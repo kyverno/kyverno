@@ -259,7 +259,10 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 		entries = append(entries, e)
 	}
 
-	return attestorSet
+	return &v1.AttestorSet{
+		Count:   attestorSet.Count,
+		Entries: entries,
+	}
 }
 
 func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
@@ -311,7 +314,9 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
-		opts.RekorURL = attestor.Keyless.URL
+		if attestor.Keyless.CTLog != nil {
+			opts.RekorURL = attestor.Keyless.CTLog.URL
+		}
 		if attestor.Keyless.Roots != "" {
 			opts.Roots = []byte(attestor.Keyless.Roots)
 		}

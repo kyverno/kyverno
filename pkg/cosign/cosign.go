@@ -48,7 +48,7 @@ type Options struct {
 	Log                  logr.Logger
 }
 
-// VerifySignature verifies that the image has the expected key
+// VerifySignature verifies that the image has the expected signatures
 func VerifySignature(opts Options) (digest string, err error) {
 	log := opts.Log
 	ctx := context.Background()

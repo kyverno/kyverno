@@ -2191,6 +2191,20 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          ctlog:
+                                            description: CTLog provides the location
+                                              of the transparency log service. If
+                                              the value is nil, the transparency log
+                                              is not checked.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -2212,10 +2226,6 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address
-                                            type: string
-                                          url:
-                                            description: URL is the address of the
-                                              transparency log service
                                             type: string
                                         type: object
                                       repository:
@@ -4551,6 +4561,20 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          ctlog:
+                                            description: CTLog provides the location
+                                              of the transparency log service. If
+                                              the value is nil, the transparency log
+                                              is not checked.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -4572,10 +4596,6 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address
-                                            type: string
-                                          url:
-                                            description: URL is the address of the
-                                              transparency log service
                                             type: string
                                         type: object
                                       repository:
@@ -7799,6 +7819,20 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          ctlog:
+                                            description: CTLog provides the location
+                                              of the transparency log service. If
+                                              the value is nil, the transparency log
+                                              is not checked.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -7820,10 +7854,6 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address
-                                            type: string
-                                          url:
-                                            description: URL is the address of the
-                                              transparency log service
                                             type: string
                                         type: object
                                       repository:
@@ -10160,6 +10190,20 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          ctlog:
+                                            description: CTLog provides the location
+                                              of the transparency log service. If
+                                              the value is nil, the transparency log
+                                              is not checked.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -10181,10 +10225,6 @@ spec:
                                             description: Subject is the verified identity
                                               used for keyless signing, for example
                                               the email address
-                                            type: string
-                                          url:
-                                            description: URL is the address of the
-                                              transparency log service
                                             type: string
                                         type: object
                                       repository:
