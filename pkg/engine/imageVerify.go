@@ -168,7 +168,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
 					if err != nil {
-						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 					}
 				}
 			} else {
@@ -177,11 +177,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 					digest, err := fetchImageDigest(imageInfo.String())
 					if err != nil {
 						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
-						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 					} else {
 						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
 						if err != nil {
-							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 						}
 					}
 				}
