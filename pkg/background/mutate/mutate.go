@@ -95,12 +95,14 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 			errs = append(errs, err)
+			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, nil, c.Config, nil)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.Config, nil, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
+			continue
 		}
 
 		er := engine.Mutate(policyContext)

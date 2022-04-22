@@ -23,6 +23,7 @@ func GetResource(client *dclient.Client, urSpec urkyverno.UpdateRequestSpec, log
 		resource, err := client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
 		if err != nil {
 			if urSpec.Type == urkyverno.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == v1.Delete {
+				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
 				return nil, nil
 			}
 
@@ -30,21 +31,25 @@ func GetResource(client *dclient.Client, urSpec urkyverno.UpdateRequestSpec, log
 		}
 
 		if resource.GetDeletionTimestamp() != nil {
+			log.V(4).Info("trigger resource is in termination", "operation", urSpec.Context.AdmissionRequestInfo.Operation)
 			return nil, nil
 		}
 
 		return resource, nil
 	}
 
+	var resource *unstructured.Unstructured
+	var err error
 	retry := func() error {
-		_, err := get()
+		resource, err = get()
 		return err
 	}
 
-	f := common.RetryFunc(time.Second, 30*time.Second, retry, "failed to get resource", log.WithName("getResource"))
+	f := common.RetryFunc(time.Second, 5*time.Second, retry, "failed to get resource", log.WithName("getResource"))
 	if err := f(); err != nil {
 		return nil, err
 	}
 
-	return get()
+	log.Info("fetched trigger resource", "resourceSpec", resourceSpec)
+	return resource, err
 }

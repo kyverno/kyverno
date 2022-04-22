@@ -2,8 +2,10 @@ package common
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
+	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -16,8 +18,8 @@ import (
 )
 
 func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
-	policy kyverno.PolicyInterface, trigger, target *unstructured.Unstructured,
-	cfg config.Interface, namespaceLabels map[string]string) (*engine.PolicyContext, bool, error) {
+	policy kyverno.PolicyInterface, trigger *unstructured.Unstructured,
+	cfg config.Interface, namespaceLabels map[string]string, logger logr.Logger) (*engine.PolicyContext, bool, error) {
 
 	ctx := context.NewContext()
 	requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
@@ -33,17 +35,25 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 		return nil, false, err
 	}
 
-	_, old, err := utils.ExtractResources(nil, &request)
+	new, old, err := utils.ExtractResources(nil, &request)
 	if err != nil {
 		logger.Error(err, "failed to load request in context")
+		return nil, false, err
 	}
 
-	var triggerNew unstructured.Unstructured
+	if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
+		if !check(&new, trigger) {
+			err := fmt.Errorf("resources don't match")
+			logger.Error(err, "", "resource", ur.Spec.Resource)
+			return nil, false, err
+		}
+	}
+
 	if trigger == nil {
-		triggerNew = old
+		trigger = &old
 	}
 
-	err = ctx.AddResource(triggerNew.Object)
+	err = ctx.AddResource(trigger.Object)
 	if err != nil {
 		logger.Error(err, "failed to load resource in context")
 		return nil, false, err
@@ -67,12 +77,12 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 		return nil, false, err
 	}
 
-	if err := ctx.AddImageInfos(&triggerNew); err != nil {
+	if err := ctx.AddImageInfos(trigger); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
 	policyContext := &engine.PolicyContext{
-		NewResource:         triggerNew,
+		NewResource:         *trigger,
 		OldResource:         old,
 		Policy:              policy,
 		AdmissionInfo:       ur.Spec.Context.UserRequestInfo,
@@ -85,4 +95,24 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 	}
 
 	return policyContext, false, nil
+}
+
+func check(admissionRsc, existingRsc *unstructured.Unstructured) bool {
+	if existingRsc == nil {
+		return admissionRsc == nil
+	}
+
+	if admissionRsc.GetName() != existingRsc.GetName() {
+		return false
+	}
+	if admissionRsc.GetNamespace() != existingRsc.GetNamespace() {
+		return false
+	}
+	if admissionRsc.GetKind() != existingRsc.GetKind() {
+		return false
+	}
+	if admissionRsc.GetAPIVersion() != existingRsc.GetAPIVersion() {
+		return false
+	}
+	return true
 }

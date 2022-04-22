@@ -208,7 +208,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &gr, &policy, &resource, nil, c.Config, namespaceLabels)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &gr, &policy, &resource, c.Config, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
