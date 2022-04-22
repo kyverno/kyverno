@@ -62,7 +62,7 @@ func Test_GetImageInfo(t *testing.T) {
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {
-	i1, err := GetImageInfo(raw, "")
+	i1, err := GetImageInfo(raw)
 	assert.Nil(t, err)
 	assert.Equal(t, name, i1.Name)
 	assert.Equal(t, path, i1.Path)
