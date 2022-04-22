@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
@@ -73,6 +75,39 @@ func (p *Policy) HasVerifyImages() bool {
 // BackgroundProcessingEnabled checks if background is set to true
 func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
+}
+
+// GetSpec returns the policy spec
+func (p *Policy) GetSpec() *Spec {
+	return &p.Spec
+}
+
+// IsNamespaced indicates if the policy is namespace scoped
+func (p *Policy) IsNamespaced() bool {
+	return false
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *Policy) IsReady() bool {
+	return p.Status.IsReady()
+}
+
+// Validate implements programmatic validation.
+// namespaced means that the policy is bound to a namespace and therefore
+// should not filter/generate cluster wide resources.
+func (p *Policy) Validate(clusterResources sets.String) (errs field.ErrorList) {
+	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
+	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
+	return errs
+}
+
+func (p *Policy) GetKind() string {
+	return p.Kind
+}
+
+func (p *Policy) CreateDeepCopy() PolicyInterface {
+	return p.DeepCopy()
 }
 
 // PolicyList is a list of Policy instances.

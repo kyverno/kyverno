@@ -18,6 +18,8 @@ import (
 	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kyverno/kyverno/pkg/background"
+	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
@@ -26,8 +28,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/generate"
-	generatecleanup "github.com/kyverno/kyverno/pkg/generate/cleanup"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -38,6 +38,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -102,6 +103,7 @@ func main() {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -241,7 +243,6 @@ func main() {
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kubeInformer.Core().V1().Namespaces(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		serverIP,
@@ -249,9 +250,10 @@ func main() {
 		debug,
 		autoUpdateWebhooks,
 		stopCh,
-		log.Log)
+		log.Log,
+	)
 
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log.WithName("WebhookMonitor"))
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize webhookMonitor")
 		os.Exit(1)
@@ -330,14 +332,15 @@ func main() {
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
-	grc, err := generate.NewController(
+	grc, err := background.NewController(
 		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
 		eventGenerator,
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateController"),
 		configData,
 	)
@@ -353,8 +356,9 @@ func main() {
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
-		kubedynamicInformer,
+		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
 	if err != nil {
@@ -520,7 +524,6 @@ func main() {
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go grgen.Run(10, stopCh)
 	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {

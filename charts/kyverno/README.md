@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
+![Version: v2.3.2](https://img.shields.io/badge/Version-v2.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.2](https://img.shields.io/badge/AppVersion-v1.6.2-informational?style=flat-square)
 
 ## About
 
@@ -63,7 +63,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespace | string | `nil` | Namespace the chart deploys to |
-| mode | string | `"standalone"` | Mode for Kyverno installation |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -79,7 +78,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| replicaCount | int | `0` | Desired number of pods |
+| replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
@@ -97,7 +96,8 @@ The command removes all the Kubernetes components associated with the chart and 
 | dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
-| extraArgs | list | `[]` | Extra arguments to give to the binary. |
+| extraArgs | list | `["--autogenInternals=false"]` | Extra arguments to give to the binary. |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -109,7 +109,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.existingConfig | string | `""` | Name of an existing config map (ignores default/provided resourceFilters) |
 | config.excludeGroupRole | string | `nil` | Exclude group role |
 | config.excludeUsername | string | `nil` | Exclude username |
-| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. |
+| config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.metricsConfig | object | `{"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
 | updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
@@ -142,6 +142,43 @@ The command removes all the Kubernetes components associated with the chart and 
 If `createSelfSignedCert` is `true`, Helm will take care of the steps of creating an external self-signed certificate described in option 2 of the [installation documentation](https://kyverno.io/docs/installation/#option-2-use-your-own-ca-signed-certificate)
 
 If `createSelfSignedCert` is `false`, Kyverno will generate a self-signed CA and a certificate, or you can provide your own TLS CA and signed-key pair and create the secret yourself as described in the [documentation](https://kyverno.io/docs/installation/#customize-the-installation-of-kyverno).
+
+## Default resource filters
+
+[Kyverno resource filters](https://kyverno.io/docs/installation/#resource-filters) are a used to exclude resources from the Kyverno engine rules processing.
+
+This chart comes with default resource filters that apply exclusions on a couple of namespaces and resource kinds:
+- all resources in `kube-system`, `kube-public` and `kube-node-lease` namespaces
+- all resources in all namespaces for the following resource kinds:
+  - `Event`
+  - `Node`
+  - `APIService`
+  - `TokenReview`
+  - `SubjectAccessReview`
+  - `SelfSubjectAccessReview`
+  - `Binding`
+  - `ReplicaSet`
+  - `ReportChangeRequest`
+  - `ClusterReportChangeRequest`
+- all resources created by this chart itself
+
+Those default exclusions are there to prevent disruptions as much as possible.
+Under the hood, Kyverno installs an admission controller for critical cluster resources.
+A cluster can become unresponsive if Kyverno is not up and running, ultimately preventing pods to be scheduled in the cluster.
+
+You can however override the default resource filters by setting the `config.resourceFilters` stanza.
+It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
+
+Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+
+## High availability
+
+Running a highly-available Kyverno installation is crucial in a production environment.
+
+In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
+
+Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
 
 ## Source Code
 

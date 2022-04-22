@@ -127,7 +127,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		depl, err := client.GetResource("", "Deployment", getKyvernoNameSpace(), config.KyvernoDeploymentName)
+		depl, err := client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
 		deplHash := ""
 		if err != nil {
 			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
@@ -136,7 +136,7 @@ func main() {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 
 		name := tls.GenerateRootCASecretName(certProps)
-		secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		secretUnstr, err := client.GetResource("", "Secret", config.KyvernoNamespace, name)
 		if err != nil {
 			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 
@@ -153,7 +153,7 @@ func main() {
 		}
 
 		name = tls.GenerateTLSPairSecretName(certProps)
-		secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		secretUnstr, err = client.GetResource("", "Secret", config.KyvernoNamespace, name)
 		if err != nil {
 			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 
@@ -169,7 +169,7 @@ func main() {
 			}
 		}
 
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+		_, err = kubeClientLeaderElection.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
 		if err != nil {
 			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 		} else {
@@ -197,9 +197,12 @@ func main() {
 			os.Exit(1)
 		}
 
-		lease := coord.Lease{}
-		lease.ObjectMeta.Name = "kyvernopre-lock"
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Create(ctx, &lease, v1.CreateOptions{})
+		lease := coord.Lease{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "kyvernopre-lock",
+			},
+		}
+		_, err = kubeClientLeaderElection.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, v1.CreateOptions{})
 		if err != nil {
 			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
 		}
@@ -209,7 +212,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", getKyvernoNameSpace(), kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace, kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
@@ -389,7 +392,7 @@ func addPolicyReportSelectorLabel(client *client.Client) {
 func removeReportChangeRequest(client *client.Client, kind string) error {
 	logger := log.Log.WithName("removeReportChangeRequest")
 
-	ns := getKyvernoNameSpace()
+	ns := config.KyvernoNamespace
 	rcrList, err := client.ListResource("", kind, ns, nil)
 	if err != nil {
 		logger.Error(err, "failed to list reportChangeRequest")
@@ -429,15 +432,6 @@ func removeViolationCRD(client *client.Client) error {
 		}
 	}
 	return nil
-}
-
-// getKubePolicyNameSpace - setting default KubePolicyNameSpace
-func getKyvernoNameSpace() string {
-	kyvernoNamespace := os.Getenv("KYVERNO_NAMESPACE")
-	if kyvernoNamespace == "" {
-		kyvernoNamespace = "kyverno"
-	}
-	return kyvernoNamespace
 }
 
 func deleteResource(client *client.Client, apiversion, kind, ns, name string) {

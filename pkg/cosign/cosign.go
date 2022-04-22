@@ -9,25 +9,22 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-
-	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
-
-	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
-	"github.com/sigstore/cosign/pkg/oci/remote"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	"github.com/kyverno/kyverno/pkg/engine/common"
+	wildcard "github.com/kyverno/go-wildcard"
+	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/minio/pkg/wildcard"
+	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
+	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
+	"github.com/sigstore/cosign/cmd/cosign/cli/rekor"
 	"github.com/sigstore/cosign/pkg/cosign"
 	"github.com/sigstore/cosign/pkg/cosign/attestation"
 	"github.com/sigstore/cosign/pkg/oci"
+	"github.com/sigstore/cosign/pkg/oci/remote"
 	sigs "github.com/sigstore/cosign/pkg/signature"
 	"github.com/sigstore/sigstore/pkg/cryptoutils"
 	"github.com/sigstore/sigstore/pkg/signature"
@@ -38,14 +35,16 @@ import (
 var ImageSignatureRepository string
 
 type Options struct {
-	ImageRef    string
-	Key         string
-	Roots       []byte
-	Subject     string
-	Issuer      string
-	Annotations map[string]string
-	Repository  string
-	Log         logr.Logger
+	ImageRef             string
+	Key                  string
+	Roots                []byte
+	Intermediates        []byte
+	Subject              string
+	Issuer               string
+	AdditionalExtensions map[string]string
+	Annotations          map[string]string
+	Repository           string
+	Log                  logr.Logger
 }
 
 // VerifySignature verifies that the image has the expected key
@@ -101,10 +100,10 @@ func VerifySignature(opts Options) (digest string, err error) {
 	if err != nil {
 		msg := err.Error()
 		log.Info("image verification failed", "error", msg)
-		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
-			return "", fmt.Errorf("signature not found")
-		} else if strings.Contains(msg, "no matching signatures") {
+		if strings.Contains(msg, "failed to verify signature") {
 			return "", fmt.Errorf("signature mismatch")
+		} else if strings.Contains(msg, "no matching signatures") {
+			return "", fmt.Errorf("signature not found")
 		}
 
 		return "", err
@@ -118,6 +117,10 @@ func VerifySignature(opts Options) (digest string, err error) {
 
 	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
 		return "", err
+	}
+
+	if err := matchExtensions(signatures, opts.AdditionalExtensions, log); err != nil {
+		return "", errors.Wrap(err, "extensions mismatch")
 	}
 
 	err = checkAnnotations(pld, opts.Annotations)
@@ -264,7 +267,7 @@ func decodeStatement(payloadBase64 string) (map[string]interface{}, error) {
 		// - in_toto.PredicateLinkV1
 		// - in_toto.PredicateSPDX
 		// any other custom predicate
-		return common.ToMap(statement)
+		return utils.ToMap(statement)
 	}
 
 	return decodeCosignCustomProvenanceV01(statement)
@@ -292,7 +295,7 @@ func decodeCosignCustomProvenanceV01(statement in_toto.Statement) (map[string]in
 		statement.Predicate = predicate
 	}
 
-	return common.ToMap(statement)
+	return utils.ToMap(statement)
 }
 
 func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
@@ -376,6 +379,48 @@ func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) e
 	}
 
 	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
+}
+
+func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string, log logr.Logger) error {
+	if len(requiredExtensions) == 0 {
+		return nil
+	}
+
+	for _, sig := range signatures {
+		cert, err := sig.Cert()
+		if err != nil {
+			return errors.Wrap(err, "failed to read certificate")
+		}
+
+		if cert == nil {
+			return errors.Wrap(err, "certificate not found")
+		}
+
+		// This will return a map which consists of readable extension-names as keys
+		// or the raw extensionIDs as fallback and its values.
+		certExtensions := sigs.CertExtensions(cert)
+		for requiredKey, requiredValue := range requiredExtensions {
+			certValue, ok := certExtensions[requiredKey]
+			if !ok {
+				// "requiredKey" seems to be an extensionID, try to resolve its human readable name
+				readableName, ok := sigs.CertExtensionMap[requiredKey]
+				if !ok {
+					return fmt.Errorf("key %s not present", requiredKey)
+				}
+
+				certValue, ok = certExtensions[readableName]
+				if !ok {
+					return fmt.Errorf("key %s (%s) not present", requiredKey, readableName)
+				}
+			}
+
+			if requiredValue != "" && !wildcard.Match(requiredValue, certValue) {
+				return fmt.Errorf("extension mismatch: expected %s for key %s, got %s", requiredValue, requiredKey, certValue)
+			}
+		}
+	}
+
+	return nil
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {

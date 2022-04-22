@@ -55,7 +55,7 @@ func Test_addResourceAndUserContext(t *testing.T) {
 
 	var expectedResult string
 	ctx := NewContext()
-	err = ctx.AddResource(rawResource)
+	err = AddResource(ctx, rawResource)
 	if err != nil {
 		t.Error(err)
 	}

@@ -529,7 +529,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 				"validation error: The label 'app' is required. Rule check-label-app failed at path /metadata/labels/",
 			}
 
-			er := engine.Validate(&engine.PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+			er := engine.Validate(&engine.PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 			if tc.blocked {
 				for index, r := range er.PolicyResponse.Rules {
 					assert.Equal(t, r.Message, msgs[index])

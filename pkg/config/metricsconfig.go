@@ -73,7 +73,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface, log logr.Logger) (*Metri
 	}
 
 	if cmName != "" {
-		kyvernoNamespace := getKyvernoNameSpace()
+		kyvernoNamespace := KyvernoNamespace
 		configMap, err := rclient.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), mcd.cmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while fetching the metrics configmap at %s/%s: %w", kyvernoNamespace, mcd.cmName, err)

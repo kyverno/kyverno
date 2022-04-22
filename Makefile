@@ -10,7 +10,7 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.4.0
+CONTROLLER_GEN_REQ_VERSION := v0.8.0
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -30,6 +30,9 @@ LD_FLAGS_DEV="-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X
 K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
+
+KIND_VERSION=v0.11.1
+KIND_IMAGE?=kindest/node:v1.23.3
 
 ##################################
 # KYVERNO
@@ -152,14 +155,12 @@ gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
 generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha1/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 .PHONY: verify-api-docs
 verify-api-docs: generate-api-docs ## Check api reference docs are up to date
-	git add --all
-	git diff docs
+	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code docs
@@ -210,9 +211,33 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-create-e2e-infrastruture: docker-build-initContainer-local docker-build-kyverno-local
-	chmod a+x $(PWD)/scripts/create-e2e-infrastruture.sh
-	$(PWD)/scripts/create-e2e-infrastruture.sh
+.PHONY: kind-install
+kind-install: ## Install kind
+ifeq (, $(shell which kind))
+	go install sigs.k8s.io/kind@$(KIND_VERSION)
+endif
+
+.PHONY: kind-e2e-cluster
+kind-e2e-cluster: kind-install ## Create kind cluster for e2e tests
+	kind create cluster --image=$(KIND_IMAGE)
+
+.PHONY: e2e-kustomize
+e2e-kustomize: kustomize ## Build kustomize manifests for e2e tests
+	cd config && \
+	kustomize edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
+	kustomize edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kustomize build config/ -o config/install.yaml
+
+.PHONY: e2e-init-container
+e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: e2e-kyverno-container
+e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: create-e2e-infrastruture
+create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
@@ -253,11 +278,15 @@ test-cli-local: cli
 
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+
+.PHONY: test-cli-registry
+test-cli-registry: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
 
 # go get downloads and installs the binary
 # we temporarily add the GO_ACC to the path
@@ -265,10 +294,8 @@ test-unit: $(GO_ACC)
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 
-code-cov-report:
-# generate code coverage report
+code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
-
 	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
@@ -303,7 +330,9 @@ godownloader:
 
 .PHONY: kustomize
 kustomize: ## Install kustomize
+ifeq (, $(shell which kustomize))
 	go install sigs.k8s.io/kustomize/kustomize/v4@latest
+endif
 
 .PHONY: kustomize-crd
 kustomize-crd: kustomize ## Create install.yaml
@@ -328,16 +357,15 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen
+kyverno-crd: controller-gen ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen
+report-crd: controller-gen ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-# install the right version of controller-gen
 .PHONY: install-controller-gen
-install-controller-gen:
+install-controller-gen: ## Install controller-gen
 	@{ \
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
@@ -348,9 +376,8 @@ install-controller-gen:
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
 
-# setup controller-gen with the right version, if necessary
 .PHONY: controller-gen
-controller-gen:
+controller-gen: ## Setup controller-gen
 ifeq (, $(shell which controller-gen))
 	@{ \
 	echo "controller-gen not found!";\
@@ -368,24 +395,32 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
-# Bootstrap auto-generable code associated with deepcopy
 .PHONY: deepcopy-autogen
-deepcopy-autogen: controller-gen
+deepcopy-autogen: controller-gen ## Generate deep copy code
 	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
 
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen gen-helm
+codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
 
-.PHONY: verify-codegen
-verify-codegen: codegen
-	git add --all
-	git diff api
+.PHONY: verify-api
+verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
+	git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
 	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code api
 
+.PHONY: verify-config
+verify-config: kyverno-crd report-crd ## Check config is up to date
+	git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
+	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
+	git diff --quiet --exit-code config
+
+.PHONY: verify-codegen
+verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+
 .PHONY: goimports
-goimports:
+goimports: ## Install goimports if needed
 ifeq (, $(shell which goimports))
 	@{ \
 	echo "goimports not found!";\
@@ -396,13 +431,12 @@ else
 GO_IMPORTS=$(shell which goimports)
 endif
 
-# Run go fmt against code
 .PHONY: fmt
-fmt: goimports
+fmt: goimports ## Run go fmt
 	go fmt ./... && $(GO_IMPORTS) -w ./
 
 .PHONY: vet
-vet:
+vet: ## Run go vet
 	go vet ./...
 
 ##################################
@@ -418,16 +452,27 @@ gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git add --all
-	git diff charts
+	git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
 
-.PHONY: check-helm-docs
-check-helm-docs: gen-helm-docs ## Check Helm docs
-	git add --all
-	git diff charts/**/README.md
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm-docs".'
-	@echo 'To correct this, locally run "make gen-helm-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts/**/README.md
+##################################
+# HELP
+##################################
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+.PHONY: kind-deploy
+kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
+	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+		--set image.repository=$(REPO)/$(KYVERNO_IMAGE) \
+		--set image.tag=$(IMAGE_TAG_DEV) \
+		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
+		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set extraArgs={--autogenInternals=false}
+	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

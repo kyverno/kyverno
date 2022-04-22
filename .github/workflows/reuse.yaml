@@ -64,7 +64,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Log into ghcr.io
-        uses: docker/login-action@master
+        uses: docker/login-action@7c79b598eaa33458e78e8d0d71e0a9c217dd92af
         with:
           registry: ghcr.io
           username: ${{secrets.registry_username}}
@@ -81,7 +81,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
         with:
           scan-type: 'fs'
           ignore-unfixed: true
@@ -146,28 +146,28 @@ jobs:
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
         run: |          
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
+          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
         run: |          
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}

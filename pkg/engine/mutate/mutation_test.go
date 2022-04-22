@@ -54,14 +54,14 @@ func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*respon
 
 	if mutateResp.Status != response.RuleStatusPass {
 		return &response.RuleResponse{
-			Type:    utils.Mutation.String(),
+			Type:    response.Mutation,
 			Status:  mutateResp.Status,
 			Message: mutateResp.Message,
 		}, resource
 	}
 
 	return &response.RuleResponse{
-		Type:    utils.Mutation.String(),
+		Type:    response.Mutation,
 		Status:  response.RuleStatusPass,
 		Patches: mutateResp.Patches,
 	}, mutateResp.PatchedResource
@@ -215,10 +215,10 @@ func assertEqDataImpl(t *testing.T, expected, actual []byte, formatModifier stri
 
 func assertEqStringAndData(t *testing.T, str string, data []byte) {
 	var p1 jsonPatch
-	json.Unmarshal([]byte(str), p1)
+	json.Unmarshal([]byte(str), &p1)
 
 	var p2 jsonPatch
-	json.Unmarshal([]byte(str), p2)
+	json.Unmarshal([]byte(str), &p2)
 
 	assert.Equal(t, p1, p2)
 }

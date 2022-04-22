@@ -6,7 +6,7 @@ metadata:
     app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
-{{- include "kyverno.replicaCount" . | indent 2 }}
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
   {{- if .Values.updateStrategy }}
@@ -90,8 +90,14 @@ spec:
         - name: kyverno
           image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.extraArgs }}
-          args: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          args:
+            {{- if .Values.extraArgs -}}
+              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.imagePullSecrets }}
+            - --imagePullSecrets={{ keys .Values.imagePullSecrets | join "," }}
+            {{- end }}
           {{- end }}
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}

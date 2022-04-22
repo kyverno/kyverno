@@ -1,7 +1,7 @@
 ## Related issue
 
 <!--
-Please link the GitHub issue this pull request resolves in the format of `#1234`. If you discussed this change
+Please link the GitHub issue this pull request resolves in the format of `Closes #1234`. If you discussed this change
 with a maintainer, please mention her/him using the `@` syntax (e.g. `@JimBugwadia`).
 
 If this change neither resolves an existing issue nor has sign-off from one of the maintainers, there is a
@@ -86,7 +86,8 @@ them, don't hesitate to ask. We're here to help! This is simply a reminder of wh
 
 - [ ] I have read the [contributing guidelines](https://github.com/kyverno/kyverno/blob/main/CONTRIBUTING.md).
 - [ ] I have read the [PR documentation guide](https://github.com/kyverno/kyverno/blob/main/.github/pr_documentation.md) and followed the process including adding proof manifests to this PR.
-- [ ] I have added tests that prove my fix is effective or that my feature works.
+- [ ] This is a bug fix and I have added unit tests that prove my fix is effective.
+- [ ] This is a feature and I have added CLI tests that are applicable.
 - [ ] My PR needs to be cherry picked to a specific release branch which is <replace>.
 - [ ] My PR contains new or altered behavior to Kyverno and
   - [ ] CLI support should be added and my PR doesn't contain that functionality.

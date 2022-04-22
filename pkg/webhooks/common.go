@@ -6,57 +6,21 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/common"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/minio/pkg/wildcard"
+	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
+	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
-	"k8s.io/api/admission/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	admissionv1 "k8s.io/api/admission/v1"
 )
-
-// isResponseSuccessful return true if all responses are successful
-func isResponseSuccessful(engineReponses []*response.EngineResponse) bool {
-	for _, er := range engineReponses {
-		if !er.IsSuccessful() {
-			return false
-		}
-	}
-	return true
-}
-
-func checkEngineResponse(er *response.EngineResponse) bool {
-	nsAction := ""
-	actionOverride := false
-
-	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		action := v.Action
-		if action != common.Enforce && action != common.Audit {
-			continue
-		}
-
-		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
-				nsAction = action
-				actionOverride = true
-				break
-			}
-		}
-
-		if actionOverride {
-			break
-		}
-	}
-
-	return !er.IsSuccessful() && ((actionOverride && nsAction == common.Enforce) || (!actionOverride && er.PolicyResponse.ValidationFailureAction == common.Enforce))
-}
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if checkEngineResponse(er) {
+		if engineutils2.CheckEngineResponse(er) {
 			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
@@ -71,19 +35,17 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if checkEngineResponse(er) {
+		if engineutils2.CheckEngineResponse(er) {
 			ruleToReason := make(map[string]string)
 			for _, rule := range er.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
 					ruleToReason[rule.Name] = rule.Message
 				}
 			}
-
 			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
 			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 		}
 	}
-
 	result, _ := yamlv2.Marshal(policyToRule)
 	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
 }
@@ -92,7 +54,6 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 func getErrorMsg(engineReponses []*response.EngineResponse) string {
 	var str []string
 	var resourceInfo string
-
 	for _, er := range engineReponses {
 		if !er.IsSuccessful() {
 			// resource in engineReponses is identical as this was called per admission request
@@ -108,21 +69,12 @@ func getErrorMsg(engineReponses []*response.EngineResponse) string {
 	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
 }
 
-//ArrayFlags to store filterkinds
-type ArrayFlags []string
-
-func (i *ArrayFlags) String() string {
-	var sb strings.Builder
-	for _, str := range *i {
-		sb.WriteString(str)
-	}
-	return sb.String()
-}
-
-//Set setter for array flags
-func (i *ArrayFlags) Set(value string) error {
-	*i = append(*i, value)
-	return nil
+// patchRequest applies patches to the request.Object and returns a new copy of the request
+func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
+	patchedResource := processResourceWithPatches(patches, request.Object.Raw, logger)
+	newRequest := request.DeepCopy()
+	newRequest.Object.Raw = patchedResource
+	return newRequest
 }
 
 func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) []byte {
@@ -140,10 +92,10 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func containsRBACInfo(policies ...[]*kyverno.ClusterPolicy) bool {
+func containsRBACInfo(policies ...[]kyverno.PolicyInterface) bool {
 	for _, policySlice := range policies {
 		for _, policy := range policySlice {
-			for _, rule := range policy.Spec.GetRules() {
+			for _, rule := range autogen.ComputeRules(policy) {
 				if checkForRBACInfo(rule) {
 					return true
 				}
@@ -188,48 +140,6 @@ func checkForRBACInfo(rule kyverno.Rule) bool {
 	return false
 }
 
-// extracts the new and old resource as unstructured
-func extractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
-	var emptyResource unstructured.Unstructured
-
-	// New Resource
-	if newRaw == nil {
-		newRaw = request.Object.Raw
-	}
-	if newRaw == nil {
-		return emptyResource, emptyResource, fmt.Errorf("new resource is not defined")
-	}
-
-	new, err := convertResource(newRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert new raw to unstructured: %v", err)
-	}
-
-	// Old Resource - Optional
-	oldRaw := request.OldObject.Raw
-	if oldRaw == nil {
-		return new, emptyResource, nil
-	}
-
-	old, err := convertResource(oldRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return emptyResource, emptyResource, fmt.Errorf("failed to convert old raw to unstructured: %v", err)
-	}
-	return new, old, err
-}
-
-// convertResource converts raw bytes to an unstructured object
-func convertResource(raw []byte, group, version, kind, namespace string) (unstructured.Unstructured, error) {
-	obj, err := engineutils.ConvertToUnstructured(raw)
-	if err != nil {
-		return unstructured.Unstructured{}, fmt.Errorf("failed to convert raw to unstructured: %v", err)
-	}
-
-	obj.SetGroupVersionKind(schema.GroupVersionKind{Group: group, Version: version, Kind: kind})
-	obj.SetNamespace(namespace)
-	return *obj, nil
-}
-
 func excludeKyvernoResources(kind string) bool {
 	switch kind {
 	case "ClusterPolicyReport":
@@ -245,4 +155,18 @@ func excludeKyvernoResources(kind string) bool {
 	default:
 		return false
 	}
+}
+
+func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyverno.RequestInfo) (enginectx.Interface, error) {
+	ctx := enginectx.NewContext()
+	if err := ctx.AddRequest(request); err != nil {
+		return nil, errors.Wrap(err, "failed to load incoming request in context")
+	}
+	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
+		return nil, errors.Wrap(err, "failed to load userInfo in context")
+	}
+	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
+		return nil, errors.Wrap(err, "failed to load service account in context")
+	}
+	return ctx, nil
 }

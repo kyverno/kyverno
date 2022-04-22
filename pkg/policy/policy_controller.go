@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -20,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -120,7 +119,8 @@ func NewPolicyController(
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
-	promConfig *metrics.PromConfig) (*PolicyController, error) {
+	promConfig *metrics.PromConfig,
+) (*PolicyController, error) {
 
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -166,8 +166,8 @@ func NewPolicyController(
 	return &pc, nil
 }
 
-func (pc *PolicyController) canBackgroundProcess(p *kyverno.ClusterPolicy) bool {
-	logger := pc.log.WithValues("policy", p.Name)
+func (pc *PolicyController) canBackgroundProcess(p kyverno.PolicyInterface) bool {
+	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
 		logger.V(4).Info("background processed is disabled")
 		return false
@@ -194,7 +194,6 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
-		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
@@ -221,7 +220,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
-		pol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "ClusterPolicy"})
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
@@ -269,7 +267,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
 	// skip generate policies with clone
-	rules := p.Spec.GetRules()
+	rules := autogen.ComputeRules(p)
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
 
@@ -284,26 +282,25 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	p := obj.(*kyverno.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricAddNsPolicy(logger, p)
+	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricAddNsPolicy(logger, p)
+	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
-	pol := ConvertPolicyToClusterPolicy(p)
-	if pol.Spec.Background == nil || pol.Spec.ValidationFailureAction == "" || missingAutoGenRules(pol, logger) {
-		nsPol, _ := common.MutatePolicy(pol, logger)
-		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
+	spec := p.GetSpec()
+	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
+		nsPol, _ := common.MutatePolicy(p, logger)
 		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
 		}
 	}
-	if !pc.canBackgroundProcess(pol) {
+	if !pc.canBackgroundProcess(p) {
 		return
 	}
-	logger.V(4).Info("queuing policy for background processing", "namespace", pol.Namespace, "name", pol.Name)
-	pc.enqueuePolicy(pol)
+	logger.V(4).Info("queuing policy for background processing", "namespace", p.GetNamespace(), "name", p.GetName())
+	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
@@ -312,22 +309,19 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	curP := cur.(*kyverno.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricUpdateNsPolicy(logger, oldP, curP)
+	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricUpdateNsPolicy(logger, oldP, curP)
+	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
-	ncurP := ConvertPolicyToClusterPolicy(curP)
-
-	if ncurP.Spec.Background == nil || ncurP.Spec.ValidationFailureAction == "" || missingAutoGenRules(ncurP, logger) {
-		nsPol, _ := common.MutatePolicy(ncurP, logger)
-		nsPol.SetGroupVersionKind(schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"})
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", ncurP.GetNamespace(), nsPol, false)
+	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
+		nsPol, _ := common.MutatePolicy(curP, logger)
+		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", curP.GetNamespace(), nsPol, false)
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
 	}
 
-	if !pc.canBackgroundProcess(ncurP) {
+	if !pc.canBackgroundProcess(curP) {
 		return
 	}
 
@@ -337,8 +331,8 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
 
-	pc.enqueueRCRDeletedRule(ConvertPolicyToClusterPolicy(oldP), ncurP)
-	pc.enqueuePolicy(ncurP)
+	pc.enqueueRCRDeletedRule(oldP, curP)
+	pc.enqueuePolicy(curP)
 }
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
@@ -359,13 +353,13 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricDeleteNsPolicy(logger, p)
+	go pc.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
 	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricDeleteNsPolicy(logger, p)
+	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
 
 	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
 
-	pol := ConvertPolicyToClusterPolicy(p)
+	pol := p
 
 	// we process policies that are not set of background processing
 	// as we need to clean up GRs when a policy is deleted
@@ -373,13 +367,13 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	pc.enqueueRCRDeletedPolicy(p.Name)
 }
 
-func (pc *PolicyController) enqueueRCRDeletedRule(old, cur *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyverno.PolicyInterface) {
 	curRule := make(map[string]bool)
-	for _, rule := range cur.Spec.GetRules() {
+	for _, rule := range autogen.ComputeRules(cur) {
 		curRule[rule.Name] = true
 	}
 
-	for _, rule := range old.Spec.GetRules() {
+	for _, rule := range autogen.ComputeRules(old) {
 		if !curRule[rule.Name] {
 			pc.prGenerator.Add(policyreport.Info{
 				PolicyName: cur.GetName(),
@@ -401,7 +395,7 @@ func (pc *PolicyController) enqueueRCRDeletedPolicy(policyName string) {
 	})
 }
 
-func (pc *PolicyController) enqueuePolicy(policy *kyverno.ClusterPolicy) {
+func (pc *PolicyController) enqueuePolicy(policy kyverno.PolicyInterface) {
 	logger := pc.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
@@ -507,12 +501,12 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		return err
 	}
 
-	updateGR(pc.kyvernoClient, policy.Name, grList, logger)
+	updateGR(pc.kyvernoClient, policy.GetName(), grList, logger)
 	pc.processExistingResources(policy)
 	return nil
 }
 
-func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy, err error) {
+func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterface, err error) {
 	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		return pc.pLister.Get(key)
@@ -520,7 +514,7 @@ func (pc *PolicyController) getPolicy(key string) (policy *kyverno.ClusterPolicy
 
 	nsPolicy, err := pc.npLister.Policies(namespace).Get(key)
 	if err == nil && nsPolicy != nil {
-		policy = ConvertPolicyToClusterPolicy(nsPolicy)
+		policy = nsPolicy
 	}
 
 	return
@@ -560,11 +554,12 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
+func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
-	if canApplyAutoGen, _ := autogen.CanAutoGen(&policy.Spec, log); canApplyAutoGen {
-		for _, rule := range policy.Spec.GetRules() {
+	spec := policy.GetSpec()
+	if canApplyAutoGen, _ := autogen.CanAutoGen(spec, log); canApplyAutoGen {
+		for _, rule := range autogen.ComputeRules(policy) {
 			podRuleName = append(podRuleName, rule.Name)
 		}
 	}
@@ -591,7 +586,7 @@ func missingAutoGenRules(policy *kyverno.ClusterPolicy, log logr.Logger) bool {
 			}
 		}
 
-		if len(policy.Spec.GetRules()) != (ruleCount * len(podRuleName)) {
+		if len(autogen.ComputeRules(policy)) != (ruleCount * len(podRuleName)) {
 			return true
 		}
 	}
