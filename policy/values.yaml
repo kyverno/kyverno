@@ -1,9 +1,0 @@
-policies:
-- name: unique-ingress-path
-  rules:
-    - name: check-path
-      values:
-        allHosts: "mydomain.io"
-      foreachValues: 
-        pathsForHost: ["as","fail"]
-      
