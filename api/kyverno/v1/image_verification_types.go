@@ -130,10 +130,11 @@ type StaticKeyAttestor struct {
 
 type KeylessAttestor struct {
 
-	// CTLog provides the location of the transparency log service. If the value is nil,
-	// the transparency log is not checked.
+	// Rekor provides information of the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
-	CTLog *CTLog `json:"ctlog,omitempty" yaml:"ctlog,omitempty"`
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 
 	// Issuer is the certificate issuer used for keyless signing.
 	// +kubebuilder:validation:Optional
@@ -292,8 +293,12 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 }
 
 func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ka.CTLog == nil && ka.Roots == "" {
-		errs = append(errs, field.Invalid(path, ka, "Either ctlog or roots are required"))
+	if ka.Rekor == nil && ka.Roots == "" {
+		errs = append(errs, field.Invalid(path, ka, "Either Rekor URL or roots are required"))
+	}
+
+	if  ka.Rekor != nil && ka.Rekor.URL == "" {
+		errs = append(errs, field.Invalid(path, ka, "URL is required"))
 	}
 
 	return errs

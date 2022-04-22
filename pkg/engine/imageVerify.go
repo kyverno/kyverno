@@ -323,8 +323,8 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
-		if attestor.Keyless.CTLog != nil {
-			opts.RekorURL = attestor.Keyless.CTLog.URL
+		if attestor.Keyless.Rekor != nil {
+			opts.RekorURL = attestor.Keyless.Rekor.URL
 		}
 		if attestor.Keyless.Roots != "" {
 			opts.Roots = []byte(attestor.Keyless.Roots)

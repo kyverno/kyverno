@@ -2180,20 +2180,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          ctlog:
-                                            description: CTLog provides the location
-                                              of the transparency log service. If
-                                              the value is nil, the transparency log
-                                              is not checked.
-                                            properties:
-                                              url:
-                                                description: URL is the address of
-                                                  the transparency log. Defaults to
-                                                  the public log https://rekor.sigstore.dev.
-                                                type: string
-                                            required:
-                                            - url
-                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -2205,6 +2191,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -4550,20 +4553,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          ctlog:
-                                            description: CTLog provides the location
-                                              of the transparency log service. If
-                                              the value is nil, the transparency log
-                                              is not checked.
-                                            properties:
-                                              url:
-                                                description: URL is the address of
-                                                  the transparency log. Defaults to
-                                                  the public log https://rekor.sigstore.dev.
-                                                type: string
-                                            required:
-                                            - url
-                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -4575,6 +4564,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -7784,20 +7790,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          ctlog:
-                                            description: CTLog provides the location
-                                              of the transparency log service. If
-                                              the value is nil, the transparency log
-                                              is not checked.
-                                            properties:
-                                              url:
-                                                description: URL is the address of
-                                                  the transparency log. Defaults to
-                                                  the public log https://rekor.sigstore.dev.
-                                                type: string
-                                            required:
-                                            - url
-                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -7809,6 +7801,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -10155,20 +10164,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          ctlog:
-                                            description: CTLog provides the location
-                                              of the transparency log service. If
-                                              the value is nil, the transparency log
-                                              is not checked.
-                                            properties:
-                                              url:
-                                                description: URL is the address of
-                                                  the transparency log. Defaults to
-                                                  the public log https://rekor.sigstore.dev.
-                                                type: string
-                                            required:
-                                            - url
-                                            type: object
                                           intermediates:
                                             description: Intermediates is an optional
                                               PEM encoded set of certificates that
@@ -10180,6 +10175,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
