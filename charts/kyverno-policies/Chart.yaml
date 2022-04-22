@@ -25,3 +25,5 @@ annotations:
   artifacthub.io/changes: |
     - kind: added
       description: Support for artifacthub.io/changes annotation
+    - kind: added
+      description: Add policyPreconditions value to allow policies and rules to have preconditions added
