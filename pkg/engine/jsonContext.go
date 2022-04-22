@@ -47,11 +47,12 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 					return err
 				}
 			}
-			if rule.ForeachValues != nil {
-				for key, value := range rule.ForeachValues {
-					if err := ctx.JSONContext.AddVariable(key, value[store.ForeachElement]); err != nil {
-						return err
-					}
+		}
+
+		if rule != nil && len(rule.ForeachValues) > 0 {
+			for key, value := range rule.ForeachValues {
+				if err := ctx.JSONContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+					return err
 				}
 			}
 		}
