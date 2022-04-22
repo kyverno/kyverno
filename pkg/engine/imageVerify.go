@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,7 +16,7 @@ import (
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	imageUtils "github.com/kyverno/kyverno/pkg/utils/image"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -133,7 +134,7 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]imageUtils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = imageVerify.Convert()
 
@@ -180,7 +181,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo imageUtils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.Info("verifying image", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
@@ -203,7 +204,9 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
+	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
+
 	for i, a := range attestorSet.Entries {
 		var digest string
 		var entryError error
@@ -241,6 +244,53 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 	return "", err
 }
 
+func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
+	var entries []*v1.Attestor
+	for _, e := range attestorSet.Entries {
+		if e.StaticKey != nil {
+			keys := splitPEM(e.StaticKey.Keys)
+			if len(keys) > 1 {
+				moreEntries := createStaticKeyAttestors(e.StaticKey, keys)
+				entries = append(entries, moreEntries...)
+				continue
+			}
+		}
+
+		entries = append(entries, e)
+	}
+
+	return &v1.AttestorSet{
+		Count:   attestorSet.Count,
+		Entries: entries,
+	}
+}
+
+func splitPEM(pem string) []string {
+	keys := strings.SplitAfter(pem, "-----END PUBLIC KEY-----")
+	if len(keys) < 1 {
+		return keys
+	}
+
+	return keys[0 : len(keys)-1]
+}
+
+func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
+	var attestors []*v1.Attestor
+	for _, k := range keys {
+		a := &v1.Attestor{
+			StaticKey: &v1.StaticKeyAttestor{
+				Keys:          k,
+				Intermediates: ska.Intermediates,
+				Roots:         ska.Roots,
+			},
+		}
+
+		attestors = append(attestors, a)
+	}
+
+	return attestors
+}
+
 func getRequiredCount(as *v1.AttestorSet) int {
 	if as.Count == nil || *as.Count == 0 {
 		return len(as.Entries)
@@ -264,7 +314,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 
 	if attestor.StaticKey != nil {
 		path = path + ".staticKey"
-		opts.Key = attestor.StaticKey.Key
+		opts.Key = attestor.StaticKey.Keys
 		if attestor.StaticKey.Roots != "" {
 			opts.Roots = []byte(attestor.StaticKey.Roots)
 		}
@@ -273,6 +323,9 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 		}
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
+		if attestor.Keyless.Rekor != nil {
+			opts.RekorURL = attestor.Keyless.Rekor.URL
+		}
 		if attestor.Keyless.Roots != "" {
 			opts.Roots = []byte(attestor.Keyless.Roots)
 		}
@@ -295,7 +348,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	return opts, path
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo imageUtils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
+func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
 	if imageInfo.Digest == "" {
 		patch, err := makeAddDigestPatch(path, imageInfo, digest)
 		if err != nil {
@@ -307,7 +360,7 @@ func (iv *imageVerifier) patchDigest(path string, imageInfo imageUtils.ImageInfo
 	}
 }
 
-func makeAddDigestPatch(path string, imageInfo imageUtils.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = path
@@ -315,7 +368,7 @@ func makeAddDigestPatch(path string, imageInfo imageUtils.ImageInfo, digest stri
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo imageUtils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
@@ -367,7 +420,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img imageUtils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
