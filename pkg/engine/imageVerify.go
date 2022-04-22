@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/go-wildcard"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -154,21 +156,53 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
+			if imageVerify.MutateDigest == nil {
+				mutate := true
+				imageVerify.MutateDigest = &mutate
+			}
+
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
 				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
-				if ruleResp.Status == response.RuleStatusPass {
-					iv.patchDigest(path, imageInfo, digest, ruleResp)
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
+					if err != nil {
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+					}
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+					digest, err := fetchImageDigest(imageInfo.String())
+					if err != nil {
+						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+					} else {
+						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
+						if err != nil {
+							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+						}
+					}
+				}
 			}
 
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 		}
 	}
+}
+
+func fetchImageDigest(ref string) (string, error) {
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+	}
+	return desc.Digest.String(), nil
 }
 
 func imageMatches(image string, imagePatterns []string) bool {
@@ -348,16 +382,15 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	return opts, path
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
-	if imageInfo.Digest == "" {
-		patch, err := makeAddDigestPatch(path, imageInfo, digest)
-		if err != nil {
-			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
-		} else {
-			iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-			ruleResp.Patches = [][]byte{patch}
-		}
+func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
+	patch, err := makeAddDigestPatch(path, imageInfo, digest)
+	if err != nil {
+		return errors.Wrapf(err, "failed to patch image with digest. image: %s, jsonPath: %s", imageInfo.String(), path)
+	} else {
+		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+		ruleResp.Patches = [][]byte{patch}
 	}
+	return nil
 }
 
 func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
