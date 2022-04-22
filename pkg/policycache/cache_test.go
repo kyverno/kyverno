@@ -3,6 +3,7 @@ package policycache
 import (
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -1185,5 +1186,30 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 	validateAudit = pCache.get(ValidateAudit, "Pod", "")
 	if len(validateAudit) != 0 {
 		t.Errorf("removing: expected 0 validate audit policy, found %v", len(validateAudit))
+	}
+}
+
+func Test_HasPolicySynced_failed(t *testing.T) {
+	var pc int64
+	atomic.AddInt64(&pc, int64(1))
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{}, pc)
+	if e, a := false, pCache.HasPolicySynced(); a != e {
+		t.Errorf("test case  failed, expected: %v , got %v", e, a)
+	}
+	atomic.AddInt64(&pc, int64(1))
+	atomic.AddInt64(&pc, int64(1))
+	if e, a := false, pCache.HasPolicySynced(); a != e {
+		t.Errorf("test case  failed, expected: %v , got %v", e, a)
+	}
+
+}
+
+func Test_HasPolicySynced_pass(t *testing.T) {
+	var pc int64
+	atomic.AddInt64(&pc, int64(1))
+	atomic.AddInt64(&pc, ^int64(0))
+	pCache := newPolicyCache(log.Log, dummyLister{}, dummyNsLister{}, pc)
+	if e, a := true, pCache.HasPolicySynced(); a != e {
+		t.Errorf("test case  failed, expected: %v , got %v", e, a)
 	}
 }
