@@ -1013,6 +1013,10 @@ func jsonPatchOnPod(rule kyverno.Rule) bool {
 func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
 	val, ok := annotations[kyverno.PodControllersAnnotation]
+	if !ok || val == "none" {
+		return false
+	}
+
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
 	if ok && reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
