@@ -3,12 +3,12 @@ includeOtherPolicies:
 - require-non-root-groups
 policyPreconditions:
   require-run-as-non-root-user:
-    any:
+    all:
     - key: "{{ request.object.metadata.name }}"
       operator: NotEquals
       value: "dcgm-exporter*"
   adding-capabilities-strict:
-    any:
+    all:
     - key: "{{ request.object.metadata.name }}"
       operator: NotEquals
       value: "dcgm-exporter*"

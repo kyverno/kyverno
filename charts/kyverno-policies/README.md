@@ -87,6 +87,10 @@ $ helm install --namespace kyverno kyverno-policies ./charts/kyverno-policies -f
 
 ## Changes
 
+### v2.3.4
+
+* Do not evaluate `foreach` policies on DELETE
+
 ### v2.3.3
 
 * Add policyPreconditions value to allow policies and rules to have preconditions added
