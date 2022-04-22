@@ -297,7 +297,7 @@ func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, field.Invalid(path, ka, "Either Rekor URL or roots are required"))
 	}
 
-	if  ka.Rekor != nil && ka.Rekor.URL == "" {
+	if ka.Rekor != nil && ka.Rekor.URL == "" {
 		errs = append(errs, field.Invalid(path, ka, "URL is required"))
 	}
 
