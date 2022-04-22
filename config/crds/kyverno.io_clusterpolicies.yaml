@@ -180,17 +180,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -395,17 +395,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -606,15 +606,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -890,17 +890,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -1105,17 +1105,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -1316,15 +1316,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -1725,112 +1725,6 @@ spec:
                               namespace:
                                 description: Namespace specifies resource namespace.
                                 type: string
-                              preconditions:
-                                description: 'AnyAllConditions are used to determine
-                                  if a policy rule should be applied by evaluating
-                                  a set of conditions. The declaration can contain
-                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                                properties:
-                                  all:
-                                    description: AllConditions enable variable-based
-                                      conditional rule execution. This is useful for
-                                      finer control of when an rule is applied. A
-                                      condition can reference object data using JMESPath
-                                      notation. Here, all of the conditions need to
-                                      pass
-                                    items:
-                                      description: Condition defines variable-based
-                                        conditional criteria for rule execution.
-                                      properties:
-                                        key:
-                                          description: Key is the context entry (using
-                                            JMESPath) for conditional rule evaluation.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        operator:
-                                          description: 'Operator is the conditional
-                                            operation to perform. Valid operators
-                                            are: Equals, NotEquals, In, AnyIn, AllIn,
-                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                            GreaterThan, LessThanOrEquals, LessThan,
-                                            DurationGreaterThanOrEquals, DurationGreaterThan,
-                                            DurationLessThanOrEquals, DurationLessThan'
-                                          enum:
-                                          - Equals
-                                          - NotEquals
-                                          - In
-                                          - AnyIn
-                                          - AllIn
-                                          - NotIn
-                                          - AnyNotIn
-                                          - AllNotIn
-                                          - GreaterThanOrEquals
-                                          - GreaterThan
-                                          - LessThanOrEquals
-                                          - LessThan
-                                          - DurationGreaterThanOrEquals
-                                          - DurationGreaterThan
-                                          - DurationLessThanOrEquals
-                                          - DurationLessThan
-                                          type: string
-                                        value:
-                                          description: Value is the conditional value,
-                                            or set of values. The values can be fixed
-                                            set or can be variables declared using
-                                            JMESPath.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                      type: object
-                                    type: array
-                                  any:
-                                    description: AnyConditions enable variable-based
-                                      conditional rule execution. This is useful for
-                                      finer control of when an rule is applied. A
-                                      condition can reference object data using JMESPath
-                                      notation. Here, at least one of the conditions
-                                      need to pass
-                                    items:
-                                      description: Condition defines variable-based
-                                        conditional criteria for rule execution.
-                                      properties:
-                                        key:
-                                          description: Key is the context entry (using
-                                            JMESPath) for conditional rule evaluation.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        operator:
-                                          description: 'Operator is the conditional
-                                            operation to perform. Valid operators
-                                            are: Equals, NotEquals, In, AnyIn, AllIn,
-                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                            GreaterThan, LessThanOrEquals, LessThan,
-                                            DurationGreaterThanOrEquals, DurationGreaterThan,
-                                            DurationLessThanOrEquals, DurationLessThan'
-                                          enum:
-                                          - Equals
-                                          - NotEquals
-                                          - In
-                                          - AnyIn
-                                          - AllIn
-                                          - NotIn
-                                          - AnyNotIn
-                                          - AllNotIn
-                                          - GreaterThanOrEquals
-                                          - GreaterThan
-                                          - LessThanOrEquals
-                                          - LessThan
-                                          - DurationGreaterThanOrEquals
-                                          - DurationGreaterThan
-                                          - DurationLessThanOrEquals
-                                          - DurationLessThan
-                                          type: string
-                                        value:
-                                          description: Value is the conditional value,
-                                            or set of values. The values can be fixed
-                                            set or can be variables declared using
-                                            JMESPath.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                      type: object
-                                    type: array
-                                type: object
-                                x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
                       type: object
@@ -2663,17 +2557,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -2878,17 +2772,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -3089,15 +2983,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -3373,17 +3267,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -3588,17 +3482,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -3799,15 +3693,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -4208,112 +4102,6 @@ spec:
                               namespace:
                                 description: Namespace specifies resource namespace.
                                 type: string
-                              preconditions:
-                                description: 'AnyAllConditions are used to determine
-                                  if a policy rule should be applied by evaluating
-                                  a set of conditions. The declaration can contain
-                                  nested `any` or `all` statements. See: https://kyverno.io/docs/writing-policies/preconditions/'
-                                properties:
-                                  all:
-                                    description: AllConditions enable variable-based
-                                      conditional rule execution. This is useful for
-                                      finer control of when an rule is applied. A
-                                      condition can reference object data using JMESPath
-                                      notation. Here, all of the conditions need to
-                                      pass
-                                    items:
-                                      description: Condition defines variable-based
-                                        conditional criteria for rule execution.
-                                      properties:
-                                        key:
-                                          description: Key is the context entry (using
-                                            JMESPath) for conditional rule evaluation.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        operator:
-                                          description: 'Operator is the conditional
-                                            operation to perform. Valid operators
-                                            are: Equals, NotEquals, In, AnyIn, AllIn,
-                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                            GreaterThan, LessThanOrEquals, LessThan,
-                                            DurationGreaterThanOrEquals, DurationGreaterThan,
-                                            DurationLessThanOrEquals, DurationLessThan'
-                                          enum:
-                                          - Equals
-                                          - NotEquals
-                                          - In
-                                          - AnyIn
-                                          - AllIn
-                                          - NotIn
-                                          - AnyNotIn
-                                          - AllNotIn
-                                          - GreaterThanOrEquals
-                                          - GreaterThan
-                                          - LessThanOrEquals
-                                          - LessThan
-                                          - DurationGreaterThanOrEquals
-                                          - DurationGreaterThan
-                                          - DurationLessThanOrEquals
-                                          - DurationLessThan
-                                          type: string
-                                        value:
-                                          description: Value is the conditional value,
-                                            or set of values. The values can be fixed
-                                            set or can be variables declared using
-                                            JMESPath.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                      type: object
-                                    type: array
-                                  any:
-                                    description: AnyConditions enable variable-based
-                                      conditional rule execution. This is useful for
-                                      finer control of when an rule is applied. A
-                                      condition can reference object data using JMESPath
-                                      notation. Here, at least one of the conditions
-                                      need to pass
-                                    items:
-                                      description: Condition defines variable-based
-                                        conditional criteria for rule execution.
-                                      properties:
-                                        key:
-                                          description: Key is the context entry (using
-                                            JMESPath) for conditional rule evaluation.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        operator:
-                                          description: 'Operator is the conditional
-                                            operation to perform. Valid operators
-                                            are: Equals, NotEquals, In, AnyIn, AllIn,
-                                            NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-                                            GreaterThan, LessThanOrEquals, LessThan,
-                                            DurationGreaterThanOrEquals, DurationGreaterThan,
-                                            DurationLessThanOrEquals, DurationLessThan'
-                                          enum:
-                                          - Equals
-                                          - NotEquals
-                                          - In
-                                          - AnyIn
-                                          - AllIn
-                                          - NotIn
-                                          - AnyNotIn
-                                          - AllNotIn
-                                          - GreaterThanOrEquals
-                                          - GreaterThan
-                                          - LessThanOrEquals
-                                          - LessThan
-                                          - DurationGreaterThanOrEquals
-                                          - DurationGreaterThan
-                                          - DurationLessThanOrEquals
-                                          - DurationLessThan
-                                          type: string
-                                        value:
-                                          description: Value is the conditional value,
-                                            or set of values. The values can be fixed
-                                            set or can be variables declared using
-                                            JMESPath.
-                                          x-kubernetes-preserve-unknown-fields: true
-                                      type: object
-                                    type: array
-                                type: object
-                                x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
                       type: object

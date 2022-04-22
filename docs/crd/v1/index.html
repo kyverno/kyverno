@@ -127,8 +127,7 @@ Kubernetes admission/v1.Operation
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
-<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
-<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
+<a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -2178,7 +2177,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Name is the name of the resource. The name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
+NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -2191,8 +2191,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Names are the names of the resources. Each name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
-NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
 </td>
 </tr>
 <tr>
@@ -2749,22 +2748,6 @@ ResourceSpec
 <td>
 <em>(Optional)</em>
 <p>ResourceSpec specifies the target resource information.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>preconditions</code></br>
-<em>
-<a href="#kyverno.io/v1.AnyAllConditions">
-AnyAllConditions
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
-set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.
-See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://kyverno.io/docs/writing-policies/preconditions/</a></p>
 </td>
 </tr>
 </tbody>
