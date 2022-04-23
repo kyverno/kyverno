@@ -170,7 +170,9 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			}
 			resourcepath := iv.resp.PolicyResponse.Resource.Name // figure out the path to put annotation for resource
 			patch, err := makeAddVerifyPatch(resourcepath, imageInfo, digest)
-			ruleResp.Patches = [][]byte{patch}
+			if err == nil {
+				ruleResp.Patches = [][]byte{patch}
+			}
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 		}
