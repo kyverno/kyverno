@@ -28,7 +28,6 @@ func Test_ImageVerification(t *testing.T) {
 		errors: func(i *ImageVerification) field.ErrorList {
 			return field.ErrorList{
 				field.Invalid(path, i, "Either a static key, keyless, or an attestor is required"),
-				field.Invalid(path, i, "An issuer and a subject are required for keyless verification"),
 			}
 		},
 	}, {
@@ -150,7 +149,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						StaticKey: &StaticKeyAttestor{Key: "bla"},
+						StaticKey: &StaticKeyAttestor{Keys: "bla"},
 					}}},
 				},
 			},
@@ -161,16 +160,14 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "", Subject: ""},
+						Keyless: &KeylessAttestor{Rekor: &CTLog{}, Issuer: "", Subject: ""},
 					}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-						i.Attestors[0].Entries[0].Keyless, "An issuer is required"),
-					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-						i.Attestors[0].Entries[0].Keyless, "A subject is required"),
+						i.Attestors[0].Entries[0].Keyless, "An URL is required"),
 				}
 			},
 		},
@@ -180,7 +177,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []*AttestorSet{
 					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "bla", Subject: "bla"},
+						Keyless: &KeylessAttestor{Rekor: &CTLog{URL: "https://rekor.sigstore.dev"}, Issuer: "bla", Subject: "bla"},
 					}}},
 				},
 			},
