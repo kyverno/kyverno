@@ -61,9 +61,13 @@ require (
 
 require (
 <<<<<<< HEAD
+<<<<<<< HEAD
 	bitbucket.org/creachadair/shell v0.0.6 // indirect
 =======
 	go.opentelemetry.io/otel v1.6.1
+=======
+	go.opentelemetry.io/otel v1.6.3
+>>>>>>> 697a65a6a (add description for meters)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.28.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.28.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.28.0
@@ -312,6 +316,7 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	go.opentelemetry.io/contrib v1.3.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.20.0 // indirect
 	go.opentelemetry.io/otel v0.20.0 // indirect
@@ -331,6 +336,14 @@ require (
 	go.opentelemetry.io/otel/trace v1.6.1 // indirect
 	go.opentelemetry.io/proto/otlp v0.12.1 // indirect
 >>>>>>> 0ba206873 (initial config otel support)
+=======
+	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.6.3 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.3 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.6.3 // indirect
+	go.opentelemetry.io/otel/sdk v1.6.3 // indirect
+	go.opentelemetry.io/otel/trace v1.6.3 // indirect
+	go.opentelemetry.io/proto/otlp v0.15.0 // indirect
+>>>>>>> 697a65a6a (add description for meters)
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect

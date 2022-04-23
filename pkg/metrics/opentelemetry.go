@@ -55,38 +55,38 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	var err error
 	meter := global.MeterProvider().Meter(meterName)
 
-	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total")
+	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
 	}
 
-	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes_total")
+	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes_total", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
 	}
 
-	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests_total")
+	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests_total", instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
 	}
 
-	m.policyExecutionDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_policy_execution_duration_seconds")
+	m.policyExecutionDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
 	}
 
-	m.admissionReviewDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_admission_review_duration_seconds")
+	m.admissionReviewDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_admission_review_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
 	}
 
 	// Register Async Callbacks
-	m.policyRuleInfoMetric, err = meter.AsyncFloat64().Gauge("kyverno_policy_rule_info_total")
+	m.policyRuleInfoMetric, err = meter.AsyncFloat64().Gauge("kyverno_policy_rule_info_total", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
 	if err != nil {
 		m.Log.Error(err, "Failed to create instrument")
 		return nil, err
