@@ -67,12 +67,17 @@ require (
 	go.opentelemetry.io/otel v1.6.1
 =======
 	go.opentelemetry.io/otel v1.6.3
+<<<<<<< HEAD
 >>>>>>> 697a65a6a (add description for meters)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.28.0
+=======
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.29.0
+>>>>>>> 4abea7b32 (fix conflicts)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.28.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.28.0
-	go.opentelemetry.io/otel/metric v0.28.0
-	go.opentelemetry.io/otel/sdk/metric v0.28.0
+	go.opentelemetry.io/otel/metric v0.29.0
+	go.opentelemetry.io/otel/sdk v1.6.3
+	go.opentelemetry.io/otel/sdk/metric v0.29.0
 )
 
 require (
@@ -198,6 +203,7 @@ require (
 <<<<<<< HEAD
 	github.com/googleapis/gax-go/v2 v2.2.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
+<<<<<<< HEAD
 =======
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
@@ -207,6 +213,9 @@ require (
 	github.com/googleapis/gax-go/v2 v2.2.0 // indirect
 	github.com/googleapis/go-type-adapters v1.0.0 // indirect
 >>>>>>> 19e9d653b (remove current prometheus config)
+=======
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.7.0 // indirect
+>>>>>>> 4abea7b32 (fix conflicts)
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
@@ -338,9 +347,6 @@ require (
 >>>>>>> 0ba206873 (initial config otel support)
 =======
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.6.3 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.6.3 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.6.3 // indirect
-	go.opentelemetry.io/otel/sdk v1.6.3 // indirect
 	go.opentelemetry.io/otel/trace v1.6.3 // indirect
 	go.opentelemetry.io/proto/otlp v0.15.0 // indirect
 >>>>>>> 697a65a6a (add description for meters)
