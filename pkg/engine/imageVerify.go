@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -404,8 +405,8 @@ func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo,
 func makeAddVerifyPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "add"
-	patch["path"] = imageInfo.String() + "@" + digest
-	patch["value"] = verifycheck
+	patch["path"] = "metadata/annotations"
+	patch["value"] = imageInfo.String() + "@" + digest + ":" + strconv.FormatBool(verifycheck)
 	return json.Marshal(patch)
 }
 
