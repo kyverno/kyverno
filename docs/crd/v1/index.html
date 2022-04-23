@@ -398,6 +398,36 @@ automatically generating rules.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.CTLog">CTLog
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.CloneFrom">CloneFrom
 </h3>
 <p>
@@ -1581,6 +1611,18 @@ If specified Repository will override the default OCI image repository configure
 The repository can also be overridden per Attestor or Attestation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>mutateDigest</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths.
+Defaults to true.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1600,6 +1642,21 @@ The repository can also be overridden per Attestor or Attestation.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>rekor</code></br>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>Rekor provides information of the Rekor transparency log service. If the value is nil,
+Rekor is not checked and a root certificate chain is expected instead. If an empty object
+is provided the public instance of Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>issuer</code></br>
@@ -2661,9 +2718,11 @@ string
 </em>
 </td>
 <td>
-<p>Key is an X.509 public key used to verify image signatures. The key can be directly
+<p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>.</p>
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
+key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+attestors and the count is applied across the keys.</p>
 </td>
 </tr>
 <tr>
