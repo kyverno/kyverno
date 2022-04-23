@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,6 +20,8 @@ import (
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var verifycheck bool = false
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
@@ -154,8 +157,10 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			}
 
 			var ruleResp *response.RuleResponse
+			var digest string
+			verifycheck = true
 			if len(imageVerify.Attestations) == 0 {
-				var digest string
+
 				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
 				if ruleResp.Status == response.RuleStatusPass {
 					iv.patchDigest(path, imageInfo, digest, ruleResp)
@@ -163,7 +168,9 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
 			}
-
+			resourcepath := iv.resp.PolicyResponse.Resource.Name // figure out the path to put annotation for resource
+			patch, err := makeAddVerifyPatch(resourcepath, imageInfo, digest)
+			ruleResp.Patches = [][]byte{patch}
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 		}
@@ -305,6 +312,14 @@ func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo,
 			ruleResp.Patches = [][]byte{patch}
 		}
 	}
+}
+
+func makeAddVerifyPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
+	var patch = make(map[string]interface{})
+	patch["op"] = "add"
+	patch["path"] = path
+	patch["value"] = imageInfo.String() + "@" + digest + ":" + strconv.FormatBool(verifycheck)
+	return json.Marshal(patch)
 }
 
 func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
