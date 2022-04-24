@@ -261,14 +261,15 @@ config:
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
   webhooks:
-    # Exlude namespaces
+    # Exclude namespaces
     # - namespaceSelector:
     #     matchExpressions:
-    #     - key: environment
+    #     - key: kubernetes.io/metadata.name
     #       operator: In
     #       values:
-    #         - prod
-    # Exlude objects
+    #         - kube-system
+    #         - kyverno
+    # Exclude objects
     # - objectSelector:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
