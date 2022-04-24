@@ -194,7 +194,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
 		}
@@ -220,7 +220,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
 		}
@@ -291,7 +291,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	spec := p.GetSpec()
 	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		nsPol, _ := common.MutatePolicy(p, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
 		}
@@ -315,7 +315,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		nsPol, _ := common.MutatePolicy(curP, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", curP.GetNamespace(), nsPol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
