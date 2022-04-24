@@ -311,6 +311,21 @@ func Test_SignatureGoodSigned(t *testing.T) {
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
 
+// test to check patch being added correctly
+func Test_VerifyPatchApplied(t *testing.T) {
+	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource)
+	//patchedResource := policyContext.NewResource
+	cosign.ClearMock()
+	err := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	t.Log("Hello")
+	for _, patch := range err.PolicyResponse.Rules[0].Patches {
+		t.Log(string(patch[:]))
+	}
+	//fmt.Println(patchedResource.GetAnnotations())
+}
+
 func Test_SignatureUnsigned(t *testing.T) {
 	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)

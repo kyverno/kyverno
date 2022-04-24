@@ -421,7 +421,7 @@ func MakeAddVerifyPatch(imageInfo kubeutils.ImageInfo, digest string, verifychec
 	var patch = make(map[string]interface{})
 	var name = imageInfo.Name
 	patch["op"] = "add"
-	patch["path"] = "metadata/annotations/images.kyverno.io/" + name + "/" + digest
+	patch["path"] = "metadata/annotations/images.kyverno.io/" + name + "/" + "sha256" + digest[7:]
 	patch["value"] = strconv.FormatBool(verifycheck)
 	//patch["value"] =  strconv.FormatBool(verifycheck)    //preferred
 	return json.Marshal(patch)
