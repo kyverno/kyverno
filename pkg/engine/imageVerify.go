@@ -24,8 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var verifycheck bool = false
-
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
@@ -166,7 +164,6 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 
 			var ruleResp *response.RuleResponse
 			var digest string
-			verifycheck = true
 			if len(imageVerify.Attestations) == 0 {
 
 				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
@@ -191,15 +188,33 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 					}
 				}
 			}
-			resourcepath := iv.resp.PolicyResponse.Resource.Name // figure out the path to put annotation for resource
-			patch, err := makeAddVerifyPatch(resourcepath, imageInfo, digest)
-			if err == nil {
-				ruleResp.Patches = [][]byte{patch}
+
+			if isVerified(ruleResp, imageVerify) {
+				patch, err := MakeAddVerifyPatch(imageInfo, digest, true)
+				if err == nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
+			} else {
+				patch, err := MakeAddVerifyPatch(imageInfo, digest, false)
+				if err == nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
+				// logic to add annotation with value false
 			}
+
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 		}
 	}
+}
+
+func isVerified(ruleResp *response.RuleResponse, imageVerify *v1.ImageVerification) bool {
+	if ruleResp.Status == response.RuleStatusPass {
+		if len(imageVerify.Attestations) > 0 || len(imageVerify.Attestors) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func fetchImageDigest(ref string) (string, error) {
@@ -402,13 +417,22 @@ func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo,
 	return nil
 }
 
-func makeAddVerifyPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
+func MakeAddVerifyPatch(imageInfo kubeutils.ImageInfo, digest string, verifycheck bool) ([]byte, error) {
 	var patch = make(map[string]interface{})
+	var name = imageInfo.Name
 	patch["op"] = "add"
-	patch["path"] = "metadata/annotations"
-	patch["value"] = imageInfo.String() + "@" + digest + ":" + strconv.FormatBool(verifycheck)
+	patch["path"] = "metadata/annotations/images.kyverno.io/" + name + "/" + digest
+	patch["value"] = strconv.FormatBool(verifycheck)
+	//patch["value"] =  strconv.FormatBool(verifycheck)    //preferred
 	return json.Marshal(patch)
 }
+
+// 1. test cases
+// 3. multiple images?
+// 4. update crd
+// how to make immutable- ask on slack if this happens for other annotations
+// 5. where does the check go  // later
+// have multiple patches returned in JSON itself -- code in Kyverno to collapse multiple patches
 
 func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
