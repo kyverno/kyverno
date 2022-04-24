@@ -156,16 +156,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
-			if imageVerify.MutateDigest == nil {
-				mutate := true
-				imageVerify.MutateDigest = &mutate
-			}
-
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
 				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
-				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+				if imageInfo.Digest == "" && imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
 					if err != nil {
 						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
@@ -173,18 +168,16 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
-				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
-					digest, err := fetchImageDigest(imageInfo.String())
+				if imageInfo.Digest == "" && imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+					err = iv.patchDigest(path, imageInfo, "", ruleResp)
 					if err != nil {
-						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
-						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
-					} else {
-						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
-						if err != nil {
-							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
-						}
+						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
 					}
 				}
+			}
+
+			if imageInfo.Digest == "" && imageVerify.VerifyDigest {
+				ruleResp = ruleResponse(iv.rule, response.ImageVerify, "a digest is required", response.RuleStatusFail)
 			}
 
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -383,13 +376,27 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 }
 
 func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
+	if imageInfo.Digest != "" {
+		return nil
+	}
+
+	if digest == "" {
+		var err error
+		digest, err = fetchImageDigest(imageInfo.String())
+		if err != nil {
+			return errors.Wrapf(err, "failed to fetch image digest from registry")
+		}
+	}
+
 	patch, err := makeAddDigestPatch(path, imageInfo, digest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to patch image with digest. image: %s, jsonPath: %s", imageInfo.String(), path)
-	} else {
-		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-		ruleResp.Patches = [][]byte{patch}
 	}
+
+	iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+	ruleResp.Patches = [][]byte{patch}
+
+	imageInfo.Digest = digest
 	return nil
 }
 

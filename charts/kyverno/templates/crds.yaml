@@ -1416,7 +1416,7 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths. Defaults to true.
+                            description: MutateDigest enables replacement of image tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
@@ -1427,6 +1427,10 @@ spec:
                           subject:
                             description: Subject is the identity used for keyless signing, for example an email address Deprecated. Use KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest verifies that images have a digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -2882,7 +2886,7 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths. Defaults to true.
+                            description: MutateDigest enables replacement of image tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
@@ -2893,6 +2897,10 @@ spec:
                           subject:
                             description: Subject is the identity used for keyless signing, for example an email address Deprecated. Use KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest verifies that images have a digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -5057,7 +5065,7 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths. Defaults to true.
+                            description: MutateDigest enables replacement of image tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
@@ -5068,6 +5076,10 @@ spec:
                           subject:
                             description: Subject is the identity used for keyless signing, for example an email address Deprecated. Use KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest verifies that images have a digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -6523,7 +6535,7 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths. Defaults to true.
+                            description: MutateDigest enables replacement of image tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
@@ -6534,6 +6546,10 @@ spec:
                           subject:
                             description: Subject is the identity used for keyless signing, for example an email address Deprecated. Use KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest verifies that images have a digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
