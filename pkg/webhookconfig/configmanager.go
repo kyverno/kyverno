@@ -551,6 +551,14 @@ func webhookRulesEqual(apiRules []interface{}, internalRules []interface{}) (boo
 		}
 	}
 
+	// Handle edge case when internal is empty but API has one rule.
+	// internal representation is one rule but with no selectors.
+	if len(apiRules) == 1 && len(internalRules) == 1 {
+		if len(internalRules[0].(map[string]interface{})) == 0 {
+			return false, nil
+		}
+	}
+
 	// Both *should* be length 1, but as long
 	// as they are equal the next loop works.
 	if len(apiRules) != len(internalRules) {
