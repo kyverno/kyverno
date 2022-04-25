@@ -41,7 +41,6 @@ type Controller struct {
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
 	grInformer kyvernoinformer.GenerateRequestInformer
-	urInformer urkyvernoinformer.UpdateRequestInformer
 
 	// control is used to delete the GR
 	control ControlInterface
