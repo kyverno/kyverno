@@ -63,7 +63,7 @@ func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authe
 func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) (clusterRoles []string) {
 	for _, clusterRoleBinding := range clusterroleBindings {
 		for _, subject := range clusterRoleBinding.Subjects {
-			if matchSubjectsMap(subject, userInfo, clusterRoleBinding.Namespace) {
+			if matchSubjectsMap(subject, userInfo, subject.Namespace) {
 				if clusterRoleBinding.RoleRef.Kind == clusterroleKind {
 					clusterRoles = append(clusterRoles, clusterRoleBinding.RoleRef.Name)
 				}
