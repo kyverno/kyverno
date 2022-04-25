@@ -128,7 +128,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 
 	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
-	if secret == nil {
+	if k8errors.IsNotFound(err) {
 		secret = &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -154,14 +154,14 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 
 	if err != nil {
 		if k8errors.IsNotFound(err) {
-			_, err := c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
 				logger.Info("secret created", "name", name, "namespace", props.Namespace)
 			}
 		}
 		return err
 	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err := c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}
@@ -201,7 +201,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
-	if secret == nil {
+	if k8errors.IsNotFound(err) {
 		secret = &v1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Secret",
@@ -227,14 +227,14 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	if err != nil {
 		if k8errors.IsNotFound(err) {
-			_, err := c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
 				logger.Info("secret created", "name", name, "namespace", props.Namespace)
 			}
 		}
 		return err
 	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err := c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
 			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}

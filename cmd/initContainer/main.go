@@ -21,7 +21,6 @@ import (
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
@@ -34,11 +33,11 @@ var (
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
 
-	updateLabelSelector = &v1.LabelSelector{
-		MatchExpressions: []v1.LabelSelectorRequirement{
+	updateLabelSelector = &metav1.LabelSelector{
+		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
 				Key:      policyreport.LabelSelectorKey,
-				Operator: v1.LabelSelectorOpDoesNotExist,
+				Operator: metav1.LabelSelectorOpDoesNotExist,
 				Values:   []string{},
 			},
 		},
@@ -84,8 +83,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	kubeClient, err := utils.NewKubeClient(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 16, 0) {
+	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), log.Log, 1, 16, 0) {
 		os.Exit(1)
 	}
 
@@ -99,12 +104,6 @@ func main() {
 		// clean up policy violation CRD
 		{policyViolation, ""},
 		{clusterPolicyViolation, ""},
-	}
-
-	kubeClient, err := utils.NewKubeClient(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -128,7 +127,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		depl, err := client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
+		depl, err := kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
 		deplHash := ""
 		if err != nil {
 			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
@@ -146,7 +145,7 @@ func main() {
 			}
 		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
 			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secret, false)
+			_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 			if err != nil {
 				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
@@ -163,14 +162,14 @@ func main() {
 			}
 		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
 			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secret, false)
+			_, err = kubeClient.CoreV1().Secrets(certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 			if err != nil {
 				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
 			}
 		}
 
-		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 		} else {
@@ -199,11 +198,11 @@ func main() {
 		}
 
 		lease := coord.Lease{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "kyvernopre-lock",
 			},
 		}
-		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, v1.CreateOptions{})
+		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, metav1.CreateOptions{})
 		if err != nil {
 			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
 		}
@@ -345,7 +344,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 func removePolicyReport(client *client.Client, kind string) error {
 	logger := log.Log.WithName("removePolicyReport")
 
-	polrs, err := client.ListResource("", kind, v1.NamespaceAll, policyreport.LabelSelector)
+	polrs, err := client.ListResource("", kind, metav1.NamespaceAll, policyreport.LabelSelector)
 	if err != nil {
 		logger.Error(err, "failed to list policyReport")
 		return nil
@@ -377,7 +376,7 @@ func addClusterPolicyReportSelectorLabel(client *client.Client) {
 func addPolicyReportSelectorLabel(client *client.Client) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
-	polrs, err := client.ListResource("", policyReportKind, v1.NamespaceAll, updateLabelSelector)
+	polrs, err := client.ListResource("", policyReportKind, metav1.NamespaceAll, updateLabelSelector)
 	if err != nil {
 		logger.Error(err, "failed to list policyReport")
 		return
@@ -452,7 +451,7 @@ func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) 
 		return
 	}
 
-	l, err := v1.LabelSelectorAsMap(policyreport.LabelSelector)
+	l, err := metav1.LabelSelectorAsMap(policyreport.LabelSelector)
 	if err != nil {
 		log.Log.Error(err, "failed to convert labels", "labels", policyreport.LabelSelector)
 		return
