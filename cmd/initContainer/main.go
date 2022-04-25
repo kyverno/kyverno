@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog/v2"
@@ -100,7 +101,7 @@ func main() {
 		{clusterPolicyViolation, ""},
 	}
 
-	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	kubeClient, err := utils.NewKubeClient(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
@@ -136,16 +137,16 @@ func main() {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 
 		name := tls.GenerateRootCASecretName(certProps)
-		secretUnstr, err := client.GetResource("", "Secret", config.KyvernoNamespace, name)
+		secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
+			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secret, false)
 			if err != nil {
 				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
@@ -153,23 +154,23 @@ func main() {
 		}
 
 		name = tls.GenerateTLSPairSecretName(certProps)
-		secretUnstr, err = client.GetResource("", "Secret", config.KyvernoNamespace, name)
+		secret, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
 
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
+		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
+			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
+			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secret, false)
 			if err != nil {
 				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
 			}
 		}
 
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
+		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
 		if err != nil {
 			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 		} else {
@@ -202,7 +203,7 @@ func main() {
 				Name: "kyvernopre-lock",
 			},
 		}
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, v1.CreateOptions{})
+		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, v1.CreateOptions{})
 		if err != nil {
 			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
 		}
@@ -212,7 +213,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace, kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace, kubeClient, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
