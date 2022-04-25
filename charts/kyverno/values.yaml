@@ -268,7 +268,7 @@ config:
     #       operator: In
     #       values:
     #         - kube-system
-    #         - kyverno
+            # - kyverno
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
