@@ -371,7 +371,6 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("PolicyCacheController"),
-		policyCounter,
 	)
 
 	auditHandler := webhooks.NewValidateAuditHandler(
@@ -539,6 +538,7 @@ func main() {
 	kubeInformer.Start(stopCh)
 	kubeKyvernoInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
+	pCacheController.CheckPolicySync(stopCh)
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)

@@ -183,7 +183,7 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
 	}
-	policyBytes, _ := json.Marshal(policy)
+	policyBytes, err := json.Marshal(policy)
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
 	}
