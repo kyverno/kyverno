@@ -158,7 +158,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 
 	list := make([]*rbacv1.RoleBinding, 2)
 
-	list[0] = newRoleBinding("test1", "mynamespace",
+	list[0] = newRoleBinding("test1", "default",
 		[]rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -171,7 +171,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		},
 	)
 
-	list[1] = newRoleBinding("test2", "mynamespace",
+	list[1] = newRoleBinding("test2", "default",
 		[]rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -188,7 +188,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		Username: "system:serviceaccount:default:saconfig",
 	}
 
-	expectedrole := []string{"mynamespace:myrole"}
+	expectedrole := []string{"default:myrole"}
 	expectedClusterRole := []string{"myclusterrole"}
 	roles, clusterroles := getRoleRefByRoleBindings(list, sa)
 	assert.DeepEqual(t, roles, expectedrole)
