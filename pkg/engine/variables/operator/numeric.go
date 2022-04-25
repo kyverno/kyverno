@@ -28,7 +28,7 @@ type NumericOperatorHandler struct {
 }
 
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
-func compareByCondition(key float64, value float64, op kyverno.ConditionOperator, log *logr.Logger) bool {
+func compareByCondition(key float64, value float64, op kyverno.ConditionOperator, log logr.Logger) bool {
 	switch op {
 	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
 		return key >= value
@@ -39,12 +39,12 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 	case kyverno.ConditionOperators["LessThan"]:
 		return key < value
 	default:
-		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
 	}
 }
 
-func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log *logr.Logger) bool {
+func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log logr.Logger) bool {
 	switch op {
 	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
 		return key.GTE(value)
@@ -55,7 +55,7 @@ func compareVersionByCondition(key semver.Version, value semver.Version, op kyve
 	case kyverno.ConditionOperators["LessThan"]:
 		return key.LT(value)
 	default:
-		(*log).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
 	}
 }
@@ -79,24 +79,24 @@ func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
 func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
-		return compareByCondition(float64(key), float64(typedValue), noh.condition, &noh.log)
+		return compareByCondition(float64(key), float64(typedValue), noh.condition, noh.log)
 	case int64:
-		return compareByCondition(float64(key), float64(typedValue), noh.condition, &noh.log)
+		return compareByCondition(float64(key), float64(typedValue), noh.condition, noh.log)
 	case float64:
-		return compareByCondition(float64(key), typedValue, noh.condition, &noh.log)
+		return compareByCondition(float64(key), typedValue, noh.condition, noh.log)
 	case string:
 		durationKey, durationValue, err := parseDuration(key, value)
 		if err == nil {
-			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
 		}
 		// extract float64 and (if that fails) then, int64 from the string
 		float64val, err := strconv.ParseFloat(typedValue, 64)
 		if err == nil {
-			return compareByCondition(float64(key), float64val, noh.condition, &noh.log)
+			return compareByCondition(float64(key), float64val, noh.condition, noh.log)
 		}
 		int64val, err := strconv.ParseInt(typedValue, 10, 64)
 		if err == nil {
-			return compareByCondition(float64(key), float64(int64val), noh.condition, &noh.log)
+			return compareByCondition(float64(key), float64(int64val), noh.condition, noh.log)
 		}
 		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
@@ -109,23 +109,23 @@ func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value i
 func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
-		return compareByCondition(key, float64(typedValue), noh.condition, &noh.log)
+		return compareByCondition(key, float64(typedValue), noh.condition, noh.log)
 	case int64:
-		return compareByCondition(key, float64(typedValue), noh.condition, &noh.log)
+		return compareByCondition(key, float64(typedValue), noh.condition, noh.log)
 	case float64:
-		return compareByCondition(key, typedValue, noh.condition, &noh.log)
+		return compareByCondition(key, typedValue, noh.condition, noh.log)
 	case string:
 		durationKey, durationValue, err := parseDuration(key, value)
 		if err == nil {
-			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
 		}
 		float64val, err := strconv.ParseFloat(typedValue, 64)
 		if err == nil {
-			return compareByCondition(key, float64val, noh.condition, &noh.log)
+			return compareByCondition(key, float64val, noh.condition, noh.log)
 		}
 		int64val, err := strconv.ParseInt(typedValue, 10, 64)
 		if err == nil {
-			return compareByCondition(key, float64(int64val), noh.condition, &noh.log)
+			return compareByCondition(key, float64(int64val), noh.condition, noh.log)
 		}
 		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
@@ -143,7 +143,7 @@ func (noh NumericOperatorHandler) validateValueWithVersionPattern(key semver.Ver
 			noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")
 			return false
 		}
-		return compareVersionByCondition(key, versionValue, noh.condition, &noh.log)
+		return compareVersionByCondition(key, versionValue, noh.condition, noh.log)
 	default:
 		noh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
@@ -154,12 +154,12 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	// We need to check duration first as it's the only type that can be compared to a different type
 	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
-		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, &noh.log)
+		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
 	}
 	// attempt to extract resource quantity from string before parsing floats/ints as resources can also be ints/floats represented as string type
 	resourceKey, resourceValue, err := parseQuantity(key, value)
 	if err == nil {
-		return compareByCondition(float64(resourceKey.Cmp(resourceValue)), 0, noh.condition, &noh.log)
+		return compareByCondition(float64(resourceKey.Cmp(resourceValue)), 0, noh.condition, noh.log)
 	}
 	// extracting float64 from the string key
 	float64key, err := strconv.ParseFloat(key, 64)
