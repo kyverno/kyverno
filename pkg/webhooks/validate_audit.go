@@ -4,22 +4,19 @@ import (
 	"strings"
 	"time"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/utils"
-
-	"github.com/pkg/errors"
-
-	"github.com/kyverno/kyverno/pkg/common"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/userinfo"
+	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -161,7 +158,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		}
 	}
 
-	userRequestInfo := v1.RequestInfo{
+	userRequestInfo := v1beta1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
 		AdmissionUserInfo: request.UserInfo}
@@ -193,6 +190,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		ExcludeResourceFunc: h.configHandler.ToFilter,
 		JSONContext:         ctx,
 		Client:              h.client,
+		AdmissionOperation:  true,
 	}
 
 	vh := &validationHandler{

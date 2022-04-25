@@ -52,7 +52,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:shortName=gr
+// +kubebuilder:resource:shortName=ur
 type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -65,8 +65,19 @@ type UpdateRequest struct {
 	Status UpdateRequestStatus `json:"status,omitempty"`
 }
 
+type RequestType string
+
+const (
+	Mutate   RequestType = "mutate"
+	Generate RequestType = "generate"
+)
+
 // UpdateRequestSpec stores the request specification.
 type UpdateRequestSpec struct {
+	// Type represents request type for background processing
+	// +kubebuilder:validation:Enum=mutate;generate
+	Type RequestType `json:"requestType,omitempty" yaml:"requestType,omitempty"`
+
 	// Specifies the name of the policy.
 	Policy string `json:"policy" yaml:"policy"`
 
@@ -138,4 +149,8 @@ type UpdateRequestList struct {
 
 func init() {
 	SchemeBuilder.Register(&UpdateRequest{}, &UpdateRequestList{})
+}
+
+func (s *UpdateRequestSpec) GetRequestType() RequestType {
+	return s.Type
 }

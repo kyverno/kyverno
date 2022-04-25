@@ -7,5 +7,6 @@ resources:
 - ./kyverno.io_generaterequests.yaml
 - ./kyverno.io_policies.yaml
 - ./kyverno.io_reportchangerequests.yaml
+- ./kyverno.io_updaterequests.yaml
 - ./wgpolicyk8s.io_clusterpolicyreports.yaml
 - ./wgpolicyk8s.io_policyreports.yaml
