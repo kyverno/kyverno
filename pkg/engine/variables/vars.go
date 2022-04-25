@@ -333,7 +333,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 			return data.Element, nil
 		}
 
-		isDeleteRequest := isDeleteRequest(ctx)
+		isDeleteRequest := IsDeleteRequest(ctx)
 
 		vars := RegexVariables.FindAllString(value, -1)
 		for len(vars) > 0 {
@@ -406,7 +406,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 	})
 }
 
-func isDeleteRequest(ctx context.EvalInterface) bool {
+func IsDeleteRequest(ctx context.EvalInterface) bool {
 	if ctx == nil {
 		return false
 	}
