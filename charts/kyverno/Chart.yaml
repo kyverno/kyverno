@@ -24,3 +24,9 @@ annotations:
   artifacthub.io/links: |
     - name: Documentation
       url: https://kyverno.io/docs
+  # valid kinds are: added, changed, deprecated, removed, fixed and security
+  artifacthub.io/changes: |
+    - kind: added
+      description: Support for artifacthub.io/changes annotation
+    - kind: added
+      description: Allow defining imagePullSecrets
