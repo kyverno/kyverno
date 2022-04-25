@@ -2,7 +2,8 @@ name: helm-release
 on:
   push:
     tags:
-      - 'helm-chart-v*'
+      - 'kyverno-chart-v*'
+      - 'kyverno-policies-chart-v*'
 
 jobs:
   helm-tests:
@@ -38,8 +39,22 @@ jobs:
         with:
           version: v3.4.1
 
+      - name: Set version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Create charts tmp directory
+        run: |
+          mkdir charts-tmp
+          if [[ "$RELEASE_VERSION" = "kyverno-policies-chart-v"* ]]; then
+            cp -a charts/kyverno-policies charts-tmp/kyverno-policies
+          fi
+          if [[ "$RELEASE_VERSION" = "kyverno-chart-v"* ]]; then
+            cp -a charts/kyverno charts-tmp/kyverno
+          fi
+
       - name: Run chart-releaser
         uses: stefanprodan/helm-gh-pages@b43a8719cc63fdb3aa943cc57359ab19118eab3f #v1.5.0
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           linting: off
+          charts_dir: charts-tmp
