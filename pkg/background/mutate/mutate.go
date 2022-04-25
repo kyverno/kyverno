@@ -128,8 +128,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 				}
 
 				if patchedNew == nil {
-					err := fmt.Errorf("empty resource to patch")
-					logger.Error(err, "", "rule", r.Name, "message", r.Message)
+					logger.Error(common.EmptyPatchErr, "", "rule", r.Name, "message", r.Message)
 					errs = append(errs, err)
 					continue
 				}
@@ -173,9 +172,9 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	}
 
 	if err != nil {
-		events = common.FailedEvents(err, policy, rule, event.MutateExistingController, *target)
+		events = common.FailedEvents(err, policy, rule, event.MutateExistingController, target, c.log)
 	} else {
-		events = common.SucceedEvents(policy, rule, event.MutateExistingController, *target)
+		events = common.SucceedEvents(policy, rule, event.MutateExistingController, target, c.log)
 	}
 
 	c.eventGen.Add(events...)

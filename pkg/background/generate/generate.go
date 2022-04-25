@@ -167,7 +167,7 @@ func (c *GenerateController) ProcessGR(gr *urkyverno.UpdateRequest) error {
 		}
 
 		// 3 - Report failure Events
-		events := common.FailedEvents(err, gr.Spec.Policy, "", event.GeneratePolicyController, *resource)
+		events := common.FailedEvents(err, gr.Spec.Policy, "", event.GeneratePolicyController, resource, logger)
 		c.eventGen.Add(events...)
 	}
 
