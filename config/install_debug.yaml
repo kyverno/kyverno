@@ -146,6 +146,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -810,6 +828,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -1572,6 +1591,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -1825,6 +1864,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -2525,6 +2584,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -3189,6 +3266,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -3951,6 +4029,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -4204,6 +4302,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -5570,6 +5688,7 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
+                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -5597,6 +5716,7 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
+                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
@@ -5768,6 +5888,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -6432,6 +6570,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -7194,6 +7333,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -7447,6 +7606,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -8148,6 +8327,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -8812,6 +9009,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -9574,6 +9772,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -9827,6 +10045,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:

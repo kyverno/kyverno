@@ -817,6 +817,19 @@ ImageRegistry
 details.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>variable</code></br>
+<em>
+<a href="#kyverno.io/v1.Variable">
+Variable
+</a>
+</em>
+</td>
+<td>
+<p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2943,6 +2956,64 @@ ValidationFailureAction
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Variable">Variable
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
+</p>
+<p>
+<p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>value</code></br>
+<em>
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value is any arbitrary JSON object representable in YAML or JSON form.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JMESPath Expression that can be used to
+transform the variable.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>default</code></br>
+<em>
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+expression evaluates to nil</p>
 </td>
 </tr>
 </tbody>

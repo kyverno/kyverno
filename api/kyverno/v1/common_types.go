@@ -56,6 +56,26 @@ type ContextEntry struct {
 	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
 	// details.
 	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
+
+	// Variable defines an arbitrary JMESPath context variable that can be defined inline.
+	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
+}
+
+// Variable defines an arbitrary JMESPath context variable that can be defined inline.
+type Variable struct {
+	// Value is any arbitrary JSON object representable in YAML or JSON form.
+	// +optional
+	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// JMESPath is an optional JMESPath Expression that can be used to
+	// transform the variable.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+
+	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+	// expression evaluates to nil
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -509,5 +529,6 @@ type ResourceSpec struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }

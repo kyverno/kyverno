@@ -40,6 +40,9 @@ type Interface interface {
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
 
+	// ReplaceContextEntry replaces a context entry to the context
+	ReplaceContextEntry(name string, dataRaw []byte) error
+
 	// AddResource merges resource json under request.object
 	AddResource(data map[string]interface{}) error
 
@@ -133,6 +136,20 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 	var data interface{}
 	if err := json.Unmarshal(dataRaw, &data); err != nil {
 		logger.Error(err, "failed to unmarshal the resource")
+		return err
+	}
+	return addToContext(ctx, data, name)
+}
+
+func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
+	var data interface{}
+	if err := json.Unmarshal(dataRaw, &data); err != nil {
+		logger.Error(err, "failed to unmarshal the resource")
+		return err
+	}
+	// Adding a nil entry to clean out any existing data in the context with the entry name
+	if err := addToContext(ctx, nil, name); err != nil {
+		logger.Error(err, "unable to replace context entry", "context entry name", name)
 		return err
 	}
 	return addToContext(ctx, data, name)
