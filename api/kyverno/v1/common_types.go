@@ -205,7 +205,7 @@ type Mutation struct {
 
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []*TargetMutation `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []TargetMutation `json:"targets,omitempty" yaml:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/

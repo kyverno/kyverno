@@ -742,14 +742,8 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	*out = *in
 	if in.Targets != nil {
 		in, out := &in.Targets, &out.Targets
-		*out = make([]*TargetMutation, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(TargetMutation)
-				**out = **in
-			}
-		}
+		*out = make([]TargetMutation, len(*in))
+		copy(*out, *in)
 	}
 	if in.RawPatchStrategicMerge != nil {
 		in, out := &in.RawPatchStrategicMerge, &out.RawPatchStrategicMerge
