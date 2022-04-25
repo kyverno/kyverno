@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -40,6 +40,9 @@ type Interface interface {
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
 
+	// ReplaceContextEntry replaces a context entry to the context
+	ReplaceContextEntry(name string, dataRaw []byte) error
+
 	// AddResource merges resource json under request.object
 	AddResource(data map[string]interface{}) error
 
@@ -47,7 +50,7 @@ type Interface interface {
 	AddOldResource(data map[string]interface{}) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyverno.RequestInfo) error
+	AddUserInfo(userInfo urkyverno.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -138,6 +141,20 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 	return addToContext(ctx, data, name)
 }
 
+func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
+	var data interface{}
+	if err := json.Unmarshal(dataRaw, &data); err != nil {
+		logger.Error(err, "failed to unmarshal the resource")
+		return err
+	}
+	// Adding a nil entry to clean out any existing data in the context with the entry name
+	if err := addToContext(ctx, nil, name); err != nil {
+		logger.Error(err, "unable to replace context entry", "context entry name", name)
+		return err
+	}
+	return addToContext(ctx, data, name)
+}
+
 // AddResource data at path: request.object
 func (ctx *context) AddResource(data map[string]interface{}) error {
 	return addToContext(ctx, data, "request", "object")
@@ -149,7 +166,7 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo urkyverno.RequestInfo) error {
 	return addToContext(ctx, userRequestInfo, "request")
 }
 
