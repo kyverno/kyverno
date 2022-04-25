@@ -103,7 +103,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
-	rr := ruleResponse(rule, response.ImageVerify, msg, status)
+	rr := ruleResponse(*rule, response.ImageVerify, msg, status, nil)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -170,7 +170,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
 					if err != nil {
-						ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 					}
 				}
 			} else {
@@ -179,11 +179,11 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 					digest, err := fetchImageDigest(imageInfo.String())
 					if err != nil {
 						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
-						ruleResp = ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 					} else {
 						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
 						if err != nil {
-							ruleResp = ruleResponse(iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail)
+							ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 						}
 					}
 				}
@@ -251,12 +251,12 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 		if err != nil {
 			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
-			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail), ""
+			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 		}
 	}
 
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass), digest
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
@@ -459,7 +459,7 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
 			msg := fmt.Sprintf("predicate type %s not found", ac.PredicateType)
-			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 		}
 
 		for _, s := range statements {
@@ -470,14 +470,14 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 
 			if !val {
 				msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 			}
 		}
 	}
 
 	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass)
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil)
 }
 
 func buildStatementMap(statements []map[string]interface{}) map[string][]map[string]interface{} {

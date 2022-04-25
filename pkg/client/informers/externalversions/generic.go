@@ -23,6 +23,7 @@ import (
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -61,6 +62,9 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().GenerateRequests().Informer()}, nil
 	case v1.SchemeGroupVersion.WithResource("policies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
+
+	case v1beta1.GroupVersion.WithResource("updaterequests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1beta1().UpdateRequests().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1alpha2
 	case v1alpha2.SchemeGroupVersion.WithResource("clusterreportchangerequests"):
