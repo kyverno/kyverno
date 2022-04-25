@@ -484,7 +484,7 @@ func ruleResponse(rule *kyverno.Rule, ruleType response.RuleType, msg string, st
 		Status:  status,
 	}
 
-	if rule.IsMutateExisting() {
+	if rule.Mutation.Targets != nil {
 		resp.PatchedTarget = patchedResource
 	}
 	return resp
