@@ -61,7 +61,7 @@ func Test_matchServiceAccount_subject_variants(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		res := matchServiceAccount(test.subject, userInfo)
+		res := matchServiceAccount(test.subject, userInfo, test.subject.Namespace)
 		assert.Equal(t, test.expected, res)
 	}
 }
@@ -131,10 +131,10 @@ func Test_matchSubjectsMap(t *testing.T) {
 		Name: "fakeGroup",
 	}
 
-	res := matchSubjectsMap(sasubject, sa)
+	res := matchSubjectsMap(sasubject, sa, sasubject.Namespace)
 	assert.Assert(t, res)
 
-	res = matchSubjectsMap(groupsubject, group)
+	res = matchSubjectsMap(groupsubject, group, "")
 	assert.Assert(t, !res)
 }
 
