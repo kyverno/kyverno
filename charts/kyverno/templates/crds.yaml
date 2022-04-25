@@ -5,6 +5,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '1'
+    internal.config.kubernetes.io/index: '1'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3043,6 +3044,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '2'
+    internal.config.kubernetes.io/index: '2'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3314,6 +3316,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '3'
+    internal.config.kubernetes.io/index: '3'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3585,6 +3588,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '4'
+    internal.config.kubernetes.io/index: '4'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3768,6 +3772,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '5'
+    internal.config.kubernetes.io/index: '5'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6806,6 +6811,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '6'
+    internal.config.kubernetes.io/index: '6'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -7077,6 +7083,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '7'
+    internal.config.kubernetes.io/index: '7'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -7348,6 +7355,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
     config.kubernetes.io/index: '8'
+    internal.config.kubernetes.io/index: '8'
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
