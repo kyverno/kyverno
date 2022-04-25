@@ -56,6 +56,26 @@ type ContextEntry struct {
 	// ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
 	// details.
 	ImageRegistry *ImageRegistry `json:"imageRegistry,omitempty" yaml:"imageRegistry,omitempty"`
+
+	// Variable defines an arbitrary JMESPath context variable that can be defined inline.
+	Variable *Variable `json:"variable,omitempty" yaml:"variable,omitempty"`
+}
+
+// Variable defines an arbitrary JMESPath context variable that can be defined inline.
+type Variable struct {
+	// Value is any arbitrary JSON object representable in YAML or JSON form.
+	// +optional
+	Value *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+
+	// JMESPath is an optional JMESPath Expression that can be used to
+	// transform the variable.
+	// +optional
+	JMESPath string `json:"jmesPath,omitempty" yaml:"jmesPath,omitempty"`
+
+	// Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+	// expression evaluates to nil
+	// +optional
+	Default *apiextv1.JSON `json:"default,omitempty" yaml:"default,omitempty"`
 }
 
 // ImageRegistry defines requests to an OCI/Docker V2 registry to fetch image
@@ -195,6 +215,18 @@ type ResourceFilter struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
+
+	// mutateExisting controls whether to mutate existing resource ONLY
+	// The existing resources will be mutated ONLY if set to "true".
+	// Otherwise all resources including admission requests are mutated.
+	// Optional. Defaults to "false" if not specified.
+	// +optional
+	MutateExisting bool `json:"mutateExisting,omitempty" yaml:"mutatingExisting,omitempty"`
+
+	// Targets defines the target resources to be mutated.
+	// +optional
+	Targets []TargetMutation `json:"targets,omitempty" yaml:"targets,omitempty"`
+
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
 	// and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
@@ -209,6 +241,12 @@ type Mutation struct {
 	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+}
+
+type TargetMutation struct {
+	// ResourceSpec specifies the target resource information.
+	// +optional
+	ResourceSpec `json:",omitempty" yaml:",omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -509,5 +547,6 @@ type ResourceSpec struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
+	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }

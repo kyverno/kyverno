@@ -113,6 +113,19 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -142,10 +155,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -268,10 +281,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -389,10 +402,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -514,6 +527,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -571,10 +585,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -697,10 +711,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -818,10 +832,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -971,6 +985,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -1055,12 +1082,34 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExisting:
+                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
+                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
@@ -1134,6 +1183,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -1583,6 +1645,19 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -1612,10 +1687,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -1738,10 +1813,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -1859,10 +1934,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -1984,6 +2059,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -2041,10 +2117,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -2167,10 +2243,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -2288,10 +2364,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -2441,6 +2517,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -2525,12 +2614,34 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExisting:
+                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
+                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
@@ -2604,6 +2715,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -3593,6 +3717,7 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
+                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -3619,6 +3744,7 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
+                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
@@ -3762,6 +3888,19 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -3791,10 +3930,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -3917,10 +4056,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -4038,10 +4177,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -4163,6 +4302,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -4220,10 +4360,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -4346,10 +4486,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -4467,10 +4607,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -4620,6 +4760,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -4704,12 +4857,34 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExisting:
+                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
+                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
@@ -4783,6 +4958,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -5232,6 +5420,19 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -5261,10 +5462,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -5387,10 +5588,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -5508,10 +5709,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -5633,6 +5834,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -5690,10 +5892,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -5816,10 +6018,10 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                                    description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                                     type: string
                                   names:
-                                    description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                                    description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
                                       type: string
                                     type: array
@@ -5937,10 +6139,10 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character). NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -6090,6 +6292,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -6174,12 +6389,34 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        mutateExisting:
+                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
+                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
                         patchesJson6902:
                           description: PatchesJSON6902 is a list of RFC 6902 JSON Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902 and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be unique within the policy.
@@ -6253,6 +6490,19 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary JSON object that the variable may take if the JMESPath expression evaluates to nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath Expression that can be used to transform the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -7108,6 +7358,194 @@ spec:
     served: true
     storage: true
     subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+    config.kubernetes.io/index: '8'
+    internal.config.kubernetes.io/index: '8'
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    app.kubernetes.io/version: latest
+  name: updaterequests.kyverno.io
+spec:
+  group: kyverno.io
+  names:
+    kind: UpdateRequest
+    listKind: UpdateRequestList
+    plural: updaterequests
+    shortNames:
+    - ur
+    singular: updaterequest
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.policy
+      name: Policy
+      type: string
+    - jsonPath: .spec.resource.kind
+      name: ResourceKind
+      type: string
+    - jsonPath: .spec.resource.name
+      name: ResourceName
+      type: string
+    - jsonPath: .spec.resource.namespace
+      name: ResourceNamespace
+      type: string
+    - jsonPath: .status.state
+      name: status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: UpdateRequestStatus is a request to process mutate and generate rules in background.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec is the information to identify the update request.
+            properties:
+              context:
+                description: Context ...
+                properties:
+                  admissionRequestInfo:
+                    description: AdmissionRequestInfoObject stores the admission request and operation details
+                    properties:
+                      admissionRequest:
+                        type: string
+                      operation:
+                        description: Operation is the type of resource operation being checked for admission control
+                        type: string
+                    type: object
+                  userInfo:
+                    description: RequestInfo contains permission info carried in an admission request.
+                    properties:
+                      clusterRoles:
+                        description: ClusterRoles is a list of possible clusterRoles send the request.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      roles:
+                        description: Roles is a list of possible role send the request.
+                        items:
+                          type: string
+                        nullable: true
+                        type: array
+                      userInfo:
+                        description: UserInfo is the userInfo carried in the admission request.
+                        properties:
+                          extra:
+                            additionalProperties:
+                              description: ExtraValue masks the value so protobuf can generate
+                              items:
+                                type: string
+                              type: array
+                            description: Any additional information provided by the authenticator.
+                            type: object
+                          groups:
+                            description: The names of groups this user is a part of.
+                            items:
+                              type: string
+                            type: array
+                          uid:
+                            description: A unique value that identifies this user across time. If this user is deleted and another user by the same name is added, they will have different UIDs.
+                            type: string
+                          username:
+                            description: The name that uniquely identifies this user among all active users.
+                            type: string
+                        type: object
+                    type: object
+                type: object
+              policy:
+                description: Specifies the name of the policy.
+                type: string
+              requestType:
+                description: Type represents request type for background processing
+                enum:
+                - mutate
+                - generate
+                type: string
+              resource:
+                description: ResourceSpec is the information to identify the update request.
+                properties:
+                  apiVersion:
+                    description: APIVersion specifies resource apiVersion.
+                    type: string
+                  kind:
+                    description: Kind specifies resource kind.
+                    type: string
+                  name:
+                    description: Name specifies the resource name.
+                    maxLength: 63
+                    type: string
+                  namespace:
+                    description: Namespace specifies resource namespace.
+                    type: string
+                type: object
+            required:
+            - context
+            - policy
+            - resource
+            type: object
+          status:
+            description: Status contains statistics related to update request.
+            properties:
+              generatedResources:
+                description: This will track the resources that are updated by the generate Policy. Will be used during clean up resources.
+                items:
+                  description: ResourceSpec contains information to identify a resource.
+                  properties:
+                    apiVersion:
+                      description: APIVersion specifies resource apiVersion.
+                      type: string
+                    kind:
+                      description: Kind specifies resource kind.
+                      type: string
+                    name:
+                      description: Name specifies the resource name.
+                      maxLength: 63
+                      type: string
+                    namespace:
+                      description: Namespace specifies resource namespace.
+                      type: string
+                  type: object
+                type: array
+              message:
+                description: Specifies request status message.
+                type: string
+              state:
+                description: State represents state of the generate request.
+                type: string
+            required:
+            - state
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

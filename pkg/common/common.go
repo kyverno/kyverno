@@ -101,7 +101,7 @@ func VariableToJSON(key, value string) []byte {
 }
 
 // RetryFunc allows retrying a function on error within a given timeout
-func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger logr.Logger) func() error {
+func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg string, logger logr.Logger) func() error {
 	return func() error {
 		registerTimeout := time.After(timeout)
 		registerTicker := time.NewTicker(retryInterval)
@@ -114,13 +114,13 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, logger lo
 			case <-registerTicker.C:
 				err = run()
 				if err != nil {
-					logger.V(3).Info("Failed to register admission control webhooks", "reason", err.Error())
+					logger.V(3).Info(msg, "reason", err.Error())
 				} else {
 					break loop
 				}
 
 			case <-registerTimeout:
-				return errors.Wrap(err, "Timeout registering admission control webhooks")
+				return errors.Wrap(err, "retry times out")
 			}
 		}
 		return nil

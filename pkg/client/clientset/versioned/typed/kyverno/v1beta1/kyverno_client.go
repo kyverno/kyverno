@@ -19,7 +19,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
@@ -52,7 +52,7 @@ func NewForConfig(c *rest.Config) (*KyvernoV1beta1Client, error) {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
+	gv := v1beta1.GroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
 	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
