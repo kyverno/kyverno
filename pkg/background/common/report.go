@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-var EmptyPatchErr error = fmt.Errorf("empty resource to patch")
+var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
 func FailedEvents(err error, policy, rule string, source event.Source, resource *unstructured.Unstructured, logger logr.Logger) []event.Info {
 	if resource == nil {
-		logger.WithName("FailedEvents").Error(EmptyPatchErr, "", "rule", rule)
+		logger.WithName("FailedEvents").Error(ErrEmptyPatch, "", "rule", rule)
 		return nil
 	}
 
@@ -26,7 +26,7 @@ func FailedEvents(err error, policy, rule string, source event.Source, resource 
 
 func SucceedEvents(policy, rule string, source event.Source, resource *unstructured.Unstructured, logger logr.Logger) []event.Info {
 	if resource == nil {
-		logger.WithName("SucceedEvents").Error(EmptyPatchErr, "", "rule", rule)
+		logger.WithName("SucceedEvents").Error(ErrEmptyPatch, "", "rule", rule)
 		return nil
 	}
 

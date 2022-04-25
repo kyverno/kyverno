@@ -128,7 +128,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 				}
 
 				if patchedNew == nil {
-					logger.Error(common.EmptyPatchErr, "", "rule", r.Name, "message", r.Message)
+					logger.Error(common.ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
 					errs = append(errs, err)
 					continue
 				}
