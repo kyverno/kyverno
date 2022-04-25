@@ -70,7 +70,6 @@ var (
 	clientRateLimitBurst         int
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
-	policyCounter                int64
 )
 
 func main() {
