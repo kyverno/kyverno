@@ -1102,6 +1102,7 @@ spec:
                                 type: string
                               name:
                                 description: Name specifies the resource name.
+                                maxLength: 63
                                 type: string
                               namespace:
                                 description: Namespace specifies resource namespace.
@@ -2629,6 +2630,7 @@ spec:
                                 type: string
                               name:
                                 description: Name specifies the resource name.
+                                maxLength: 63
                                 type: string
                               namespace:
                                 description: Namespace specifies resource namespace.
@@ -4863,6 +4865,7 @@ spec:
                                 type: string
                               name:
                                 description: Name specifies the resource name.
+                                maxLength: 63
                                 type: string
                               namespace:
                                 description: Namespace specifies resource namespace.
@@ -6390,6 +6393,7 @@ spec:
                                 type: string
                               name:
                                 description: Name specifies the resource name.
+                                maxLength: 63
                                 type: string
                               namespace:
                                 description: Namespace specifies resource namespace.
@@ -7470,6 +7474,7 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
+                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -7496,6 +7501,7 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
+                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
