@@ -11335,6 +11335,14 @@ spec:
           value: /.sigstore
         image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: Always
+        startupProbe:
+          httpGet:
+            path: /health/liveness
+            port: 9443
+            scheme: HTTPS
+          failureThreshold: 12
+          initialDelaySeconds: 30
+          periodSeconds: 10
         livenessProbe:
           failureThreshold: 2
           httpGet:
