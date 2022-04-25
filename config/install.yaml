@@ -2203,6 +2203,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -2234,11 +2251,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set
@@ -2277,6 +2299,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -4555,6 +4583,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -4586,11 +4631,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set
@@ -4629,6 +4679,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -7797,6 +7853,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -7828,11 +7901,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set
@@ -7871,6 +7949,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
@@ -10150,6 +10234,23 @@ spec:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
                                             description: Roots is an optional set
                                               of PEM encoded trusted root certificates.
@@ -10181,11 +10282,16 @@ spec:
                                               to a root certificate.
                                             type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
                                             type: string
                                           roots:
                                             description: Roots is an optional set
@@ -10224,6 +10330,12 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest is an optional field which handles
+                              the tag-to-digest mutation for the provided image paths.
+                              Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
                               to use for image signatures and attestations that match
