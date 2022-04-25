@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -50,7 +50,7 @@ type Interface interface {
 	AddOldResource(data map[string]interface{}) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyverno.RequestInfo) error
+	AddUserInfo(userInfo urkyverno.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -166,7 +166,7 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo urkyverno.RequestInfo) error {
 	return addToContext(ctx, userRequestInfo, "request")
 }
 

@@ -1832,6 +1832,35 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
+<code>mutateExisting</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>mutateExisting controls whether to mutate existing resource ONLY
+The existing resources will be mutated ONLY if set to &ldquo;true&rdquo;.
+Otherwise all resources including admission requests are mutated.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targets</code></br>
+<em>
+<a href="#kyverno.io/v1.TargetMutation">
+[]TargetMutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Targets defines the target resources to be mutated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patchStrategicMerge</code></br>
 <em>
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
@@ -2218,7 +2247,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Name is the name of the resource. The name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
+NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -2231,8 +2261,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Names are the names of the resources. Each name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
-NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
 </td>
 </tr>
 <tr>
@@ -2358,7 +2387,8 @@ ResourceDescription
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
 <a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
-<a href="#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
 </p>
 <p>
 <p>ResourceSpec contains information to identify a resource.</p>
@@ -2761,6 +2791,39 @@ string
 <td>
 <p>Roots is an optional set of PEM encoded trusted root certificates.
 If not provided, the system roots are used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TargetMutation">TargetMutation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code></br>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResourceSpec specifies the target resource information.</p>
 </td>
 </tr>
 </tbody>
