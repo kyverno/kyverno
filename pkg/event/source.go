@@ -10,6 +10,8 @@ const (
 	PolicyController
 	// GeneratePolicyController : event generated in generate policyController
 	GeneratePolicyController
+	// MutateExistingController : event generated for mutateExisting policies
+	MutateExistingController
 )
 
 func (s Source) String() string {
@@ -17,5 +19,6 @@ func (s Source) String() string {
 		"admission-controller",
 		"policy-controller",
 		"generate-policy-controller",
+		"mutate-existing-controller",
 	}[s]
 }

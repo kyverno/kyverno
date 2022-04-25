@@ -26,7 +26,7 @@ type DurationOperatorHandler struct {
 }
 
 // durationCompareByCondition compares a time.Duration key with a time.Duration value on the basis of the provided operator
-func durationCompareByCondition(key time.Duration, value time.Duration, op kyverno.ConditionOperator, log *logr.Logger) bool {
+func durationCompareByCondition(key time.Duration, value time.Duration, op kyverno.ConditionOperator, log logr.Logger) bool {
 	switch op {
 	case kyverno.ConditionOperators["DurationGreaterThanOrEquals"]:
 		return key >= value
@@ -37,7 +37,7 @@ func durationCompareByCondition(key time.Duration, value time.Duration, op kyver
 	case kyverno.ConditionOperators["DurationLessThan"]:
 		return key < value
 	default:
-		(*log).Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))
+		log.Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))
 		return false
 	}
 }
@@ -61,15 +61,15 @@ func (doh DurationOperatorHandler) Evaluate(key, value interface{}) bool {
 func (doh DurationOperatorHandler) validateValueWithIntPattern(key int64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case int64:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case float64:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case string:
 		duration, err := time.ParseDuration(typedValue)
 		if err == nil {
-			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, &doh.log)
+			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, doh.log)
 		}
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
@@ -82,15 +82,15 @@ func (doh DurationOperatorHandler) validateValueWithIntPattern(key int64, value 
 func (doh DurationOperatorHandler) validateValueWithFloatPattern(key float64, value interface{}) bool {
 	switch typedValue := value.(type) {
 	case int:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case int64:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case float64:
-		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(time.Duration(key)*time.Second, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case string:
 		duration, err := time.ParseDuration(typedValue)
 		if err == nil {
-			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, &doh.log)
+			return durationCompareByCondition(time.Duration(key)*time.Second, duration, doh.condition, doh.log)
 		}
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false
@@ -108,15 +108,15 @@ func (doh DurationOperatorHandler) validateValueWithStringPattern(key string, va
 	}
 	switch typedValue := value.(type) {
 	case int:
-		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case int64:
-		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case float64:
-		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, &doh.log)
+		return durationCompareByCondition(duration, time.Duration(typedValue)*time.Second, doh.condition, doh.log)
 	case string:
 		durationValue, err := time.ParseDuration(typedValue)
 		if err == nil {
-			return durationCompareByCondition(duration, durationValue, doh.condition, &doh.log)
+			return durationCompareByCondition(duration, durationValue, doh.condition, doh.log)
 		}
 		doh.log.Error(fmt.Errorf("parse error: "), "Failed to parse time duration from the string value")
 		return false

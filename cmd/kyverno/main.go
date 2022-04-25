@@ -43,7 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -137,10 +137,6 @@ func main() {
 	}
 
 	// KYVERNO CRD CLIENT
-	// access CRD resources
-	//		- ClusterPolicy, Policy
-	//		- ClusterPolicyReport, PolicyReport
-	//		- GenerateRequest
 	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
@@ -192,12 +188,7 @@ func main() {
 		cosign.ImageSignatureRepository = imageSignatureRepository
 	}
 
-	// KYVERNO CRD INFORMER
-	// watches CRD resources:
-	//		- ClusterPolicy, Policy
-	//		- ClusterPolicyReport, PolicyReport
-	//		- GenerateRequest
-	//		- ClusterReportChangeRequest, ReportChangeRequest
+	// KYVERNO CRD INFORMERS
 	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(pclient, policyControllerResyncPeriod)
 
 	// EVENT GENERATOR
@@ -312,6 +303,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		configData,
 		eventGenerator,
 		reportReqGen,
@@ -328,7 +320,11 @@ func main() {
 	}
 
 	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient, pInformer.Kyverno().V1().GenerateRequests(), stopCh, log.Log.WithName("GenerateRequestGenerator"))
+	grgen := webhookgenerate.NewGenerator(pclient,
+		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		stopCh,
+		log.Log.WithName("UpdateRequestGenerator"))
 
 	// GENERATE CONTROLLER
 	// - applies generate rules on resources based on generate requests created by webhook
@@ -339,9 +335,10 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("GenerateController"),
+		log.Log.WithName("BackgroundController"),
 		configData,
 	)
 	if err != nil {
@@ -358,6 +355,7 @@ func main() {
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
@@ -399,7 +397,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, setupLog)
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
 		webhookCfg.Start()
@@ -460,6 +458,7 @@ func main() {
 		client,
 		tlsPair,
 		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),

@@ -87,6 +87,11 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+// IsMutatingExisting checks if the mutate rule applies to existing resources
+func (r *Rule) IsMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }

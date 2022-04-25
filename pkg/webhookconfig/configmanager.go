@@ -434,7 +434,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 	for _, p := range policies {
 		spec := p.GetSpec()
-		if spec.HasValidate() || spec.HasGenerate() {
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() {
 			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
@@ -525,7 +525,8 @@ func (m *webhookConfigManager) getWebhook(webhookKind, webhookName string) (reso
 		return err
 	}
 
-	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, m.log)
+	msg := "getWebhook: unable to get webhook configuration"
+	retryGetWebhook := common.RetryFunc(time.Second, 10*time.Second, get, msg, m.log)
 	if err := retryGetWebhook(); err != nil {
 		return nil, err
 	}
@@ -748,7 +749,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 		}
 
 		if (updateValidate && rule.HasValidate()) ||
-			(!updateValidate && rule.HasMutate()) ||
+			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
+			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
 			(!updateValidate && rule.HasVerifyImages()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
@@ -817,9 +819,15 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
 	}
 
-	dst.rule[apiGroups] = removeDuplicates(groups)
-	dst.rule[apiVersions] = removeDuplicates(versions)
-	dst.rule[resources] = removeDuplicates(rsrcs)
+	if len(groups) > 0 {
+		dst.rule[apiGroups] = removeDuplicates(groups)
+	}
+	if len(versions) > 0 {
+		dst.rule[apiVersions] = removeDuplicates(versions)
+	}
+	if len(rsrcs) > 0 {
+		dst.rule[resources] = removeDuplicates(rsrcs)
+	}
 
 	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
