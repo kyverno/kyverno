@@ -82,7 +82,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
 			targets, err := loadTargets(logger, ruleCopy.Mutation.Targets, policyContext)
 			if err != nil {
-				rr := ruleResponse(&rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
+				rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 			} else {
 				patchedResources = append(patchedResources, targets...)
@@ -137,7 +137,7 @@ func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructure
 	}
 
 	if !preconditionsPassed {
-		return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &resource), resource
+		return ruleResponse(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &resource), resource
 	}
 
 	mutateResp := mutate.Mutate(rule, ctx.JSONContext, resource, logger)
@@ -167,7 +167,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 		}
 
 		if !preconditionsPassed {
-			return ruleResponse(rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource), resource
+			return ruleResponse(*rule, response.Mutation, "preconditions not met", response.RuleStatusSkip, &patchedResource), resource
 		}
 
 		elements, err := evaluateList(foreach.List, ctx.JSONContext)
@@ -192,10 +192,10 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	}
 
 	if applyCount == 0 {
-		return ruleResponse(rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, &resource), resource
+		return ruleResponse(*rule, response.Mutation, "0 elements processed", response.RuleStatusSkip, &resource), resource
 	}
 
-	r := ruleResponse(rule, response.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass, &patchedResource)
+	r := ruleResponse(*rule, response.Mutation, fmt.Sprintf("%d elements processed", applyCount), response.RuleStatusPass, &patchedResource)
 	r.Patches = allPatches
 	return r, patchedResource
 }
@@ -260,7 +260,7 @@ func mutateError(err error, message string) *mutate.Response {
 }
 
 func buildRuleResponse(rule *kyverno.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured) *response.RuleResponse {
-	resp := ruleResponse(rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource)
+	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource)
 	if resp.Status == response.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
 		resp.Message = buildSuccessMessage(mutateResp.PatchedResource)

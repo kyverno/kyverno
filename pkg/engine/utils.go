@@ -473,10 +473,10 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 
 func ruleError(rule *kyverno.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(rule, ruleType, msg, response.RuleStatusError, nil)
+	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError, nil)
 }
 
-func ruleResponse(rule *kyverno.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+func ruleResponse(rule kyverno.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
 	resp := &response.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,
