@@ -98,7 +98,7 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
-// IsMutatingExisting checks if the mutate rule applies to existing resources
+// IsMutateExisting checks if the mutate rule applies to existing resources
 func (r *Rule) IsMutateExisting() bool {
 	return r.Mutation.Targets != nil
 }
@@ -132,8 +132,8 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
-// ValidateMathExcludeConflict checks if the resultant of match and exclude block is not an empty set
-func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorList) {
+// ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
+func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -300,7 +300,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
-	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
+	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	return errs

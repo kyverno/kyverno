@@ -472,7 +472,7 @@ OuterLoop:
 	}
 
 	mutateResponse := engine.Mutate(policyContext)
-	if mutateResponse != nil {
+	if mutateResponse != nil && !mutateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
 
@@ -494,11 +494,14 @@ OuterLoop:
 	}
 
 	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
-	updateResultCounts(policy, verifyImageResponse, resPath, rc)
+	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, verifyImageResponse)
+		updateResultCounts(policy, verifyImageResponse, resPath, rc)
+	}
 
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(policy) {
-		if rule.HasValidate() {
+		if rule.HasValidate() || rule.HasImagesValidationChecks() {
 			policyHasValidate = true
 		}
 	}
@@ -511,7 +514,8 @@ OuterLoop:
 		validateResponse = engine.Validate(policyContext)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
-	if validateResponse != nil {
+
+	if validateResponse != nil && !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
@@ -534,7 +538,7 @@ OuterLoop:
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
-		if generateResponse != nil {
+		if generateResponse != nil && !generateResponse.IsEmpty() {
 			engineResponses = append(engineResponses, generateResponse)
 		}
 		updateResultCounts(policy, generateResponse, resPath, rc)
@@ -697,7 +701,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() {
+		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks(){
 			continue
 		}
 

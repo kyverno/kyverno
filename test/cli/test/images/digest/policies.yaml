@@ -6,10 +6,6 @@ metadata:
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
-  validationFailureAction: enforce
-  background: false
-  webhookTimeoutSeconds: 30
-  failurePolicy: Fail
   rules:
     - name: check-digest
       match:
@@ -19,4 +15,6 @@ spec:
       verifyImages:
         - imageReferences:
             - "*"
-          digestVerify: true
+          verifyDigest: true
+
+

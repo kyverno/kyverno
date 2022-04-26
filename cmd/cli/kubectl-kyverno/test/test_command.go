@@ -600,7 +600,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != string(response.Validation) {
+				if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 					continue
 				}
 
