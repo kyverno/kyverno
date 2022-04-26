@@ -82,7 +82,6 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.removePolicyFromCache(policy)
-
 }
 func (m *pMap) removePolicyFromCache(policy kyverno.PolicyInterface) {
 	var pName = policy.GetName()
