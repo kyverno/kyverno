@@ -306,6 +306,8 @@ test-e2e:
 	$(eval export E2E="ok")
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
+	go test ./test/e2e/validate -v
+	go test ./test/e2e/verifyimages -v
 	go test ./test/e2e/generate -v
 	$(eval export E2E="")
 
@@ -315,6 +317,8 @@ test-e2e-local:
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
+	go test ./test/e2e/validate -v
+	go test ./test/e2e/verifyimages -v
 	go test ./test/e2e/generate -v
 	kill  $!
 	$(eval export E2E="")
