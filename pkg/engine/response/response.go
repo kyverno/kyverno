@@ -112,6 +112,9 @@ type RuleResponse struct {
 
 	// statistics
 	RuleStats `json:",inline"`
+
+	// PatchedTarget is the patched resource for mutate.targets
+	PatchedTarget *unstructured.Unstructured
 }
 
 //ToString ...

@@ -14,7 +14,7 @@ type ValidationFailureAction string
 const (
 	// Enforce blocks the request on failure
 	Enforce ValidationFailureAction = "enforce"
-	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	// Audit indicates not to block the request on failure, but report failures as policy violations
 	Audit ValidationFailureAction = "audit"
 )
 

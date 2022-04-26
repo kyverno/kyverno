@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	ut "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
@@ -100,7 +100,7 @@ func Test_NamespaceSelector(t *testing.T) {
 	for _, tc := range testcases {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, v1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
+		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled

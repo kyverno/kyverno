@@ -39,7 +39,10 @@ type Generator struct {
 	admissionCtrRecorder record.EventRecorder
 	// events generated at namespaced policy controller to process 'generate' rule
 	genPolicyRecorder record.EventRecorder
-	log               logr.Logger
+	// events generated at mutateExisting controller
+	mutateExistingRecorder record.EventRecorder
+
+	log logr.Logger
 }
 
 //Interface to generate event
@@ -50,16 +53,17 @@ type Interface interface {
 //NewEventGenerator to generate a new event controller
 func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
-		client:               client,
-		cpLister:             cpInformer.Lister(),
-		cpSynced:             cpInformer.Informer().HasSynced,
-		pLister:              pInformer.Lister(),
-		pSynced:              pInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
-		policyCtrRecorder:    initRecorder(client, PolicyController, log),
-		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
-		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
-		log:                  log,
+		client:                 client,
+		cpLister:               cpInformer.Lister(),
+		cpSynced:               cpInformer.Informer().HasSynced,
+		pLister:                pInformer.Lister(),
+		pSynced:                pInformer.Informer().HasSynced,
+		queue:                  workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
+		policyCtrRecorder:      initRecorder(client, PolicyController, log),
+		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
+		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
+		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
+		log:                    log,
 	}
 	return &gen
 }
@@ -223,6 +227,8 @@ func (gen *Generator) syncHandler(key Info) error {
 		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
 	case GeneratePolicyController:
 		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
+	case MutateExistingController:
+		gen.mutateExistingRecorder.Event(robj, eventType, key.Reason, key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
