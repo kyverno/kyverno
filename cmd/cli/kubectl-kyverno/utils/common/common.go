@@ -540,11 +540,11 @@ OuterLoop:
 	}
 
 	policyContext := &engine.PolicyContext{
-		Policy: policy,
-		NewResource: *updatedResource,
-		JSONContext: ctx,
+		Policy:          policy,
+		NewResource:     *updatedResource,
+		JSONContext:     ctx,
 		NamespaceLabels: namespaceLabels,
-		AdmissionInfo: userInfo,
+		AdmissionInfo:   userInfo,
 	}
 
 	mutateResponse := engine.Mutate(policyContext)
@@ -568,7 +568,6 @@ OuterLoop:
 			}
 		}
 	}
-
 
 	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
 	updateResultCounts(policy, verifyImageResponse, resPath, rc)

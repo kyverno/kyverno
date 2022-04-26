@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -45,7 +46,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 				}
 
 				if err := validateImage(ctx, imageVerify, imageInfo); err != nil {
-					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil )
+					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 				}
 			}
 		}

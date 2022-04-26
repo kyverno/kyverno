@@ -183,15 +183,15 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			}
 
-			if ruleResp.Status == response.RuleStatusPass  && digest != "" {
+			if ruleResp.Status == response.RuleStatusPass && digest != "" {
 				annotationKey := makeAnnotationKey(imageInfo.Name, digest)
 				hasChanged, err := iv.policyContext.JSONContext.HasChanged("request.object.metadata.annotations." + annotationKey)
 				if err != nil {
 					msg := fmt.Sprintf("failed to check annotation changes: %s", err.Error())
-					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil )
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 				} else if hasChanged {
 					msg := "changes to `images.kyverno.io` annotation are not allowed"
-					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil )
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 				}
 			}
 

@@ -39,7 +39,6 @@ func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 		}
 	}
 
-
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
@@ -141,7 +140,7 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 				}
 			}
 
-			if ! m.nameCacheMap[ValidateAudit][kind+"/"+pName] {
+			if !m.nameCacheMap[ValidateAudit][kind+"/"+pName] {
 				m.nameCacheMap[ValidateAudit][kind+"/"+pName] = true
 				validatePolicy := m.kindDataMap[kind][ValidateAudit]
 				m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)

@@ -93,7 +93,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	rules := autogen.ComputeRules(ctx.Policy)
 	for i := range rules {
 		rule := &rules[i]
-		hasValidate :=  rule.HasValidate()
+		hasValidate := rule.HasValidate()
 		hasValidateImage := rule.HasImagesValidationChecks()
 		if !hasValidate && !hasValidateImage {
 			continue
