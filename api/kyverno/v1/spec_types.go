@@ -112,7 +112,18 @@ func (s *Spec) HasGenerate() bool {
 	return false
 }
 
-// HasVerifyImages checks for image verification rule types
+// HasImagesValidationChecks checks for image verification rules invoked during resource validation
+func (s *Spec) HasImagesValidationChecks() bool {
+	for _, rule := range s.Rules {
+		if rule.HasImagesValidationChecks() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasVerifyImages checks for image verification rules invoked during resource mutation
 func (s *Spec) HasVerifyImages() bool {
 	for _, rule := range s.Rules {
 		if rule.HasVerifyImages() {

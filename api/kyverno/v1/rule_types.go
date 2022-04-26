@@ -77,6 +77,17 @@ func (r *Rule) HasVerifyImages() bool {
 	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
+// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasImagesValidationChecks() bool {
+	for _, v := range r.VerifyImages {
+		if v.VerifyDigest || v.Required {
+			return true
+		}
+	}
+
+	return false
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})

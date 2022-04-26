@@ -39,11 +39,6 @@ func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 		}
 	}
 
-	mutateMap := m.nameCacheMap[Mutate]
-	validateEnforceMap := m.nameCacheMap[ValidateEnforce]
-	validateAuditMap := m.nameCacheMap[ValidateAudit]
-	generateMap := m.nameCacheMap[Generate]
-	imageVerifyMap := m.nameCacheMap[VerifyImages]
 
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
@@ -54,24 +49,17 @@ func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 	for _, rule := range autogen.ComputeRules(policy) {
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
-				addCacheHelper(rmr, m, rule, mutateMap, pName, enforcePolicy, validateEnforceMap, validateAuditMap, generateMap, imageVerifyMap)
+				addCacheHelper(rmr, m, rule, pName, enforcePolicy)
 			}
 		} else if len(rule.MatchResources.All) > 0 {
 			for _, rmr := range rule.MatchResources.All {
-				addCacheHelper(rmr, m, rule, mutateMap, pName, enforcePolicy, validateEnforceMap, validateAuditMap, generateMap, imageVerifyMap)
+				addCacheHelper(rmr, m, rule, pName, enforcePolicy)
 			}
 		} else {
 			r := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-			addCacheHelper(r, m, rule, mutateMap, pName, enforcePolicy, validateEnforceMap, validateAuditMap, generateMap, imageVerifyMap)
+			addCacheHelper(r, m, rule, pName, enforcePolicy)
 		}
 	}
-
-	m.nameCacheMap[Mutate] = mutateMap
-	m.nameCacheMap[ValidateEnforce] = validateEnforceMap
-	m.nameCacheMap[ValidateAudit] = validateAuditMap
-	m.nameCacheMap[Generate] = generateMap
-	m.nameCacheMap[VerifyImages] = imageVerifyMap
-
 }
 
 func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
@@ -127,7 +115,7 @@ func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) 
 	m.addPolicyToCache(new)
 }
 
-func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, mutateMap map[string]bool, pName string, enforcePolicy bool, validateEnforceMap map[string]bool, validateAuditMap map[string]bool, generateMap map[string]bool, imageVerifyMap map[string]bool) {
+func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pName string, enforcePolicy bool) {
 	for _, gvk := range rmr.Kinds {
 		_, k := kubeutils.GetKindFromGVK(gvk)
 		kind := strings.Title(k)
@@ -137,49 +125,49 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, muta
 		}
 
 		if rule.HasMutate() {
-			if !mutateMap[kind+"/"+pName] {
-				mutateMap[kind+"/"+pName] = true
+			if !m.nameCacheMap[Mutate][kind+"/"+pName] {
+				m.nameCacheMap[Mutate][kind+"/"+pName] = true
 				mutatePolicy := m.kindDataMap[kind][Mutate]
 				m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
 			}
-			continue
 		}
 
 		if rule.HasValidate() {
 			if enforcePolicy {
-				if !validateEnforceMap[kind+"/"+pName] {
-					validateEnforceMap[kind+"/"+pName] = true
+				if !m.nameCacheMap[ValidateEnforce][kind+"/"+pName] {
+					m.nameCacheMap[ValidateEnforce][kind+"/"+pName] = true
 					validatePolicy := m.kindDataMap[kind][ValidateEnforce]
 					m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
 				}
-				continue
 			}
 
-			// ValidateAudit
-			if !validateAuditMap[kind+"/"+pName] {
-				validateAuditMap[kind+"/"+pName] = true
+			if ! m.nameCacheMap[ValidateAudit][kind+"/"+pName] {
+				m.nameCacheMap[ValidateAudit][kind+"/"+pName] = true
 				validatePolicy := m.kindDataMap[kind][ValidateAudit]
 				m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
 			}
-			continue
 		}
 
 		if rule.HasGenerate() {
-			if !generateMap[kind+"/"+pName] {
-				generateMap[kind+"/"+pName] = true
+			if !m.nameCacheMap[Generate][kind+"/"+pName] {
+				m.nameCacheMap[Generate][kind+"/"+pName] = true
 				generatePolicy := m.kindDataMap[kind][Generate]
 				m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
 			}
-			continue
 		}
 
 		if rule.HasVerifyImages() {
-			if !imageVerifyMap[kind+"/"+pName] {
-				imageVerifyMap[kind+"/"+pName] = true
-				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImages]
-				m.kindDataMap[kind][VerifyImages] = append(imageVerifyMapPolicy, pName)
+			if !m.nameCacheMap[VerifyImagesMutate][kind+"/"+pName] {
+				m.nameCacheMap[VerifyImagesMutate][kind+"/"+pName] = true
+				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImagesMutate]
+				m.kindDataMap[kind][VerifyImagesMutate] = append(imageVerifyMapPolicy, pName)
 			}
-			continue
+
+			if rule.HasImagesValidationChecks() {
+				m.nameCacheMap[VerifyImagesValidate][kind+"/"+pName] = true
+				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImagesValidate]
+				m.kindDataMap[kind][VerifyImagesValidate] = append(imageVerifyMapPolicy, pName)
+			}
 		}
 	}
 }

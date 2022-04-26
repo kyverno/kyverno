@@ -539,7 +539,15 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updatedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	policyContext := &engine.PolicyContext{
+		Policy: policy,
+		NewResource: *updatedResource,
+		JSONContext: ctx,
+		NamespaceLabels: namespaceLabels,
+		AdmissionInfo: userInfo,
+	}
+
+	mutateResponse := engine.Mutate(policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -561,6 +569,10 @@ OuterLoop:
 		}
 	}
 
+
+	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	updateResultCounts(policy, verifyImageResponse, resPath, rc)
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasValidate() {
@@ -568,11 +580,12 @@ OuterLoop:
 		}
 	}
 
+	policyContext.NewResource = mutateResponse.PatchedResource
+
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels, AdmissionInfo: userInfo}
-		validateResponse = engine.Validate(policyCtx)
+		validateResponse = engine.Validate(policyContext)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
 	if validateResponse != nil {
@@ -601,7 +614,7 @@ OuterLoop:
 		if generateResponse != nil {
 			engineResponses = append(engineResponses, generateResponse)
 		}
-		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
+		updateResultCounts(policy, generateResponse, resPath, rc)
 	}
 
 	return engineResponses, info, nil
@@ -838,26 +851,27 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 	return info
 }
 
-func processGenerateEngineResponse(policy v1.PolicyInterface, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+func updateResultCounts(policy v1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
-			if policyRule.Name == genResponseRule.Name {
+		for i, ruleResponse := range engineResponse.PolicyResponse.Rules {
+			if policyRule.Name == ruleResponse.Name {
 				ruleFoundInEngineResponse = true
-				if genResponseRule.Status == response.RuleStatusPass {
+				if ruleResponse.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
-						fmt.Println("\ngenerate resource is not valid", "policy", policy.GetName(), "resource", resPath)
+						fmt.Println("\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s\n", i+1, genResponseRule.Name, genResponseRule.Message)
+					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message)
 					rc.Fail++
 				}
 				continue
 			}
 		}
+
 		if !ruleFoundInEngineResponse {
 			rc.Skip++
 		}

@@ -159,7 +159,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 			var ruleResp *response.RuleResponse
 			var digest string
 
-			if len(imageVerify.Attestations) == 0 {
+			if len(imageVerify.Attestors) > 0 {
 				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
@@ -167,7 +167,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 					}
 				}
-			} else {
+			} else if len(imageVerify.Attestations) > 0 {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
 				if imageInfo.Digest == "" && imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
 					digest, err := fetchImageDigest(imageInfo.String())
@@ -183,10 +183,28 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			}
 
-			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
-			incrementAppliedCount(iv.resp)
+			if ruleResp.Status == response.RuleStatusPass  && digest != "" {
+				annotationKey := makeAnnotationKey(imageInfo.Name, digest)
+				hasChanged, err := iv.policyContext.JSONContext.HasChanged("request.object.metadata.annotations." + annotationKey)
+				if err != nil {
+					msg := fmt.Sprintf("failed to check annotation changes: %s", err.Error())
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil )
+				} else if hasChanged {
+					msg := "changes to `images.kyverno.io` annotation are not allowed"
+					ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil )
+				}
+			}
+
+			if ruleResp != nil {
+				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+				incrementAppliedCount(iv.resp)
+			}
 		}
 	}
+}
+
+func makeAnnotationKey(imageName, imageDigest string) string {
+	return fmt.Sprintf("images.kyverno.io/%s/%s/%s", imageName, imageDigest[0:6], imageDigest[7:])
 }
 
 func fetchImageDigest(ref string) (string, error) {
@@ -213,7 +231,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 
 func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
-	iv.logger.Info("verifying image", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
+	iv.logger.V(1).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
 	var digest string
 	for i, attestorSet := range imageVerify.Attestors {

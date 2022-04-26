@@ -72,10 +72,15 @@ type ImageVerification struct {
 	// +kubebuilder:validation:Required
 	MutateDigest bool `json:"mutateDigest,omitempty" yaml:"mutateDigest,omitempty"`
 
-	// VerifyDigest verifies that images have a digest.
+	// VerifyDigest validates that images have a digest.
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Required
 	VerifyDigest bool `json:"verifyDigest,omitempty" yaml:"verifyDigest,omitempty"`
+
+	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Required
+	Required bool `json:"required,omitempty" yaml:"required,omitempty"`
 }
 
 type AttestorSet struct {

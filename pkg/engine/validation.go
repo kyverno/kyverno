@@ -93,7 +93,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	rules := autogen.ComputeRules(ctx.Policy)
 	for i := range rules {
 		rule := &rules[i]
-		if !rule.HasValidate() {
+		hasValidate :=  rule.HasValidate()
+		hasValidateImage := rule.HasImagesValidationChecks()
+		if !hasValidate && !hasValidateImage {
 			continue
 		}
 
@@ -106,7 +108,13 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		ctx.JSONContext.Reset()
 		startTime := time.Now()
 
-		ruleResp := processValidationRule(log, ctx, rule)
+		var ruleResp *response.RuleResponse
+		if hasValidate {
+			ruleResp = processValidationRule(log, ctx, rule)
+		} else if hasValidateImage {
+			ruleResp = processImageValidationRule(log, ctx, rule)
+		}
+
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
 		}
@@ -208,7 +216,11 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	}
 
-	if !preconditionsPassed && v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit {
+	if !preconditionsPassed {
+		if v.ctx.Policy.GetSpec().ValidationFailureAction == kyverno.Audit {
+			return nil
+		}
+
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 

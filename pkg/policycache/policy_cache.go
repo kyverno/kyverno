@@ -42,11 +42,12 @@ type policyCache struct {
 // newPolicyCache ...
 func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
 	namesCache := map[PolicyType]map[string]bool{
-		Mutate:          make(map[string]bool),
-		ValidateEnforce: make(map[string]bool),
-		ValidateAudit:   make(map[string]bool),
-		Generate:        make(map[string]bool),
-		VerifyImages:    make(map[string]bool),
+		Mutate:             make(map[string]bool),
+		ValidateEnforce:    make(map[string]bool),
+		ValidateAudit:      make(map[string]bool),
+		Generate:           make(map[string]bool),
+		VerifyImagesMutate: make(map[string]bool),
+		VerifyImagesValidate: make(map[string]bool),
 	}
 
 	return &policyCache{
