@@ -365,14 +365,14 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
 	}))
 
-	grList, err := ws.grLister.List(selector)
+	grList, err := ws.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
 		return
 	}
 
 	for _, v := range grList {
-		err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update gr")
 		}

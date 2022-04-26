@@ -167,7 +167,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 
 			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
-				log.V(4).Info("failed to update UpdateRequest, retrying", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace())
+				log.V(4).Info("failed to update UpdateRequest, retrying", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
 			} else {
 				log.V(4).Info("successfully updated UpdateRequest", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace())
@@ -189,7 +189,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 
 			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &ur, metav1.CreateOptions{})
 			if err != nil {
-				log.V(4).Info("failed to create UpdateRequest, retrying", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
+				log.V(4).Info("failed to create UpdateRequest, retrying", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
 			} else {
 				log.V(4).Info("successfully created UpdateRequest", "retryCount", i, "name", new.GetName(), "namespace", ur.GetNamespace())
