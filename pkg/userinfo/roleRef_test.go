@@ -188,7 +188,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		Username: "system:serviceaccount:default:saconfig",
 	}
 
-	expectedrole := []string{"default:myrole"}
+	expectedrole := []string{list[0].Namespace + ":" + "myrole"}
 	expectedClusterRole := []string{"myclusterrole"}
 	roles, clusterroles := getRoleRefByRoleBindings(list, sa)
 	assert.DeepEqual(t, roles, expectedrole)
