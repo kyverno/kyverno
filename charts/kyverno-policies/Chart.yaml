@@ -21,3 +21,9 @@ kubeVersion: ">=1.16.0-0"
 annotations:
   artifacthub.io/operator: "false"
   artifacthub.io/prerelease: "false"
+  # valid kinds are: added, changed, deprecated, removed, fixed and security
+  artifacthub.io/changes: |
+    - kind: added
+      description: Support for artifacthub.io/changes annotation
+    - kind: added
+      description: Add policyPreconditions value to allow policies and rules to have preconditions added

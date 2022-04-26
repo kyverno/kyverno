@@ -184,7 +184,7 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
 		if err != nil {
-			log.Log.V(3).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
+			log.Log.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
 			continue
 		}
 

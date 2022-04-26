@@ -4,6 +4,7 @@ import "github.com/kyverno/kyverno/pkg/registryclient"
 
 var Mock, RegistryAccess bool
 var ContextVar Context
+var ForeachElement int
 
 func SetMock(mock bool) {
 	Mock = mock
@@ -11,6 +12,14 @@ func SetMock(mock bool) {
 
 func GetMock() bool {
 	return Mock
+}
+
+func SetForeachElement(foreachElement int) {
+	ForeachElement = foreachElement
+}
+
+func GetForeachElement() int {
+	return ForeachElement
 }
 
 func SetRegistryAccess(access bool) {
@@ -64,6 +73,7 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
+	Name          string              `json:"name"`
+	Values        map[string]string   `json:"values"`
+	ForeachValues map[string][]string `json:"foreachValues"`
 }
