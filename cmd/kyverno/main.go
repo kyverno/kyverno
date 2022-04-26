@@ -218,6 +218,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		kubeClient,
 		pclient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -368,7 +369,7 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeClient,
