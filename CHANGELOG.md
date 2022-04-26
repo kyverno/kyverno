@@ -3,6 +3,7 @@
 ### Note
 
 - `status.ready` of the policy is deprecated in favor of `policy.IsReady()`. The implementation was changed to use `status.conditions` that offer more flexibility. The `status.ready` will be kept for a couple of releases until we remove it in the future.
+- Deprecated flags have been removed.
 
 ## v1.6.0-rc1
 ### Note
