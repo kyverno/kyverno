@@ -2381,6 +2381,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -2393,7 +2399,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a
+                            description: VerifyDigest validates that images have a
                               digest.
                             type: boolean
                         type: object
@@ -4851,6 +4857,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -4863,7 +4875,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a
+                            description: VerifyDigest validates that images have a
                               digest.
                             type: boolean
                         type: object

@@ -1483,6 +1483,10 @@ spec:
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified i.e. have matched passed a signature or attestation check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
                             type: string
@@ -1491,7 +1495,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a digest.
+                            description: VerifyDigest validates that images have a digest.
                             type: boolean
                         type: object
                       type: array
@@ -3015,6 +3019,10 @@ spec:
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified i.e. have matched passed a signature or attestation check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
                             type: string
@@ -3023,7 +3031,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a digest.
+                            description: VerifyDigest validates that images have a digest.
                             type: boolean
                         type: object
                       type: array
@@ -5258,6 +5266,10 @@ spec:
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified i.e. have matched passed a signature or attestation check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
                             type: string
@@ -5266,7 +5278,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a digest.
+                            description: VerifyDigest validates that images have a digest.
                             type: boolean
                         type: object
                       type: array
@@ -6790,6 +6802,10 @@ spec:
                           repository:
                             description: Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule. If specified Repository will override the default OCI image repository configured for the installation. The repository can also be overridden per Attestor or Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified i.e. have matched passed a signature or attestation check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate chain used for keyless signing Deprecated. Use KeylessAttestor instead.
                             type: string
@@ -6798,7 +6814,7 @@ spec:
                             type: string
                           verifyDigest:
                             default: true
-                            description: VerifyDigest verifies that images have a digest.
+                            description: VerifyDigest validates that images have a digest.
                             type: boolean
                         type: object
                       type: array
