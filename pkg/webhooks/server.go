@@ -57,9 +57,6 @@ type WebhookServer struct {
 	// urSynced returns true if the Update Request store has been synced at least once
 	urSynced cache.InformerSynced
 
-	// list/get cluster policy resource
-	pLister kyvernolister.ClusterPolicyLister
-
 	// returns true if the cluster policy store has synced atleast
 	pSynced cache.InformerSynced
 
@@ -171,7 +168,6 @@ func NewWebhookServer(
 		grSynced:          grInformer.Informer().HasSynced,
 		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 		urSynced:          urInformer.Informer().HasSynced,
-		pLister:           pInformer.Lister(),
 		pSynced:           pInformer.Informer().HasSynced,
 		rbLister:          rbInformer.Lister(),
 		rbSynced:          rbInformer.Informer().HasSynced,
