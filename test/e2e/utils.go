@@ -116,11 +116,14 @@ func (e2e *E2EClient) ListNamespacedResources(gvr schema.GroupVersionResource, n
 }
 
 // CreateNamespacedResourceYaml creates namespaced resources like Pods, Services, Deployments etc
-func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace string, resourceData []byte) (*unstructured.Unstructured, error) {
+func (e2e *E2EClient) CreateNamespacedResourceYaml(gvr schema.GroupVersionResource, namespace, name string, resourceData []byte) (*unstructured.Unstructured, error) {
 	resource := unstructured.Unstructured{}
 	err := yaml.Unmarshal(resourceData, &resource)
 	if err != nil {
 		return nil, err
+	}
+	if name != "" {
+		resource.SetName(name)
 	}
 	result, err := e2e.Client.Resource(gvr).Namespace(namespace).Create(context.TODO(), &resource, metav1.CreateOptions{})
 	return result, err

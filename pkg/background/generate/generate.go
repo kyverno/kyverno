@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -53,6 +54,9 @@ type GenerateController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	// urLister can list/get update request from the shared informer's store
+	urLister urlister.UpdateRequestNamespaceLister
+
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
@@ -72,6 +76,7 @@ func NewGenerateController(
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,
 	grLister kyvernolister.GenerateRequestNamespaceLister,
+	urLister urlister.UpdateRequestNamespaceLister,
 	eventGen event.Interface,
 	nsLister corelister.NamespaceLister,
 	log logr.Logger,
@@ -87,6 +92,7 @@ func NewGenerateController(
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		grLister:      grLister,
+		urLister:      urLister,
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
@@ -231,14 +237,14 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, g
 				"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
 			}))
-			grList, err := c.grLister.List(selector)
+			grList, err := c.urLister.List(selector)
 			if err != nil {
 				logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
 				continue
 			}
 
 			for _, v := range grList {
-				err := c.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete generate request")
 				}
