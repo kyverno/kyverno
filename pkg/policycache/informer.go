@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -60,7 +59,7 @@ func NewPolicyCacheController(
 	pc.nspSynched = nspInformer.Informer().HasSynced
 	pc.cpolLister = pInformer.Lister()
 	pc.polLister = nspInformer.Lister()
-	pc.pCounter = 1
+	pc.pCounter = -1
 
 	return &pc
 }
@@ -106,23 +105,10 @@ func (c *Controller) deleteNsPolicy(obj interface{}) {
 	c.Cache.remove(p)
 }
 
-// Run waits until policy informer to be synced
-func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
-
-	logger := c.log
-	logger.Info("starting")
-	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, c.pSynched, c.nspSynched) {
-		logger.Error(nil, "Failed to sync informer cache")
-		os.Exit(1)
-	}
-
-	<-stopCh
-}
-
 // CheckPolicySync wait until the internal policy cache is fully loaded
 func (c *Controller) CheckPolicySync(stopCh <-chan struct{}) {
+	logger := c.log
+	logger.Info("starting")
 
 	if !cache.WaitForCacheSync(stopCh, c.pSynched, c.nspSynched) {
 		logger.Error(nil, "Failed to sync informer cache")
@@ -148,7 +134,6 @@ func (c *Controller) CheckPolicySync(stopCh <-chan struct{}) {
 	}
 
 	atomic.StoreInt64(&c.pCounter, int64(len(policies)))
-
 	for _, policy := range policies {
 		c.Cache.add(policy)
 		atomic.AddInt64(&c.pCounter, ^int64(0))
