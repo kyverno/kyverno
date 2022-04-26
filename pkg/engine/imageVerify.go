@@ -196,9 +196,16 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			}
 
-			patch, err := makeAddVerifyPatch(imageInfo, digest, imageVerify.Required)
-			if err != nil {
-				ruleResp.Patches = [][]byte{patch}
+			if imageVerify.Required && ruleResp.Status == response.RuleStatusPass {
+				patch, err := makeAddVerifyPatch(imageInfo, digest, imageVerify.Required)
+				if err != nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
+			} else {
+				patch, err := makeAddVerifyPatch(imageInfo, digest, false)
+				if err != nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
 			}
 
 			if ruleResp != nil {
