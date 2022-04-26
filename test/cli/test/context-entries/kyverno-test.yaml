@@ -44,3 +44,8 @@ results:
     resource: example
     kind: Pod
     result: pass
+  - policy: example
+    rule:  wildcard-match
+    resource: example
+    kind: Pod
+    result: pass
