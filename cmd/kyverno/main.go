@@ -524,7 +524,6 @@ func main() {
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go pCacheController.Run(1, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
@@ -537,6 +536,7 @@ func main() {
 	kubeInformer.Start(stopCh)
 	kubeKyvernoInformer.Start(stopCh)
 	kubedynamicInformer.Start(stopCh)
+	pCacheController.CheckPolicySync(stopCh)
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)

@@ -128,32 +128,29 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 
 	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
-	if k8errors.IsNotFound(err) {
-		secret = &v1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: props.Namespace,
-				Annotations: map[string]string{
-					SelfSignedAnnotation: "true",
-					MasterDeploymentUID:  deplHash,
-				},
-				Labels: map[string]string{
-					ManagedByLabel: "kyverno",
-				},
-			},
-			Data: map[string][]byte{
-				RootCAKey: caPEM.Certificate,
-			},
-			Type: v1.SecretTypeOpaque,
-		}
-	}
-
 	if err != nil {
 		if k8errors.IsNotFound(err) {
+			secret = &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: props.Namespace,
+					Annotations: map[string]string{
+						SelfSignedAnnotation: "true",
+						MasterDeploymentUID:  deplHash,
+					},
+					Labels: map[string]string{
+						ManagedByLabel: "kyverno",
+					},
+				},
+				Data: map[string][]byte{
+					RootCAKey: caPEM.Certificate,
+				},
+				Type: v1.SecretTypeOpaque,
+			}
 			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
 				logger.Info("secret created", "name", name, "namespace", props.Namespace)
@@ -201,32 +198,29 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
-	if k8errors.IsNotFound(err) {
-		secret = &v1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: props.Namespace,
-				Annotations: map[string]string{
-					MasterDeploymentUID: deplHash,
-				},
-				Labels: map[string]string{
-					ManagedByLabel: "kyverno",
-				},
-			},
-			Data: map[string][]byte{
-				v1.TLSCertKey:       pemPair.Certificate,
-				v1.TLSPrivateKeyKey: pemPair.PrivateKey,
-			},
-			Type: v1.SecretTypeTLS,
-		}
-	}
-
 	if err != nil {
 		if k8errors.IsNotFound(err) {
+			secret = &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: props.Namespace,
+					Annotations: map[string]string{
+						MasterDeploymentUID: deplHash,
+					},
+					Labels: map[string]string{
+						ManagedByLabel: "kyverno",
+					},
+				},
+				Data: map[string][]byte{
+					v1.TLSCertKey:       pemPair.Certificate,
+					v1.TLSPrivateKeyKey: pemPair.PrivateKey,
+				},
+				Type: v1.SecretTypeTLS,
+			}
 			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
 				logger.Info("secret created", "name", name, "namespace", props.Namespace)
@@ -307,30 +301,30 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 	var managedByKyverno bool
 	snameTLS := GenerateTLSPairSecretName(certProps)
 	snameCA := GenerateRootCASecretName(certProps)
-	unstrSecret, err := c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameTLS, metav1.GetOptions{})
+	secret, err := c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameTLS, metav1.GetOptions{})
 	if err != nil {
 		return false, nil
 	}
 
-	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
 
-	_, ok := unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	_, ok := secret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && !ok {
 		return false, nil
 	}
 
-	unstrSecret, err = c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameCA, metav1.GetOptions{})
+	secret, err = c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameCA, metav1.GetOptions{})
 	if err != nil {
 		return false, nil
 	}
 
-	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
 
-	_, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	_, ok = secret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && !ok {
 		return false, nil
 	}

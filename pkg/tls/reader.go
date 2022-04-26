@@ -34,7 +34,6 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) (res
 
 	sname := GenerateRootCASecretName(certProps)
 	stlsca, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
-	// stlsca, err := client.GetResource("", "Secret", certProps.Namespace, sname)
 	if err != nil {
 		return nil, err
 	}
@@ -73,21 +72,21 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 	var ok, managedByKyverno bool
 
 	sname := GenerateTLSPairSecretName(certProps)
-	unstrSecret, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
 	}
-	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
-	deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
 	// As the root CA used to sign the certificate is required for webhook configuration, check if the corresponding secret is created
-	annotations := unstrSecret.GetAnnotations()
+	annotations := secret.GetAnnotations()
 	if _, ok := annotations[SelfSignedAnnotation]; ok {
 		sname := GenerateRootCASecretName(certProps)
 		_, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
@@ -97,8 +96,8 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 	}
 
 	pemPair := PemPair{
-		Certificate: unstrSecret.Data[v1.TLSCertKey],
-		PrivateKey:  unstrSecret.Data[v1.TLSPrivateKeyKey],
+		Certificate: secret.Data[v1.TLSCertKey],
+		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
 	}
 
 	if len(pemPair.Certificate) == 0 {
