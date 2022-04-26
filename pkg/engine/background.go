@@ -97,7 +97,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 				}
 			}
 		}
-
+		logger.V(4).Info("rule not matched", "reason", err.Error())
 		return nil
 	}
 
