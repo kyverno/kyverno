@@ -146,3 +146,20 @@ spec:
             - key: "{{ to_string(obj.notName) }}"
               operator: NotEquals
               value: 'null'
+  - name: wildcard-match
+    context:
+    - name: obj
+      variable:
+        value: 
+         - A=ATest
+         - B=BTest
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      deny:
+        conditions:
+          - key: "A=*"
+            operator: AnyNotIn
+            value: "{{ obj }}"
