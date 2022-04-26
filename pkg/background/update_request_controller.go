@@ -277,8 +277,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating policy", "name", oldP.Name)
 
-	// get the list of GR for the current Policy version
-	grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(curP.Name)
+	grs, err := c.urLister.GetUpdateRequestsForClusterPolicy(curP.Name)
 	if err != nil {
 		logger.Error(err, "failed to generate request for policy", "name", curP.Name)
 		return
@@ -306,7 +305,7 @@ func (c *Controller) updateGR(old, cur interface{}) {
 	}
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the Generate Request fails due to incorrect policy, it will be requeued during policy update
-	if curGr.Status.State == kyverno.Failed {
+	if curGr.Status.State != kyverno.Pending {
 		return
 	}
 	c.enqueueGenerateRequest(curGr)
@@ -363,7 +362,7 @@ func (c *Controller) updateUR(old, cur interface{}) {
 	}
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the Generate Request fails due to incorrect policy, it will be requeued during policy update
-	if curUr.Status.State == urkyverno.Failed {
+	if curUr.Status.State != urkyverno.Pending {
 		return
 	}
 	c.enqueueGenerateRequest(curUr)
@@ -378,7 +377,7 @@ func (c *Controller) deleteUR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
 			return

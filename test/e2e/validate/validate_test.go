@@ -69,7 +69,7 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 
 		// Create policy
 		By(fmt.Sprintf("Creating policy in \"%s\"", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, "", test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create Flux CRD
@@ -92,7 +92,7 @@ func Test_Validate_Flux_Sets(t *testing.T) {
 		// Create Kustomize resource
 		kustomizeGVR := e2e.GetGVR("kustomize.toolkit.fluxcd.io", "v1beta1", "kustomizations")
 		By(fmt.Sprintf("Creating Kustomize resource in \"%s\"", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(kustomizeGVR, nspace, test.ResourceRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(kustomizeGVR, nspace, "", test.ResourceRaw)
 
 		if test.MustSucceed {
 			Expect(err).NotTo(HaveOccurred())
@@ -169,14 +169,14 @@ func TestValidate(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Policy...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(test.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Resource...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.ResourceRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.PolicyName, test.ResourceRaw)
 
 		statusErr, ok := err.(*k8sErrors.StatusError)
 		validationError := (ok && statusErr.ErrStatus.Code == 400) // Validation error is always Bad Request

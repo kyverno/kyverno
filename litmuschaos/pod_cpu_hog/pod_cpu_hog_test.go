@@ -82,21 +82,21 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 		// ================== Litmus Chaos Experiment ==================
 		// Prepare chaosServiceAccount
 		By(fmt.Sprintf("\nPrepareing Chaos Service Account in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(saGVR, nspace, ChaosServiceAccountYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(saGVR, nspace, "", ChaosServiceAccountYaml)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = e2eClient.CreateNamespacedResourceYaml(rGVR, nspace, ChaosRoleYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(rGVR, nspace, "", ChaosRoleYaml)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, nspace, ChaosRoleBindingYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, nspace, "", ChaosRoleBindingYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Deploy Pod CPU Hog Experiment
 		By(fmt.Sprintf("\nInstalling Litmus Chaos Experiment in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(cpuGVR, nspace, PodCPUHogExperimentYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(cpuGVR, nspace, "", PodCPUHogExperimentYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Prepare Chaos Engine
 		By(fmt.Sprintf("\nCreating ChaosEngine Resource in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(ceGVR, nspace, ChaosEngineYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(ceGVR, nspace, "", ChaosEngineYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		By(fmt.Sprintf("\nMonitoring status from ChaosResult in %s", nspace))
@@ -121,12 +121,12 @@ func Test_Pod_CPU_Hog(t *testing.T) {
 
 		// Create disallow_cri_sock_mount policy
 		By(fmt.Sprintf("\nCreating Enforce Policy in %s", clPolNS))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, DisallowAddingCapabilitiesYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, "", DisallowAddingCapabilitiesYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Deploy disallow_cri_sock_mount policy
 		By(fmt.Sprintf("\nDeploying Enforce Policy in %s", nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(dcsmPolGVR, nspace, resource.manifest)
+		_, err = e2eClient.CreateNamespacedResourceYaml(dcsmPolGVR, nspace, "", resource.manifest)
 		Expect(err).To(HaveOccurred())
 
 		//CleanUp Resources

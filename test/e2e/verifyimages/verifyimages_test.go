@@ -82,7 +82,7 @@ func TestImageVerify(t *testing.T) {
 
 		// Create policy
 		By(fmt.Sprintf("Creating policy in \"%s\"", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		if test.MustSucceed {

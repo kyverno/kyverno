@@ -33,6 +33,8 @@ rules:
     - clusterpolicies/status
     - generaterequests
     - generaterequests/status
+    - updaterequests
+    - updaterequests/status
     - reportchangerequests
     - reportchangerequests/status
     - clusterreportchangerequests

@@ -108,6 +108,7 @@ func NewController(
 	c.pLister = pInformer.Lister()
 	c.npLister = npInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c.nsLister = namespaceInformer.Lister()
 
 	c.pSynced = pInformer.Informer().HasSynced
@@ -148,7 +149,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 		"generate.kyverno.io/policy-name": p.Name,
 	}))
 
-	grList, err := c.grLister.List(selector)
+	grList, err := c.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
 		return
@@ -161,7 +162,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	}
 
 	if !generatePolicyWithClone {
-		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+		grs, err := c.urLister.GetUpdateRequestsForClusterPolicy(p.Name)
 		if err != nil {
 			logger.Error(err, "failed to generate request for the policy", "name", p.Name)
 			return

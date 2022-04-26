@@ -34,7 +34,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              false,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-1",
 	},
 	{
 		TestName:          "test-role-rolebinding-withsync-without-clone",
@@ -44,7 +44,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-2",
 	},
 	{
 		TestName:                   "test-role-rolebinding-with-clone",
@@ -57,7 +57,7 @@ var RoleTests = []struct {
 		CloneNamespace:             "default",
 		Sync:                       false,
 		Data:                       roleRoleBindingYamlWithClone,
-		PolicyName:                 "gen-role-policy",
+		PolicyName:                 "gen-role-policy-3",
 	},
 }
 
@@ -98,7 +98,7 @@ var ClusterRoleTests = []struct {
 		Clone:                  false,
 		Sync:                   false,
 		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
+		PolicyName:             "gen-cluster-policy-1",
 	},
 	{
 		TestName:               "test-clusterrole-clusterrolebinding-with-sync-without-clone",
@@ -108,12 +108,12 @@ var ClusterRoleTests = []struct {
 		Clone:                  false,
 		Sync:                   true,
 		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
+		PolicyName:             "gen-cluster-policy-2",
 	},
 	{
 		TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
-		ClusterRoleName:                   "ns-cluster-role",
-		ClusterRoleBindingName:            "ns-cluster-role-binding",
+		ClusterRoleName:                   "cloned-cluster-role",
+		ClusterRoleBindingName:            "cloned-cluster-role-binding",
 		ResourceNamespace:                 "test",
 		Clone:                             true,
 		ClonerClusterRoleName:             "base-cluster-role",
@@ -121,8 +121,8 @@ var ClusterRoleTests = []struct {
 		CloneSourceClusterRoleData:        baseClusterRoleData,
 		CloneSourceClusterRoleBindingData: baseClusterRoleBindingData,
 		Sync:                              false,
-		Data:                              genClusterRoleYamlWithSync,
-		PolicyName:                        "gen-cluster-policy",
+		Data:                              clusterRoleRoleBindingYamlWithClone,
+		PolicyName:                        "gen-cluster-policy-3",
 	},
 }
 
