@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -195,12 +196,33 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			}
 
+			if imageVerify.Required && ruleResp.Status == response.RuleStatusPass {
+				patch, err := makeAddVerifyPatch(imageInfo, digest, imageVerify.Required)
+				if err != nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
+			} else {
+				patch, err := makeAddVerifyPatch(imageInfo, digest, false)
+				if err != nil {
+					ruleResp.Patches = [][]byte{patch}
+				}
+			}
+
 			if ruleResp != nil {
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 				incrementAppliedCount(iv.resp)
 			}
 		}
 	}
+}
+
+func makeAddVerifyPatch(imageInfo kubeutils.ImageInfo, digest string, verifycheck bool) ([]byte, error) {
+	var patch = make(map[string]interface{})
+	annotationKey := makeAnnotationKey(imageInfo.Name, digest)
+	patch["op"] = "add"
+	patch["path"] = "metadata/annotations/" + annotationKey
+	patch["value"] = strconv.FormatBool(verifycheck)
+	return json.Marshal(patch)
 }
 
 func makeAnnotationKey(imageName, imageDigest string) string {
