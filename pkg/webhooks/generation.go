@@ -1,7 +1,6 @@
 package webhooks
 
 import (
-	"context"
 	contextdefault "context"
 	"encoding/json"
 	"fmt"
@@ -174,7 +173,7 @@ func (ws *WebhookServer) updateAnnotationInGR(gr *urkyverno.UpdateRequest, logge
 		return
 	}
 	new.Status.State = urkyverno.Pending
-	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", gr.Name)
 	}
 }
