@@ -185,16 +185,7 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 }
 
 func (iv *imageVerifier) mutateDigest(digest string, imageInfo kubeutils.ImageInfo, ruleResp *response.RuleResponse) string {
-		var err error
-		if digest == "" {
-			digest, err = fetchImageDigest(imageInfo.String())
-			if err != nil {
-				msg := fmt.Sprintf("failed to fetch image digest from registry: %s", err)
-				ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
-			}
-		}
-
-		err = iv.patchDigest(imageInfo, digest, ruleResp)
+		err := iv.patchDigest(imageInfo, digest, ruleResp)
 		if err != nil {
 			ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 		}
@@ -204,24 +195,16 @@ func (iv *imageVerifier) mutateDigest(digest string, imageInfo kubeutils.ImageIn
 
 func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	if digest != "" {
-		annotationKey := makeAnnotationKey(imageInfo.Name, digest)
-		hasChanged, err := iv.policyContext.JSONContext.HasChanged("request.object.metadata.annotations." + annotationKey)
-		if err != nil {
-			msg := fmt.Sprintf("failed to check annotation changes: %s", err.Error())
-			ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
-		} else if hasChanged {
+		annotationKey := makeAnnotationKeyForJMESPath(imageInfo.Name, digest)
+		if hasChanged, _ := iv.policyContext.JSONContext.HasChanged(annotationKey); hasChanged {
 			msg := "changes to `images.kyverno.io` annotation are not allowed"
 			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 		}
 	}
 
-	if imageVerify.Required && ruleResp.Status == response.RuleStatusPass {
-		patch, err := makeAddVerifyPatch(imageInfo, digest, imageVerify.Required)
-		if err != nil {
-			ruleResp.Patches = [][]byte{patch}
-		}
-	} else {
-		patch, err := makeAddVerifyPatch(imageInfo, digest, false)
+	if imageVerify.Required {
+		isImageVerified := ruleResp.Status == response.RuleStatusPass
+		patch, err := makeImageVerifiedPatch(imageInfo, digest, isImageVerified)
 		if err != nil {
 			ruleResp.Patches = [][]byte{patch}
 		}
@@ -230,13 +213,23 @@ func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ru
 	return ruleResp
 }
 
-func makeAddVerifyPatch(imageInfo kubeutils.ImageInfo, digest string, verifycheck bool) ([]byte, error) {
+func makeImageVerifiedPatch(imageInfo kubeutils.ImageInfo, digest string, verified bool) ([]byte, error) {
 	var patch = make(map[string]interface{})
-	annotationKey := makeAnnotationKey(imageInfo.Name, digest)
+	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name, digest)
 	patch["op"] = "add"
-	patch["path"] = "metadata/annotations/" + annotationKey
-	patch["value"] = strconv.FormatBool(verifycheck)
+	patch["path"] = annotationKey
+	patch["value"] = strconv.FormatBool(verified)
 	return json.Marshal(patch)
+}
+
+func makeAnnotationKeyForJMESPath(imageName, imageDigest string) string {
+	key := makeAnnotationKey(imageName, imageDigest)
+	return "request.object.metadata.annotations." + `"` + key + `"`
+}
+
+func makeAnnotationKeyForJSONPatch(imageName, imageDigest string) string {
+	key := makeAnnotationKey(imageName, imageDigest)
+	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")
 }
 
 func makeAnnotationKey(imageName, imageDigest string) string {

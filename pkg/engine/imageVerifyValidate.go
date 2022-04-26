@@ -76,7 +76,7 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, i
 }
 
 func isImageVerified(ctx *PolicyContext, imageInfo kubeutils.ImageInfo) (bool, error) {
-	key := "request.object.metadata.annotations." + makeAnnotationKey(imageInfo.Name, imageInfo.Digest)
+	key := makeAnnotationKeyForJMESPath(imageInfo.Name, imageInfo.Digest)
 	data, err := ctx.JSONContext.Query(key)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to query annotation for %s", key)
