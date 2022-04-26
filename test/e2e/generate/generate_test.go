@@ -1044,7 +1044,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		// ================================================
 
 		// ======== Create Generate Policy =============
-		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
+		By(fmt.Sprintf("\nCreating Generate Policy %s", tests.PolicyName))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 

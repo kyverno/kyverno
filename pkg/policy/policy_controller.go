@@ -20,7 +20,6 @@ import (
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
-	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -277,17 +276,18 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	// we process policies that are not set of background processing
-	// as we need to clean up GRs when a policy is deleted
-	// skip generate policies with clone
+	pc.enqueueRCRDeletedPolicy(p.Name)
+
+	// do not clean up UR on generate clone (sync=true) policy deletion
 	rules := autogen.ComputeRules(p)
+	for _, r := range rules {
+		clone, sync := r.GetCloneSyncForGenerate()
+		if clone && sync {
+			return
+		}
 
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
-
-	if !generatePolicyWithClone {
-		pc.enqueuePolicy(p)
-		pc.enqueueRCRDeletedPolicy(p.Name)
 	}
+	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
