@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-kyverno-host
+spec:
+  rules:
+  - host: www.kyverno.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/kyverno"
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ingress-foo-host
+spec:
+  rules:
+  - host: www.foo.com
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/foo"
+        backend:
+          service:
+            name: service2
+            port:
+              number: 80
+  - host: "foo.bar.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/bar"
+        backend:
+          service:
+            name: service1
+            port:
+              number: 80
+
+
+
