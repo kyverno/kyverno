@@ -221,7 +221,7 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======== Create Role Policy =============
-		By(fmt.Sprintf("\nCreating Generate Role Policy in %s", clPolNS))
+		By(fmt.Sprintf("\nCreating Generate Role Policy %s", tests.PolicyName))
 		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -233,9 +233,9 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, tests.PolicyName, tests.CloneSourceRoleData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, "", tests.CloneSourceRoleData)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, tests.PolicyName, tests.CloneSourceRoleBindingData)
+			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, "", tests.CloneSourceRoleBindingData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================
@@ -829,7 +829,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, tests.PolicyName, tests.CloneSourceConfigMapData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, "", tests.CloneSourceConfigMapData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================
@@ -1038,7 +1038,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, tests.PolicyName, tests.CloneSourceConfigMapData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, "", tests.CloneSourceConfigMapData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================

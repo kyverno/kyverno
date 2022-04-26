@@ -34,7 +34,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              false,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-1",
 	},
 	{
 		TestName:          "test-role-rolebinding-withsync-without-clone",
@@ -44,7 +44,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-2",
 	},
 	{
 		TestName:                   "test-role-rolebinding-with-clone",
@@ -57,7 +57,7 @@ var RoleTests = []struct {
 		CloneNamespace:             "default",
 		Sync:                       false,
 		Data:                       roleRoleBindingYamlWithClone,
-		PolicyName:                 "gen-role-policy",
+		PolicyName:                 "gen-role-policy-3",
 	},
 }
 
