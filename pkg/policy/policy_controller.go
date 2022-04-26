@@ -285,7 +285,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		if clone && sync {
 			return
 		}
-
 	}
 	pc.enqueuePolicy(p)
 }
@@ -374,10 +373,17 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 	pol := p
 
-	// we process policies that are not set of background processing
-	// as we need to clean up GRs when a policy is deleted
-	pc.enqueuePolicy(pol)
 	pc.enqueueRCRDeletedPolicy(p.Name)
+
+	// do not clean up UR on generate clone (sync=true) policy deletion
+	rules := autogen.ComputeRules(pol)
+	for _, r := range rules {
+		clone, sync := r.GetCloneSyncForGenerate()
+		if clone && sync {
+			return
+		}
+	}
+	pc.enqueuePolicy(pol)
 }
 
 func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyverno.PolicyInterface) {
@@ -547,6 +553,7 @@ func (pc *PolicyController) updateUR(policy kyverno.PolicyInterface, urList []*u
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR for mutateExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name,
 						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+					continue
 				} else {
 					pc.log.V(4).Info("successfully created UR for mutateExisting on policy update", "policy", policy.GetName(), "rule", rule.Name,
 						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
@@ -654,9 +661,15 @@ func updateUR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			gr.SetLabels(grLabels)
 
-			_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", gr.GetName())
+				continue
+			}
+
+			new.Status.State = urkyverno.Pending
+			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed to set UpdateRequest state to Pending")
 			}
 		}
 	}

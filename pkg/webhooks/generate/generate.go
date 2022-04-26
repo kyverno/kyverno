@@ -139,10 +139,16 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec urkyverno.Update
 				v.Spec.Policy = gr.Spec.Policy
 				v.Spec.Resource = gr.Spec.Resource
 
-				_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+				new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 				if err != nil {
 					return err
 				}
+
+				new.Status.State = urkyverno.Pending
+				if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+					logger.Error(err, "failed to set UpdateRequest state to Pending")
+				}
+
 				isExist = true
 			}
 
@@ -154,10 +160,16 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec urkyverno.Update
 					"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
 					"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
 				})
-				_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
+				new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}
+
+				new.Status.State = urkyverno.Pending
+				if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+					logger.Error(err, "failed to set UpdateRequest state to Pending")
+				}
+
 			}
 		}
 
