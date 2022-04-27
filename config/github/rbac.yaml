@@ -11,6 +11,9 @@ rules:
       - clusterroles
       - rolebindings
       - clusterrolebindings
+      - secrets
+      - configmaps
+      - deployments
     verbs:
       - create
       - delete

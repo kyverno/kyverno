@@ -8,6 +8,8 @@ import (
 
 var podGVR = e2e.GetGVR("", "v1", "pods")
 var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+var configmGVR = e2e.GetGVR("", "v1", "configmaps")
+var secretGVR = e2e.GetGVR("", "v1", "secrets")
 
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
@@ -667,4 +669,281 @@ spec:
       path: /var/local/aaa
       type: DirectoryOrCreate
     name: test-volume
+`)
+
+var policyCreateTrigger = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "test-post-mutation-create-trigger"
+spec:
+  rules:
+    - name: "mutate-deploy-on-configmap-create"
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-1
+            namespaces:
+            - staging-1
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-1
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: "{{ request.object.metadata.name }}"
+`)
+
+var triggerCreateTrigger = []byte(`
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  labels:
+    test: createTrigger
+  name: dictionary-1
+  namespace: staging-1
+`)
+
+var targetCreateTrigger = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-1
+  namespace: staging-1
+  labels:
+    test: createTrigger
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var expectedTargetCreateTrigger = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-1
+  namespace: staging-1
+  labels:
+    test: createTrigger
+    foo: dictionary-1
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var policyDeleteTrigger = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "test-post-mutation-delete-trigger"
+spec:
+  rules:
+    - name: "mutate-deploy-on-configmap-delete"
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-2
+            namespaces:
+            - staging-2
+      preconditions:
+        any:
+        - key: "{{ request.operation }}"
+          operator: Equals
+          value: DELETE
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-2
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: "{{ request.object.metadata.name }}"
+`)
+
+var triggerDeleteTrigger = []byte(`
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  labels:
+    test: deleteTrigger
+  name: dictionary-2
+  namespace: staging-2
+`)
+
+var targetDeleteTrigger = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-2
+  namespace: staging-2
+  labels:
+    test: deleteTrigger
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var expectedTargetDeleteTrigger = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-2
+  namespace: staging-2
+  labels:
+    test: deleteTrigger
+    foo: dictionary-2
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var policyCreatePolicy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "test-post-mutation-create-policy"
+spec:
+  rules:
+    - name: "mutate-deploy-on-policy-create"
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-3
+            namespaces:
+            - staging-3
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-3
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchStrategicMerge:
+          metadata:
+            labels:
+              foo: "{{ request.object.metadata.name }}"
+`)
+
+var triggerCreatePolicy = []byte(`
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  labels:
+    test: createPolicy
+  name: dictionary-3
+  namespace: staging-3
+`)
+
+var targetCreatePolicy = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-3
+  namespace: staging-3
+  labels:
+    test: createPolicy
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var expectedTargetCreatePolicy = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-3
+  namespace: staging-3
+  labels:
+    test: createPolicy
+    foo: dictionary-3
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var policyCreateTriggerJsonPatch = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "test-post-mutation"
+spec:
+  rules:
+    - name: "mutate-deploy-on-configmap-update"
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            names:
+            - dictionary-4
+            namespaces:
+            - staging-4
+      mutate:
+        targets:
+        - apiVersion: v1
+          kind: Secret
+          name: test-secret-4
+          namespace: "{{ request.object.metadata.namespace }}"
+        patchesJson6902: |-
+          - op: add
+            path: "/metadata/labels/env"
+            value: "{{ request.object.metadata.namespace }}"  
+`)
+
+var triggerCreateTriggerJsonPatch = []byte(`
+apiVersion: v1
+data:
+  foo: bar
+kind: ConfigMap
+metadata:
+  labels:
+    test: createTrigger
+  name: dictionary-4
+  namespace: staging-4
+`)
+
+var targetCreateTriggerJsonPatch = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-4
+  namespace: staging-4
+  labels:
+    test: createTrigger
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
+`)
+
+var expectedCreateTriggerJsonPatch = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secret-4
+  namespace: staging-4
+  labels:
+    test: createTrigger
+    env: staging-4
+type: Opaque
+data:
+  value: Z29vZGJ5ZQ==
 `)
