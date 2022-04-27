@@ -17,6 +17,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -750,7 +751,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	// get the user info as request info from a different file
-	var userInfo v1.RequestInfo
+	var userInfo v1beta1.RequestInfo
 	if userInfoFile != "" {
 		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {

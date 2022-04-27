@@ -4,12 +4,12 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
+func (c *Controller) processGR(gr urkyverno.UpdateRequest) error {
 	logger := c.log.WithValues("kind", gr.Kind, "namespace", gr.Namespace, "name", gr.Name)
 	// 1- Corresponding policy has been deleted
 	// then we don't delete the generated resources
@@ -44,7 +44,7 @@ func (c *Controller) processGR(gr kyverno.GenerateRequest) error {
 	return nil
 }
 
-func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) bool {
+func ownerResourceExists(log logr.Logger, client *dclient.Client, gr urkyverno.UpdateRequest) bool {
 	_, err := client.GetResource("", gr.Spec.Resource.Kind, gr.Spec.Resource.Namespace, gr.Spec.Resource.Name)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
@@ -58,7 +58,7 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, gr kyverno.Gen
 	return true
 }
 
-func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr kyverno.GenerateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client *dclient.Client, gr urkyverno.UpdateRequest) error {
 	for _, genResource := range gr.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {

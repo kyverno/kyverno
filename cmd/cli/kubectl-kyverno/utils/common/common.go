@@ -2,10 +2,8 @@ package common
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -13,21 +11,21 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -35,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	k8syaml "sigs.k8s.io/yaml"
 )
 
 type ResultCounts struct {
@@ -52,8 +49,9 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
+	Name          string              `json:"name"`
+	Values        map[string]string   `json:"values"`
+	ForeachValues map[string][]string `json:"foreachValues"`
 }
 
 type Values struct {
@@ -183,7 +181,7 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
 	}
-	policyBytes, _ := json.Marshal(policy)
+	policyBytes, err := json.Marshal(policy)
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
 	}
@@ -198,79 +196,6 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	}
 
 	return &p, nil
-}
-
-// GetCRDs - Extracting the crds from multiple YAML
-func GetCRDs(paths []string) (unstructuredCrds []*unstructured.Unstructured, err error) {
-	unstructuredCrds = make([]*unstructured.Unstructured, 0)
-	for _, path := range paths {
-		path = filepath.Clean(path)
-
-		fileDesc, err := os.Stat(path)
-		if err != nil {
-			return nil, err
-		}
-
-		if fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", path), err)
-			}
-
-			listOfFiles := make([]string, 0)
-			for _, file := range files {
-				listOfFiles = append(listOfFiles, filepath.Join(path, file.Name()))
-			}
-
-			policiesFromDir, err := GetCRDs(listOfFiles)
-			if err != nil {
-				return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to extract crds from %v", listOfFiles), err)
-			}
-
-			unstructuredCrds = append(unstructuredCrds, policiesFromDir...)
-		} else {
-			getCRDs, err := GetCRD(path)
-			if err != nil {
-				fmt.Printf("\nError: failed to extract crds from %s.  \nCause: %s\n", path, err)
-				os.Exit(2)
-			}
-			unstructuredCrds = append(unstructuredCrds, getCRDs...)
-		}
-	}
-	return unstructuredCrds, nil
-}
-
-// GetCRD - Extracts crds from a YAML
-func GetCRD(path string) (unstructuredCrds []*unstructured.Unstructured, err error) {
-	path = filepath.Clean(path)
-	unstructuredCrds = make([]*unstructured.Unstructured, 0)
-	// We accept the risk of including a user provided file here.
-	yamlbytes, err := ioutil.ReadFile(path) // #nosec G304
-	if err != nil {
-		return nil, err
-	}
-
-	buf := bytes.NewBuffer(yamlbytes)
-	reader := yaml.NewYAMLReader(bufio.NewReader(buf))
-
-	for {
-		// Read one YAML document at a time, until io.EOF is returned
-		b, err := reader.Read()
-		if err == io.EOF || len(b) == 0 {
-			break
-		} else if err != nil {
-			fmt.Printf("\nError: unable to read crd from %s. Cause: %s\n", path, err)
-			os.Exit(2)
-		}
-		var u unstructured.Unstructured
-		err = k8syaml.Unmarshal(b, &u)
-		if err != nil {
-			return nil, err
-		}
-		unstructuredCrds = append(unstructuredCrds, &u)
-	}
-
-	return unstructuredCrds, nil
 }
 
 // IsInputFromPipe - check if input is passed using pipe
@@ -405,8 +330,9 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range ruleMap {
 			storeRules = append(storeRules, store.Rule{
-				Name:   rule.Name,
-				Values: rule.Values,
+				Name:          rule.Name,
+				Values:        rule.Values,
+				ForeachValues: rule.ForeachValues,
 			})
 		}
 		storePolicies = append(storePolicies, store.Policy{
@@ -442,7 +368,7 @@ func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error)
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1.RequestInfo, policyReport bool,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
@@ -595,7 +521,7 @@ OuterLoop:
 			JSONContext:     context.NewContext(),
 			NamespaceLabels: namespaceLabels,
 		}
-		generateResponse := engine.Generate(policyContext)
+		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil {
 			engineResponses = append(engineResponses, generateResponse)
 		}
@@ -1051,8 +977,8 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 }
 
 //GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1.RequestInfo, error) {
-	userInfo := &v1.RequestInfo{}
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, error) {
+	userInfo := &v1beta1.RequestInfo{}
 
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))

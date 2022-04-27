@@ -3,14 +3,15 @@ package cleanup
 import (
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"k8s.io/client-go/kubernetes"
-
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -19,6 +20,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	corelister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -55,6 +57,9 @@ type Controller struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 
+	// urLister can list/get update request from the shared informer's store
+	urLister urkyvernolister.UpdateRequestNamespaceLister
+
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
@@ -67,11 +72,11 @@ type Controller struct {
 	// grSynced returns true if the generate request store has been synced at least once
 	grSynced cache.InformerSynced
 
+	// urSynced returns true if the update request store has been synced at least once
+	urSynced cache.InformerSynced
+
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
-
-	// namespaceInformer for re-evaluation on namespace updates
-	namespaceInformer coreinformers.NamespaceInformer
 
 	// logger
 	log logr.Logger
@@ -85,17 +90,17 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urkyvernoinformer.UpdateRequestInformer,
 	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{
-		kyvernoClient:     kyvernoclient,
-		client:            client,
-		pInformer:         pInformer,
-		grInformer:        grInformer,
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		namespaceInformer: namespaceInformer,
-		log:               log,
+		kyvernoClient: kyvernoclient,
+		client:        client,
+		pInformer:     pInformer,
+		grInformer:    grInformer,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
+		log:           log,
 	}
 
 	c.control = Control{client: kyvernoclient}
@@ -103,11 +108,13 @@ func NewController(
 	c.pLister = pInformer.Lister()
 	c.npLister = npInformer.Lister()
 	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c.nsLister = namespaceInformer.Lister()
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.npSynced = npInformer.Informer().HasSynced
 	c.grSynced = grInformer.Informer().HasSynced
+	c.urSynced = urInformer.Informer().HasSynced
 	c.nsListerSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
@@ -142,7 +149,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 		"generate.kyverno.io/policy-name": p.Name,
 	}))
 
-	grList, err := c.grLister.List(selector)
+	grList, err := c.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
 		return
@@ -155,7 +162,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	}
 
 	if !generatePolicyWithClone {
-		grs, err := c.grLister.GetGenerateRequestsForClusterPolicy(p.Name)
+		grs, err := c.urLister.GetUpdateRequestsForClusterPolicy(p.Name)
 		if err != nil {
 			logger.Error(err, "failed to generate request for the policy", "name", p.Name)
 			return
@@ -163,24 +170,24 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 		for _, gr := range grs {
 			logger.V(4).Info("enqueue the gr for cleanup", "gr name", gr.Name)
-			c.addGR(gr)
+			c.addUR(gr)
 		}
 	}
 }
 
-func (c *Controller) addGR(obj interface{}) {
-	gr := obj.(*kyverno.GenerateRequest)
+func (c *Controller) addUR(obj interface{}) {
+	gr := obj.(*urkyverno.UpdateRequest)
 	c.enqueue(gr)
 }
 
-func (c *Controller) updateGR(old, cur interface{}) {
-	gr := cur.(*kyverno.GenerateRequest)
+func (c *Controller) updateUR(old, cur interface{}) {
+	gr := cur.(*urkyverno.UpdateRequest)
 	c.enqueue(gr)
 }
 
-func (c *Controller) deleteGR(obj interface{}) {
+func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	gr, ok := obj.(*kyverno.GenerateRequest)
+	gr, ok := obj.(*urkyverno.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
@@ -188,7 +195,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			return
 		}
 
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
 			return
@@ -215,9 +222,9 @@ func (c *Controller) deleteGR(obj interface{}) {
 	c.enqueue(gr)
 }
 
-func (c *Controller) enqueue(gr *kyverno.GenerateRequest) {
+func (c *Controller) enqueue(gr *urkyverno.UpdateRequest) {
 	// skip enqueueing Pending requests
-	if gr.Status.State == kyverno.Pending {
+	if gr.Status.State == urkyverno.Pending {
 		return
 	}
 
@@ -240,7 +247,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.npSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.urSynced, c.npSynced, c.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -250,9 +257,9 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	})
 
 	c.grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addGR,
-		UpdateFunc: c.updateGR,
-		DeleteFunc: c.deleteGR,
+		AddFunc:    c.addUR,
+		UpdateFunc: c.updateUR,
+		DeleteFunc: c.deleteUR,
 	})
 
 	for i := 0; i < workers; i++ {
@@ -320,7 +327,7 @@ func (c *Controller) syncGenerateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-	gr, err := c.grLister.Get(grName)
+	gr, err := c.urLister.Get(grName)
 	if err != nil {
 		return err
 	}

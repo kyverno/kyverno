@@ -110,7 +110,7 @@ string
 <td>
 <code>operation</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#operation-v1-admission">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#operation-v1-admission">
 Kubernetes admission/v1.Operation
 </a>
 </em>
@@ -398,6 +398,36 @@ automatically generating rules.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.CTLog">CTLog
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>url</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.CloneFrom">CloneFrom
 </h3>
 <p>
@@ -459,7 +489,7 @@ string
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -787,6 +817,19 @@ ImageRegistry
 details.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>variable</code></br>
+<em>
+<a href="#kyverno.io/v1.Variable">
+Variable
+</a>
+</em>
+</td>
+<td>
+<p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1047,7 +1090,7 @@ Deny
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -1581,6 +1624,18 @@ If specified Repository will override the default OCI image repository configure
 The repository can also be overridden per Attestor or Attestation.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>mutateDigest</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths.
+Defaults to true.</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -1600,6 +1655,21 @@ The repository can also be overridden per Attestor or Attestation.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>rekor</code></br>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>Rekor provides information of the Rekor transparency log service. If the value is nil,
+Rekor is not checked and a root certificate chain is expected instead. If an empty object
+is provided the public instance of Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>issuer</code></br>
@@ -1762,6 +1832,35 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
+<code>mutateExisting</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>mutateExisting controls whether to mutate existing resource ONLY
+The existing resources will be mutated ONLY if set to &ldquo;true&rdquo;.
+Otherwise all resources including admission requests are mutated.
+Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>targets</code></br>
+<em>
+<a href="#kyverno.io/v1.TargetMutation">
+[]TargetMutation
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Targets defines the target resources to be mutated.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>patchStrategicMerge</code></br>
 <em>
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
@@ -1822,7 +1921,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/">https://kyverno.io/docs
 <td>
 <code>metadata</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#objectmeta-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
 </a>
 </em>
@@ -2009,7 +2108,7 @@ Deprecated in favor of Conditions</p>
 <td>
 <code>conditions</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#condition-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#condition-v1-meta">
 []Kubernetes meta/v1.Condition
 </a>
 </em>
@@ -2095,7 +2194,7 @@ auto generated rules added for pod controllers</p>
 <td>
 <code>userInfo</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#userinfo-v1-authentication">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#userinfo-v1-authentication">
 Kubernetes authentication/v1.UserInfo
 </a>
 </em>
@@ -2148,7 +2247,8 @@ string
 <td>
 <em>(Optional)</em>
 <p>Name is the name of the resource. The name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
+NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -2161,8 +2261,7 @@ string
 <td>
 <em>(Optional)</em>
 <p>Names are the names of the resources. Each name supports wildcard characters
-&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).
-NOTE: &ldquo;Name&rdquo; is being deprecated in favor of &ldquo;Names&rdquo;.</p>
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
 </td>
 </tr>
 <tr>
@@ -2196,7 +2295,7 @@ and values support the wildcard characters &ldquo;*&rdquo; (matches zero or many
 <td>
 <code>selector</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -2213,7 +2312,7 @@ using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but d
 <td>
 <code>namespaceSelector</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#labelselector-v1-meta">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
 Kubernetes meta/v1.LabelSelector
 </a>
 </em>
@@ -2288,7 +2387,8 @@ ResourceDescription
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
 <a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
-<a href="#kyverno.io/v1.Generation">Generation</a>)
+<a href="#kyverno.io/v1.Generation">Generation</a>, 
+<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
 </p>
 <p>
 <p>ResourceSpec contains information to identify a resource.</p>
@@ -2661,9 +2761,11 @@ string
 </em>
 </td>
 <td>
-<p>Key is an X.509 public key used to verify image signatures. The key can be directly
+<p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
-<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>.</p>
+<a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
+key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+attestors and the count is applied across the keys.</p>
 </td>
 </tr>
 <tr>
@@ -2689,6 +2791,39 @@ string
 <td>
 <p>Roots is an optional set of PEM encoded trusted root certificates.
 If not provided, the system roots are used.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.TargetMutation">TargetMutation
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>ResourceSpec</code></br>
+<em>
+<a href="#kyverno.io/v1.ResourceSpec">
+ResourceSpec
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ResourceSpec specifies the target resource information.</p>
 </td>
 </tr>
 </tbody>
@@ -2740,7 +2875,7 @@ If not provided, the system roots are used.</p>
 <td>
 <code>subjects</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#subject-v1-rbac">
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#subject-v1-rbac">
 []Kubernetes rbac/v1.Subject
 </a>
 </em>
@@ -2884,6 +3019,64 @@ ValidationFailureAction
 </em>
 </td>
 <td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.Variable">Variable
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ContextEntry">ContextEntry</a>)
+</p>
+<p>
+<p>Variable defines an arbitrary JMESPath context variable that can be defined inline.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>value</code></br>
+<em>
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value is any arbitrary JSON object representable in YAML or JSON form.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>jmesPath</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>JMESPath is an optional JMESPath Expression that can be used to
+transform the variable.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>default</code></br>
+<em>
+k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Default is an optional arbitrary JSON object that the variable may take if the JMESPath
+expression evaluates to nil</p>
 </td>
 </tr>
 </tbody>

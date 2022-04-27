@@ -18,10 +18,16 @@ limitations under the License.
 
 package v1beta1
 
+import (
+	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+)
+
 // UpdateRequestListerExpansion allows custom methods to be added to
 // UpdateRequestLister.
 type UpdateRequestListerExpansion interface{}
 
 // UpdateRequestNamespaceListerExpansion allows custom methods to be added to
 // UpdateRequestNamespaceLister.
-type UpdateRequestNamespaceListerExpansion interface{}
+type UpdateRequestNamespaceListerExpansion interface {
+	GetUpdateRequestsForClusterPolicy(policy string) ([]*v1beta1.UpdateRequest, error)
+}

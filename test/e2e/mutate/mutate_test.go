@@ -77,12 +77,12 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create source CM
 		By(fmt.Sprintf("\nCreating source ConfigMap in %s", tests.ResourceNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, sourceConfigMapYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, "", sourceConfigMapYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create CM Policy
 		By(fmt.Sprintf("\nCreating Mutate ConfigMap Policy in %s", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, tests.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, "", tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)
@@ -90,7 +90,7 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create target CM
 		By(fmt.Sprintf("\nCreating target ConfigMap in %s", tests.ResourceNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, targetConfigMapYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, "", targetConfigMapYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify created ConfigMap
@@ -180,14 +180,14 @@ func Test_Mutate(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Policy...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(test.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Resource...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.ResourceRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, "", test.ResourceRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking that resource is created...")
@@ -291,7 +291,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 		By(fmt.Sprintf("\n\nStart testing %s", test.testName))
 		gvr := e2e.GetGVR(test.group, test.version, test.rsc)
 		By(fmt.Sprintf("Creating Ingress %v in %s", gvr, nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, test.resource)
+		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, "", test.resource)
 		Expect(err).NotTo(HaveOccurred())
 
 		By(fmt.Sprintf("Verifying Ingress %v in the Namespace : %s", gvr, nspace))

@@ -87,6 +87,25 @@ func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
 }
 
+// IsMutatingExisting checks if the mutate rule applies to existing resources
+func (r *Rule) IsMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
+// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
+func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+	if !r.HasGenerate() {
+		return
+	}
+
+	if r.Generation.Clone.Name != "" {
+		clone = true
+		sync = r.Generation.Synchronize
+	}
+
+	return
+}
+
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }
