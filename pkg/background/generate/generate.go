@@ -349,7 +349,7 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if !processExisting {
+		if policy.BackgroundProcessingEnabled() && rule.IsGenerateExisting() || !processExisting {
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.GetName(), ur)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
@@ -358,6 +358,10 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
 			genResources = append(genResources, genResource)
+		}
+
+		if rule.Generation.GenerateExisting {
+			processExisting = false
 		}
 	}
 
@@ -455,6 +459,12 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, res
 	common.ManageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
+
+	// Add background gen-rule label if generate rule applied on existing resource
+	if rule.IsGenerateExisting() {
+		label["kyverno.io/background-gen-rule"] = rule.Name
+	}
+
 	label["policy.kyverno.io/policy-name"] = policy
 	label["policy.kyverno.io/gr-name"] = ur.Name
 	if mode == Create {
