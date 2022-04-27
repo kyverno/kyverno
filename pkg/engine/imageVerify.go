@@ -294,7 +294,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 
 func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
-	iv.logger.V(1).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
+	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
 	var digest string
 	for i, attestorSet := range imageVerify.Attestors {
