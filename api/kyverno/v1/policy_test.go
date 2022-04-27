@@ -34,8 +34,8 @@ func Test_Policy_IsNamespaced(t *testing.T) {
 			Name: "this-is-a-way-too-long-policy-name-that-should-trigger-an-error-when-calling-the-policy-validation-method",
 		},
 	}
-	assert.Equal(t, namespaced.IsNamespaced(), false)
-	assert.Equal(t, notNamespaced.IsNamespaced(), false)
+	assert.Equal(t, namespaced.IsNamespaced(), true)
+	assert.Equal(t, notNamespaced.IsNamespaced(), true)
 }
 
 func Test_Policy_Autogen_All(t *testing.T) {

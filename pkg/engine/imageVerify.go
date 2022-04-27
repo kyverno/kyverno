@@ -94,7 +94,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(&imageVerify, ruleImages)
+			iv.verify(imageVerify, ruleImages)
 		}
 	}
 
@@ -136,9 +136,9 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
 	// for backward compatibility
-	imageVerify = imageVerify.Convert()
+	imageVerify = *imageVerify.Convert()
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
@@ -215,7 +215,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.Info("verifying image", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
@@ -223,7 +223,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	for i, attestorSet := range imageVerify.Attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
-		digest, err = iv.verifyAttestorSet(&attestorSet, imageVerify, image, path)
+		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
@@ -235,7 +235,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
+func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -252,10 +252,10 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
+				digest, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, image, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(&a, imageVerify, image)
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
 			digest, entryError = cosign.VerifySignature(*opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
@@ -278,7 +278,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 	return "", err
 }
 
-func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
+func expandStaticKeys(attestorSet v1.AttestorSet) v1.AttestorSet {
 	var entries []v1.Attestor
 	for _, e := range attestorSet.Entries {
 		if e.StaticKey != nil {
@@ -293,7 +293,7 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 		entries = append(entries, e)
 	}
 
-	return &v1.AttestorSet{
+	return v1.AttestorSet{
 		Count:   attestorSet.Count,
 		Entries: entries,
 	}
@@ -325,7 +325,7 @@ func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []v1.Att
 	return attestors
 }
 
-func getRequiredCount(as *v1.AttestorSet) int {
+func getRequiredCount(as v1.AttestorSet) int {
 	if as.Count == nil || *as.Count == 0 {
 		return len(as.Entries)
 	}
@@ -333,7 +333,7 @@ func getRequiredCount(as *v1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v1.ImageVerification, image string) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -401,7 +401,7 @@ func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest strin
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 

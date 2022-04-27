@@ -84,7 +84,7 @@ func (p *Policy) GetSpec() *Spec {
 
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *Policy) IsNamespaced() bool {
-	return false
+	return true
 }
 
 // IsReady indicates if the policy is ready to serve the admission request

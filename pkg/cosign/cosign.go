@@ -178,7 +178,7 @@ func loadCertPool(roots []byte) (*x509.CertPool, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, imageVerify *v1.ImageVerification, log logr.Logger) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, imageVerify v1.ImageVerification, log logr.Logger) ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	var err error
 
