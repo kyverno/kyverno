@@ -489,7 +489,7 @@ func Test_ExpandKeys(t *testing.T) {
 
 func createStaticKeyAttestorSet(s string) *kyverno.AttestorSet {
 	return &kyverno.AttestorSet{
-		Entries: []*kyverno.Attestor{
+		Entries: []kyverno.Attestor{
 			{
 				StaticKey: &kyverno.StaticKeyAttestor{
 					Keys: s,
