@@ -105,7 +105,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -218,6 +218,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		kubeClient,
 		pclient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -251,13 +252,9 @@ func main() {
 		excludeUsername,
 		prgen.ReconcileCh,
 		webhookCfg.UpdateWebhookChan,
-		log.Log.WithName("ConfigData"),
 	)
 
-	metricsConfigData, err := config.NewMetricsConfigData(
-		kubeClient,
-		log.Log.WithName("MetricsConfigData"),
-	)
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to fetch metrics config")
 		os.Exit(1)
@@ -372,7 +369,7 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeClient,

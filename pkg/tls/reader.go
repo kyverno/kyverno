@@ -1,28 +1,28 @@
 package tls
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 var ErrorsNotFound = "root CA certificate not found"
 
 // ReadRootCASecret returns the RootCA from the pre-defined secret
-func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []byte, err error) {
+func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) (result []byte, err error) {
 	certProps, err := GetTLSCertProps(restConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
@@ -33,7 +33,7 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 	var ok, managedByKyverno bool
 
 	sname := GenerateRootCASecretName(certProps)
-	stlsca, err := client.GetResource("", "Secret", certProps.Namespace, sname)
+	stlsca, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -46,27 +46,22 @@ func ReadRootCASecret(restConfig *rest.Config, client *client.Client) (result []
 		return nil, fmt.Errorf("outdated secret")
 	}
 
-	tlsca, err := convertToSecret(stlsca)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert secret %s/%s", certProps.Namespace, sname)
-	}
-
-	result = tlsca.Data[RootCAKey]
+	result = stlsca.Data[RootCAKey]
 	if len(result) == 0 {
-		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, tlsca.Name)
+		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, stlsca.Name)
 	}
 
 	return result, nil
 }
 
 // ReadTLSPair returns the pem pair from the pre-defined secret
-func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, error) {
+func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair, error) {
 	certProps, err := GetTLSCertProps(restConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.GetResource("", "Deployment", certProps.Namespace, config.KyvernoDeploymentName)
+	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
@@ -77,31 +72,27 @@ func ReadTLSPair(restConfig *rest.Config, client *client.Client) (*PemPair, erro
 	var ok, managedByKyverno bool
 
 	sname := GenerateTLSPairSecretName(certProps)
-	unstrSecret, err := client.GetResource("", "Secret", certProps.Namespace, sname)
+	secret, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get secret %s/%s: %v", certProps.Namespace, sname, err)
 	}
-	if label, ok := unstrSecret.GetLabels()[ManagedByLabel]; ok {
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
-	deplHashSec, ok = unstrSecret.GetAnnotations()[MasterDeploymentUID]
+	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
 	// As the root CA used to sign the certificate is required for webhook configuration, check if the corresponding secret is created
-	annotations := unstrSecret.GetAnnotations()
+	annotations := secret.GetAnnotations()
 	if _, ok := annotations[SelfSignedAnnotation]; ok {
 		sname := GenerateRootCASecretName(certProps)
-		_, err := client.GetResource("", "Secret", certProps.Namespace, sname)
+		_, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("rootCA secret is required while using self-signed certificate TLS pair, defaulting to generating new TLS pair  %s/%s", certProps.Namespace, sname)
 		}
-	}
-	secret, err := convertToSecret(unstrSecret)
-	if err != nil {
-		return nil, err
 	}
 
 	pemPair := PemPair{
@@ -132,12 +123,4 @@ func GetTLSCertProps(configuration *rest.Config) (certProps CertificateProps, er
 		APIServerHost: apiServerURL.Hostname(),
 	}
 	return certProps, nil
-}
-
-func convertToSecret(obj *unstructured.Unstructured) (v1.Secret, error) {
-	secret := v1.Secret{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &secret); err != nil {
-		return secret, err
-	}
-	return secret, nil
 }

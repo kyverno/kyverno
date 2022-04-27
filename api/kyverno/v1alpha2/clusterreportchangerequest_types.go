@@ -70,7 +70,3 @@ type ClusterReportChangeRequestList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ClusterReportChangeRequest `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&ClusterReportChangeRequest{}, &ClusterReportChangeRequestList{})
-}
