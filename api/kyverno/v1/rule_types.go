@@ -64,7 +64,7 @@ type Rule struct {
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // HasMutate checks for mutate rule

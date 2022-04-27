@@ -135,6 +135,7 @@ Kubernetes admission/v1.Operation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
@@ -191,6 +192,10 @@ Here, all of the conditions need to pass</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
 <p>Attestation are checks for signed in-toto Statements that are used to verify the image.
 See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
 OCI registry and decodes them into a list of Statements.</p>
@@ -218,8 +223,8 @@ string
 <td>
 <code>conditions</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
+<a href="#kyverno.io/v1.AnyAllConditions">
+[]AnyAllConditions
 </a>
 </em>
 </td>
@@ -234,6 +239,10 @@ the attestation check is satisfied as long there are predicates that match the p
 <hr />
 <h3 id="kyverno.io/v1.Attestor">Attestor
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.AttestorSet">AttestorSet</a>)
+</p>
 <p>
 </p>
 <table class="table table-striped">
@@ -315,6 +324,10 @@ If specified Repository will override other OCI image repository locations for t
 <h3 id="kyverno.io/v1.AttestorSet">AttestorSet
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -341,8 +354,8 @@ value N, then N must be less than or equal to the size of entries, and at least 
 <td>
 <code>entries</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.Attestor">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.Attestor
+<a href="#kyverno.io/v1.Attestor">
+[]Attestor
 </a>
 </em>
 </td>
@@ -897,6 +910,10 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
+</p>
+<p>
 <p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
@@ -983,6 +1000,10 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>)
+</p>
 <p>
 <p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
@@ -1495,6 +1516,10 @@ the image reference.</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Rule">Rule</a>)
+</p>
+<p>
 <p>ImageVerification validates that images that match the specified pattern
 are signed with the supplied public key. Once the image is verified it is
 mutated to include the SHA digest retrieved during the registration.</p>
@@ -1598,8 +1623,8 @@ Deprecated.</p>
 <td>
 <code>attestors</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.AttestorSet">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.AttestorSet
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
 </a>
 </em>
 </td>
@@ -1611,8 +1636,8 @@ Deprecated.</p>
 <td>
 <code>attestations</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.Attestation">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.Attestation
+<a href="#kyverno.io/v1.Attestation">
+[]Attestation
 </a>
 </em>
 </td>
@@ -1917,8 +1942,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ForEachMutation">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.ForEachMutation
+<a href="#kyverno.io/v1.ForEachMutation">
+[]ForEachMutation
 </a>
 </em>
 </td>
@@ -2633,8 +2658,8 @@ Generation
 <td>
 <code>verifyImages</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification
+<a href="#kyverno.io/v1.ImageVerification">
+[]ImageVerification
 </a>
 </em>
 </td>
@@ -2952,8 +2977,8 @@ string
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*github.com/kyverno/kyverno/api/kyverno/v1.ForEachValidation">
-[]*github.com/kyverno/kyverno/api/kyverno/v1.ForEachValidation
+<a href="#kyverno.io/v1.ForEachValidation">
+[]ForEachValidation
 </a>
 </em>
 </td>
@@ -3263,8 +3288,8 @@ PolicyReportSummary
 <td>
 <code>results</code></br>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult">
-[]*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
 </a>
 </em>
 </td>
@@ -3350,8 +3375,8 @@ PolicyReportSummary
 <td>
 <code>results</code></br>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult">
-[]*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
 </a>
 </em>
 </td>
@@ -3877,8 +3902,8 @@ PolicyReportSummary
 <td>
 <code>results</code></br>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult">
-[]*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
 </a>
 </em>
 </td>
@@ -3981,8 +4006,8 @@ PolicyReportSummary
 <td>
 <code>results</code></br>
 <em>
-<a href="#wgpolicyk8s.io/v1alpha2.*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult">
-[]*github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReportResult">
+[]PolicyReportResult
 </a>
 </em>
 </td>
@@ -3996,6 +4021,13 @@ PolicyReportSummary
 <hr />
 <h3 id="wgpolicyk8s.io/v1alpha2.PolicyReportResult">PolicyReportResult
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#wgpolicyk8s.io/v1alpha2.ClusterPolicyReport">ClusterPolicyReport</a>, 
+<a href="#wgpolicyk8s.io/v1alpha2.PolicyReport">PolicyReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest</a>, 
+<a href="#kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest</a>)
+</p>
 <p>
 <p>PolicyReportResult provides the result for an individual policy</p>
 </p>
@@ -4046,8 +4078,8 @@ string
 <td>
 <code>resources</code></br>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#*k8s.io/api/core/v1.objectreference--">
-[]*k8s.io/api/core/v1.ObjectReference
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
+[]Kubernetes core/v1.ObjectReference
 </a>
 </em>
 </td>

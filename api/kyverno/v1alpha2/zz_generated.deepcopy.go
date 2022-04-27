@@ -44,13 +44,9 @@ func (in *ClusterReportChangeRequest) DeepCopyInto(out *ClusterReportChangeReque
 	out.Summary = in.Summary
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results
-		*out = make([]*policyreportv1alpha2.PolicyReportResult, len(*in))
+		*out = make([]policyreportv1alpha2.PolicyReportResult, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(policyreportv1alpha2.PolicyReportResult)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -123,13 +119,9 @@ func (in *ReportChangeRequest) DeepCopyInto(out *ReportChangeRequest) {
 	out.Summary = in.Summary
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results
-		*out = make([]*policyreportv1alpha2.PolicyReportResult, len(*in))
+		*out = make([]policyreportv1alpha2.PolicyReportResult, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(policyreportv1alpha2.PolicyReportResult)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

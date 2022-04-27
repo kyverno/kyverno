@@ -502,7 +502,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 		result := report.PolicyReportResult{
 			Policy: policyName,
-			Resources: []*corev1.ObjectReference{
+			Resources: []corev1.ObjectReference{
 				{
 					Name: resourceName,
 				},

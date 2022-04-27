@@ -94,7 +94,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(imageVerify, ruleImages)
+			iv.verify(&imageVerify, ruleImages)
 		}
 	}
 
@@ -223,7 +223,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	for i, attestorSet := range imageVerify.Attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
-		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
+		digest, err = iv.verifyAttestorSet(&attestorSet, imageVerify, image, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
@@ -255,7 +255,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
+			opts, subPath := iv.buildOptionsAndPath(&a, imageVerify, image)
 			digest, entryError = cosign.VerifySignature(*opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
@@ -279,7 +279,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 }
 
 func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
-	var entries []*v1.Attestor
+	var entries []v1.Attestor
 	for _, e := range attestorSet.Entries {
 		if e.StaticKey != nil {
 			keys := splitPEM(e.StaticKey.Keys)
@@ -308,10 +308,10 @@ func splitPEM(pem string) []string {
 	return keys[0 : len(keys)-1]
 }
 
-func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
-	var attestors []*v1.Attestor
+func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []v1.Attestor {
+	var attestors []v1.Attestor
 	for _, k := range keys {
-		a := &v1.Attestor{
+		a := v1.Attestor{
 			StaticKey: &v1.StaticKeyAttestor{
 				Keys:          k,
 				Intermediates: ska.Intermediates,
@@ -453,7 +453,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}

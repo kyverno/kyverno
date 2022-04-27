@@ -89,7 +89,7 @@ func Test_ImageVerification(t *testing.T) {
 			name: "no attestors",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors:       []*AttestorSet{},
+				Attestors:       []AttestorSet{},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
@@ -101,8 +101,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "no entries",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{}},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
@@ -115,8 +115,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "empty attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{}}},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
@@ -130,8 +130,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "empty static key attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
 						StaticKey: &StaticKeyAttestor{},
 					}}},
 				},
@@ -147,8 +147,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "valid static key attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
 						StaticKey: &StaticKeyAttestor{Keys: "bla"},
 					}}},
 				},
@@ -158,8 +158,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "invalid keyless attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
 						Keyless: &KeylessAttestor{Rekor: &CTLog{}, Issuer: "", Subject: ""},
 					}}},
 				},
@@ -175,8 +175,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "valid keyless attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
 						Keyless: &KeylessAttestor{Rekor: &CTLog{URL: "https://rekor.sigstore.dev"}, Issuer: "bla", Subject: "bla"},
 					}}},
 				},

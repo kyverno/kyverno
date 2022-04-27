@@ -91,13 +91,9 @@ func (in *Attestation) DeepCopyInto(out *Attestation) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]*AnyAllConditions, len(*in))
+		*out = make([]AnyAllConditions, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(AnyAllConditions)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -159,13 +155,9 @@ func (in *AttestorSet) DeepCopyInto(out *AttestorSet) {
 	}
 	if in.Entries != nil {
 		in, out := &in.Entries, &out.Entries
-		*out = make([]*Attestor, len(*in))
+		*out = make([]Attestor, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Attestor)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -640,24 +632,16 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 	}
 	if in.Attestors != nil {
 		in, out := &in.Attestors, &out.Attestors
-		*out = make([]*AttestorSet, len(*in))
+		*out = make([]AttestorSet, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(AttestorSet)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Attestations != nil {
 		in, out := &in.Attestations, &out.Attestations
-		*out = make([]*Attestation, len(*in))
+		*out = make([]Attestation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Attestation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Annotations != nil {
@@ -757,13 +741,9 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	}
 	if in.ForEachMutation != nil {
 		in, out := &in.ForEachMutation, &out.ForEachMutation
-		*out = make([]*ForEachMutation, len(*in))
+		*out = make([]ForEachMutation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ForEachMutation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1030,13 +1010,9 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	in.Generation.DeepCopyInto(&out.Generation)
 	if in.VerifyImages != nil {
 		in, out := &in.VerifyImages, &out.VerifyImages
-		*out = make([]*ImageVerification, len(*in))
+		*out = make([]ImageVerification, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ImageVerification)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1166,13 +1142,9 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	*out = *in
 	if in.ForEachValidation != nil {
 		in, out := &in.ForEachValidation, &out.ForEachValidation
-		*out = make([]*ForEachValidation, len(*in))
+		*out = make([]ForEachValidation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ForEachValidation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.RawPattern != nil {

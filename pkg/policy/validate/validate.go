@@ -51,7 +51,7 @@ func (v *Validate) Validate() (string, error) {
 
 	if v.rule.ForEachValidation != nil {
 		for _, foreach := range v.rule.ForEachValidation {
-			if err := v.validateForEach(foreach); err != nil {
+			if err := v.validateForEach(&foreach); err != nil {
 				return "", err
 			}
 		}

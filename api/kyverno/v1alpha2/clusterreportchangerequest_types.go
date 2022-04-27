@@ -59,7 +59,7 @@ type ClusterReportChangeRequest struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*report.PolicyReportResult `json:"results,omitempty"`
+	Results []report.PolicyReportResult `json:"results,omitempty"`
 }
 
 // ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
