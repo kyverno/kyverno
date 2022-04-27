@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -143,17 +145,17 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
-			path := imageInfo.Pointer
 			image := imageInfo.String()
-			jmespath := engineUtils.JsonPointerToJMESPath(path)
-			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
-			if err == nil && !changed {
-				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
-				continue
-			}
 
 			if !imageMatches(image, imageVerify.ImageReferences) {
 				iv.logger.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
+				continue
+			}
+
+			jmespath := engineUtils.JsonPointerToJMESPath(imageInfo.Pointer)
+			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
+			if err == nil && !changed {
+				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
 				continue
 			}
 
@@ -194,23 +196,34 @@ func (iv *imageVerifier) mutateDigest(digest string, imageInfo kubeutils.ImageIn
 }
 
 func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
-	if digest != "" {
-		annotationKey := makeAnnotationKeyForJMESPath(imageInfo.Name, digest)
-		if hasChanged, _ := iv.policyContext.JSONContext.HasChanged(annotationKey); hasChanged {
-			msg := "changes to `images.kyverno.io` annotation are not allowed"
-			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
-		}
+	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
+		msg := "changes to `images.kyverno.io` annotation are not allowed"
+		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 	}
 
 	if imageVerify.Required {
 		isImageVerified := ruleResp.Status == response.RuleStatusPass
 		patch, err := makeImageVerifiedPatch(imageInfo, digest, isImageVerified)
-		if err != nil {
+		if err == nil {
 			ruleResp.Patches = [][]byte{patch}
+		} else {
+			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
 		}
 	}
 
 	return ruleResp
+}
+
+func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
+	if reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) ||
+		reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}){
+		return false
+	}
+
+	key := makeAnnotationKey(name, digest)
+	newValue := ctx.NewResource.GetAnnotations()[key]
+	oldValue := ctx.OldResource.GetAnnotations()[key]
+	return newValue != oldValue
 }
 
 func makeImageVerifiedPatch(imageInfo kubeutils.ImageInfo, digest string, verified bool) ([]byte, error) {
@@ -233,6 +246,10 @@ func makeAnnotationKeyForJSONPatch(imageName, imageDigest string) string {
 }
 
 func makeAnnotationKey(imageName, imageDigest string) string {
+	if imageDigest == "" {
+		return 	fmt.Sprintf("images.kyverno.io/%s", imageName)
+	}
+
 	return fmt.Sprintf("images.kyverno.io/%s/%s/%s", imageName, imageDigest[0:6], imageDigest[7:])
 }
 
