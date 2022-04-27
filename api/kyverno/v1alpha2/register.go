@@ -16,27 +16,18 @@ limitations under the License.
 
 // Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group
 // +kubebuilder:object:generate=true
-// +groupName=wgpolicyk8s.io
+// +groupName=kyverno.io
 package v1alpha2
 
 import (
+	"github.com/kyverno/kyverno/api/kyverno"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group
-// +kubebuilder:object:generate=true
-// +groupName=wgpolicyk8s.io
-var (
-	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "wgpolicyk8s.io", Version: "v1alpha2"}
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
-
-	// AddToScheme adds the types in this group-version to the given scheme.
-	AddToScheme = SchemeBuilder.AddToScheme
-)
+// SchemeGroupVersion is group version used to register these objects
+var SchemeGroupVersion = schema.GroupVersion{Group: kyverno.GroupName, Version: "v1alpha2"}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
@@ -46,4 +37,24 @@ func Kind(kind string) schema.GroupKind {
 // Resource takes an unqualified resource and returns a Group qualified GroupResource
 func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
+
+var (
+	// SchemeBuilder builds the scheme
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+
+	// AddToScheme adds all types of this clientset into the given scheme
+	AddToScheme = SchemeBuilder.AddToScheme
+)
+
+// Adds the list of known types to Scheme.
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&ReportChangeRequest{},
+		&ReportChangeRequestList{},
+		&ClusterReportChangeRequest{},
+		&ClusterReportChangeRequestList{},
+	)
+	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
+	return nil
 }
