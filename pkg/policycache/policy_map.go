@@ -128,6 +128,8 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 				mutatePolicy := m.kindDataMap[kind][Mutate]
 				m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
 			}
+
+			continue
 		}
 
 		if rule.HasValidate() {
@@ -137,6 +139,8 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 					validatePolicy := m.kindDataMap[kind][ValidateEnforce]
 					m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
 				}
+
+				continue
 			}
 
 			if !m.nameCacheMap[ValidateAudit][kind+"/"+pName] {
@@ -144,6 +148,8 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 				validatePolicy := m.kindDataMap[kind][ValidateAudit]
 				m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
 			}
+
+			continue
 		}
 
 		if rule.HasGenerate() {
@@ -152,6 +158,8 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 				generatePolicy := m.kindDataMap[kind][Generate]
 				m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
 			}
+
+			continue
 		}
 
 		if rule.HasVerifyImages() {
@@ -166,6 +174,8 @@ func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pNam
 				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImagesValidate]
 				m.kindDataMap[kind][VerifyImagesValidate] = append(imageVerifyMapPolicy, pName)
 			}
+
+			continue
 		}
 	}
 }
