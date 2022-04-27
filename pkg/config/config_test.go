@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -17,7 +16,7 @@ import (
 func Test_CreateClientConfig_WithKubeConfig(t *testing.T) {
 	cf := createMinimalKubeconfig(t)
 	defer os.Remove(cf)
-	_, err := config.CreateClientConfig(cf, 0, 0, logr.Discard())
+	_, err := config.CreateClientConfig(cf, 0, 0)
 	assert.NilError(t, err)
 }
 
@@ -29,7 +28,7 @@ func Test_CreateClientConfig_SetBurstQPS(t *testing.T) {
 
 	cf := createMinimalKubeconfig(t)
 	defer os.Remove(cf)
-	c, err := config.CreateClientConfig(cf, qps, burst, logr.Discard())
+	c, err := config.CreateClientConfig(cf, qps, burst)
 	assert.NilError(t, err)
 	assert.Equal(t, float32(qps), c.QPS)
 	assert.Equal(t, burst, c.Burst)
@@ -40,7 +39,7 @@ func Test_CreateClientConfig_LimitQPStoFloat32(t *testing.T) {
 
 	cf := createMinimalKubeconfig(t)
 	defer os.Remove(cf)
-	_, err := config.CreateClientConfig(cf, qps, 0, logr.Discard())
+	_, err := config.CreateClientConfig(cf, qps, 0)
 	assert.ErrorContains(t, err, "QPS")
 }
 

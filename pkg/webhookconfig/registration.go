@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	informers "k8s.io/client-go/informers/apps/v1"
+	"k8s.io/client-go/kubernetes"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
@@ -46,6 +47,7 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	client       *client.Client
+	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 	resCache     resourcecache.ResourceCache
 
@@ -76,6 +78,7 @@ type Register struct {
 func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
+	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
@@ -92,6 +95,7 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		client:               client,
+		kubeClient:           kubeClient,
 		resCache:             resCache,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
