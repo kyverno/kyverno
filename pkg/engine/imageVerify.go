@@ -300,7 +300,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	for i, attestorSet := range imageVerify.Attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
-		digest, err = iv.verifyAttestorSet(&attestorSet, imageVerify, image, path)
+		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
@@ -312,7 +312,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
+func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -329,10 +329,10 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
+				digest, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, image, attestorPath)
 			}
 		} else {
-			opts, subPath := iv.buildOptionsAndPath(&a, imageVerify, image)
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
 			digest, entryError = cosign.VerifySignature(*opts)
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
@@ -355,7 +355,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 	return "", err
 }
 
-func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
+func expandStaticKeys(attestorSet v1.AttestorSet) v1.AttestorSet {
 	var entries []v1.Attestor
 	for _, e := range attestorSet.Entries {
 		if e.StaticKey != nil {
@@ -370,7 +370,7 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 		entries = append(entries, e)
 	}
 
-	return &v1.AttestorSet{
+	return v1.AttestorSet{
 		Count:   attestorSet.Count,
 		Entries: entries,
 	}
@@ -401,7 +401,7 @@ func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []v1.Att
 	return attestors
 }
 
-func getRequiredCount(as *v1.AttestorSet) int {
+func getRequiredCount(as v1.AttestorSet) int {
 	if as.Count == nil || *as.Count == 0 {
 		return len(as.Entries)
 	}
@@ -409,7 +409,7 @@ func getRequiredCount(as *v1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -487,7 +487,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify *v1.ImageVerification, i
 		}
 
 		for _, s := range statements {
-			val, err := iv.checkAttestations(&ac, s, imageInfo)
+			val, err := iv.checkAttestations(ac, s, imageInfo)
 			if err != nil {
 				return ruleError(iv.rule, response.ImageVerify, "failed to check attestation", err)
 			}
@@ -518,7 +518,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
