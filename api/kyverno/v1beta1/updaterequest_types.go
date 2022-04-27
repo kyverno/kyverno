@@ -147,10 +147,6 @@ type UpdateRequestList struct {
 	Items           []UpdateRequest `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&UpdateRequest{}, &UpdateRequestList{})
-}
-
 func (s *UpdateRequestSpec) GetRequestType() RequestType {
 	return s.Type
 }

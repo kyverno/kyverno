@@ -69,7 +69,3 @@ type ReportChangeRequestList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ReportChangeRequest `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&ReportChangeRequest{}, &ReportChangeRequestList{})
-}
