@@ -86,7 +86,7 @@ const (
 	//Generation type for generation rule
 	Generation RuleType = "Generation"
 	// ImageVerify type for image verification
-	ImageVerify RuleType = "All"
+	ImageVerify RuleType = "ImageVerify"
 )
 
 //RuleResponse details for each rule application
@@ -147,6 +147,11 @@ func (er EngineResponse) IsFailed() bool {
 	}
 
 	return false
+}
+
+//IsEmpty checks if any rule results are present
+func (er EngineResponse) IsEmpty() bool {
+	return len(er.PolicyResponse.Rules) == 0
 }
 
 //GetPatches returns all the patches joined

@@ -471,7 +471,15 @@ OuterLoop:
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
-	mutateResponse := engine.Mutate(&engine.PolicyContext{Policy: policy, NewResource: *updatedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels})
+	policyContext := &engine.PolicyContext{
+		Policy:          policy,
+		NewResource:     *updatedResource,
+		JSONContext:     ctx,
+		NamespaceLabels: namespaceLabels,
+		AdmissionInfo:   userInfo,
+	}
+
+	mutateResponse := engine.Mutate(policyContext)
 	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
@@ -493,21 +501,29 @@ OuterLoop:
 		}
 	}
 
+	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, verifyImageResponse)
+		updateResultCounts(policy, verifyImageResponse, resPath, rc)
+	}
+
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(policy) {
-		if rule.HasValidate() {
+		if rule.HasValidate() || rule.HasImagesValidationChecks() {
 			policyHasValidate = true
 		}
 	}
 
+	policyContext.NewResource = mutateResponse.PatchedResource
+
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
-		policyCtx := &engine.PolicyContext{Policy: policy, NewResource: mutateResponse.PatchedResource, JSONContext: ctx, NamespaceLabels: namespaceLabels, AdmissionInfo: userInfo}
-		validateResponse = engine.Validate(policyCtx)
+		validateResponse = engine.Validate(policyContext)
 		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
 	}
-	if validateResponse != nil {
+
+	if validateResponse != nil && !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
@@ -530,10 +546,10 @@ OuterLoop:
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
-		if generateResponse != nil {
+		if generateResponse != nil && !generateResponse.IsEmpty() {
 			engineResponses = append(engineResponses, generateResponse)
 		}
-		processGenerateEngineResponse(policy, generateResponse, resPath, rc)
+		updateResultCounts(policy, generateResponse, resPath, rc)
 	}
 
 	return engineResponses, info, nil
@@ -693,7 +709,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() {
+		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() {
 			continue
 		}
 
@@ -770,26 +786,27 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 	return info
 }
 
-func processGenerateEngineResponse(policy v1.PolicyInterface, generateResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+func updateResultCounts(policy v1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		for i, genResponseRule := range generateResponse.PolicyResponse.Rules {
-			if policyRule.Name == genResponseRule.Name {
+		for i, ruleResponse := range engineResponse.PolicyResponse.Rules {
+			if policyRule.Name == ruleResponse.Name {
 				ruleFoundInEngineResponse = true
-				if genResponseRule.Status == response.RuleStatusPass {
+				if ruleResponse.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {
 					if printCount < 1 {
-						fmt.Println("\ngenerate resource is not valid", "policy", policy.GetName(), "resource", resPath)
+						fmt.Println("\ninvalid resource", "policy", policy.GetName(), "resource", resPath)
 						printCount++
 					}
-					fmt.Printf("%d. %s - %s\n", i+1, genResponseRule.Name, genResponseRule.Message)
+					fmt.Printf("%d. %s - %s\n", i+1, ruleResponse.Name, ruleResponse.Message)
 					rc.Fail++
 				}
 				continue
 			}
 		}
+
 		if !ruleFoundInEngineResponse {
 			rc.Skip++
 		}
