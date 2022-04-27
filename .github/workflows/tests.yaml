@@ -12,7 +12,15 @@ on:
 permissions: 
   contents: read
   packages: write
-  id-token: write 
+  id-token: write
+
+env:
+  GOPATH: ${{ github.workspace }}
+  GOBIN: ${{ github.workspace }}/bin
+
+defaults:
+  run:
+    working-directory: ${{ env.GOPATH }}/src/myproject
 
 jobs:
   pre-checks:
@@ -20,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        with:
+          path: ${{ env.GOPATH }}/src/myproject
 
       - name: Unshallow
         run: git fetch --prune --unshallow
@@ -81,6 +91,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        with:
+          path: ${{ env.GOPATH }}/src/myproject
 
       - name: Unshallow
         run: git fetch --prune --unshallow
