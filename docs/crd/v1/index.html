@@ -1871,8 +1871,8 @@ Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>targets</code></br>
 <em>
-<a href="#kyverno.io/v1.TargetMutation">
-[]TargetMutation
+<a href="#kyverno.io/v1.ResourceSpec">
+[]ResourceSpec
 </a>
 </em>
 </td>
@@ -2410,7 +2410,7 @@ ResourceDescription
 <a href="#kyverno.io/v1.GenerateRequestSpec">GenerateRequestSpec</a>, 
 <a href="#kyverno.io/v1.GenerateRequestStatus">GenerateRequestStatus</a>, 
 <a href="#kyverno.io/v1.Generation">Generation</a>, 
-<a href="#kyverno.io/v1.TargetMutation">TargetMutation</a>)
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
 <p>ResourceSpec contains information to identify a resource.</p>
@@ -2813,39 +2813,6 @@ string
 <td>
 <p>Roots is an optional set of PEM encoded trusted root certificates.
 If not provided, the system roots are used.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.TargetMutation">TargetMutation
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Mutation">Mutation</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ResourceSpec</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>ResourceSpec specifies the target resource information.</p>
 </td>
 </tr>
 </tbody>
