@@ -27,7 +27,7 @@ func (pc *PolicyController) processExistingResources(policy kyverno.PolicyInterf
 	pc.rm.Drop()
 
 	for _, rule := range autogen.ComputeRules(policy) {
-		if !rule.HasValidate() && !rule.HasVerifyImages() {
+		if !rule.HasValidate() && !rule.HasVerifyImages() || !rule.HasGenerate() {
 			continue
 		}
 		matchKinds := rule.MatchResources.GetKinds()

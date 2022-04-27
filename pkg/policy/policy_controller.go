@@ -12,8 +12,9 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -22,6 +23,8 @@ import (
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -30,6 +33,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -177,7 +181,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		pol, _ := common.MutatePolicy(p, logger)
+		pol, _ := utilscommon.MutatePolicy(p, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
@@ -203,7 +207,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		pol, _ := common.MutatePolicy(curP, logger)
+		pol, _ := utilscommon.MutatePolicy(curP, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
@@ -273,7 +277,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	spec := p.GetSpec()
 	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		nsPol, _ := common.MutatePolicy(p, logger)
+		nsPol, _ := utilscommon.MutatePolicy(p, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
@@ -297,7 +301,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		nsPol, _ := common.MutatePolicy(curP, logger)
+		nsPol, _ := utilscommon.MutatePolicy(curP, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
@@ -502,8 +506,60 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
-	var specs []*kyverno.ResourceSpec
+// generateTargets ...
+func (pc *PolicyController) generateTargets(policy kyverno.PolicyInterface) {
+	for _, rule := range policy.GetSpec().Rules {
+		if !rule.IsGenerateExisting() {
+			continue
+		}
+		pc.log.V(4).Info("generate existing enabled for the policy", "policy-name", policy.GetName())
+		// generateTriggers gets the generate triggers for given matchresource
+		// rule
+		triggers := generateTriggers(pc.nsLister, rule, pc.log)
+		for _, trigger := range triggers {
+			ur := newUR(policy, trigger, urkyverno.Generate)
+
+			// here trigger is the namespace for namespace matched kind policy
+			triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
+			if err != nil {
+				pc.log.WithName(rule.Name).Error(err, "failed to get trigger resource")
+			}
+
+			// check if the target resource exists in given namespace, as we don't
+			// want to create new updaterequest for same namespace
+			_, err = pc.client.GetResource(rule.Generation.APIVersion, rule.Generation.Kind, trigger.Name, rule.Generation.Name)
+			if err != nil && errors.IsNotFound(err) {
+				policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
+				if err != nil {
+					pc.log.WithName(rule.Name).Error(err, "failed to build policy context for genExisting")
+					continue
+				}
+				engineResponse := engine.ApplyBackgroundChecks(policyContext)
+
+				for _, rule := range engineResponse.PolicyResponse.Rules {
+					if rule.Status != response.RuleStatusPass {
+						pc.log.Error(err, "can not create new UR for genExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", rule.Status)
+						continue
+					}
+					new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+					if err != nil {
+						pc.log.Error(err, "failed to create new UR for genExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name)
+					} else {
+						pc.log.V(4).Info("successfully created UR for genExisting on policy update", "policy", policy.GetName(), "rule", rule.Name)
+					}
+
+					new.Status.State = urkyverno.Pending
+					if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+						pc.log.Error(err, "failed to set UpdateRequest state to Pending")
+					}
+				}
+			}
+		}
+	}
+}
+
+func getTriggers(rule kyverno.Rule) []kyverno.ResourceSpec {
+	var specs []kyverno.ResourceSpec
 
 	triggers := getTrigger(rule.MatchResources.ResourceDescription)
 	specs = append(specs, triggers...)
@@ -513,12 +569,12 @@ func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
 		specs = append(specs, triggers...)
 	}
 
-	triggers = []*kyverno.ResourceSpec{}
+	triggers = []kyverno.ResourceSpec{}
 	for _, all := range rule.MatchResources.All {
 		triggers = getTrigger(all.ResourceDescription)
 	}
 
-	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
+	subset := make(map[kyverno.ResourceSpec]int, len(triggers))
 	for _, trigger := range triggers {
 		c := subset[trigger]
 		subset[trigger] = c + 1
@@ -532,12 +588,12 @@ func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
+func getTrigger(rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
 	if len(rd.Names) == 0 && rd.Name == "" {
 		return nil
 	}
 
-	var specs []*kyverno.ResourceSpec
+	var specs []kyverno.ResourceSpec
 
 	for _, k := range rd.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(k)
@@ -563,6 +619,54 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 		}
 	}
 
+	return specs
+}
+
+func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log logr.Logger) []kyverno.ResourceSpec {
+	var specs []kyverno.ResourceSpec
+
+	nslist, err := lister.List(labels.NewSelector())
+	if err != nil {
+		log.Error(err, "failed to list namespaces")
+	}
+
+	triggers := genTrigger(nslist, rule.MatchResources.ResourceDescription)
+	specs = append(specs, triggers...)
+
+	for _, any := range rule.MatchResources.Any {
+		triggers = genTrigger(nslist, any.ResourceDescription)
+		specs = append(specs, triggers...)
+	}
+
+	triggers = []kyverno.ResourceSpec{}
+	for _, all := range rule.MatchResources.All {
+		triggers = genTrigger(nslist, all.ResourceDescription)
+	}
+	return specs
+}
+
+func genTrigger(nslist []*v1.Namespace, rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
+	var specs []kyverno.ResourceSpec
+	var spec kyverno.ResourceSpec
+
+	for _, ns := range nslist {
+		for _, k := range rd.Kinds {
+			apiVersion, kind := kubeutils.GetKindFromGVK(k)
+			if kind == "" {
+				continue
+			}
+
+			if kind == "Namespace" {
+				spec = kyverno.ResourceSpec{
+					APIVersion: apiVersion,
+					Kind:       kind,
+					Namespace:  ns.Namespace,
+					Name:       ns.Name,
+				}
+			}
+			specs = append(specs, spec)
+		}
+	}
 	return specs
 }
 

@@ -137,6 +137,11 @@ func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
 	return
 }
 
+// IsGenerateExisting checks if the generate rule applies to existing resources
+func (r *Rule) IsGenerateExisting() bool {
+	return r.Generation.GenerateExisting
+}
+
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
 	return FromJSON(r.RawAnyAllConditions)
 }
