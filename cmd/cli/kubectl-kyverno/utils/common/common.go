@@ -189,13 +189,21 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 	if err != nil {
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
 	}
-	var p v1.ClusterPolicy
-	err = json.Unmarshal(modifiedPolicy, &p)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
+	if policy.IsNamespaced() {
+		var p v1.Policy
+		err = json.Unmarshal(modifiedPolicy, &p)
+		if err != nil {
+			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
+		}
+		return &p, nil
+	} else {
+		var p v1.ClusterPolicy
+		err = json.Unmarshal(modifiedPolicy, &p)
+		if err != nil {
+			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
+		}
+		return &p, nil
 	}
-
-	return &p, nil
 }
 
 // IsInputFromPipe - check if input is passed using pipe
