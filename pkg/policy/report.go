@@ -113,7 +113,7 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		errors = append(errors, err.Error())
 	} else {
 		for _, polr := range polrs {
-			polr.Results = []*v1alpha2.PolicyReportResult{}
+			polr.Results = []v1alpha2.PolicyReportResult{}
 			polr.Summary = v1alpha2.PolicyReportSummary{}
 			if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
@@ -125,7 +125,7 @@ func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyre
 		errors = append(errors, err.Error())
 	} else {
 		for _, cpolr := range cpolrs {
-			cpolr.Results = []*v1alpha2.PolicyReportResult{}
+			cpolr.Results = []v1alpha2.PolicyReportResult{}
 			cpolr.Summary = v1alpha2.PolicyReportSummary{}
 			if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 				errors = append(errors, fmt.Sprintf("%s/%s: %v", cpolr.Kind, cpolr.Name, err))

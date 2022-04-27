@@ -457,7 +457,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 	}
 
 	for _, cpolr := range cpolrs {
-		newRes := []*report.PolicyReportResult{}
+		newRes := []report.PolicyReportResult{}
 		for _, result := range cpolr.Results {
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
@@ -498,7 +498,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 	}
 
 	for _, r := range policyReports {
-		newRes := []*report.PolicyReportResult{}
+		newRes := []report.PolicyReportResult{}
 		for _, result := range r.Results {
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
@@ -567,7 +567,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 }
 
 func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
-	results := []*report.PolicyReportResult{}
+	results := []report.PolicyReportResult{}
 
 	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
 		aggregatedRequests := []*changerequest.ClusterReportChangeRequest{}
