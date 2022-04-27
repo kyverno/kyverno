@@ -107,7 +107,7 @@ func Test_ImageVerification(t *testing.T) {
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
-					field.Invalid(path.Child("attestors").Index(0), i.Attestors[0], "An entry is required"),
+					field.Invalid(path.Child("attestors").Index(0), &i.Attestors[0], "An entry is required"),
 				}
 			},
 		},
@@ -122,7 +122,7 @@ func Test_ImageVerification(t *testing.T) {
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0),
-						i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
+						&i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
 				}
 			},
 		},

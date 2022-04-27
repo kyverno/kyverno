@@ -139,7 +139,7 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 
 	requestTime := time.Now().Unix()
 	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImages, request.Kind.Kind, request.Namespace)
+	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImagesMutate, request.Kind.Kind, request.Namespace)
 
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request")
@@ -188,6 +188,10 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
 	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
 	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, request.Namespace)
+
+	imageVerifyValidatePolicies := ws.pCache.GetPolicies(policycache.VerifyImagesValidate, request.Kind.Kind, request.Namespace)
+	policies = append(policies, imageVerifyValidatePolicies...)
+
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
 		go ws.handleUpdatesForGenerateRules(request, []kyverno.PolicyInterface{})

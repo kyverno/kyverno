@@ -1,0 +1,12 @@
+name: test-image-digest
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+# Requires Kyverno CLI updates
+#  - policy: verify-signature
+#    rule: check-static-key
+#    resource: signed
+#    kind: Pod
+#    status: pass
