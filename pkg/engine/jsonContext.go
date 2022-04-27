@@ -9,9 +9,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -23,12 +23,15 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 
 	policyName := ctx.Policy.GetName()
 	if store.GetMock() {
-		if store.GetRegistryAccess() {
-			for _, entry := range contextEntries {
-				if entry.ImageRegistry != nil {
-					if err := loadImageData(logger, entry, ctx); err != nil {
-						return err
-					}
+		hasRegistryAccess := store.GetRegistryAccess()
+		for _, entry := range contextEntries {
+			if entry.ImageRegistry != nil && hasRegistryAccess {
+				if err := loadImageData(logger, entry, ctx); err != nil {
+					return err
+				}
+			} else if entry.Variable != nil {
+				if err := loadVariable(logger, entry, ctx); err != nil {
+					return err
 				}
 			}
 		}
@@ -48,6 +51,14 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 				}
 			}
 		}
+
+		if rule != nil && len(rule.ForeachValues) > 0 {
+			for key, value := range rule.ForeachValues {
+				if err := ctx.JSONContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+					return err
+				}
+			}
+		}
 	} else {
 		for _, entry := range contextEntries {
 			if entry.ConfigMap != nil {
@@ -62,10 +73,66 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 				if err := loadImageData(logger, entry, ctx); err != nil {
 					return err
 				}
+			} else if entry.Variable != nil {
+				if err := loadVariable(logger, entry, ctx); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
+}
+
+func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) (err error) {
+	path := ""
+	if entry.Variable.JMESPath != "" {
+		jp, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.Variable.JMESPath)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+		}
+		path = jp.(string)
+	}
+	var defaultValue interface{} = nil
+	if entry.Variable.Default != nil {
+		value, err := variables.DocumentToUntyped(entry.Variable.Default)
+		if err != nil {
+			return fmt.Errorf("invalid default for variable %s", entry.Name)
+		}
+		defaultValue, err = variables.SubstituteAll(logger, ctx.JSONContext, value)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Default, err)
+		}
+	}
+	var output interface{} = defaultValue
+	if entry.Variable.Value != nil {
+		value, _ := variables.DocumentToUntyped(entry.Variable.Value)
+		variable, err := variables.SubstituteAll(logger, ctx.JSONContext, value)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
+		}
+		if path != "" {
+			variable, err := applyJMESPath(path, variable)
+			if err == nil {
+				output = variable
+			}
+		} else {
+			output = variable
+		}
+	} else {
+		if path != "" {
+			if variable, err := ctx.JSONContext.Query(path); err == nil {
+				output = variable
+			}
+		}
+	}
+	if output == nil {
+		return fmt.Errorf("unable to add context entry for variable %s since it evaluated to nil", entry.Name)
+	}
+	if outputBytes, err := json.Marshal(output); err == nil {
+		return ctx.JSONContext.ReplaceContextEntry(entry.Name, outputBytes)
+	} else {
+		return fmt.Errorf("unable to add context entry for variable %s: %w", entry.Name, err)
+	}
 }
 
 func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
@@ -114,6 +181,7 @@ func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 	return imageData, nil
 }
 
+// FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
 	parsedRef, err := name.ParseReference(ref)
 	if err != nil {

@@ -8,14 +8,16 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -26,7 +28,7 @@ type GenerateRequests interface {
 
 // GeneratorChannel ...
 type GeneratorChannel struct {
-	spec   kyverno.GenerateRequestSpec
+	spec   urkyverno.UpdateRequestSpec
 	action admissionv1.Operation
 }
 
@@ -39,22 +41,28 @@ type Generator struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestNamespaceLister
 	grSynced cache.InformerSynced
+
+	// urLister can list/get update request from the shared informer's store
+	urLister urkyvernolister.UpdateRequestNamespaceLister
+	urSynced cache.InformerSynced
 }
 
 // NewGenerator returns a new instance of Generate-Request resource generator
-func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		client:   client,
 		stopCh:   stopCh,
 		log:      log,
 		grLister: grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
 		grSynced: grInformer.Informer().HasSynced,
+		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urSynced: urInformer.Informer().HasSynced,
 	}
 	return gen
 }
 
 // Apply creates generate request resource (blocking call if channel is full)
-func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action admissionv1.Operation) error {
+func (g *Generator) Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
 	logger := g.log
 	logger.V(4).Info("creating Generate Request", "request", gr)
 
@@ -67,34 +75,16 @@ func (g *Generator) Apply(gr kyverno.GenerateRequestSpec, action admissionv1.Ope
 	return nil
 }
 
-// Run starts the generate request spec
-func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
-	logger := g.log
-	defer utilruntime.HandleCrash()
-
-	logger.V(4).Info("starting")
-	defer func() {
-		logger.V(4).Info("shutting down")
-	}()
-
-	if !cache.WaitForCacheSync(stopCh, g.grSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
-
-	<-g.stopCh
-}
-
 func (g *Generator) processApply(m GeneratorChannel) {
 	if err := g.generate(m.spec, m.action); err != nil {
 		logger.Error(err, "failed to generate request CR")
 	}
 }
 
-func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action admissionv1.Operation) error {
+func (g *Generator) generate(grSpec urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
 	// create/update a generate request
 
-	if err := retryApplyResource(g.client, grSpec, g.log, action, g.grLister); err != nil {
+	if err := retryApplyResource(g.client, grSpec, g.log, action, g.grLister, g.urLister); err != nil {
 		return err
 	}
 	return nil
@@ -103,8 +93,9 @@ func (g *Generator) generate(grSpec kyverno.GenerateRequestSpec, action admissio
 // -> receiving channel to take requests to create request
 // use worker pattern to read and create the CR resource
 
-func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.GenerateRequestSpec,
-	log logr.Logger, action admissionv1.Operation, grLister kyvernolister.GenerateRequestNamespaceLister) error {
+func retryApplyResource(client *kyvernoclient.Clientset, grSpec urkyverno.UpdateRequestSpec,
+	log logr.Logger, action admissionv1.Operation, grLister kyvernolister.GenerateRequestNamespaceLister,
+	urLister urkyvernolister.UpdateRequestNamespaceLister) error {
 
 	var i int
 	var err error
@@ -114,7 +105,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 		return err
 	}
 	applyResource := func() error {
-		gr := kyverno.GenerateRequest{
+		gr := urkyverno.UpdateRequest{
 			Spec: grSpec,
 		}
 
@@ -130,7 +121,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 				"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
 			}))
-			grList, err := grLister.List(selector)
+			grList, err := urLister.List(selector)
 			if err != nil {
 				logger.Error(err, "failed to get generate request for the resource", "kind", grSpec.Resource.Kind, "name", grSpec.Resource.Name, "namespace", grSpec.Resource.Namespace)
 				return err
@@ -148,10 +139,16 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 				v.Spec.Policy = gr.Spec.Policy
 				v.Spec.Resource = gr.Spec.Resource
 
-				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+				new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 				if err != nil {
 					return err
 				}
+
+				new.Status.State = urkyverno.Pending
+				if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+					logger.Error(err, "failed to set UpdateRequest state to Pending")
+				}
+
 				isExist = true
 			}
 
@@ -163,10 +160,16 @@ func retryApplyResource(client *kyvernoclient.Clientset, grSpec kyverno.Generate
 					"generate.kyverno.io/resource-kind":      grSpec.Resource.Kind,
 					"generate.kyverno.io/resource-namespace": grSpec.Resource.Namespace,
 				})
-				_, err = client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
+				new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &gr, metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}
+
+				new.Status.State = urkyverno.Pending
+				if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+					logger.Error(err, "failed to set UpdateRequest state to Pending")
+				}
+
 			}
 		}
 

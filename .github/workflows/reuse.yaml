@@ -64,7 +64,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Log into ghcr.io
-        uses: docker/login-action@master
+        uses: docker/login-action@7c79b598eaa33458e78e8d0d71e0a9c217dd92af
         with:
           registry: ghcr.io
           username: ${{secrets.registry_username}}
@@ -81,7 +81,7 @@ jobs:
 
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
         with:
           scan-type: 'fs'
           ignore-unfixed: true

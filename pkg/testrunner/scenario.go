@@ -191,7 +191,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 				JSONContext: context.NewContext(),
 			}
 
-			er = engine.Generate(policyContext)
+			er = engine.ApplyBackgroundChecks(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource

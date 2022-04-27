@@ -3,19 +3,22 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/go-wildcard"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -23,9 +26,6 @@ import (
 func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
-	if images == nil {
-		return
-	}
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
@@ -67,6 +67,19 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 			continue
 		}
 
+		ruleImages := images
+		var err error
+		if rule.ImageExtractors != nil {
+			if ruleImages, err = policyContext.JSONContext.GenerateCustomImageInfo(&policyContext.NewResource, rule.ImageExtractors); err != nil {
+				appendError(resp, rule, fmt.Sprintf("failed to extract images: %s", err.Error()), response.RuleStatusError)
+				continue
+			}
+		}
+
+		if ruleImages == nil {
+			continue
+		}
+
 		ruleCopy, err := substituteVariables(rule, policyContext.JSONContext, logger)
 		if err != nil {
 			appendError(resp, rule, fmt.Sprintf("failed to substitute variables: %s", err.Error()), response.RuleStatusError)
@@ -81,7 +94,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
-			iv.verify(imageVerify, images)
+			iv.verify(imageVerify, ruleImages)
 		}
 	}
 
@@ -89,7 +102,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (resp *response.EngineRe
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
-	rr := ruleResponse(rule, response.ImageVerify, msg, status)
+	rr := ruleResponse(*rule, response.ImageVerify, msg, status, nil)
 	resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
 	incrementErrorCount(resp)
 }
@@ -123,15 +136,15 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]imageutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = imageVerify.Convert()
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
-			path := imageInfo.Path
+			path := imageInfo.Pointer
 			image := imageInfo.String()
-			jmespath := utils.JsonPointerToJMESPath(path)
+			jmespath := engineUtils.JsonPointerToJMESPath(path)
 			changed, err := iv.policyContext.JSONContext.HasChanged(jmespath)
 			if err == nil && !changed {
 				iv.logger.V(4).Info("no change in image, skipping check", "image", image)
@@ -143,21 +156,53 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				continue
 			}
 
+			if imageVerify.MutateDigest == nil {
+				mutate := true
+				imageVerify.MutateDigest = &mutate
+			}
+
 			var ruleResp *response.RuleResponse
 			if len(imageVerify.Attestations) == 0 {
 				var digest string
-				ruleResp, digest = iv.verifySignature(imageVerify, imageInfo)
-				if ruleResp.Status == response.RuleStatusPass {
-					iv.patchDigest(path, imageInfo, digest, ruleResp)
+				ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+					err := iv.patchDigest(path, imageInfo, digest, ruleResp)
+					if err != nil {
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
+					}
 				}
 			} else {
 				ruleResp = iv.attestImage(imageVerify, imageInfo)
+				if imageInfo.Digest == "" && *imageVerify.MutateDigest && ruleResp.Status == response.RuleStatusPass {
+					digest, err := fetchImageDigest(imageInfo.String())
+					if err != nil {
+						msg := fmt.Sprintf("fetching image digest from registry error: %s", err)
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+					} else {
+						err = iv.patchDigest(path, imageInfo, digest, ruleResp)
+						if err != nil {
+							ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
+						}
+					}
+				}
 			}
 
 			iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 			incrementAppliedCount(iv.resp)
 		}
 	}
+}
+
+func fetchImageDigest(ref string) (string, error) {
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+	}
+	return desc.Digest.String(), nil
 }
 
 func imageMatches(image string, imagePatterns []string) bool {
@@ -170,79 +215,185 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignature(imageVerify *v1.ImageVerification, imageInfo imageutils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
-	iv.logger.Info("verifying image", "image", image)
+	iv.logger.Info("verifying image", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
-	ruleResp := &response.RuleResponse{
-		Name: iv.rule.Name,
-		Type: response.Validation,
+	var digest string
+	for i, attestorSet := range imageVerify.Attestors {
+		var err error
+		path := fmt.Sprintf(".attestors[%d]", i)
+		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
+		if err != nil {
+			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
+			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
+		}
 	}
 
-	opts := cosign.Options{
-		ImageRef:   image,
-		Repository: imageVerify.Repository,
-		Log:        iv.logger,
+	msg := fmt.Sprintf("verified image signatures for %s", image)
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
+}
+
+func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
+	var errorList []error
+	verifiedCount := 0
+	attestorSet = expandStaticKeys(attestorSet)
+	requiredCount := getRequiredCount(attestorSet)
+
+	for i, a := range attestorSet.Entries {
+		var digest string
+		var entryError error
+		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
+
+		if a.Attestor != nil {
+			nestedAttestorSet, err := v1.AttestorSetUnmarshal(a.Attestor)
+			if err != nil {
+				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
+			} else {
+				attestorPath += ".attestor"
+				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
+			}
+		} else {
+			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
+			digest, entryError = cosign.VerifySignature(*opts)
+			if entryError != nil {
+				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
+			}
+		}
+
+		if entryError == nil {
+			verifiedCount++
+			if verifiedCount >= requiredCount {
+				iv.logger.V(2).Info("image verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
+				return digest, nil
+			}
+		} else {
+			errorList = append(errorList, entryError)
+		}
 	}
 
-	attestor := iv.getAttestor(imageVerify)
-	if attestor == nil {
-		ruleResp.Status = response.RuleStatusError
-		ruleResp.Message = "failed to find attestor"
-		return ruleResp, ""
+	iv.logger.Info("image verification failed", "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", errorList)
+	err := engineUtils.CombineErrors(errorList)
+	return "", err
+}
+
+func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
+	var entries []*v1.Attestor
+	for _, e := range attestorSet.Entries {
+		if e.StaticKey != nil {
+			keys := splitPEM(e.StaticKey.Keys)
+			if len(keys) > 1 {
+				moreEntries := createStaticKeyAttestors(e.StaticKey, keys)
+				entries = append(entries, moreEntries...)
+				continue
+			}
+		}
+
+		entries = append(entries, e)
+	}
+
+	return &v1.AttestorSet{
+		Count:   attestorSet.Count,
+		Entries: entries,
+	}
+}
+
+func splitPEM(pem string) []string {
+	keys := strings.SplitAfter(pem, "-----END PUBLIC KEY-----")
+	if len(keys) < 1 {
+		return keys
+	}
+
+	return keys[0 : len(keys)-1]
+}
+
+func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
+	var attestors []*v1.Attestor
+	for _, k := range keys {
+		a := &v1.Attestor{
+			StaticKey: &v1.StaticKeyAttestor{
+				Keys:          k,
+				Intermediates: ska.Intermediates,
+				Roots:         ska.Roots,
+			},
+		}
+
+		attestors = append(attestors, a)
+	}
+
+	return attestors
+}
+
+func getRequiredCount(as *v1.AttestorSet) int {
+	if as.Count == nil || *as.Count == 0 {
+		return len(as.Entries)
+	}
+
+	return *as.Count
+}
+
+func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
+	path := ""
+	opts := &cosign.Options{
+		ImageRef:    image,
+		Repository:  imageVerify.Repository,
+		Annotations: imageVerify.Annotations,
+		Log:         iv.logger,
+	}
+
+	if imageVerify.Roots != "" {
+		opts.Roots = []byte(imageVerify.Roots)
 	}
 
 	if attestor.StaticKey != nil {
-		opts.Key = attestor.StaticKey.Key
+		path = path + ".staticKey"
+		opts.Key = attestor.StaticKey.Keys
+		if attestor.StaticKey.Roots != "" {
+			opts.Roots = []byte(attestor.StaticKey.Roots)
+		}
+		if attestor.StaticKey.Intermediates != "" {
+			opts.Intermediates = []byte(attestor.StaticKey.Intermediates)
+		}
 	} else if attestor.Keyless != nil {
-		opts.Roots = []byte(attestor.Keyless.Roots)
+		path = path + ".keyless"
+		if attestor.Keyless.Rekor != nil {
+			opts.RekorURL = attestor.Keyless.Rekor.URL
+		}
+		if attestor.Keyless.Roots != "" {
+			opts.Roots = []byte(attestor.Keyless.Roots)
+		}
+		if attestor.Keyless.Intermediates != "" {
+			opts.Intermediates = []byte(attestor.Keyless.Intermediates)
+		}
 		opts.Issuer = attestor.Keyless.Issuer
 		opts.Subject = attestor.Keyless.Subject
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions
 	}
 
-	if imageVerify.Annotations != nil {
-		opts.Annotations = imageVerify.Annotations
+	if attestor.Repository != "" {
+		opts.Repository = attestor.Repository
 	}
 
-	start := time.Now()
-	digest, err := cosign.VerifySignature(opts)
-	if err != nil {
-		iv.logger.Info("failed to verify image", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		ruleResp.Status = response.RuleStatusFail
-		ruleResp.Message = fmt.Sprintf("image verification failed for %s: %v", image, err)
-		return ruleResp, ""
+	if attestor.Annotations != nil {
+		opts.Annotations = attestor.Annotations
 	}
 
-	ruleResp.Status = response.RuleStatusPass
-	ruleResp.Message = fmt.Sprintf("image %s verified", image)
-	iv.logger.V(3).Info("verified image", "image", image, "digest", digest, "duration", time.Since(start).Seconds())
-	return ruleResp, digest
+	return opts, path
 }
 
-func (iv *imageVerifier) getAttestor(imageVerify *v1.ImageVerification) *v1.Attestor {
-	for _, attestorSet := range imageVerify.Attestors {
-		for _, attestor := range attestorSet.Entries {
-			return attestor
-		}
+func (iv *imageVerifier) patchDigest(path string, imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
+	patch, err := makeAddDigestPatch(path, imageInfo, digest)
+	if err != nil {
+		return errors.Wrapf(err, "failed to patch image with digest. image: %s, jsonPath: %s", imageInfo.String(), path)
+	} else {
+		iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
+		ruleResp.Patches = [][]byte{patch}
 	}
-
 	return nil
 }
 
-func (iv *imageVerifier) patchDigest(path string, imageInfo imageutils.ImageInfo, digest string, ruleResp *response.RuleResponse) {
-	if imageInfo.Digest == "" {
-		patch, err := makeAddDigestPatch(path, imageInfo, digest)
-		if err != nil {
-			iv.logger.Error(err, "failed to patch image with digest", "image", imageInfo.String(), "jsonPath", path)
-		} else {
-			iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-			ruleResp.Patches = [][]byte{patch}
-		}
-	}
-}
-
-func makeAddDigestPatch(path string, imageInfo imageutils.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(path string, imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = path
@@ -250,7 +401,7 @@ func makeAddDigestPatch(path string, imageInfo imageutils.ImageInfo, digest stri
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo imageutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
@@ -267,7 +418,7 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
 			msg := fmt.Sprintf("predicate type %s not found", ac.PredicateType)
-			return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 		}
 
 		for _, s := range statements {
@@ -278,14 +429,14 @@ func (iv *imageVerifier) attestImage(imageVerify *v1.ImageVerification, imageInf
 
 			if !val {
 				msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusFail)
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 			}
 		}
 	}
 
 	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
 	iv.logger.V(2).Info(msg)
-	return ruleResponse(iv.rule, response.ImageVerify, msg, response.RuleStatusPass)
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil)
 }
 
 func buildStatementMap(statements []map[string]interface{}) map[string][]map[string]interface{} {
@@ -302,7 +453,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img imageutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}

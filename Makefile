@@ -10,7 +10,7 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.4.0
+CONTROLLER_GEN_REQ_VERSION := v0.8.0
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -156,6 +156,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 .PHONY: verify-api-docs

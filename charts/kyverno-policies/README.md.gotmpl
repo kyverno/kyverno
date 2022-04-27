@@ -67,4 +67,14 @@ The command removes all the Kubernetes components associated with the chart and 
 
 {{ template "chart.maintainersSection" . }}
 
+## Changes
+
+### v2.3.4
+
+* Do not evaluate `foreach` policies on DELETE
+
+### v2.3.3
+
+* Add policyPreconditions value to allow policies and rules to have preconditions added
+
 {{ template "helm-docs.versionFooter" . }}

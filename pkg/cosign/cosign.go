@@ -38,15 +38,17 @@ type Options struct {
 	ImageRef             string
 	Key                  string
 	Roots                []byte
+	Intermediates        []byte
 	Subject              string
 	Issuer               string
 	AdditionalExtensions map[string]string
 	Annotations          map[string]string
 	Repository           string
+	RekorURL             string
 	Log                  logr.Logger
 }
 
-// VerifySignature verifies that the image has the expected key
+// VerifySignature verifies that the image has the expected signatures
 func VerifySignature(opts Options) (digest string, err error) {
 	log := opts.Log
 	ctx := context.Background()
@@ -63,22 +65,44 @@ func VerifySignature(opts Options) (digest string, err error) {
 		ClaimVerifier:      cosign.SimpleClaimVerifier,
 	}
 
+	if opts.Roots != nil {
+		cp, err := loadCertPool(opts.Roots)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to load Root certificates")
+		}
+		cosignOpts.RootCerts = cp
+	}
+
+	if opts.Intermediates != nil {
+		cp, err := loadCertPool(opts.Intermediates)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to load intermediate certificates")
+		}
+
+		cosignOpts.IntermediateCerts = cp
+	}
+
 	if opts.Key != "" {
 		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
 			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
 		} else {
 			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
 		}
+
+		if err != nil {
+			return "", errors.Wrap(err, "loading credentials")
+		}
 	} else {
-		cosignOpts.CertEmail = ""
-		cosignOpts.RootCerts, err = getFulcioRoots(opts.Roots)
-		if err == nil {
-			cosignOpts.RekorClient, err = rekor.NewClient("https://rekor.sigstore.dev")
+		if cosignOpts.RootCerts == nil {
+			cosignOpts.RootCerts = fulcio.GetRoots()
 		}
 	}
 
-	if err != nil {
-		return "", errors.Wrap(err, "loading credentials")
+	if opts.RekorURL != "" {
+		cosignOpts.RekorClient, err = rekor.NewClient(opts.RekorURL)
+		if err != nil {
+			return "", errors.Wrapf(err, "failed to create Rekor client from URL %s", opts.RekorURL)
+		}
 	}
 
 	if opts.Repository != "" {
@@ -140,6 +164,10 @@ func getFulcioRoots(roots []byte) (*x509.CertPool, error) {
 		return fulcio.GetRoots(), nil
 	}
 
+	return loadCertPool(roots)
+}
+
+func loadCertPool(roots []byte) (*x509.CertPool, error) {
 	cp := x509.NewCertPool()
 	if !cp.AppendCertsFromPEM(roots) {
 		return nil, fmt.Errorf("error creating root cert pool")

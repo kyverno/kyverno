@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,7 +42,6 @@ type ConfigData struct {
 	cmSycned                    cache.InformerSynced
 	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
-	log                         logr.Logger
 }
 
 // ToFilter checks if the given resource is set to be filtered in the configuration
@@ -130,10 +128,10 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool, log logr.Logger) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
-		log.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
+		logger.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
 
 	cd := ConfigData{
@@ -142,25 +140,24 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 		cmSycned:                    cmInformer.Informer().HasSynced,
 		reconcilePolicyReport:       reconcilePolicyReport,
 		updateWebhookConfigurations: updateWebhookConfigurations,
-		log:                         log,
 	}
 
 	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
 
 	if filterK8sResources != "" {
-		cd.log.Info("init configuration from commandline arguments for filterK8sResources")
+		logger.Info("init configuration from commandline arguments for filterK8sResources")
 		cd.initFilters(filterK8sResources)
 	}
 
 	if excludeGroupRole != "" {
-		cd.log.Info("init configuration from commandline arguments for excludeGroupRole")
+		logger.Info("init configuration from commandline arguments for excludeGroupRole")
 		cd.initRbac("excludeRoles", excludeGroupRole)
 	} else {
 		cd.initRbac("excludeRoles", "")
 	}
 
 	if excludeUsername != "" {
-		cd.log.Info("init configuration from commandline arguments for excludeUsername")
+		logger.Info("init configuration from commandline arguments for excludeUsername")
 		cd.initRbac("excludeUsername", excludeUsername)
 	}
 
@@ -175,7 +172,6 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 // Run checks syncing
 func (cd *ConfigData) Run(stopCh <-chan struct{}) {
-	logger := cd.log
 	// wait for cache to populate first time
 	if !cache.WaitForCacheSync(stopCh, cd.cmSycned) {
 		logger.Info("configuration: failed to sync informer cache")
@@ -199,18 +195,17 @@ func (cd *ConfigData) updateCM(old, cur interface{}) {
 	reconcilePolicyReport, updateWebhook := cd.load(*cm)
 
 	if reconcilePolicyReport {
-		cd.log.Info("resource filters changed, sending reconcile signal to the policy controller")
+		logger.Info("resource filters changed, sending reconcile signal to the policy controller")
 		cd.reconcilePolicyReport <- true
 	}
 
 	if updateWebhook {
-		cd.log.Info("webhook configurations changed, updating webhook configurations")
+		logger.Info("webhook configurations changed, updating webhook configurations")
 		cd.updateWebhookConfigurations <- true
 	}
 }
 
 func (cd *ConfigData) deleteCM(obj interface{}) {
-	logger := cd.log
 	cm, ok := obj.(*v1.ConfigMap)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -233,7 +228,7 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 }
 
 func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhook bool) {
-	logger := cd.log.WithValues("name", cm.Name, "namespace", cm.Namespace)
+	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
 		return
@@ -324,12 +319,10 @@ func (cd *ConfigData) load(cm v1.ConfigMap) (reconcilePolicyReport, updateWebhoo
 			reconcilePolicyReport = true
 		}
 	}
-
 	return
 }
 
 func (cd *ConfigData) initFilters(filters string) {
-	logger := cd.log
 	// parse and load the configuration
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
@@ -341,7 +334,6 @@ func (cd *ConfigData) initFilters(filters string) {
 }
 
 func (cd *ConfigData) initRbac(action, exclude string) {
-	logger := cd.log
 	// parse and load the configuration
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
@@ -358,7 +350,6 @@ func (cd *ConfigData) initRbac(action, exclude string) {
 }
 
 func (cd *ConfigData) unload(cm v1.ConfigMap) {
-	logger := cd.log
 	logger.Info("ConfigMap deleted, removing configuration filters", "name", cm.Name, "namespace", cm.Namespace)
 	cd.mux.Lock()
 	defer cd.mux.Unlock()

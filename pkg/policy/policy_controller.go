@@ -11,19 +11,22 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	pkgCommon "github.com/kyverno/kyverno/pkg/common"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/kyverno/common"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,6 +74,9 @@ type PolicyController struct {
 	// grLister can list/get generate request from the shared informer's store
 	grLister kyvernolister.GenerateRequestLister
 
+	// urLister can list/get update request from the shared informer's store
+	urLister urkyvernolister.UpdateRequestLister
+
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister listerv1.NamespaceLister
 
@@ -85,6 +91,9 @@ type PolicyController struct {
 
 	// grListerSynced returns true if the generate request store has been synced at least once
 	grListerSynced cache.InformerSynced
+
+	// urListerSynced returns true if the update request store has been synced at least once
+	urListerSynced cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -112,6 +121,7 @@ func NewPolicyController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urkyvernoinformer.UpdateRequestInformer,
 	configHandler config.Interface,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
@@ -152,12 +162,14 @@ func NewPolicyController(
 
 	pc.nsLister = namespaces.Lister()
 	pc.grLister = grInformer.Lister()
+	pc.urLister = urInformer.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
 	pc.nsListerSynced = namespaces.Informer().HasSynced
 	pc.grListerSynced = grInformer.Informer().HasSynced
+	pc.urListerSynced = urInformer.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -194,7 +206,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := common.MutatePolicy(p, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
 		}
@@ -220,7 +232,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := common.MutatePolicy(curP, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "ClusterPolicy", "", pol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
 		}
@@ -264,17 +276,17 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	// we process policies that are not set of background processing
-	// as we need to clean up GRs when a policy is deleted
-	// skip generate policies with clone
+	pc.enqueueRCRDeletedPolicy(p.Name)
+
+	// do not clean up UR on generate clone (sync=true) policy deletion
 	rules := autogen.ComputeRules(p)
-
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, pc.client, p.GetName(), logger)
-
-	if !generatePolicyWithClone {
-		pc.enqueuePolicy(p)
-		pc.enqueueRCRDeletedPolicy(p.Name)
+	for _, r := range rules {
+		clone, sync := r.GetCloneSyncForGenerate()
+		if clone && sync {
+			return
+		}
 	}
+	pc.enqueuePolicy(p)
 }
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
@@ -291,7 +303,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	spec := p.GetSpec()
 	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		nsPol, _ := common.MutatePolicy(p, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", p.Namespace, nsPol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
 		}
@@ -315,7 +327,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		nsPol, _ := common.MutatePolicy(curP, logger)
-		_, err := pc.client.UpdateResource("kyverno.io/v1", "Policy", curP.GetNamespace(), nsPol, false)
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
@@ -361,10 +373,17 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 	pol := p
 
-	// we process policies that are not set of background processing
-	// as we need to clean up GRs when a policy is deleted
-	pc.enqueuePolicy(pol)
 	pc.enqueueRCRDeletedPolicy(p.Name)
+
+	// do not clean up UR on generate clone (sync=true) policy deletion
+	rules := autogen.ComputeRules(pol)
+	for _, r := range rules {
+		clone, sync := r.GetCloneSyncForGenerate()
+		if clone && sync {
+			return
+		}
+	}
+	pc.enqueuePolicy(pol)
 }
 
 func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyverno.PolicyInterface) {
@@ -415,7 +434,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced, pc.urListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -486,22 +505,22 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	grList, err := pc.grLister.List(labels.Everything())
+	urList, err := pc.urLister.List(labels.Everything())
 	if err != nil {
-		logger.Error(err, "failed to list generate request")
+		logger.Error(err, "failed to list update request")
 	}
 
 	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			deleteGR(pc.kyvernoClient, key, grList, logger)
+			deleteGR(pc.kyvernoClient, key, urList, logger)
 			return nil
 		}
 
 		return err
 	}
 
-	updateGR(pc.kyvernoClient, policy.GetName(), grList, logger)
+	pc.updateUR(policy, urList)
 	pc.processExistingResources(policy)
 	return nil
 }
@@ -520,18 +539,114 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+func (pc *PolicyController) updateUR(policy kyverno.PolicyInterface, urList []*urkyverno.UpdateRequest) {
+	if urList == nil {
+		for _, rule := range policy.GetSpec().Rules {
+			if !rule.IsMutateExisting() {
+				continue
+			}
+
+			triggers := getTriggers(rule)
+			for _, trigger := range triggers {
+				ur := newUR(policy, trigger)
+				new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+				if err != nil {
+					pc.log.Error(err, "failed to create new UR for mutateExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+					continue
+				} else {
+					pc.log.V(4).Info("successfully created UR for mutateExisting on policy update", "policy", policy.GetName(), "rule", rule.Name,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+				}
+
+				new.Status.State = urkyverno.Pending
+				if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+					pc.log.Error(err, "failed to set UpdateRequest state to Pending")
+				}
+			}
+		}
+		return
+	}
+
+	updateUR(pc.kyvernoClient, policy.GetName(), urList, pc.log.WithName("updateUR"))
+
+}
+
+func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
+	var specs []*kyverno.ResourceSpec
+
+	triggers := getTrigger(rule.MatchResources.ResourceDescription)
+	specs = append(specs, triggers...)
+
+	for _, any := range rule.MatchResources.Any {
+		triggers := getTrigger(any.ResourceDescription)
+		specs = append(specs, triggers...)
+	}
+
+	triggers = []*kyverno.ResourceSpec{}
+	for _, all := range rule.MatchResources.All {
+		triggers = getTrigger(all.ResourceDescription)
+	}
+
+	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
+	for _, trigger := range triggers {
+		c := subset[trigger]
+		subset[trigger] = c + 1
+	}
+
+	for k, v := range subset {
+		if v == len(rule.MatchResources.All) {
+			specs = append(specs, k)
+		}
+	}
+	return specs
+}
+
+func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
+	if len(rd.Names) == 0 {
+		return nil
+	}
+
+	var specs []*kyverno.ResourceSpec
+
+	for _, k := range rd.Kinds {
+		apiVersion, kind := kubeutils.GetKindFromGVK(k)
+		if kind == "" {
+			continue
+		}
+
+		for _, ns := range rd.Namespaces {
+			for _, name := range rd.Names {
+				if name == "" {
+					continue
+				}
+
+				spec := &kyverno.ResourceSpec{
+					APIVersion: apiVersion,
+					Kind:       kind,
+					Namespace:  ns,
+					Name:       name,
+				}
+				specs = append(specs, spec)
+			}
+		}
+	}
+
+	return specs
+}
+
+func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
-			err := kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete gr", "name", v.GetName())
+				logger.Error(err, "failed to delete ur", "name", v.GetName())
 			}
 		}
 	}
 }
 
-func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*kyverno.GenerateRequest, logger logr.Logger) {
+func updateUR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels
@@ -546,9 +661,15 @@ func updateGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			gr.SetLabels(grLabels)
 
-			_, err = kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", gr.GetName())
+				continue
+			}
+
+			new.Status.State = urkyverno.Pending
+			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed to set UpdateRequest state to Pending")
 			}
 		}
 	}
@@ -591,4 +712,43 @@ func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
 		}
 	}
 	return false
+}
+
+func newUR(policy kyverno.PolicyInterface, target *kyverno.ResourceSpec) *urkyverno.UpdateRequest {
+	var policyNameNamespaceKey string
+
+	if policy.GetKind() == "Policy" {
+		policyNameNamespaceKey = policy.GetNamespace() + "/" + policy.GetName()
+	} else {
+		policyNameNamespaceKey = policy.GetName()
+	}
+
+	label := map[string]string{
+		"mutate.updaterequest.kyverno.io/policy-name":       policyNameNamespaceKey,
+		"mutate.updaterequest.kyverno.io/trigger-name":      target.Name,
+		"mutate.updaterequest.kyverno.io/trigger-namespace": target.Namespace,
+		"mutate.updaterequest.kyverno.io/trigger-kind":      target.Kind,
+	}
+
+	if target.APIVersion != "" {
+		label["mutate.updaterequest.kyverno.io/trigger-apiversion"] = target.APIVersion
+	}
+
+	return &urkyverno.UpdateRequest{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "ur-",
+			Namespace:    config.KyvernoNamespace,
+			Labels:       label,
+		},
+		Spec: urkyverno.UpdateRequestSpec{
+			Type:   urkyverno.Mutate,
+			Policy: policyNameNamespaceKey,
+			Resource: kyverno.ResourceSpec{
+				Kind:       target.Kind,
+				Namespace:  target.Namespace,
+				Name:       target.Name,
+				APIVersion: target.APIVersion,
+			},
+		},
+	}
 }

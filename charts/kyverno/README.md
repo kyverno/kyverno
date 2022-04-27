@@ -2,7 +2,7 @@
 
 Kubernetes Native Policy Management
 
-![Version: v2.3.0](https://img.shields.io/badge/Version-v2.3.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.0](https://img.shields.io/badge/AppVersion-v1.6.0-informational?style=flat-square)
+![Version: v2.3.2](https://img.shields.io/badge/Version-v2.3.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v1.6.2](https://img.shields.io/badge/AppVersion-v1.6.2-informational?style=flat-square)
 
 ## About
 
@@ -63,7 +63,6 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Override the name of the chart |
 | fullnameOverride | string | `nil` | Override the expanded name of the chart |
 | namespace | string | `nil` | Namespace the chart deploys to |
-| mode | string | `"standalone"` | Mode for Kyverno installation |
 | customLabels | object | `{}` | Additional labels |
 | rbac.create | bool | `true` | Create ClusterRoles, ClusterRoleBindings, and ServiceAccount |
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
@@ -79,7 +78,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
-| replicaCount | int | `0` | Desired number of pods |
+| replicaCount | int | `nil` | Desired number of pods |
 | podLabels | object | `{}` | Additional labels to add to each pod |
 | podAnnotations | object | `{}` | Additional annotations to add to each pod |
 | podSecurityContext | object | `{}` | Security context for the pod |
@@ -98,6 +97,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
 | extraArgs | list | `["--autogenInternals=false"]` | Extra arguments to give to the binary. |
+| imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
 | resources.limits | object | `{"memory":"384Mi"}` | Pod resource limits |
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
@@ -170,6 +170,15 @@ You can however override the default resource filters by setting the `config.res
 It contains an array of string templates that are passed through the `tpl` Helm function and joined together to produce the final `resourceFilters` written in the Kyverno config map.
 
 Please consult the [values.yaml](./values.yaml) file before overriding `config.resourceFilters` and use the apropriate templates to build your desired exclusions list.
+
+## High availability
+
+Running a highly-available Kyverno installation is crucial in a production environment.
+
+In order to run Kyverno in high availability mode, you should set `replicaCount` to `3` or more.
+You should also pay attention to anti affinity rules, spreading pods across nodes and availability zones.
+
+Please see https://kyverno.io/docs/installation/#security-vs-operability for more informations.
 
 ## Source Code
 

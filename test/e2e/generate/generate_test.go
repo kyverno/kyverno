@@ -94,7 +94,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 
 		// ======== Create ClusterRole Policy =============
 		By(fmt.Sprintf("Creating Generate Role Policy: %s", tests.PolicyName))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)
@@ -114,7 +114,7 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 		// =================================================
 
 		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which triggers generate %s \n", clPolNS))
+		By(fmt.Sprintf("Creating Namespace which triggers generate %s \n", tests.ResourceNamespace))
 		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -221,8 +221,8 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// ======== Create Role Policy =============
-		By(fmt.Sprintf("\nCreating Generate Role Policy in %s", clPolNS))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
+		By(fmt.Sprintf("\nCreating Generate Role Policy %s", tests.PolicyName))
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)
@@ -233,9 +233,9 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, tests.CloneSourceRoleData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, "", tests.CloneSourceRoleData)
 			Expect(err).NotTo(HaveOccurred())
-			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, tests.CloneSourceRoleBindingData)
+			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, "", tests.CloneSourceRoleBindingData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================
@@ -350,7 +350,7 @@ func Test_Generate_NetworkPolicy(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		_, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
+		_, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.PolicyName, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(test.PolicyName)
@@ -445,7 +445,7 @@ func Test_Generate_Namespace_Label_Actions(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.GeneratePolicyName, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 		// ============================================
 
@@ -639,7 +639,7 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 
 		// ======== Create Generate NetworkPolicy Policy =============
 		By("Creating Generate NetworkPolicy Policy")
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.GeneratePolicyName, test.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(test.GeneratePolicyName)
@@ -829,14 +829,14 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, tests.CloneSourceConfigMapData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, "", tests.CloneSourceConfigMapData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================
 
 		// ======== Create Generate Policy =============
 		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)
@@ -1038,14 +1038,14 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 		// === If Clone is true Create Source Resources ==
 		if tests.Clone {
 			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, tests.CloneSourceConfigMapData)
+			_, err := e2eClient.CreateNamespacedResourceYaml(cmGVR, tests.CloneNamespace, "", tests.CloneSourceConfigMapData)
 			Expect(err).NotTo(HaveOccurred())
 		}
 		// ================================================
 
 		// ======== Create Generate Policy =============
-		By(fmt.Sprintf("\nCreating Generate Policy in %s", clPolNS))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.Data)
+		By(fmt.Sprintf("\nCreating Generate Policy %s", tests.PolicyName))
+		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)

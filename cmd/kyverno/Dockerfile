@@ -1,6 +1,6 @@
 # Multi-stage docker build
 # Build stage
-FROM golang:1.17.6 AS builder
+FROM golang@sha256:724abf4dd44985d060f7aa91af5211eb2052491424bd497ba3ddc31f7cee969d AS builder
 
 LABEL maintainer="Kyverno"
 
