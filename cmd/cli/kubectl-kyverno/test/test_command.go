@@ -398,7 +398,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if file.Name() == fileName {
+			if strings.Contains(file.Name(), fileName) {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
