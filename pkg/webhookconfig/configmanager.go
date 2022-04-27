@@ -249,7 +249,7 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 	logger := m.log.WithName("enqueueAllPolicies")
 	policies, err := m.listAllPolicies()
 	if err != nil {
-		logger.Error(err, "unabled to list policies")
+		logger.Error(err, "unable to list policies")
 	}
 	for _, policy := range policies {
 		m.enqueue(policy)
@@ -434,7 +434,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 	for _, p := range policies {
 		spec := p.GetSpec()
-		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() {
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() {
 			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {

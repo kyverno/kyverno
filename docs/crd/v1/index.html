@@ -1632,8 +1632,30 @@ bool
 </em>
 </td>
 <td>
-<p>MutateDigest is an optional field which handles the tag-to-digest mutation for the provided image paths.
+<p>MutateDigest enables replacement of image tags with digests.
 Defaults to true.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyDigest</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>VerifyDigest validates that images have a digest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>required</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<p>Required validates that images are verified i.e. have matched passed a signature or attestation check.</p>
 </td>
 </tr>
 </tbody>

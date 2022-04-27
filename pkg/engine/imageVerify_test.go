@@ -2,8 +2,13 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -114,7 +119,10 @@ var testPolicyBad = `{
 var testResource = `{
   "apiVersion": "v1",
   "kind": "Pod",
-  "metadata": {"name": "test"},
+  "metadata": {
+     "name": "test",
+     "annotations": {}
+  },
   "spec": {
     "containers": [
       {
@@ -132,7 +140,7 @@ var payloads = [][]byte{
 }
 
 func Test_CosignMockAttest(t *testing.T) {
-	policyContext := buildContext(t, testPolicyGood, testResource)
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
 
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", payloads)
 	assert.NilError(t, err)
@@ -143,7 +151,7 @@ func Test_CosignMockAttest(t *testing.T) {
 }
 
 func Test_CosignMockAttest_fail(t *testing.T) {
-	policyContext := buildContext(t, testPolicyBad, testResource)
+	policyContext := buildContext(t, testPolicyBad, testResource, "")
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", payloads)
 	assert.NilError(t, err)
 
@@ -152,33 +160,40 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
 
-func buildContext(t *testing.T, policy, resource string) *PolicyContext {
-	policyRaw := []byte(policy)
-	resourceRaw := []byte(resource)
+func buildContext(t *testing.T, policy, resource string, oldResource string) *PolicyContext {
 
 	var cpol kyverno.ClusterPolicy
-	err := json.Unmarshal(policyRaw, &cpol)
-	if err != nil {
-		t.Error(err)
-	}
-
-	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	err := json.Unmarshal([]byte(policy), &cpol)
 	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured([]byte(resource))
+	assert.NilError(t, err)
+
 	ctx := context.NewContext()
-	err = context.AddResource(ctx, resourceRaw)
-	if err != nil {
-		t.Error(err)
-	}
+	err = context.AddResource(ctx, []byte(resource))
+	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
 		Policy:      &cpol,
 		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		NewResource: *resourceUnstructured,
+	}
+
+	if oldResource != "" {
+		oldResourceUnstructured, err := utils.ConvertToUnstructured([]byte(oldResource))
+		assert.NilError(t, err)
+
+		err = context.AddOldResource(ctx, []byte(oldResource))
+		assert.NilError(t, err)
+
+		policyContext.OldResource = *oldResourceUnstructured
+	}
 
 	if err := ctx.AddImageInfos(resourceUnstructured); err != nil {
 		t.Errorf("unable to add image info to variables context: %v", err)
 		t.Fail()
 	}
+
 	return policyContext
 }
 
@@ -304,29 +319,29 @@ var testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj
 var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyBg8yod24/wIcc5QqlVLtCfL+6Te+nwdPdTvMb1AiZn24zBToHJVZvQdYLgRWAbh0Jd+6JhEwsDmnXRrlV7rfw==\n-----END PUBLIC KEY-----\n`
 
 func Test_SignatureGoodSigned(t *testing.T) {
-	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource)
+	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	cosign.ClearMock()
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignatureUnsigned(t *testing.T) {
 	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
-	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned)
+	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignatureWrongKey(t *testing.T) {
 	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
-	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey)
+	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKey(t *testing.T) {
@@ -334,20 +349,20 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-	policyContext := buildContext(t, policy, testSampleResource)
+	policyContext := buildContext(t, policy, testSampleResource, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyFail(t *testing.T) {
 	cosign.ClearMock()
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-	policyContext := buildContext(t, policy, testSampleResource)
+	policyContext := buildContext(t, policy, testSampleResource, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
@@ -355,10 +370,10 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
-	policyContext := buildContext(t, policy, testSampleResource)
+	policyContext := buildContext(t, policy, testSampleResource, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
 
 func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
@@ -366,10 +381,10 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testOtherKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
-	policyContext := buildContext(t, policy, testSampleResource)
+	policyContext := buildContext(t, policy, testSampleResource, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
+	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
 
 var testNestedAttestorPolicy = `
@@ -439,7 +454,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy := strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-	policyContext := buildContext(t, policy, testSampleResource)
+	policyContext := buildContext(t, policy, testSampleResource, "")
 	err := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
@@ -447,7 +462,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
-	policyContext = buildContext(t, policy, testSampleResource)
+	policyContext = buildContext(t, policy, testSampleResource, "")
 	err = VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
@@ -455,7 +470,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(testNestedAttestorPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
-	policyContext = buildContext(t, policy, testSampleResource)
+	policyContext = buildContext(t, policy, testSampleResource, "")
 	err = VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
@@ -482,4 +497,67 @@ func createStaticKeyAttestorSet(s string) *kyverno.AttestorSet {
 			},
 		},
 	}
+}
+
+func Test_ChangedAnnotation(t *testing.T) {
+	name := "nginx"
+	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
+	annotationKey := makeAnnotationKey(name, digest)
+	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
+	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
+
+	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	assert.Equal(t, hasChanged, false)
+
+	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	assert.Equal(t, hasChanged, true)
+
+	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
+	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
+
+	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	assert.Equal(t, hasChanged, true)
+}
+
+func Test_MarkImageVerified(t *testing.T) {
+	imageVerifyRule := &kyverno.ImageVerification{Required: true}
+	iv := &imageVerifier{
+		logger:        log.Log,
+		policyContext: buildContext(t, testPolicyGood, testResource, ""),
+		rule:          &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}},
+		resp:          &response.EngineResponse{},
+	}
+
+	ruleResp := &response.RuleResponse{Status: response.RuleStatusPass}
+	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
+	imageInfo := kubeutils.ImageInfo{}
+	imageInfo.Name = "nginx"
+
+	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
+	assert.Equal(t, len(ruleResp.Patches), 1)
+
+	u := applyPatches(t, ruleResp)
+	key := makeAnnotationKey(imageInfo.Name, digest)
+	value := u.GetAnnotations()[key]
+	assert.Equal(t, value, "true")
+
+	ruleResp.Patches = nil
+	imageVerifyRule = &kyverno.ImageVerification{Required: false}
+	iv.rule = &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}}
+	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
+	assert.Equal(t, len(ruleResp.Patches), 0)
+}
+
+func applyPatches(t *testing.T, ruleResp *response.RuleResponse) unstructured.Unstructured {
+	patchedResource, err := utils.ApplyPatches([]byte(testResource), ruleResp.Patches)
+	assert.NilError(t, err)
+	assert.Assert(t, patchedResource != nil)
+
+	u := unstructured.Unstructured{}
+	err = u.UnmarshalJSON(patchedResource)
+	assert.NilError(t, err)
+	return u
 }
