@@ -3,11 +3,12 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -232,7 +233,7 @@ func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ru
 
 func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
 	if reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) ||
-		reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}){
+		reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) {
 		return false
 	}
 
@@ -263,7 +264,7 @@ func makeAnnotationKeyForJSONPatch(imageName, imageDigest string) string {
 
 func makeAnnotationKey(imageName, imageDigest string) string {
 	if imageDigest == "" {
-		return 	fmt.Sprintf("images.kyverno.io/%s", imageName)
+		return fmt.Sprintf("images.kyverno.io/%s", imageName)
 	}
 
 	return fmt.Sprintf("images.kyverno.io/%s/%s/%s", imageName, imageDigest[0:6], imageDigest[7:])

@@ -3,11 +3,12 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+	"testing"
+
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
-	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -521,14 +522,13 @@ func Test_ChangedAnnotation(t *testing.T) {
 	assert.Equal(t, hasChanged, true)
 }
 
-
 func Test_MarkImageVerified(t *testing.T) {
 	imageVerifyRule := &kyverno.ImageVerification{Required: true}
 	iv := &imageVerifier{
-		logger: log.Log,
+		logger:        log.Log,
 		policyContext: buildContext(t, testPolicyGood, testResource, ""),
-		rule: &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}},
-		resp: &response.EngineResponse{},
+		rule:          &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}},
+		resp:          &response.EngineResponse{},
 	}
 
 	ruleResp := &response.RuleResponse{Status: response.RuleStatusPass}

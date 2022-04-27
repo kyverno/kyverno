@@ -701,7 +701,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks(){
+		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() {
 			continue
 		}
 
