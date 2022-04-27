@@ -18,6 +18,18 @@ limitations under the License.
 
 package v1
 
+// ClusterPolicyListerExpansion allows custom methods to be added to
+// ClusterPolicyLister.
+type ClusterPolicyListerExpansion interface{}
+
+// GenerateRequestListerExpansion allows custom methods to be added to
+// GenerateRequestLister.
+type GenerateRequestListerExpansion interface{}
+
+// GenerateRequestNamespaceListerExpansion allows custom methods to be added to
+// GenerateRequestNamespaceLister.
+type GenerateRequestNamespaceListerExpansion interface{}
+
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.
 type PolicyListerExpansion interface{}
