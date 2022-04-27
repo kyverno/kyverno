@@ -472,7 +472,7 @@ OuterLoop:
 	}
 
 	mutateResponse := engine.Mutate(policyContext)
-	if mutateResponse != nil && !mutateResponse.IsEmpty() {
+	if mutateResponse != nil {
 		engineResponses = append(engineResponses, mutateResponse)
 	}
 
