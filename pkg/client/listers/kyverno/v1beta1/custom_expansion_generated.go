@@ -20,14 +20,19 @@ package v1beta1
 
 import (
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
-// UpdateRequestListerExpansion allows custom methods to be added to
-// UpdateRequestLister.
-type UpdateRequestListerExpansion interface{}
-
-// UpdateRequestNamespaceListerExpansion allows custom methods to be added to
-// UpdateRequestNamespaceLister.
-type UpdateRequestNamespaceListerExpansion interface {
-	GetUpdateRequestsForClusterPolicy(policy string) ([]*v1beta1.UpdateRequest, error)
+func (s updateRequestNamespaceLister) GetUpdateRequestsForClusterPolicy(policy string) ([]*v1beta1.UpdateRequest, error) {
+	var list []*v1beta1.UpdateRequest
+	urs, err := s.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+	for idx, ur := range urs {
+		if ur.Spec.Policy == policy {
+			list = append(list, urs[idx])
+		}
+	}
+	return list, err
 }

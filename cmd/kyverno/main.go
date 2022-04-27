@@ -78,25 +78,14 @@ func main() {
 	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
-	flag.IntVar(&webhookTimeout, "webhooktimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations. Deprecated and will be removed in 1.6.0.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
-	// deprecated
-	flag.IntVar(&genWorkers, "gen-workers", 10, "Workers for generate controller. Deprecated and will be removed in 1.6.0. ")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
-	// deprecated
-	flag.StringVar(&profilePort, "profile-port", "6060", "Enable profiling at given port, defaults to 6060. Deprecated and will be removed in 1.6.0. ")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
-	// deprecated
-	flag.BoolVar(&disableMetricsExport, "disable-metrics", false, "Set this flag to 'true', to enable exposing the metrics. Deprecated and will be removed in 1.6.0. ")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true', to enable exposing the metrics.")
-	// deprecated
-	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000. Deprecated and will be removed in 1.6.0. ")
 	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	// deprecated
-	flag.DurationVar(&policyControllerResyncPeriod, "background-scan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h. Deprecated and will be removed in 1.6.0. ")
 	flag.DurationVar(&policyControllerResyncPeriod, "backgroundScan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
@@ -116,7 +105,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -229,6 +218,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		kubeClient,
 		pclient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -262,13 +252,9 @@ func main() {
 		excludeUsername,
 		prgen.ReconcileCh,
 		webhookCfg.UpdateWebhookChan,
-		log.Log.WithName("ConfigData"),
 	)
 
-	metricsConfigData, err := config.NewMetricsConfigData(
-		kubeClient,
-		log.Log.WithName("MetricsConfigData"),
-	)
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to fetch metrics config")
 		os.Exit(1)
@@ -383,7 +369,7 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeClient,

@@ -216,11 +216,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	}
 
-	if !preconditionsPassed {
-		if v.ctx.Policy.GetSpec().ValidationFailureAction == kyverno.Audit {
-			return nil
-		}
-
+	if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit || store.GetMock()) {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
@@ -261,7 +257,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
-	} else if !preconditionsPassed && v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit {
+	} else if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit || store.GetMock()) {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
