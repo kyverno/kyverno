@@ -170,8 +170,15 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 				}
 			}
 
-			if imageVerify.MutateDigest {
-				digest = iv.mutateDigest(digest, imageInfo, ruleResp)
+			if imageVerify.MutateDigest && imageInfo.Digest != "" {
+				patch, err := iv.handleDigest(digest, imageInfo)
+				if err != nil {
+					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
+				}
+
+				if ruleResp != nil {
+					ruleResp.Patches = append(ruleResp.Patches, patch)
+				}
 			}
 
 			if ruleResp != nil {
@@ -186,13 +193,22 @@ func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[st
 	}
 }
 
-func (iv *imageVerifier) mutateDigest(digest string, imageInfo kubeutils.ImageInfo, ruleResp *response.RuleResponse) string {
-		err := iv.patchDigest(imageInfo, digest, ruleResp)
+func (iv *imageVerifier) handleDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
+	if digest == "" {
+		digest, err := fetchImageDigest(imageInfo.String())
 		if err != nil {
-			ruleResp = ruleResponse(*iv.rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
+			return nil, err
 		}
 
-		return digest
+		imageInfo.Digest = digest
+	}
+
+	patch, err := makeAddDigestPatch(imageInfo, digest)
+	if err != nil {
+		return nil, err
+	}
+
+	return patch, nil
 }
 
 func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
@@ -440,31 +456,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify 
 	}
 
 	return opts, path
-}
-
-func (iv *imageVerifier) patchDigest(imageInfo kubeutils.ImageInfo, digest string, ruleResp *response.RuleResponse) error {
-	if imageInfo.Digest != "" {
-		return nil
-	}
-
-	if digest == "" {
-		var err error
-		digest, err = fetchImageDigest(imageInfo.String())
-		if err != nil {
-			return errors.Wrapf(err, "failed to fetch image digest from registry")
-		}
-	}
-
-	patch, err := makeAddDigestPatch(imageInfo, digest)
-	if err != nil {
-		return errors.Wrapf(err, "failed to patch image with digest. image: %s, jsonPath: %s", imageInfo.String(), imageInfo.Pointer)
-	}
-
-	iv.logger.V(4).Info("patching verified image with digest", "patch", string(patch))
-	ruleResp.Patches = append(ruleResp.Patches, patch)
-
-	imageInfo.Digest = digest
-	return nil
 }
 
 func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {

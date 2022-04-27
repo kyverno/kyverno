@@ -3,7 +3,6 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -553,7 +552,7 @@ func Test_MarkImageVerified(t *testing.T) {
 }
 
 func applyPatches(t *testing.T, ruleResp *response.RuleResponse) unstructured.Unstructured {
-	patchedResource, err := engineutils.ApplyPatches([]byte(testResource), ruleResp.Patches)
+	patchedResource, err := utils.ApplyPatches([]byte(testResource), ruleResp.Patches)
 	assert.NilError(t, err)
 	assert.Assert(t, patchedResource != nil)
 
