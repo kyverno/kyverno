@@ -24,10 +24,8 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 		var ruleType urkyverno.RequestType
 		if rule.IsMutateExisting() {
 			ruleType = urkyverno.Mutate
-			fmt.Println("=====rule type", ruleType)
 		} else {
 			// TODO: assign generate ruleType
-			fmt.Println("=====continue", rule.Mutation.Targets)
 			continue
 		}
 
