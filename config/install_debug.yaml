@@ -1757,6 +1757,8 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
+                            description: ResourceSpec contains information to identify
+                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -4232,6 +4234,8 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
+                            description: ResourceSpec contains information to identify
+                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -7573,6 +7577,8 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
+                            description: ResourceSpec contains information to identify
+                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -10049,6 +10055,8 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
+                            description: ResourceSpec contains information to identify
+                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
