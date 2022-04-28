@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -32,7 +33,7 @@ func AddLabels(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Gener
 		if len(grLabels) == 0 {
 			grLabels = make(map[string]string)
 		}
-		grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy
+		grLabels[urkyverno.URGeneratePolicyLabel] = gr.Spec.Policy
 		grLabels["generate.kyverno.io/resource-name"] = gr.Spec.Resource.Name
 		grLabels["generate.kyverno.io/resource-kind"] = gr.Spec.Resource.Kind
 		grLabels["generate.kyverno.io/resource-namespace"] = gr.Spec.Resource.Namespace
@@ -67,7 +68,7 @@ func addLabelForGR(name string, namespace string, client *kyvernoclient.Clientse
 	if len(grLabels) == 0 {
 		grLabels = make(map[string]string)
 	}
-	grLabels["generate.kyverno.io/policy-name"] = gr.Spec.Policy
+	grLabels[urkyverno.URGeneratePolicyLabel] = gr.Spec.Policy
 	grLabels["generate.kyverno.io/resource-name"] = gr.Spec.Resource.Name
 	grLabels["generate.kyverno.io/resource-kind"] = gr.Spec.Resource.Kind
 	grLabels["generate.kyverno.io/resource-namespace"] = gr.Spec.Resource.Namespace
