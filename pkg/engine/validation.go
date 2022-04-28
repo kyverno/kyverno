@@ -187,7 +187,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(foreach *kyverno.ForEachValidation, rule *kyverno.Rule, ctx *PolicyContext, log logr.Logger) *validator {
+func newForeachValidator(foreach kyverno.ForEachValidation, rule *kyverno.Rule, ctx *PolicyContext, log logr.Logger) *validator {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -294,7 +294,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
-func (v *validator) validateElements(foreach *kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(foreach kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 	applyCount := 0

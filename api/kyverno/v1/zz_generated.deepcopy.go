@@ -752,13 +752,9 @@ func (in *Mutation) DeepCopyInto(out *Mutation) {
 	}
 	if in.ForEachMutation != nil {
 		in, out := &in.ForEachMutation, &out.ForEachMutation
-		*out = make([]*ForEachMutation, len(*in))
+		*out = make([]ForEachMutation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ForEachMutation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -1145,13 +1141,9 @@ func (in *Validation) DeepCopyInto(out *Validation) {
 	*out = *in
 	if in.ForEachValidation != nil {
 		in, out := &in.ForEachValidation, &out.ForEachValidation
-		*out = make([]*ForEachValidation, len(*in))
+		*out = make([]ForEachValidation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ForEachValidation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.RawPattern != nil {

@@ -106,7 +106,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []*kyverno.ForEachMutation
+		var newForeachMutation []kyverno.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyverno.ForEachMutation{
 				List:             foreach.List,
@@ -120,7 +120,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, &temp)
+			newForeachMutation = append(newForeachMutation, temp)
 		}
 		rule.Mutation = kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
@@ -170,7 +170,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
-		newForeachValidate := make([]*kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
+		newForeachValidate := make([]kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
 		for i, foreach := range rule.Validation.ForEachValidation {
 			newForeachValidate[i] = foreach
 		}

@@ -880,6 +880,10 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 <h3 id="kyverno.io/v1.ForEachMutation">ForEachMutation
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
+</p>
+<p>
 <p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
 <table class="table table-striped">
@@ -964,6 +968,10 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <hr />
 <h3 id="kyverno.io/v1.ForEachValidation">ForEachValidation
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>)
+</p>
 <p>
 <p>ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
 </p>
@@ -1912,8 +1920,8 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachMutation">
-[]*./api/kyverno/v1.ForEachMutation
+<a href="#kyverno.io/v1.ForEachMutation">
+[]ForEachMutation
 </a>
 </em>
 </td>
@@ -2910,8 +2918,8 @@ string
 <td>
 <code>foreach</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ForEachValidation">
-[]*./api/kyverno/v1.ForEachValidation
+<a href="#kyverno.io/v1.ForEachValidation">
+[]ForEachValidation
 </a>
 </em>
 </td>
