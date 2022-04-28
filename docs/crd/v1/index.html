@@ -1491,6 +1491,10 @@ the image reference.</p>
 <h3 id="kyverno.io/v1.ImageVerification">ImageVerification
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Rule">Rule</a>)
+</p>
+<p>
 <p>ImageVerification validates that images that match the specified pattern
 are signed with the supplied public key. Once the image is verified it is
 mutated to include the SHA digest retrieved during the registration.</p>
@@ -2645,8 +2649,8 @@ Generation
 <td>
 <code>verifyImages</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.ImageVerification">
-[]*./api/kyverno/v1.ImageVerification
+<a href="#kyverno.io/v1.ImageVerification">
+[]ImageVerification
 </a>
 </em>
 </td>
