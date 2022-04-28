@@ -523,11 +523,11 @@ func Test_ChangedAnnotation(t *testing.T) {
 }
 
 func Test_MarkImageVerified(t *testing.T) {
-	imageVerifyRule := &kyverno.ImageVerification{Required: true}
+	imageVerifyRule := kyverno.ImageVerification{Required: true}
 	iv := &imageVerifier{
 		logger:        log.Log,
 		policyContext: buildContext(t, testPolicyGood, testResource, ""),
-		rule:          &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}},
+		rule:          &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}},
 		resp:          &response.EngineResponse{},
 	}
 
@@ -545,8 +545,8 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, value, "true")
 
 	ruleResp.Patches = nil
-	imageVerifyRule = &kyverno.ImageVerification{Required: false}
-	iv.rule = &kyverno.Rule{VerifyImages: []*kyverno.ImageVerification{imageVerifyRule}}
+	imageVerifyRule = kyverno.ImageVerification{Required: false}
+	iv.rule = &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}}
 	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
 	assert.Equal(t, len(ruleResp.Patches), 0)
 }

@@ -140,9 +140,9 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify *v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
 	// for backward compatibility
-	imageVerify = imageVerify.Convert()
+	imageVerify = *imageVerify.Convert()
 
 	for _, infoMap := range images {
 		for _, imageInfo := range infoMap {
@@ -212,7 +212,7 @@ func (iv *imageVerifier) handleDigest(digest string, imageInfo kubeutils.ImageIn
 	return patch, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify *v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
 		msg := "changes to `images.kyverno.io` annotation are not allowed"
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
@@ -292,7 +292,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
@@ -312,7 +312,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
+func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -409,7 +409,7 @@ func getRequiredCount(as v1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v1.ImageVerification, image string) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -466,7 +466,7 @@ func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, e
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) verifyAttestations(imageVerify *v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
