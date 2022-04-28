@@ -260,9 +260,9 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-clean test-unit test-e2e
+test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
 
-test-clean:
+test-clean: ## Clean tests cache
 	@echo "	cleaning test cache"
 	go clean -testcache ./...
 
@@ -289,9 +289,7 @@ test-cli-test-case-selector-flag: cli
 test-cli-registry: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
 
-# go get downloads and installs the binary
-# we temporarily add the GO_ACC to the path
-test-unit: $(GO_ACC)
+test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 

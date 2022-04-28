@@ -47,6 +47,10 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 	ws.prGenerator.Add(prInfos...)
 
 	blocked := toBlockResource(engineResponses, logger)
+
+	events := generateEvents(engineResponses, blocked, logger)
+	ws.eventGen.Add(events...)
+
 	if blocked {
 		logger.V(4).Info("resource blocked")
 		return false, getEnforceFailureErrorMsg(engineResponses), nil

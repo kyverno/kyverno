@@ -91,13 +91,9 @@ func (in *Attestation) DeepCopyInto(out *Attestation) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = make([]*AnyAllConditions, len(*in))
+		*out = make([]AnyAllConditions, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(AnyAllConditions)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -159,13 +155,9 @@ func (in *AttestorSet) DeepCopyInto(out *AttestorSet) {
 	}
 	if in.Entries != nil {
 		in, out := &in.Entries, &out.Entries
-		*out = make([]*Attestor, len(*in))
+		*out = make([]Attestor, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Attestor)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
@@ -640,24 +632,16 @@ func (in *ImageVerification) DeepCopyInto(out *ImageVerification) {
 	}
 	if in.Attestors != nil {
 		in, out := &in.Attestors, &out.Attestors
-		*out = make([]*AttestorSet, len(*in))
+		*out = make([]AttestorSet, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(AttestorSet)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Attestations != nil {
 		in, out := &in.Attestations, &out.Attestations
-		*out = make([]*Attestation, len(*in))
+		*out = make([]Attestation, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Attestation)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Annotations != nil {

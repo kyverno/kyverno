@@ -490,6 +490,7 @@ Kubernetes admission/v1.Operation
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestation">Attestation</a>, 
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>)
 </p>
@@ -546,6 +547,10 @@ Here, all of the conditions need to pass</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
 <p>Attestation are checks for signed in-toto Statements that are used to verify the image.
 See <a href="https://github.com/in-toto/attestation">https://github.com/in-toto/attestation</a>. Kyverno fetches signed attestations from the
 OCI registry and decodes them into a list of Statements.</p>
@@ -573,8 +578,8 @@ string
 <td>
 <code>conditions</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.AnyAllConditions">
-[]*./api/kyverno/v1.AnyAllConditions
+<a href="#kyverno.io/v1.AnyAllConditions">
+[]AnyAllConditions
 </a>
 </em>
 </td>
@@ -589,6 +594,10 @@ the attestation check is satisfied as long there are predicates that match the p
 <hr />
 <h3 id="kyverno.io/v1.Attestor">Attestor
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.AttestorSet">AttestorSet</a>)
+</p>
 <p>
 </p>
 <table class="table table-striped">
@@ -670,6 +679,10 @@ If specified Repository will override other OCI image repository locations for t
 <h3 id="kyverno.io/v1.AttestorSet">AttestorSet
 </h3>
 <p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+</p>
+<p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -696,8 +709,8 @@ value N, then N must be less than or equal to the size of entries, and at least 
 <td>
 <code>entries</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestor">
-[]*./api/kyverno/v1.Attestor
+<a href="#kyverno.io/v1.Attestor">
+[]Attestor
 </a>
 </em>
 </td>
@@ -1799,8 +1812,8 @@ Deprecated.</p>
 <td>
 <code>attestors</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.AttestorSet">
-[]*./api/kyverno/v1.AttestorSet
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
 </a>
 </em>
 </td>
@@ -1812,8 +1825,8 @@ Deprecated.</p>
 <td>
 <code>attestations</code></br>
 <em>
-<a href="#kyverno.io/v1.*./api/kyverno/v1.Attestation">
-[]*./api/kyverno/v1.Attestation
+<a href="#kyverno.io/v1.Attestation">
+[]Attestation
 </a>
 </em>
 </td>

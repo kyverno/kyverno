@@ -218,7 +218,7 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 	_ = json.Unmarshal(schemaRaw, &schema)
 
 	if len(schema.Properties) < 1 {
-		log.Log.V(4).Info("crd schema has no properties", "name", crdName)
+		log.Log.V(6).Info("crd schema has no properties", "name", crdName)
 		return schemaRaw, nil
 	}
 

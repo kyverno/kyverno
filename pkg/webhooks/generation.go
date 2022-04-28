@@ -132,12 +132,12 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 			}
 		} else {
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name": policyName,
+				urkyverno.URGeneratePolicyLabel: policyName,
 			}))
 
 			grList, err := ws.urLister.List(selector)
 			if err != nil {
-				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+				logger.Error(err, "failed to get generate request for the resource", "label", urkyverno.URGeneratePolicyLabel)
 				return
 			}
 
@@ -363,7 +363,7 @@ func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
+		urkyverno.URGeneratePolicyLabel:          engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
