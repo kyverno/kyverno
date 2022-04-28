@@ -129,7 +129,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 		queryLabels := make(map[string]string)
 		if ur.Spec.Type == urkyverno.Mutate {
 			queryLabels := map[string]string{
-				"mutate.updaterequest.kyverno.io/policy-name":       ur.Spec.Policy,
+				urkyverno.URMutatePolicyLabel:                       ur.Spec.Policy,
 				"mutate.updaterequest.kyverno.io/trigger-name":      ur.Spec.Resource.Name,
 				"mutate.updaterequest.kyverno.io/trigger-namespace": ur.Spec.Resource.Namespace,
 				"mutate.updaterequest.kyverno.io/trigger-kind":      ur.Spec.Resource.Kind,
@@ -140,7 +140,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			}
 		} else if ur.Spec.Type == urkyverno.Generate {
 			queryLabels = labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name":        policyName,
+				urkyverno.URGeneratePolicyLabel:          policyName,
 				"generate.kyverno.io/resource-name":      urSpec.Resource.Name,
 				"generate.kyverno.io/resource-kind":      urSpec.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": urSpec.Resource.Namespace,

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -505,10 +506,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	urList, err := pc.urLister.List(labels.Everything())
-	if err != nil {
-		logger.Error(err, "failed to list update request")
-	}
+	urList := pc.listURs(key)
 
 	policy, err := pc.getPolicy(key)
 	if err != nil {
@@ -523,6 +521,36 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	pc.updateUR(policy, urList)
 	pc.processExistingResources(policy)
 	return nil
+}
+
+func (pc *PolicyController) listURs(key string) []*urkyverno.UpdateRequest {
+	var urs []*urkyverno.UpdateRequest
+
+	_, pName, _ := ParseNamespacedPolicy(key)
+
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		urkyverno.URMutatePolicyLabel: pName,
+	}))
+
+	mutateURs, err := pc.urLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to list update request")
+	} else {
+		urs = append(urs, mutateURs...)
+	}
+
+	selector = labels.SelectorFromSet(labels.Set(map[string]string{
+		urkyverno.URGeneratePolicyLabel: pName,
+	}))
+
+	generateURs, err := pc.urLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to list update request")
+	} else {
+		urs = append(urs, generateURs...)
+	}
+
+	return urs
 }
 
 func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterface, err error) {
@@ -724,7 +752,7 @@ func newUR(policy kyverno.PolicyInterface, target *kyverno.ResourceSpec) *urkyve
 	}
 
 	label := map[string]string{
-		"mutate.updaterequest.kyverno.io/policy-name":       policyNameNamespaceKey,
+		urkyverno.URMutatePolicyLabel:                       policyNameNamespaceKey,
 		"mutate.updaterequest.kyverno.io/trigger-name":      target.Name,
 		"mutate.updaterequest.kyverno.io/trigger-namespace": target.Namespace,
 		"mutate.updaterequest.kyverno.io/trigger-kind":      target.Kind,

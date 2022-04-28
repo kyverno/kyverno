@@ -146,12 +146,12 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 	// get the generated resource name from generate request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"generate.kyverno.io/policy-name": p.Name,
+		urkyverno.URGeneratePolicyLabel: p.Name,
 	}))
 
 	grList, err := c.urLister.List(selector)
 	if err != nil {
-		logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+		logger.Error(err, "failed to get generate request for the resource", "label", urkyverno.URGeneratePolicyLabel)
 		return
 	}
 
