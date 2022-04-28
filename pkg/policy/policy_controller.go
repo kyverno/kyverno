@@ -506,26 +506,24 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
 
-	urList := pc.listURs(key)
+	mutateURs, generateURs := pc.listURs(key)
 
 	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			deleteGR(pc.kyvernoClient, key, urList, logger)
+			deleteGR(pc.kyvernoClient, key, append(mutateURs, generateURs...), logger)
 			return nil
 		}
 
 		return err
 	}
 
-	pc.updateUR(policy, urList)
+	pc.updateUR(policy, mutateURs, generateURs)
 	pc.processExistingResources(policy)
 	return nil
 }
 
-func (pc *PolicyController) listURs(key string) []*urkyverno.UpdateRequest {
-	var urs []*urkyverno.UpdateRequest
-
+func (pc *PolicyController) listURs(key string) ([]*urkyverno.UpdateRequest, []*urkyverno.UpdateRequest) {
 	_, pName, _ := ParseNamespacedPolicy(key)
 
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
@@ -535,8 +533,6 @@ func (pc *PolicyController) listURs(key string) []*urkyverno.UpdateRequest {
 	mutateURs, err := pc.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to list update request")
-	} else {
-		urs = append(urs, mutateURs...)
 	}
 
 	selector = labels.SelectorFromSet(labels.Set(map[string]string{
@@ -546,11 +542,9 @@ func (pc *PolicyController) listURs(key string) []*urkyverno.UpdateRequest {
 	generateURs, err := pc.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to list update request")
-	} else {
-		urs = append(urs, generateURs...)
 	}
 
-	return urs
+	return mutateURs, generateURs
 }
 
 func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterface, err error) {
@@ -567,8 +561,8 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func (pc *PolicyController) updateUR(policy kyverno.PolicyInterface, urList []*urkyverno.UpdateRequest) {
-	if urList == nil {
+func (pc *PolicyController) updateUR(policy kyverno.PolicyInterface, mutateURs, generateURs []*urkyverno.UpdateRequest) {
+	if mutateURs == nil {
 		for _, rule := range policy.GetSpec().Rules {
 			if !rule.IsMutateExisting() {
 				continue
@@ -596,7 +590,7 @@ func (pc *PolicyController) updateUR(policy kyverno.PolicyInterface, urList []*u
 		return
 	}
 
-	updateUR(pc.kyvernoClient, policy.GetName(), urList, pc.log.WithName("updateUR"))
+	updateUR(pc.kyvernoClient, policy.GetName(), append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
 
 }
 
