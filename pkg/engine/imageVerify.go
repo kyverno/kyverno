@@ -114,13 +114,13 @@ func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, statu
 func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.Logger) (*v1.Rule, error) {
 
 	// remove attestations as variables are not substituted in them
-	ruleCopy := rule.DeepCopy()
+	ruleCopy := *rule.DeepCopy()
 	for _, iv := range ruleCopy.VerifyImages {
 		iv.Attestations = nil
 	}
 
 	var err error
-	*ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, *ruleCopy)
+	ruleCopy, err = variables.SubstituteAllInRule(logger, ctx, ruleCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.L
 		ruleCopy.VerifyImages[i].Attestations = rule.VerifyImages[i].Attestations
 	}
 
-	return ruleCopy, nil
+	return &ruleCopy, nil
 }
 
 type imageVerifier struct {
