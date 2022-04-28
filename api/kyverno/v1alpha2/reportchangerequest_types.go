@@ -58,7 +58,7 @@ type ReportChangeRequest struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*report.PolicyReportResult `json:"results,omitempty"`
+	Results []report.PolicyReportResult `json:"results,omitempty"`
 }
 
 // ReportChangeRequestList contains a list of ReportChangeRequest

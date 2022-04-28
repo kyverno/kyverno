@@ -59,7 +59,7 @@ type ClusterPolicyReport struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*PolicyReportResult `json:"results,omitempty"`
+	Results []PolicyReportResult `json:"results,omitempty"`
 }
 
 // ClusterPolicyReportList contains a list of ClusterPolicyReport
