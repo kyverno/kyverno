@@ -1548,11 +1548,6 @@ spec:
                     items:
                       type: string
                     type: array
-                  supported:
-                    description: Supported indicates the autogen supported controllers
-                    items:
-                      type: string
-                    type: array
                 type: object
               conditions:
                 description: Conditions is a list of conditions that apply to the policy
@@ -5330,11 +5325,6 @@ spec:
                     type: array
                   requested:
                     description: Requested indicates the autogen requested controllers
-                    items:
-                      type: string
-                    type: array
-                  supported:
-                    description: Supported indicates the autogen supported controllers
                     items:
                       type: string
                     type: array
