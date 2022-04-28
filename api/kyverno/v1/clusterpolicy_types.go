@@ -8,7 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -19,6 +18,8 @@ import (
 // +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
+
+// ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
 type ClusterPolicy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
@@ -109,8 +110,9 @@ func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
 	return p.DeepCopy()
 }
 
-// ClusterPolicyList is a list of ClusterPolicy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterPolicyList is a list of ClusterPolicy instances.
 type ClusterPolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
