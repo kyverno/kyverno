@@ -115,8 +115,8 @@ func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.L
 
 	// remove attestations as variables are not substituted in them
 	ruleCopy := *rule.DeepCopy()
-	for _, iv := range ruleCopy.VerifyImages {
-		iv.Attestations = nil
+	for i := range ruleCopy.VerifyImages {
+		ruleCopy.VerifyImages[i].Attestations = nil
 	}
 
 	var err error
