@@ -73,8 +73,8 @@ func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstru
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyReportResult {
-	results := make(map[string][]*report.PolicyReportResult)
+func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyReportResult {
+	results := make(map[string][]report.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {
@@ -94,7 +94,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyRe
 
 				result := report.PolicyReportResult{
 					Policy: info.PolicyName,
-					Resources: []*corev1.ObjectReference{
+					Resources: []corev1.ObjectReference{
 						{
 							Kind:       infoResult.Resource.Kind,
 							Namespace:  infoResult.Resource.Namespace,
@@ -111,7 +111,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]*report.PolicyRe
 				result.Result = report.PolicyResult(rule.Status)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
-				results[appname] = append(results[appname], &result)
+				results[appname] = append(results[appname], result)
 			}
 		}
 	}
@@ -160,7 +160,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 	return resultsNew
 }
 
-func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
+func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {
 		case report.StatusPass:

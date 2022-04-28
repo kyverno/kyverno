@@ -94,7 +94,7 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 }
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
-	results := []*report.PolicyReportResult{}
+	results := []report.PolicyReportResult{}
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
@@ -160,12 +160,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	return req, nil
 }
 
-func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
+func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) report.PolicyReportResult {
 	av := builder.fetchAnnotationValues(policy, resource.Namespace)
 
-	result := &report.PolicyReportResult{
+	result := report.PolicyReportResult{
 		Policy: policy,
-		Resources: []*v1.ObjectReference{
+		Resources: []v1.ObjectReference{
 			{
 				Kind:       resource.Kind,
 				Namespace:  resource.Namespace,
@@ -246,7 +246,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 	return false
 }
 
-func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
+func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {
 		case report.StatusPass:
