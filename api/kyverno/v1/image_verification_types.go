@@ -48,12 +48,12 @@ type ImageVerification struct {
 
 	// Attestors specified the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
-	Attestors []*AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
 	// Attestations are optional checks for signed in-toto Statements used to verify the image.
 	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 	// OCI registry and decodes them into a list of Statement declarations.
-	Attestations []*Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
+	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
@@ -95,7 +95,7 @@ type AttestorSet struct {
 	// Entries contains the available attestors. An attestor can be a static key,
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
-	Entries []*Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
 }
 
 type Attestor struct {
@@ -194,7 +194,7 @@ type Attestation struct {
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +optional
-	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -332,7 +332,7 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.ImageReferences = []string{iv.Image}
 	}
 
-	attestor := &Attestor{
+	attestor := Attestor{
 		Annotations: iv.Annotations,
 	}
 
@@ -348,9 +348,8 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 	}
 
-	attestorSet := &AttestorSet{}
+	attestorSet := AttestorSet{}
 	attestorSet.Entries = append(attestorSet.Entries, attestor)
-
 	copy.Attestors = append(copy.Attestors, attestorSet)
 	return copy
 }

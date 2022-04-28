@@ -312,7 +312,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify *v1.ImageVerification, ima
 	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
+func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify *v1.ImageVerification, image, path string) (string, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -329,7 +329,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				digest, entryError = iv.verifyAttestorSet(nestedAttestorSet, imageVerify, image, attestorPath)
+				digest, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, image, attestorPath)
 			}
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
@@ -355,8 +355,8 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet *v1.AttestorSet, imageVer
 	return "", err
 }
 
-func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
-	var entries []*v1.Attestor
+func expandStaticKeys(attestorSet v1.AttestorSet) v1.AttestorSet {
+	var entries []v1.Attestor
 	for _, e := range attestorSet.Entries {
 		if e.StaticKey != nil {
 			keys := splitPEM(e.StaticKey.Keys)
@@ -370,7 +370,7 @@ func expandStaticKeys(attestorSet *v1.AttestorSet) *v1.AttestorSet {
 		entries = append(entries, e)
 	}
 
-	return &v1.AttestorSet{
+	return v1.AttestorSet{
 		Count:   attestorSet.Count,
 		Entries: entries,
 	}
@@ -385,24 +385,23 @@ func splitPEM(pem string) []string {
 	return keys[0 : len(keys)-1]
 }
 
-func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []*v1.Attestor {
-	var attestors []*v1.Attestor
+func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []v1.Attestor {
+	var attestors []v1.Attestor
 	for _, k := range keys {
-		a := &v1.Attestor{
+		a := v1.Attestor{
 			StaticKey: &v1.StaticKeyAttestor{
 				Keys:          k,
 				Intermediates: ska.Intermediates,
 				Roots:         ska.Roots,
 			},
 		}
-
 		attestors = append(attestors, a)
 	}
 
 	return attestors
 }
 
-func getRequiredCount(as *v1.AttestorSet) int {
+func getRequiredCount(as v1.AttestorSet) int {
 	if as.Count == nil || *as.Count == 0 {
 		return len(as.Entries)
 	}
@@ -410,7 +409,7 @@ func getRequiredCount(as *v1.AttestorSet) int {
 	return *as.Count
 }
 
-func (iv *imageVerifier) buildOptionsAndPath(attestor *v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
+func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify *v1.ImageVerification, image string) (*cosign.Options, string) {
 	path := ""
 	opts := &cosign.Options{
 		ImageRef:    image,
@@ -519,7 +518,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a *v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}

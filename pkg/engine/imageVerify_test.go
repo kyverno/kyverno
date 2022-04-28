@@ -487,9 +487,9 @@ func Test_ExpandKeys(t *testing.T) {
 	assert.Equal(t, 3, len(as.Entries))
 }
 
-func createStaticKeyAttestorSet(s string) *kyverno.AttestorSet {
-	return &kyverno.AttestorSet{
-		Entries: []*kyverno.Attestor{
+func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
+	return kyverno.AttestorSet{
+		Entries: []kyverno.Attestor{
 			{
 				StaticKey: &kyverno.StaticKeyAttestor{
 					Keys: s,
