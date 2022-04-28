@@ -213,7 +213,7 @@ func (cd *ConfigData) deleteCM(obj interface{}) {
 			logger.Info("failed to get object from tombstone")
 			return
 		}
-		_, ok = tombstone.Obj.(*v1.ConfigMap)
+		cm, ok = tombstone.Obj.(*v1.ConfigMap)
 		if !ok {
 			logger.Info("Tombstone contained object that is not a ConfigMap", "object", obj)
 			return

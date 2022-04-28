@@ -262,7 +262,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
 		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
@@ -357,7 +356,6 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
 		p, ok = tombstone.Obj.(*kyverno.Policy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
