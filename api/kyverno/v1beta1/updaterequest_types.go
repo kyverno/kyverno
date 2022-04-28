@@ -23,9 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
 
@@ -41,7 +38,6 @@ type UpdateRequestStatus struct {
 	GeneratedResources []v1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
 }
 
-// UpdateRequestStatus is a request to process mutate and generate rules in background.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -53,6 +49,8 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur
+
+// UpdateRequestStatus is a request to process mutate and generate rules in background.
 type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

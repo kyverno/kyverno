@@ -8,8 +8,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
-// Policy declares validation, mutation, and generation behaviors for matching resources.
-// See: https://kyverno.io/docs/writing-policies/ for more information.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -19,6 +17,9 @@ import (
 // +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:resource:shortName=pol
+
+// Policy declares validation, mutation, and generation behaviors for matching resources.
+// See: https://kyverno.io/docs/writing-policies/ for more information.
 type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
@@ -110,8 +111,9 @@ func (p *Policy) CreateDeepCopy() PolicyInterface {
 	return p.DeepCopy()
 }
 
-// PolicyList is a list of Policy instances.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// PolicyList is a list of Policy instances.
 type PolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
