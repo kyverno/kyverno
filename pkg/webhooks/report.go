@@ -4,14 +4,13 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
 //generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdate bool, log logr.Logger) []event.Info {
+func generateEvents(engineResponses []*response.EngineResponse, blocked bool, log logr.Logger) []event.Info {
 	var events []event.Info
 
 	// - Admission-Response is SUCCESS
@@ -24,6 +23,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 
 	for _, er := range engineResponses {
 		if !er.IsSuccessful() {
+
 			// Rules that failed
 			failedRules := er.GetFailedRules()
 			failedRulesStr := strings.Join(failedRules, ";")
@@ -32,7 +32,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			pe := event.NewEvent(
 				log,
 				er.Policy.GetKind(),
-				kyvernov1alpha2.SchemeGroupVersion.String(),
+				kyvernov1.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
 				event.PolicyViolation.String(),
@@ -41,7 +41,11 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 				failedRulesStr,
 				er.PolicyResponse.Resource.GetKey(),
 			)
+			events = append(events, pe)
 
+			if blocked {
+				continue
+			}
 			// Event on the resource
 			re := event.NewEvent(
 				log,
@@ -66,7 +70,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked, onUpdat
 			e := event.NewEvent(
 				log,
 				er.Policy.GetKind(),
-				kyvernov1alpha2.SchemeGroupVersion.String(),
+				kyvernov1.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
 				event.PolicyApplied.String(),
