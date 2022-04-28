@@ -350,6 +350,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	grcc2, err := generatecleanup.NewController2(
+		kubeClient,
+		pclient,
+		client,
+		pInformer.Kyverno().V1().ClusterPolicies(),
+		pInformer.Kyverno().V1().Policies(),
+		pInformer.Kyverno().V1().GenerateRequests(),
+		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		log.Log.WithName("GenerateCleanUpController"),
+	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create generate cleanup controller")
+		os.Exit(1)
+	}
+
 	pCacheController := policycache.NewPolicyCacheController(
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
@@ -479,6 +495,7 @@ func main() {
 		go prgen.Run(1, stopCh)
 		go grc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
+		go grcc2.Run(1, stopCh)
 	}
 
 	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
