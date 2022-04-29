@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -10,10 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1"
-	apps "k8s.io/api/apps/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	rest "k8s.io/client-go/rest"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 )
 
 func (wrc *Register) readCaData() []byte {
@@ -58,16 +59,14 @@ func extractCA(config *rest.Config) (result []byte) {
 	return config.TLSClientConfig.CAData
 }
 
-func (wrc *Register) constructOwner() v1.OwnerReference {
+func (wrc *Register) constructOwner() metav1.OwnerReference {
 	logger := wrc.log
-
 	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
 	if err != nil {
 		logger.Error(err, "failed to get cluster role")
-		return v1.OwnerReference{}
+		return metav1.OwnerReference{}
 	}
-
-	return v1.OwnerReference{
+	return metav1.OwnerReference{
 		APIVersion: config.ClusterRoleAPIVersion,
 		Kind:       config.ClusterRoleKind,
 		Name:       kubeClusterRoleName.GetName(),
@@ -75,8 +74,13 @@ func (wrc *Register) constructOwner() v1.OwnerReference {
 	}
 }
 
-func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured, error) {
-	clusterRoles, err := wrc.client.ListResource(config.ClusterRoleAPIVersion, config.ClusterRoleKind, "", &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
+func (wrc *Register) GetKubePolicyClusterRoleName() (*corev1.ClusterRole, error) {
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": "kyverno",
+		},
+	}
+	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +94,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*unstructured.Unstructured,
 
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
-func (wrc *Register) GetKubePolicyDeployment() (*apps.Deployment, error) {
+func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
 	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
 	if err != nil {
 		return nil, err

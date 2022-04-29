@@ -22,8 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	informers "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
@@ -46,7 +44,7 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	// clients
-	client       *client.Client
+	// client       *client.Client
 	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 
@@ -97,7 +95,6 @@ func NewRegister(
 	log logr.Logger) *Register {
 	register := &Register{
 		clientConfig:         clientConfig,
-		client:               client,
 		kubeClient:           kubeClient,
 		resCache:             resCache,
 		mwcLister:            mwcInformer.Lister(),
@@ -255,24 +252,16 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface)
 
 func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error {
 	logger := wrc.log.WithName("ValidateWebhookConfigurations")
-
-	cm, err := wrc.client.GetResource("", "ConfigMap", namespace, name)
+	cm, err := wrc.kubeClient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		logger.Error(err, "unable to fetch ConfigMap", "namespace", namespace, "name", name)
 		return nil
 	}
-
-	webhooks, ok, err := unstructured.NestedString(cm.UnstructuredContent(), "data", "webhooks")
-	if err != nil {
-		logger.Error(err, "failed to fetch tag 'webhooks' from the ConfigMap")
-		return nil
-	}
-
+	webhooks, ok := cm.Data["webhooks"]
 	if !ok {
 		logger.V(4).Info("webhook configurations not defined")
 		return nil
 	}
-
 	webhookCfgs := make([]config.WebhookConfig, 0, 10)
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
@@ -280,13 +269,12 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 // cleanupKyvernoResource returns true if Kyverno is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
+	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
 	if err != nil {
 		if errorsapi.IsNotFound(err) {
 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
 			return true
 		}
-
 		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
 		return false
 	}
@@ -294,17 +282,10 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
 	}
-
-	replicas, _, err := unstructured.NestedInt64(deploy.UnstructuredContent(), "spec", "replicas")
-	if err != nil {
-		logger.Error(err, "unable to fetch spec.replicas of Kyverno deployment")
-	}
-
-	if replicas == 0 {
+	if deploy.Spec.Replicas == nil && *deploy.Spec.Replicas == 0 {
 		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
 		return true
 	}
-
 	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
 	return false
 }
@@ -653,52 +634,37 @@ func (wrc *Register) removeSecrets() {
 			tls.ManagedByLabel: "kyverno",
 		},
 	}
-
-	secretList, err := wrc.client.ListResource("", "Secret", config.KyvernoNamespace, selector)
-	if err != nil {
+	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
 		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
 		return
-	}
-
-	for _, secret := range secretList.Items {
-		if err := wrc.client.DeleteResource("", "Secret", secret.GetNamespace(), secret.GetName(), false); err != nil {
-			if !errorsapi.IsNotFound(err) {
-				wrc.log.Error(err, "failed to delete secret", "ns", secret.GetNamespace(), "name", secret.GetName())
-			}
-		}
 	}
 }
 
 func (wrc *Register) checkEndpoint() error {
-	obj, err := wrc.client.GetResource("", "Endpoints", config.KyvernoNamespace, config.KyvernoServiceName)
+	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoServiceName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
 	}
-	var endpoint corev1.Endpoints
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to convert endpoint %s/%s from unstructured: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app.kubernetes.io/name": "kyverno",
+		},
 	}
-
-	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
+	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
-
 	ips, errs := getHealthyPodsIP(pods.Items)
 	if len(errs) != 0 {
 		return fmt.Errorf("error getting pod's IP: %v", errs)
 	}
-
 	if len(ips) == 0 {
 		return fmt.Errorf("pod is not assigned to any node yet")
 	}
-
 	for _, subset := range endpoint.Subsets {
 		if len(subset.Addresses) == 0 {
 			continue
 		}
-
 		for _, addr := range subset.Addresses {
 			if utils.ContainsString(ips, addr.IP) {
 				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
@@ -706,33 +672,18 @@ func (wrc *Register) checkEndpoint() error {
 			}
 		}
 	}
-
 	err = fmt.Errorf("endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
 }
 
-func getHealthyPodsIP(pods []unstructured.Unstructured) (ips []string, errs []error) {
+func getHealthyPodsIP(pods []corev1.Pod) (ips []string, errs []error) {
 	for _, pod := range pods {
-		phase, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "phase")
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get pod %s status: %v", pod.GetName(), err))
+		if pod.Status.Phase != "Running" {
 			continue
 		}
-
-		if phase != "Running" {
-			continue
-		}
-
-		ip, _, err := unstructured.NestedString(pod.UnstructuredContent(), "status", "podIP")
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to extract pod %s IP: %v", pod.GetName(), err))
-			continue
-		}
-
-		ips = append(ips, ip)
+		ips = append(ips, pod.Status.PodIP)
 	}
-
 	return
 }
 
