@@ -260,7 +260,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
 		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
@@ -355,7 +354,6 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
 		p, ok = tombstone.Obj.(*kyverno.Policy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
@@ -643,7 +641,7 @@ func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
 	spec := policy.GetSpec()
-	if canApplyAutoGen, _ := autogen.CanAutoGen(spec, log); canApplyAutoGen {
+	if canApplyAutoGen, _ := autogen.CanAutoGen(spec); canApplyAutoGen {
 		for _, rule := range autogen.ComputeRules(policy) {
 			podRuleName = append(podRuleName, rule.Name)
 		}
