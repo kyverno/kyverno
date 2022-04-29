@@ -9,9 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -21,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// GenerateRequests provides interface to manage update requests
+// UpdateRequest provides interface to manage update requests
 type Interface interface {
 	Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error
 }
@@ -37,22 +35,17 @@ type Generator struct {
 	client *kyvernoclient.Clientset
 	stopCh <-chan struct{}
 	log    logr.Logger
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestNamespaceLister
-	grSynced cache.InformerSynced
 
 	urLister urkyvernolister.UpdateRequestNamespaceLister
 	urSynced cache.InformerSynced
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client *kyvernoclient.Clientset, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		client:   client,
 		stopCh:   stopCh,
 		log:      log,
-		grLister: grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
-		grSynced: grInformer.Informer().HasSynced,
 		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 		urSynced: urInformer.Informer().HasSynced,
 	}
@@ -60,13 +53,13 @@ func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Ge
 }
 
 // Apply creates update request resource
-func (g *Generator) Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
+func (g *Generator) Apply(ur urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
 	logger := g.log
-	logger.V(4).Info("reconcile Update Request", "request", gr)
+	logger.V(4).Info("reconcile Update Request", "request", ur)
 
 	message := info{
 		action: action,
-		spec:   gr,
+		spec:   ur,
 	}
 	go g.processApply(message)
 	return nil
@@ -82,7 +75,7 @@ func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 		logger.V(4).Info("shutting down")
 	}()
 
-	if !cache.WaitForCacheSync(stopCh, g.grSynced, g.urSynced) {
+	if !cache.WaitForCacheSync(stopCh, g.urSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
