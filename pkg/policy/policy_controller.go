@@ -70,9 +70,6 @@ type PolicyController struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestLister
-
 	// urLister can list/get update request from the shared informer's store
 	urLister urkyvernolister.UpdateRequestLister
 
@@ -87,9 +84,6 @@ type PolicyController struct {
 
 	// nsListerSynced returns true if the namespace store has been synced at least once
 	nsListerSynced cache.InformerSynced
-
-	// grListerSynced returns true if the generate request store has been synced at least once
-	grListerSynced cache.InformerSynced
 
 	// urListerSynced returns true if the update request store has been synced at least once
 	urListerSynced cache.InformerSynced
@@ -119,7 +113,6 @@ func NewPolicyController(
 	client *client.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	grInformer kyvernoinformer.GenerateRequestInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
 	configHandler config.Interface,
 	eventGen event.Interface,
@@ -160,14 +153,12 @@ func NewPolicyController(
 	pc.npLister = npInformer.Lister()
 
 	pc.nsLister = namespaces.Lister()
-	pc.grLister = grInformer.Lister()
 	pc.urLister = urInformer.Lister()
 
 	pc.pListerSynced = pInformer.Informer().HasSynced
 	pc.npListerSynced = npInformer.Informer().HasSynced
 
 	pc.nsListerSynced = namespaces.Informer().HasSynced
-	pc.grListerSynced = grInformer.Informer().HasSynced
 	pc.urListerSynced = urInformer.Informer().HasSynced
 
 	// resource manager
@@ -431,7 +422,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.grListerSynced, pc.urListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.urListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
