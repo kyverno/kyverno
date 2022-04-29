@@ -48,21 +48,39 @@ type ImageVerification struct {
 
 	// Attestors specified the required attestors (i.e. authorities)
 	// +kubebuilder:validation:Optional
-	Attestors []*AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
 	// Attestations are optional checks for signed in-toto Statements used to verify the image.
 	// See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 	// OCI registry and decodes them into a list of Statement declarations.
-	Attestations []*Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
+	Attestations []Attestation `json:"attestations,omitempty" yaml:"attestations,omitempty"`
 
 	// Annotations are used for image verification.
 	// Every specified key-value pair must exist and match in the verified payload.
 	// The payload may contain other key-value pairs.
+	// Deprecated. Use annotations per Attestor instead.
 	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
 
-	// Repository is an optional alternate OCI repository to use for image signatures that match this rule.
+	// Repository is an optional alternate OCI repository to use for image signatures and attestations that match this rule.
 	// If specified Repository will override the default OCI image repository configured for the installation.
+	// The repository can also be overridden per Attestor or Attestation.
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+
+	// MutateDigest enables replacement of image tags with digests.
+	// Defaults to true.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Required
+	MutateDigest bool `json:"mutateDigest,omitempty" yaml:"mutateDigest,omitempty"`
+
+	// VerifyDigest validates that images have a digest.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Required
+	VerifyDigest bool `json:"verifyDigest,omitempty" yaml:"verifyDigest,omitempty"`
+
+	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:Required
+	Required bool `json:"required,omitempty" yaml:"required,omitempty"`
 }
 
 type AttestorSet struct {
@@ -77,7 +95,7 @@ type AttestorSet struct {
 	// Entries contains the available attestors. An attestor can be a static key,
 	// attributes for keyless verification, or a nested attestor declaration.
 	// +kubebuilder:validation:Optional
-	Entries []*Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
+	Entries []Attestor `json:"entries,omitempty" yaml:"entries,omitempty"`
 }
 
 type Attestor struct {
@@ -93,35 +111,76 @@ type Attestor struct {
 
 	// Attestor is a nested AttestorSet used to specify a more complex set of match authorities
 	// +kubebuilder:validation:Optional
-	// TODO: Nested typed declarations are cause issues with OpenAPIv3 Schemas. Need to revisit.
-	Attestors []*apiextv1.JSON `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+	Attestor *apiextv1.JSON `json:"attestor,omitempty" yaml:"attestor,omitempty"`
+
+	// Annotations are used for image verification.
+	// Every specified key-value pair must exist and match in the verified payload.
+	// The payload may contain other key-value pairs.
+	Annotations map[string]string `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+
+	// Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule.
+	// If specified Repository will override other OCI image repository locations for this Attestor.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 type StaticKeyAttestor struct {
 
-	// Key is an X.509 public key used to verify image signatures. The key can be directly
+	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
-	// https://kyverno.io/docs/writing-policies/variables/).
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
+	// key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+	// attestors and the count is applied across the keys.
+	Keys string `json:"key,omitempty" yaml:"key,omitempty"`
+
+	// Intermediates is an optional PEM encoded set of certificates that are not trust
+	// anchors, but can be used to form a chain from the leaf certificate to a
+	// root certificate.
+	// +kubebuilder:validation:Optional
+	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
+
+	// Roots is an optional set of PEM encoded trusted root certificates.
+	// If not provided, the system roots are used.
+	// +kubebuilder:validation:Optional
+	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 }
 
 type KeylessAttestor struct {
 
+	// Rekor provides information of the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
+	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+	// +kubebuilder:validation:Optional
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+
 	// Issuer is the certificate issuer used for keyless signing.
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Issuer string `json:"issuer,omitempty" yaml:"issuer,omitempty"`
 
 	// Subject is the verified identity used for keyless signing, for example the email address
-	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
 
-	// Roots is a PEM encoded CA certificate chain
+	// Intermediates is an optional PEM encoded set of certificates that are not trust
+	// anchors, but can be used to form a chain from the leaf certificate to a
+	// root certificate.
+	// +kubebuilder:validation:Optional
+	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
+
+	// Roots is an optional set of PEM encoded trusted root certificates.
+	// If not provided, the system roots are used.
 	// +kubebuilder:validation:Optional
 	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
 
 	// AdditionalExtensions are certificate-extensions used for keyless signing.
 	// +kubebuilder:validation:Optional
 	AdditionalExtensions map[string]string `json:"additionalExtensions,omitempty" yaml:"additionalExtensions,omitempty"`
+}
+
+type CTLog struct {
+	// URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:Default:=https://rekor.sigstore.dev
+	URL string `json:"url" yaml:"url"`
 }
 
 // Attestation are checks for signed in-toto Statements that are used to verify the image.
@@ -135,7 +194,7 @@ type Attestation struct {
 	// Conditions are used to verify attributes within a Predicate. If no Conditions are specified
 	// the attestation check is satisfied as long there are predicates that match the predicate type.
 	// +optional
-	Conditions []*AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	Conditions []AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
 
 // Validate implements programmatic validation
@@ -156,10 +215,6 @@ func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
 		(hasAttestors && (hasKey || hasKeyless)) ||
 		(!hasKey && !hasKeyless && !hasAttestors) {
 		errs = append(errs, field.Invalid(path, iv, "Either a static key, keyless, or an attestor is required"))
-	}
-
-	if hasKeyless && (!hasIssuer || !hasSubject) {
-		errs = append(errs, field.Invalid(path, iv, "An issuer and a subject are required for keyless verification"))
 	}
 
 	if len(iv.Attestors) > 1 {
@@ -202,10 +257,10 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 }
 
 func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if (a.StaticKey != nil && (a.Keyless != nil || len(a.Attestors) != 0)) ||
-		(a.Keyless != nil && (a.StaticKey != nil || len(a.Attestors) != 0)) ||
-		(len(a.Attestors) > 0 && (a.StaticKey != nil || a.Keyless != nil)) ||
-		(a.StaticKey == nil && a.Keyless == nil && len(a.Attestors) == 0) {
+	if (a.StaticKey != nil && (a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Keyless != nil && (a.StaticKey != nil || a.Attestor != nil)) ||
+		(a.Attestor != nil && (a.StaticKey != nil || a.Keyless != nil)) ||
+		(a.StaticKey == nil && a.Keyless == nil && a.Attestor == nil) {
 		errs = append(errs, field.Invalid(path, a, "One of static key, keyless, or nested attestor is required"))
 	}
 
@@ -221,17 +276,16 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 		errs = append(errs, keylessErrors...)
 	}
 
-	attestorsPath := path.Child("attestors")
-	for i, rawJson := range a.Attestors {
-		attestorSet, err := AttestorSetUnmarshal(rawJson)
+	if a.Attestor != nil {
+		attestorPath := path.Child("attestor")
+		attestorSet, err := AttestorSetUnmarshal(a.Attestor)
 		if err != nil {
-			fieldErr := field.Invalid(attestorsPath.Index(i), rawJson, err.Error())
+			fieldErr := field.Invalid(attestorPath, a.Attestor, err.Error())
 			errs = append(errs, fieldErr)
-			continue
+		} else {
+			attestorErrors := validateAttestorSet(attestorSet, attestorPath)
+			errs = append(errs, attestorErrors...)
 		}
-
-		attestorErrors := validateAttestorSet(attestorSet, attestorsPath.Index(i))
-		errs = append(errs, attestorErrors...)
 	}
 
 	return errs
@@ -247,7 +301,7 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ska.Key == "" {
+	if ska.Keys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
 	}
 
@@ -255,12 +309,12 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 }
 
 func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ka.Issuer == "" {
-		errs = append(errs, field.Invalid(path, ka, "An issuer is required"))
+	if ka.Rekor == nil && ka.Roots == "" {
+		errs = append(errs, field.Invalid(path, ka, "Either Rekor URL or roots are required"))
 	}
 
-	if ka.Subject == "" {
-		errs = append(errs, field.Invalid(path, ka, "A subject is required"))
+	if ka.Rekor != nil && ka.Rekor.URL == "" {
+		errs = append(errs, field.Invalid(path, ka, "An URL is required"))
 	}
 
 	return errs
@@ -278,10 +332,13 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.ImageReferences = []string{iv.Image}
 	}
 
-	var attestor Attestor
+	attestor := Attestor{
+		Annotations: iv.Annotations,
+	}
+
 	if iv.Key != "" {
 		attestor.StaticKey = &StaticKeyAttestor{
-			Key: iv.Key,
+			Keys: iv.Key,
 		}
 	} else if iv.Issuer != "" {
 		attestor.Keyless = &KeylessAttestor{
@@ -291,9 +348,8 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		}
 	}
 
-	attestorSet := &AttestorSet{}
-	attestorSet.Entries = append(attestorSet.Entries, &attestor)
-
+	attestorSet := AttestorSet{}
+	attestorSet.Entries = append(attestorSet.Entries, attestor)
 	copy.Attestors = append(copy.Attestors, attestorSet)
 	return copy
 }

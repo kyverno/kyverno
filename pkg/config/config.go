@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/go-logr/logr"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
@@ -97,10 +96,8 @@ var (
 )
 
 //CreateClientConfig creates client config and applies rate limit QPS and burst
-func CreateClientConfig(kubeconfig string, qps float64, burst int, log logr.Logger) (*rest.Config, error) {
-	logger := log.WithName("CreateClientConfig")
-
-	clientConfig, err := createClientConfig(kubeconfig, logger)
+func CreateClientConfig(kubeconfig string, qps float64, burst int) (*rest.Config, error) {
+	clientConfig, err := createClientConfig(kubeconfig)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +112,11 @@ func CreateClientConfig(kubeconfig string, qps float64, burst int, log logr.Logg
 }
 
 // createClientConfig creates client config
-func createClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
+func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
-		log.Info("Using in-cluster configuration")
+		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
-	log.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
+	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }

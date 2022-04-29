@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -22,14 +21,14 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                       `json:"name"`
-	MatchResources   *kyverno.MatchResources      `json:"match"`
-	ExcludeResources *kyverno.MatchResources      `json:"exclude,omitempty"`
-	Context          *[]kyverno.ContextEntry      `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON          `json:"preconditions,omitempty"`
-	Mutation         *kyverno.Mutation            `json:"mutate,omitempty"`
-	Validation       *kyverno.Validation          `json:"validate,omitempty"`
-	VerifyImages     []*kyverno.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	Name             string                      `json:"name"`
+	MatchResources   *kyverno.MatchResources     `json:"match"`
+	ExcludeResources *kyverno.MatchResources     `json:"exclude,omitempty"`
+	Context          *[]kyverno.ContextEntry     `json:"context,omitempty"`
+	AnyAllConditions *apiextensions.JSON         `json:"preconditions,omitempty"`
+	Mutation         *kyverno.Mutation           `json:"mutate,omitempty"`
+	Validation       *kyverno.Validation         `json:"validate,omitempty"`
+	VerifyImages     []kyverno.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 func createRule(rule *kyverno.Rule) *kyvernoRule {
@@ -37,7 +36,8 @@ func createRule(rule *kyverno.Rule) *kyvernoRule {
 		return nil
 	}
 	jsonFriendlyStruct := kyvernoRule{
-		Name: rule.Name,
+		Name:         rule.Name,
+		VerifyImages: rule.VerifyImages,
 	}
 	if !reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
@@ -70,7 +70,7 @@ func createRule(rule *kyverno.Rule) *kyvernoRule {
 
 type generateResourceFilters func(kyverno.ResourceFilters, []string) kyverno.ResourceFilters
 
-func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyverno.Rule {
+func generateRule(name string, rule *kyverno.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyverno.Rule {
 	if rule == nil {
 		return nil
 	}
@@ -106,7 +106,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []*kyverno.ForEachMutation
+		var newForeachMutation []kyverno.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
 			temp := kyverno.ForEachMutation{
 				List:             foreach.List,
@@ -120,7 +120,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 					},
 				},
 			)
-			newForeachMutation = append(newForeachMutation, &temp)
+			newForeachMutation = append(newForeachMutation, temp)
 		}
 		rule.Mutation = kyverno.Mutation{
 			ForEachMutation: newForeachMutation,
@@ -170,7 +170,7 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
-		newForeachValidate := make([]*kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
+		newForeachValidate := make([]kyverno.ForEachValidation, len(rule.Validation.ForEachValidation))
 		for i, foreach := range rule.Validation.ForEachValidation {
 			newForeachValidate[i] = foreach
 		}
@@ -181,9 +181,9 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if rule.VerifyImages != nil {
-		newVerifyImages := make([]*kyverno.ImageVerification, len(rule.VerifyImages))
+		newVerifyImages := make([]kyverno.ImageVerification, len(rule.VerifyImages))
 		for i, vi := range rule.VerifyImages {
-			newVerifyImages[i] = vi.DeepCopy()
+			newVerifyImages[i] = *vi.DeepCopy()
 		}
 		rule.VerifyImages = newVerifyImages
 		return rule
@@ -213,8 +213,7 @@ func getAnyAllAutogenRule(v kyverno.ResourceFilters, match string, kinds []strin
 	return anyKind
 }
 
-func generateRuleForControllers(rule *kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
-	logger := log.WithName("generateRuleForControllers")
+func generateRuleForControllers(rule *kyverno.Rule, controllers string) *kyverno.Rule {
 	if isAutogenRuleName(rule.Name) || controllers == "" {
 		logger.V(5).Info("skip generateRuleForControllers")
 		return nil
@@ -249,7 +248,6 @@ func generateRuleForControllers(rule *kyverno.Rule, controllers string, log logr
 		}
 	}
 	return generateRule(
-		logger,
 		getAutogenRuleName("autogen", rule.Name),
 		rule,
 		"template",
@@ -261,17 +259,15 @@ func generateRuleForControllers(rule *kyverno.Rule, controllers string, log logr
 	)
 }
 
-func generateCronJobRule(rule *kyverno.Rule, controllers string, log logr.Logger) *kyverno.Rule {
-	logger := log.WithName("generateCronJobRule")
+func generateCronJobRule(rule *kyverno.Rule, controllers string) *kyverno.Rule {
 	hasCronJob := strings.Contains(controllers, PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
 		return nil
 	}
 	logger.V(3).Info("generating rule for cronJob")
 	return generateRule(
-		logger,
 		getAutogenRuleName("autogen-cronjob", rule.Name),
-		generateRuleForControllers(rule, controllers, log),
+		generateRuleForControllers(rule, controllers),
 		"jobTemplate",
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},

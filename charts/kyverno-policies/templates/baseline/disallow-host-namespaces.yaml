@@ -35,6 +35,10 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with index .Values "policyPreconditions" $name }}
+      preconditions:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           Sharing the host namespaces is disallowed. The fields spec.hostNetwork,

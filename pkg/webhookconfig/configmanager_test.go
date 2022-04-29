@@ -117,6 +117,9 @@ func TestRulesEqual(t *testing.T) {
 		// Both rules select secrets and configmaps (reversed compared to previous). Should be equal.
 		{"secrets-cm-equal", secretsConfigmapsInternalRules, secretsConfigmapsAPIRules, true, false},
 
+		// Internal empty, API has one rule. Not equal.
+		{"internal-empty-api-single", emptyInternalRules, configmapsSecretsAPIRules, false, false},
+
 		// Internal is updated from nothing to configmaps. Not equal.
 		{"add-configmaps", configmapsInternalRules, emptyAPIRules, false, false},
 

@@ -25,7 +25,7 @@ func (wrc *Register) readCaData() []byte {
 
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.clientConfig, wrc.client); err == nil {
+	if caData, err = tls.ReadRootCASecret(wrc.clientConfig, wrc.kubeClient); err == nil {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}

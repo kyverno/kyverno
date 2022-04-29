@@ -216,7 +216,7 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 		var rule Rule
 		err := json.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err)
-		errs := rule.ValidateMathExcludeConflict(path)
+		errs := rule.ValidateMatchExcludeConflict(path)
 		var expectedErrs field.ErrorList
 		if testcase.errors != nil {
 			expectedErrs = testcase.errors(&rule)

@@ -14,7 +14,7 @@ type ValidationFailureAction string
 const (
 	// Enforce blocks the request on failure
 	Enforce ValidationFailureAction = "enforce"
-	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	// Audit indicates not to block the request on failure, but report failures as policy violations
 	Audit ValidationFailureAction = "audit"
 )
 
@@ -112,7 +112,18 @@ func (s *Spec) HasGenerate() bool {
 	return false
 }
 
-// HasVerifyImages checks for image verification rule types
+// HasImagesValidationChecks checks for image verification rules invoked during resource validation
+func (s *Spec) HasImagesValidationChecks() bool {
+	for _, rule := range s.Rules {
+		if rule.HasImagesValidationChecks() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasVerifyImages checks for image verification rules invoked during resource mutation
 func (s *Spec) HasVerifyImages() bool {
 	for _, rule := range s.Rules {
 		if rule.HasVerifyImages() {

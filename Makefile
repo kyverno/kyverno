@@ -10,7 +10,7 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.4.0
+CONTROLLER_GEN_REQ_VERSION := v0.8.0
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -156,6 +156,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
 	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 .PHONY: verify-api-docs
@@ -259,9 +260,9 @@ $(GO_ACC):
 # go-acc merges the result for pks so that it be used by
 # go tool cover for reporting
 
-test: test-clean test-unit test-e2e
+test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
 
-test-clean:
+test-clean: ## Clean tests cache
 	@echo "	cleaning test cache"
 	go clean -testcache ./...
 
@@ -288,9 +289,7 @@ test-cli-test-case-selector-flag: cli
 test-cli-registry: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
 
-# go get downloads and installs the binary
-# we temporarily add the GO_ACC to the path
-test-unit: $(GO_ACC)
+test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"
 	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
 

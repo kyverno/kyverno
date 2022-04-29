@@ -25,7 +25,6 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// ReportChangeRequest is the Schema for the ReportChangeRequests API
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -39,6 +38,8 @@ import (
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=rcr
+
+// ReportChangeRequest is the Schema for the ReportChangeRequests API
 type ReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -58,18 +59,15 @@ type ReportChangeRequest struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*report.PolicyReportResult `json:"results,omitempty"`
+	Results []report.PolicyReportResult `json:"results,omitempty"`
 }
 
-// ReportChangeRequestList contains a list of ReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ReportChangeRequestList contains a list of ReportChangeRequest
 type ReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ReportChangeRequest `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&ReportChangeRequest{}, &ReportChangeRequestList{})
 }

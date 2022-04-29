@@ -35,11 +35,18 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "require-drop-all") (index .Values "policyPreconditions" $name) }}
       preconditions:
+        {{- if .all }}
         all:
         - key: "{{`{{ request.operation }}`}}"
           operator: NotEquals
           value: DELETE
+        {{- toYaml .all | nindent 8 }}
+        {{- else }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       validate:
         message: >-
           Containers must drop `ALL` capabilities.
@@ -61,11 +68,18 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "adding-capabilities-strict") (index .Values "policyPreconditions" $name) }}
       preconditions:
+        {{- if .all }}
         all:
         - key: "{{`{{ request.operation }}`}}"
           operator: NotEquals
           value: DELETE
+        {{- toYaml .all | nindent 8 }}
+        {{- else }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
       validate:
         message: >-
           Any capabilities added other than NET_BIND_SERVICE are disallowed.

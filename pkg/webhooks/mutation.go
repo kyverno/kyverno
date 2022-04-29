@@ -103,7 +103,7 @@ func (ws *WebhookServer) handleMutation(
 	}
 
 	// generate annotations
-	if annPatches := generateAnnotationPatches(engineResponses, logger); annPatches != nil {
+	if annPatches := utils.GenerateAnnotationPatches(engineResponses, logger); annPatches != nil {
 		patches = append(patches, annPatches...)
 	}
 
@@ -115,7 +115,7 @@ func (ws *WebhookServer) handleMutation(
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, request.Operation == admissionv1.Update, logger)
+	events := generateEvents(engineResponses, false, logger)
 	ws.eventGen.Add(events...)
 
 	// debug info

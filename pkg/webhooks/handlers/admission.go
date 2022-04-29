@@ -43,7 +43,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 			return
 		}
-		logger = logger.WithName("handlerFunc").WithValues(
+		logger = logger.WithValues(
 			"kind", admissionReview.Request.Kind,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
@@ -67,7 +67,12 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		if _, err := writer.Write(responseJSON); err != nil {
 			http.Error(writer, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 		}
-		logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
+
+		if admissionReview.Request.Kind.Kind == "Lease" {
+			logger.V(6).Info("admission review request processed", "time", time.Since(startTime).String())
+		} else {
+			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
+		}
 	}
 }
 
@@ -82,7 +87,7 @@ func Filter(c config.Interface, inner AdmissionHandler) AdmissionHandler {
 
 func Verify(m *webhookconfig.Monitor, logger logr.Logger) AdmissionHandler {
 	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-		logger = logger.WithName("verifyHandler").WithValues(
+		logger = logger.WithValues(
 			"action", "verify",
 			"kind", request.Kind,
 			"namespace", request.Namespace,
@@ -90,7 +95,7 @@ func Verify(m *webhookconfig.Monitor, logger logr.Logger) AdmissionHandler {
 			"operation", request.Operation,
 			"gvk", request.Kind.String(),
 		)
-		logger.V(3).Info("incoming request", "last admission request timestamp", m.Time())
+		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)
 	}
 }
