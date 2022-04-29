@@ -39,8 +39,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 			triggers := getTriggers(rule)
 			for _, trigger := range triggers {
-				trigger := trigger // pin it
-				murs := pc.listMutateURs(policyKey, &trigger)
+				murs := pc.listMutateURs(policyKey, trigger)
 
 				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.Namespace+trigger.Name)
 
@@ -49,7 +48,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 				}
 
 				logger.Info("creating new UR")
-				ur := newUR(policy, &trigger, ruleType)
+				ur := newUR(policy, trigger, ruleType)
 				err := pc.handleUpdateRequest(ur)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
@@ -66,17 +65,16 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			var errors []error
 			triggers := generateTriggers(pc.nsLister, rule, pc.log)
 			for _, trigger := range triggers {
-				trigger := trigger //pin it
-				gurs := pc.listGenerateURs(policyKey, &trigger)
+				gurs := pc.listGenerateURs(policyKey, trigger)
 
-				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.Namespace+trigger.Name)
+				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.Namespace+"/"+trigger.Name)
 
 				if gurs != nil {
 					continue
 				}
 
 				logger.Info("creating new UR")
-				ur := newUR(policy, &trigger, ruleType)
+				ur := newUR(policy, trigger, ruleType)
 				// here trigger is the namespace for matched kind policy
 				triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
 				if err != nil {
