@@ -22,6 +22,11 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked bool, lo
 	//     - report success event on resource
 
 	for _, er := range engineResponses {
+		pKind := "ClusterPolicy"
+		if er.Policy.IsNamespaced() {
+			pKind = "Policy"
+		}
+
 		if !er.IsSuccessful() {
 
 			// Rules that failed
@@ -31,7 +36,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked bool, lo
 			// Event on the policy
 			pe := event.NewEvent(
 				log,
-				er.Policy.GetKind(),
+				pKind,
 				kyvernov1.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
@@ -69,7 +74,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked bool, lo
 			// Event on the policy
 			e := event.NewEvent(
 				log,
-				er.Policy.GetKind(),
+				pKind,
 				kyvernov1.SchemeGroupVersion.String(),
 				er.PolicyResponse.Policy.Namespace,
 				er.PolicyResponse.Policy.Name,
