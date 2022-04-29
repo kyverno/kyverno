@@ -643,7 +643,7 @@ func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
 	spec := policy.GetSpec()
-	if canApplyAutoGen, _ := autogen.CanAutoGen(spec, log); canApplyAutoGen {
+	if canApplyAutoGen, _ := autogen.CanAutoGen(spec); canApplyAutoGen {
 		for _, rule := range autogen.ComputeRules(policy) {
 			podRuleName = append(podRuleName, rule.Name)
 		}

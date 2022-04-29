@@ -195,7 +195,7 @@ func defaultFailurePolicy(spec *kyverno.Spec, log logr.Logger) ([]byte, string) 
 // GeneratePodControllerRule returns two patches: rulePatches and annotation patch(if necessary)
 func GeneratePodControllerRule(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
 	spec := policy.GetSpec()
-	applyAutoGen, desiredControllers := autogen.CanAutoGen(spec, log)
+	applyAutoGen, desiredControllers := autogen.CanAutoGen(spec)
 
 	if !applyAutoGen {
 		desiredControllers = "none"
@@ -227,7 +227,7 @@ func GeneratePodControllerRule(policy kyverno.PolicyInterface, log logr.Logger) 
 
 	log.V(3).Info("auto generating rule for pod controllers", "controllers", actualControllers)
 
-	p, err := autogen.GenerateRulePatches(spec, actualControllers, log)
+	p, err := autogen.GenerateRulePatches(spec, actualControllers)
 	patches = append(patches, p...)
 	errs = append(errs, err...)
 	return
