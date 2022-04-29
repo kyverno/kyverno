@@ -706,7 +706,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) error {
 	update := func(meta *metav1.ObjectMeta, p kyverno.PolicyInterface, status *kyverno.PolicyStatus) bool {
 		copy := status.DeepCopy()
-		requested, _, activated := autogen.GetControllers(meta, p.GetSpec(), m.log)
+		requested, _, activated := autogen.GetControllers(meta, p.GetSpec())
 		status.SetReady(ready)
 		status.Autogen.Requested = requested
 		status.Autogen.Activated = activated

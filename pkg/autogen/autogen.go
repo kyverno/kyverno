@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -139,7 +138,7 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
 // It returns the requested, supported and effective controllers (intersection of requested and supported ones).
-func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
+func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec) ([]string, []string, []string) {
 	// compute supported and requested controllers
 	supported, requested := GetSupportedControllers(spec), GetRequestedControllers(meta)
 	// no specific request, we can return supported controllers without further filtering
@@ -220,13 +219,13 @@ func generateRules(spec *kyverno.Spec, controllers string) []kyverno.Rule {
 	var rules []kyverno.Rule
 	for i := range spec.Rules {
 		// handle all other controllers other than CronJob
-		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers), logger)); genRule != nil {
+		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
 			}
 		}
 		// handle CronJob, it appends an additional rule
-		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers, logger)); genRule != nil {
+		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
 				rules = append(rules, *convRule)
 			}
