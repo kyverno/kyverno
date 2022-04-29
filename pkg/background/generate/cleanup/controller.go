@@ -182,7 +182,7 @@ func (c *Controller) deleteUR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		gr, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
 			return
