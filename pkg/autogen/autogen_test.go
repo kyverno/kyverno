@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_getAutogenRuleName(t *testing.T) {
@@ -135,7 +134,7 @@ func Test_CanAutoGen(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		applyAutoGen, controllers := CanAutoGen(&policy.Spec, log.Log)
+		applyAutoGen, controllers := CanAutoGen(&policy.Spec)
 		if !applyAutoGen {
 			controllers = "none"
 		}
@@ -227,7 +226,7 @@ func Test_GetSupportedControllers(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		controllers := GetSupportedControllers(&policy.Spec, log.Log)
+		controllers := GetSupportedControllers(&policy.Spec)
 
 		var expectedControllers []string
 		if test.expectedControllers != "none" {
@@ -305,7 +304,7 @@ func Test_Any(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -343,7 +342,7 @@ func Test_All(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -376,7 +375,7 @@ func Test_Exclude(t *testing.T) {
 	spec := policy.GetSpec()
 	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -411,7 +410,7 @@ func Test_CronJobOnly(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -440,7 +439,7 @@ func Test_ForEachPod(t *testing.T) {
 	spec := policy.GetSpec()
 	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
 
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -482,7 +481,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	rule.ExcludeResources.Namespaces = []string{"test"}
 	spec.Rules[0] = *rule
 
-	rulePatches, errs := GenerateRulePatches(spec, controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, controllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -513,7 +512,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 		kyverno.PodControllersAnnotation: controllers,
 	})
 
-	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), controllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -541,7 +540,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 
 	policy := policies[0]
 
-	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(policy.GetSpec(), PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
@@ -579,7 +578,7 @@ func Test_Deny(t *testing.T) {
 		},
 	}
 
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers, log.Log)
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
