@@ -61,6 +61,7 @@ const (
 
 	//PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
+
 	//PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
 
