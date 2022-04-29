@@ -58,9 +58,9 @@ func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequ
 		go ws.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
 	}
 
-	if failedResponse := applyGenerateRequest(request, urkyverno.Mutate, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
-		for _, failedGR := range failedResponse {
-			events := failedEvents(fmt.Errorf("failed to create update request: %v", failedGR.err), failedGR.gr, policyContext.NewResource)
+	if failedResponse := applyUpdateRequest(request, urkyverno.Mutate, ws.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+		for _, failedUR := range failedResponse {
+			events := failedEvents(fmt.Errorf("failed to create update request: %v", failedUR.err), failedUR.ur, policyContext.NewResource)
 			ws.eventGen.Add(events...)
 		}
 	}

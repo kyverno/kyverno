@@ -26,7 +26,7 @@ import (
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
 
-	// State represents state of the generate request.
+	// State represents state of the update request.
 	State UpdateRequestState `json:"state" yaml:"state"`
 
 	// Specifies request status message.
@@ -126,13 +126,13 @@ const (
 	// Pending - the Request is yet to be processed or resource has not been created.
 	Pending UpdateRequestState = "Pending"
 
-	// Failed - the Generate Request Controller failed to process the rules.
+	// Failed - the Update Request Controller failed to process the rules.
 	Failed UpdateRequestState = "Failed"
 
-	// Completed - the Generate Request Controller created resources defined in the policy.
+	// Completed - the Update Request Controller created resources defined in the policy.
 	Completed UpdateRequestState = "Completed"
 
-	// Skip - the Generate Request Controller skips to generate the resource.
+	// Skip - the Update Request Controller skips to generate the resource.
 	Skip UpdateRequestState = "Skip"
 )
 
