@@ -2082,21 +2082,6 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
-<code>mutateExisting</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>mutateExisting controls whether to mutate existing resource ONLY
-The existing resources will be mutated ONLY if set to &ldquo;true&rdquo;.
-Otherwise all resources including admission requests are mutated.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>targets</code></br>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -2479,7 +2464,6 @@ ResourceDescription
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
-<p>ResourceSpec contains information to identify a resource.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
