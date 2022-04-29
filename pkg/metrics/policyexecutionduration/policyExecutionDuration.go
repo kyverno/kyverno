@@ -33,11 +33,11 @@ func registerPolicyExecutionDurationMetric(
 	}
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
 	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
 	pc.Metrics.PolicyExecutionDuration.With(prom.Labels{
