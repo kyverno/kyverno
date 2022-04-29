@@ -47,18 +47,6 @@ const (
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
 
-	// DeploymentKind define the default deployment resource kind
-	DeploymentKind = "Deployment"
-
-	// DeploymentAPIVersion define the default deployment resource apiVersion
-	DeploymentAPIVersion = "apps/v1"
-
-	// NamespaceKind define the default namespace resource kind
-	NamespaceKind = "Namespace"
-
-	// NamespaceAPIVersion define the default namespace resource apiVersion
-	NamespaceAPIVersion = "v1"
-
 	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
 	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
 
