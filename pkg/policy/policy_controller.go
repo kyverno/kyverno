@@ -484,7 +484,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		err = pc.updateUR(key, policy)
 		if err != nil {
 			logger.Error(err, "failed to updateUR on Policy update")
-			return err
 		}
 	}
 
@@ -506,8 +505,8 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func getTriggers(rule kyverno.Rule) []kyverno.ResourceSpec {
-	var specs []kyverno.ResourceSpec
+func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
+	var specs []*kyverno.ResourceSpec
 
 	triggers := getTrigger(rule.MatchResources.ResourceDescription)
 	specs = append(specs, triggers...)
@@ -517,12 +516,12 @@ func getTriggers(rule kyverno.Rule) []kyverno.ResourceSpec {
 		specs = append(specs, triggers...)
 	}
 
-	triggers = []kyverno.ResourceSpec{}
+	triggers = []*kyverno.ResourceSpec{}
 	for _, all := range rule.MatchResources.All {
 		triggers = getTrigger(all.ResourceDescription)
 	}
 
-	subset := make(map[kyverno.ResourceSpec]int, len(triggers))
+	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
 	for _, trigger := range triggers {
 		c := subset[trigger]
 		subset[trigger] = c + 1
@@ -536,12 +535,12 @@ func getTriggers(rule kyverno.Rule) []kyverno.ResourceSpec {
 	return specs
 }
 
-func getTrigger(rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
+func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	if len(rd.Names) == 0 && rd.Name == "" {
 		return nil
 	}
 
-	var specs []kyverno.ResourceSpec
+	var specs []*kyverno.ResourceSpec
 
 	for _, k := range rd.Kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(k)
@@ -554,7 +553,7 @@ func getTrigger(rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
 				continue
 			}
 
-			spec := kyverno.ResourceSpec{
+			spec := &kyverno.ResourceSpec{
 				APIVersion: apiVersion,
 				Kind:       kind,
 				Name:       name,
@@ -570,8 +569,8 @@ func getTrigger(rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
 	return specs
 }
 
-func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log logr.Logger) []kyverno.ResourceSpec {
-	var specs []kyverno.ResourceSpec
+func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log logr.Logger) []*kyverno.ResourceSpec {
+	var specs []*kyverno.ResourceSpec
 
 	nslist, err := lister.List(labels.NewSelector())
 	if err != nil {
@@ -586,12 +585,12 @@ func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log lo
 		specs = append(specs, triggers...)
 	}
 
-	triggers = []kyverno.ResourceSpec{}
+	triggers = []*kyverno.ResourceSpec{}
 	for _, all := range rule.MatchResources.All {
 		triggers = genTrigger(nslist, all.ResourceDescription)
 	}
 
-	subset := make(map[kyverno.ResourceSpec]int, len(triggers))
+	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
 	for _, trigger := range triggers {
 		c := subset[trigger]
 		subset[trigger] = c + 1
@@ -602,31 +601,47 @@ func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log lo
 			specs = append(specs, k)
 		}
 	}
-	return specs
+	return fetchUnique(specs)
 }
 
-func genTrigger(nslist []*v1.Namespace, rd kyverno.ResourceDescription) []kyverno.ResourceSpec {
-	var specs []kyverno.ResourceSpec
-	var spec kyverno.ResourceSpec
-
-	for _, ns := range nslist {
-		for _, k := range rd.Kinds {
-			apiVersion, kind := kubeutils.GetKindFromGVK(k)
-			if kind == "" {
-				continue
-			}
-
-			if kind == "Namespace" {
-				spec = kyverno.ResourceSpec{
-					APIVersion: apiVersion,
-					Kind:       kind,
-					Namespace:  ns.Namespace,
-					Name:       ns.Name,
-				}
-			}
-			specs = append(specs, spec)
+func fetchUnique(specs []*kyverno.ResourceSpec) []*kyverno.ResourceSpec {
+	inResult := make(map[*kyverno.ResourceSpec]bool)
+	var result []*kyverno.ResourceSpec
+	for _, spec := range specs {
+		if _, ok := inResult[spec]; !ok {
+			inResult[spec] = true
+			result = append(result, spec)
 		}
 	}
+	return result
+}
+
+func genTrigger(nslist []*v1.Namespace, rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
+	var specs []*kyverno.ResourceSpec
+	//var spec *kyverno.ResourceSpec
+
+	if utils.SliceContains(rd.Kinds, "Namespace") {
+		for _, ns := range nslist {
+			for _, k := range rd.Kinds {
+				apiVersion, kind := kubeutils.GetKindFromGVK(k)
+				if kind == "" {
+					continue
+				}
+
+				spec := &kyverno.ResourceSpec{
+					APIVersion: apiVersion,
+					Kind:       kind,
+					Namespace:  "",
+					Name:       ns.Name,
+				}
+				specs = append(specs, spec)
+			}
+		}
+	}
+
+	// exact match triggers
+	trigger := getTrigger(rd)
+	specs = append(specs, trigger...)
 	return specs
 }
 
