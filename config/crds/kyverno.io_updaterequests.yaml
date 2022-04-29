@@ -182,7 +182,7 @@ spec:
                 description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request.
+                description: State represents state of the update request.
                 type: string
             required:
             - state
