@@ -13,6 +13,7 @@ type MatchResources struct {
 	// +kubebuilder:validation:MaxItems=3
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=CREATE;UPDATE;CONNECT;DELETE
 	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
 
 	// Any allows specifying resources which will be ORed
