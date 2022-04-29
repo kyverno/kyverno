@@ -730,7 +730,7 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 </p>
 <p>
 <p>AutogenStatus contains autogen status information.
-It indicates requested, supported and effective autogen controllers used when
+It indicates requested and effective autogen controllers used when
 automatically generating rules.</p>
 </p>
 <table class="table table-striped">
@@ -750,17 +750,6 @@ automatically generating rules.</p>
 </td>
 <td>
 <p>Requested indicates the autogen requested controllers</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>supported</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Supported indicates the autogen supported controllers</p>
 </td>
 </tr>
 <tr>
@@ -2097,21 +2086,6 @@ Please specify under &ldquo;any&rdquo; or &ldquo;all&rdquo; instead.</p>
 <tbody>
 <tr>
 <td>
-<code>mutateExisting</code></br>
-<em>
-bool
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>mutateExisting controls whether to mutate existing resource ONLY
-The existing resources will be mutated ONLY if set to &ldquo;true&rdquo;.
-Otherwise all resources including admission requests are mutated.
-Optional. Defaults to &ldquo;false&rdquo; if not specified.</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>targets</code></br>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
@@ -2494,7 +2468,6 @@ ResourceDescription
 <a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
-<p>ResourceSpec contains information to identify a resource.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">

@@ -180,11 +180,6 @@ func (in *AutogenStatus) DeepCopyInto(out *AutogenStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Supported != nil {
-		in, out := &in.Supported, &out.Supported
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Activated != nil {
 		in, out := &in.Activated, &out.Activated
 		*out = make([]string, len(*in))
