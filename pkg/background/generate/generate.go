@@ -349,7 +349,7 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if policy.BackgroundProcessingEnabled() && rule.IsGenerateExisting() || !processExisting {
+		if rule.IsGenerateExisting() || !processExisting {
 			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.GetName(), ur)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
@@ -360,7 +360,7 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			genResources = append(genResources, genResource)
 		}
 
-		if rule.Generation.GenerateExisting {
+		if rule.IsGenerateExisting() {
 			processExisting = false
 		}
 	}
