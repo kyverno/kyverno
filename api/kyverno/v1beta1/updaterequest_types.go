@@ -43,6 +43,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
+// +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.type"
 // +kubebuilder:printcolumn:name="ResourceKind",type="string",JSONPath=".spec.resource.kind"
 // +kubebuilder:printcolumn:name="ResourceName",type="string",JSONPath=".spec.resource.name"
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"

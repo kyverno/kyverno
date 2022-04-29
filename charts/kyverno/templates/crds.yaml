@@ -7388,6 +7388,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.type
+      name: RuleType
+      type: string
     - jsonPath: .spec.resource.kind
       name: ResourceKind
       type: string
