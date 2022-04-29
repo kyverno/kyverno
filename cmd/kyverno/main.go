@@ -260,7 +260,7 @@ func main() {
 	}
 
 	if !disableMetricsExport {
-		promConfig, err = metrics.NewPromConfig(metricsConfigData, log.Log.WithName("MetricsConfig"))
+		promConfig, err = metrics.NewPromConfig(metricsConfigData)
 		if err != nil {
 			setupLog.Error(err, "failed to setup Prometheus metric configuration")
 			os.Exit(1)
