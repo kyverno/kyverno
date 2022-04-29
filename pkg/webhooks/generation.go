@@ -436,14 +436,6 @@ type updateRequestResponse struct {
 	err error
 }
 
-func (resp updateRequestResponse) info() string {
-	return strings.Join([]string{resp.ur.Resource.Kind, resp.ur.Resource.Namespace, resp.ur.Resource.Name}, "/")
-}
-
-func (resp updateRequestResponse) error() string {
-	return resp.err.Error()
-}
-
 func failedEvents(err error, ur urkyverno.UpdateRequestSpec, resource unstructured.Unstructured) []event.Info {
 	re := event.Info{}
 	re.Kind = resource.GetKind()
