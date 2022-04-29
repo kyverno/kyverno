@@ -22,14 +22,14 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                       `json:"name"`
-	MatchResources   *kyverno.MatchResources      `json:"match"`
-	ExcludeResources *kyverno.MatchResources      `json:"exclude,omitempty"`
-	Context          *[]kyverno.ContextEntry      `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON          `json:"preconditions,omitempty"`
-	Mutation         *kyverno.Mutation            `json:"mutate,omitempty"`
-	Validation       *kyverno.Validation          `json:"validate,omitempty"`
-	VerifyImages     []*kyverno.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	Name             string                      `json:"name"`
+	MatchResources   *kyverno.MatchResources     `json:"match"`
+	ExcludeResources *kyverno.MatchResources     `json:"exclude,omitempty"`
+	Context          *[]kyverno.ContextEntry     `json:"context,omitempty"`
+	AnyAllConditions *apiextensions.JSON         `json:"preconditions,omitempty"`
+	Mutation         *kyverno.Mutation           `json:"mutate,omitempty"`
+	Validation       *kyverno.Validation         `json:"validate,omitempty"`
+	VerifyImages     []kyverno.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 func createRule(rule *kyverno.Rule) *kyvernoRule {
@@ -181,9 +181,9 @@ func generateRule(logger logr.Logger, name string, rule *kyverno.Rule, tplKey, s
 		return rule
 	}
 	if rule.VerifyImages != nil {
-		newVerifyImages := make([]*kyverno.ImageVerification, len(rule.VerifyImages))
+		newVerifyImages := make([]kyverno.ImageVerification, len(rule.VerifyImages))
 		for i, vi := range rule.VerifyImages {
-			newVerifyImages[i] = vi.DeepCopy()
+			newVerifyImages[i] = *vi.DeepCopy()
 		}
 		rule.VerifyImages = newVerifyImages
 		return rule

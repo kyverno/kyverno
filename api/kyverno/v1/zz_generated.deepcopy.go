@@ -180,11 +180,6 @@ func (in *AutogenStatus) DeepCopyInto(out *AutogenStatus) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.Supported != nil {
-		in, out := &in.Supported, &out.Supported
-		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
 	if in.Activated != nil {
 		in, out := &in.Activated, &out.Activated
 		*out = make([]string, len(*in))
@@ -1005,13 +1000,9 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 	in.Generation.DeepCopyInto(&out.Generation)
 	if in.VerifyImages != nil {
 		in, out := &in.VerifyImages, &out.VerifyImages
-		*out = make([]*ImageVerification, len(*in))
+		*out = make([]ImageVerification, len(*in))
 		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(ImageVerification)
-				(*in).DeepCopyInto(*out)
-			}
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }
