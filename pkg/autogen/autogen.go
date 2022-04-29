@@ -269,10 +269,15 @@ func convertRule(rule kyvernoRule, kind string) (*kyverno.Rule, error) {
 }
 
 func ComputeRules(p kyverno.PolicyInterface) []kyverno.Rule {
-	spec := p.GetSpec()
 	if !toggle.AutogenInternals() {
+		spec := p.GetSpec()
 		return spec.Rules
 	}
+	return computeRules(p)
+}
+
+func computeRules(p kyverno.PolicyInterface) []kyverno.Rule {
+	spec := p.GetSpec()
 	applyAutoGen, desiredControllers := CanAutoGen(spec)
 	if !applyAutoGen {
 		desiredControllers = "none"
