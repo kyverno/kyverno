@@ -120,7 +120,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		_, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
 			logger.Info("Tombstone contained object that is not a Update Request", "obj", obj)
 			return
@@ -182,8 +182,7 @@ func (c *Controller) deleteUR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
-		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		gr, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
 			return
