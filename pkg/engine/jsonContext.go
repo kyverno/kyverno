@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -309,6 +310,11 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
 
+	} else if p.Raw != "" {
+		jsonData, err = getResource(ctx, p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", p, err)
+		}
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {
@@ -343,6 +349,14 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	}
 
 	return r.MarshalJSON()
+}
+
+func getResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	if ctx.Client == nil {
+		return nil, fmt.Errorf("API client is not available")
+	}
+
+	return ctx.Client.Clientset.RESTClient().Get().AbsPath(p.Raw).DoRaw(context.TODO())
 }
 
 func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {

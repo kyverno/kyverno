@@ -29,6 +29,7 @@ type Client struct {
 	client          dynamic.Interface
 	log             logr.Logger
 	clientConfig    *rest.Config
+	Clientset       *kubernetes.Clientset
 	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery
 }
@@ -47,6 +48,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 	client := Client{
 		client:       dclient,
 		clientConfig: config,
+		Clientset:    kclient,
 		kclient:      kclient,
 		log:          log.WithName("dclient"),
 	}
