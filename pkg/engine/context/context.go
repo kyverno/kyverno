@@ -244,6 +244,9 @@ func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
+
+	log.Log.Info("extracting image info", "obj", resource.UnstructuredContent())
+
 	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
 		return err
@@ -252,17 +255,23 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 		return nil
 	}
 	ctx.images = images
+
+	log.Log.Info("updated image info", "images", images)
+
 	return addToContext(ctx, images, "images")
 }
 
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error) {
 	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err,"failed to extract images")
 	}
+
 	if len(images) == 0 {
+		logger.Info("no images found", "extractor", imageExtractorConfigs)
 		return nil, nil
 	}
+
 	return images, addToContext(ctx, images, "images")
 }
 
