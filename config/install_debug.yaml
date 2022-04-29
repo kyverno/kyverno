@@ -612,6 +612,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -1332,6 +1337,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -3093,6 +3103,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -3813,6 +3828,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -6444,6 +6464,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -7164,6 +7189,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -8926,6 +8956,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3
@@ -9646,6 +9681,11 @@ spec:
                           description: RequestTypes can contain values ["CREATE, "UPDATE",
                             "CONNECT", "DELETE"], which are used to match a specific
                             action.
+                          enum:
+                          - CREATE
+                          - UPDATE
+                          - CONNECT
+                          - DELETE
                           items:
                             type: string
                           maxItems: 3

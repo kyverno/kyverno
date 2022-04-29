@@ -1911,45 +1911,6 @@ bool
 <tbody>
 <tr>
 <td>
-<code>requestTypes</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>RequestTypes can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>any</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Any allows specifying resources which will be ORed</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>all</code></br>
-<em>
-<a href="#kyverno.io/v1.ResourceFilters">
-ResourceFilters
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>All allows specifying resources which will be ANDed</p>
-</td>
-</tr>
-<tr>
-<td>
 <code>rekor</code></br>
 <em>
 <a href="#kyverno.io/v1.CTLog">
@@ -2042,6 +2003,17 @@ which a policy rule is applicable.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>
+<code>requestTypes</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RequestTypes can contain values [&ldquo;CREATE, &ldquo;UPDATE&rdquo;, &ldquo;CONNECT&rdquo;, &ldquo;DELETE&rdquo;], which are used to match a specific action.</p>
+</td>
+</tr>
 <tr>
 <td>
 <code>any</code></br>
