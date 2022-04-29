@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -14,7 +13,6 @@ import (
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -26,7 +24,6 @@ const (
 
 var (
 	podControllersKindsSet = sets.NewString(append(strings.Split(PodControllers, ","), "Pod")...)
-	podSet                 = sets.NewString("Pod")
 )
 
 func isKindOtherthanPod(kinds []string) bool {
@@ -72,7 +69,7 @@ func stripCronJob(controllers string) string {
 //          - Pod and PodControllers are not defined
 //          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
 // - otherwise it returns all pod controllers
-func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, controllers string) {
+func CanAutoGen(spec *kyverno.Spec) (applyAutoGen bool, controllers string) {
 	needed := false
 	for _, rule := range spec.Rules {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
@@ -80,30 +77,30 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 		}
 		match, exclude := rule.MatchResources, rule.ExcludeResources
 		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
-			log.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
+			logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 			return false, ""
 		}
 		for _, value := range match.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range match.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range exclude.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
 		for _, value := range exclude.All {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				log.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
 		}
@@ -115,8 +112,8 @@ func CanAutoGen(spec *kyverno.Spec, log logr.Logger) (applyAutoGen bool, control
 }
 
 // GetSupportedControllers returns the supported autogen controllers for a given spec.
-func GetSupportedControllers(spec *kyverno.Spec, log logr.Logger) []string {
-	apply, controllers := CanAutoGen(spec, log)
+func GetSupportedControllers(spec *kyverno.Spec) []string {
+	apply, controllers := CanAutoGen(spec)
 	if !apply || controllers == "none" {
 		return nil
 	}
@@ -141,9 +138,9 @@ func GetRequestedControllers(meta *metav1.ObjectMeta) []string {
 
 // GetControllers computes the autogen controllers that should be applied to a policy.
 // It returns the requested, supported and effective controllers (intersection of requested and supported ones).
-func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger) ([]string, []string, []string) {
+func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec) ([]string, []string, []string) {
 	// compute supported and requested controllers
-	supported, requested := GetSupportedControllers(spec, log), GetRequestedControllers(meta)
+	supported, requested := GetSupportedControllers(spec), GetRequestedControllers(meta)
 	// no specific request, we can return supported controllers without further filtering
 	if requested == nil {
 		return requested, supported, supported
@@ -168,13 +165,13 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec, log logr.Logger
 //             make sure all fields are applicable to pod controllers
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
-func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger) (rulePatches [][]byte, errs []error) {
+func GenerateRulePatches(spec *kyverno.Spec, controllers string) (rulePatches [][]byte, errs []error) {
 	var ruleIndex = make(map[string]int)
 	for index, rule := range spec.Rules {
 		ruleIndex[rule.Name] = index
 	}
 	insertIdx := len(spec.Rules)
-	genRules := generateRules(spec, controllers, log)
+	genRules := generateRules(spec, controllers)
 	for i := range genRules {
 		patchPostion := insertIdx
 		convertToPatches := func(genRule kyvernoRule, patchPostion int) []byte {
@@ -218,17 +215,17 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string, log logr.Logger
 //             make sure all fields are applicable to pod controllers
 
 // generateRules generates rule for podControllers based on scenario A and C
-func generateRules(spec *kyverno.Spec, controllers string, log logr.Logger) []kyverno.Rule {
+func generateRules(spec *kyverno.Spec, controllers string) []kyverno.Rule {
 	var rules []kyverno.Rule
 	for i := range spec.Rules {
 		// handle all other controllers other than CronJob
-		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers), log)); genRule != nil {
+		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
 			}
 		}
 		// handle CronJob, it appends an additional rule
-		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers, log)); genRule != nil {
+		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
 				rules = append(rules, *convRule)
 			}
@@ -281,7 +278,7 @@ func ComputeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 
 func computeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 	spec := p.GetSpec()
-	applyAutoGen, desiredControllers := CanAutoGen(spec, log.Log)
+	applyAutoGen, desiredControllers := CanAutoGen(spec)
 	if !applyAutoGen {
 		desiredControllers = "none"
 	}
@@ -297,7 +294,7 @@ func computeRules(p kyverno.PolicyInterface) []kyverno.Rule {
 	if actualControllers == "none" {
 		return spec.Rules
 	}
-	genRules := generateRules(spec.DeepCopy(), actualControllers, log.Log)
+	genRules := generateRules(spec.DeepCopy(), actualControllers)
 	if len(genRules) == 0 {
 		return spec.Rules
 	}
