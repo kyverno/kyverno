@@ -320,7 +320,7 @@ func (c *Controller) deleteGR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		_, ok = tombstone.Obj.(*kyverno.GenerateRequest)
+		gr, ok = tombstone.Obj.(*kyverno.GenerateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
 			return
@@ -377,7 +377,7 @@ func (c *Controller) deleteUR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		gr, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Generate Request CR", "obj", obj)
 			return
