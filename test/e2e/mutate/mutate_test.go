@@ -327,7 +327,7 @@ func Test_Mutate_Existing(t *testing.T) {
 	for _, test := range mutateExistingTests {
 		By(fmt.Sprintf("\nStart Mutate Existing Tests: %s", test.TestDescription))
 
-		By("======Cleaning up resources======")
+		By("\nCleaning up resources")
 		By("Deleting Cluster Policies...")
 		e2eClient.CleanClusterPolicies(policyGVR)
 
@@ -363,7 +363,7 @@ func Test_Mutate_Existing(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		By("======Done cleaning up resources======")
+		By("Done cleaning up resources\n")
 
 		By(fmt.Sprintf("Creating target Namespace: %s...", test.TargetNamespace))
 		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.TargetNamespace))
@@ -575,7 +575,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			By(err.Error())
 		}
 
-		By("Done")
+		By("Done\n\n")
 	}
 }
 

@@ -23,7 +23,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
-	backwardcompatibility "github.com/kyverno/kyverno/pkg/compatibility"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -288,7 +287,6 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		configData,
 		eventGenerator,
@@ -305,22 +303,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient,
-		pInformer.Kyverno().V1().GenerateRequests(),
+	urgen := webhookgenerate.NewGenerator(pclient,
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		stopCh,
 		log.Log.WithName("UpdateRequestGenerator"))
 
-	// GENERATE CONTROLLER
-	// - applies generate rules on resources based on generate requests created by webhook
-	grc, err := background.NewController(
+	urc, err := background.NewController(
 		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
@@ -332,15 +325,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// GENERATE REQUEST CLEANUP
-	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
 	grcc, err := generatecleanup.NewController(
 		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
@@ -443,7 +433,6 @@ func main() {
 		pclient,
 		client,
 		tlsPair,
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -457,12 +446,12 @@ func main() {
 		webhookMonitor,
 		configData,
 		reportReqGen,
-		grgen,
+		urgen,
 		auditHandler,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		grc,
+		urc,
 		promConfig,
 	)
 
@@ -477,7 +466,7 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		go grc.Run(genWorkers, stopCh)
+		go urc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
 	}
 
@@ -513,9 +502,6 @@ func main() {
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
-
-	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
