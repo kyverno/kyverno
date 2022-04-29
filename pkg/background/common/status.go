@@ -21,8 +21,8 @@ type StatusControl struct {
 	Client kyvernoclient.Interface
 }
 
-//Failed sets gr status.state to failed with message
-func (sc StatusControl) Failed(gr urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error {
+//Failed sets ur status.state to failed with message
+func (sc StatusControl) Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error {
 	genR := &urkyverno.UpdateRequestStatus{
 		State:   urkyverno.Failed,
 		Message: message,
@@ -36,17 +36,17 @@ func (sc StatusControl) Failed(gr urkyverno.UpdateRequest, message string, genRe
 		"replace",
 		genR,
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
+	_, err := PatchUpdateRequest(&ur, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to patch update request status", "name", gr.Name)
+		log.Log.Error(err, "failed to patch update request status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", gr.Name, "status", string(kyverno.Failed))
+	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyverno.Failed))
 	return nil
 }
 
-// Success sets the gr status.state to completed and clears message
-func (sc StatusControl) Success(gr urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
+// Success sets the ur status.state to completed and clears message
+func (sc StatusControl) Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
 	genR := &urkyverno.UpdateRequestStatus{
 		State:   urkyverno.Completed,
 		Message: "",
@@ -61,17 +61,17 @@ func (sc StatusControl) Success(gr urkyverno.UpdateRequest, genResources []kyver
 		"replace",
 		genR,
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
+	_, err := PatchUpdateRequest(&ur, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to patch update request status", "name", gr.Name)
+		log.Log.Error(err, "failed to patch update request status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", gr.Name, "status", string(kyverno.Completed))
+	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyverno.Completed))
 	return nil
 }
 
-// Success sets the gr status.state to completed and clears message
-func (sc StatusControl) Skip(gr urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
+// Success sets the ur status.state to completed and clears message
+func (sc StatusControl) Skip(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
 	genR := &urkyverno.UpdateRequestStatus{
 		State:   urkyverno.Skip,
 		Message: "",
@@ -86,11 +86,11 @@ func (sc StatusControl) Skip(gr urkyverno.UpdateRequest, genResources []kyverno.
 		"replace",
 		genR,
 	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
+	_, err := PatchUpdateRequest(&ur, patch, sc.Client, "status")
 	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to update generate request status", "name", gr.Name)
+		log.Log.Error(err, "failed to update UR status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", gr.Name, "status", string(kyverno.Skip))
+	log.Log.V(3).Info("updated UR status", "name", ur.Name, "status", string(kyverno.Skip))
 	return nil
 }

@@ -14,7 +14,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -44,12 +43,6 @@ type WebhookServer struct {
 	server        *http.Server
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
-
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestNamespaceLister
-
-	// grSynced returns true if the Generate Request store has been synced at least once
-	grSynced cache.InformerSynced
 
 	// urLister can list/get update requests from the shared informer's store
 	urLister urlister.UpdateRequestNamespaceLister
@@ -105,8 +98,8 @@ type WebhookServer struct {
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
-	// generate request generator
-	grGenerator webhookgenerate.Interface
+	// update request generator
+	urGenerator webhookgenerate.Interface
 
 	nsLister listerv1.NamespaceLister
 
@@ -119,7 +112,7 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	grController *background.Controller
+	urController *background.Controller
 
 	promConfig *metrics.PromConfig
 
@@ -132,7 +125,6 @@ func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.PemPair,
-	grInformer kyvernoinformer.GenerateRequestInformer,
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -146,12 +138,12 @@ func NewWebhookServer(
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	grGenerator webhookgenerate.Interface,
+	urGenerator webhookgenerate.Interface,
 	auditHandler AuditHandler,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	grc *background.Controller,
+	urc *background.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
@@ -164,8 +156,6 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		grLister:          grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
-		grSynced:          grInformer.Informer().HasSynced,
 		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 		urSynced:          urInformer.Informer().HasSynced,
 		pSynced:           pInformer.Informer().HasSynced,
@@ -186,8 +176,8 @@ func NewWebhookServer(
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
 		prGenerator:       prGenerator,
-		grGenerator:       grGenerator,
-		grController:      grc,
+		urGenerator:       urGenerator,
+		urController:      urc,
 		auditHandler:      auditHandler,
 		log:               log,
 		openAPIController: openAPIController,
@@ -265,7 +255,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
 		ws.log.Info("failed to sync informer cache")
 	}
 	go func() {
