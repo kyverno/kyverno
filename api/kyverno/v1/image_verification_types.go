@@ -100,9 +100,13 @@ type AttestorSet struct {
 
 type Attestor struct {
 
-	// StaticKey is a set of attributes used to verify an X.509 public key
+	// Keys specifies one or more public keys
 	// +kubebuilder:validation:Optional
-	StaticKey *StaticKeyAttestor `json:"staticKey,omitempty" yaml:"staticKey,omitempty"`
+	Keys *StaticKeyAttestor `json:"keys,omitempty" yaml:"keys,omitempty"`
+
+	// Certificates specifies one or more certificates
+	// +kubebuilder:validation:Optional
+	Certificates *CertificateAttestor `json:"certificates,omitempty" yaml:"certificates,omitempty"`
 
 	// Keyless is a set of attribute used to verify a Sigstore keyless attestor.
 	// See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
@@ -128,9 +132,16 @@ type StaticKeyAttestor struct {
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
 	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
-	// key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 	// attestors and the count is applied across the keys.
-	Keys string `json:"key,omitempty" yaml:"key,omitempty"`
+	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
+}
+
+type CertificateAttestor struct {
+
+	// Certificate is an optional PEM encoded public certificate.
+	// +kubebuilder:validation:Optional
+	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
 
 	// Intermediates is an optional PEM encoded set of certificates that are not trust
 	// anchors, but can be used to form a chain from the leaf certificate to a
@@ -257,16 +268,17 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 }
 
 func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if (a.StaticKey != nil && (a.Keyless != nil || a.Attestor != nil)) ||
-		(a.Keyless != nil && (a.StaticKey != nil || a.Attestor != nil)) ||
-		(a.Attestor != nil && (a.StaticKey != nil || a.Keyless != nil)) ||
-		(a.StaticKey == nil && a.Keyless == nil && a.Attestor == nil) {
-		errs = append(errs, field.Invalid(path, a, "One of static key, keyless, or nested attestor is required"))
+	if (a.Keys != nil && (a.Certificates != nil || a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Certificates != nil && (a.Keys != nil || a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Keyless != nil && (a.Certificates != nil || a.Keys != nil || a.Attestor != nil)) ||
+		(a.Attestor != nil && (a.Certificates != nil || a.Keys != nil || a.Keyless != nil)) ||
+		(a.Keys == nil && a.Certificates != nil && a.Keyless == nil && a.Attestor == nil) {
+		errs = append(errs, field.Invalid(path, a, "keys, certificates, keyless, or a nested attestor is required"))
 	}
 
-	if a.StaticKey != nil {
+	if a.Keys != nil {
 		staticKeyPath := path.Child("staticKey")
-		staticKeyErrors := a.StaticKey.Validate(staticKeyPath)
+		staticKeyErrors := a.Keys.Validate(staticKeyPath)
 		errs = append(errs, staticKeyErrors...)
 	}
 
@@ -301,7 +313,7 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ska.Keys == "" {
+	if ska.PublicKeys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
 	}
 
@@ -337,8 +349,8 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	}
 
 	if iv.Key != "" {
-		attestor.StaticKey = &StaticKeyAttestor{
-			Keys: iv.Key,
+		attestor.Keys = &StaticKeyAttestor{
+			PublicKeys: iv.Key,
 		}
 	} else if iv.Issuer != "" {
 		attestor.Keyless = &KeylessAttestor{

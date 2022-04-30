@@ -610,7 +610,7 @@ the attestation check is satisfied as long there are predicates that match the p
 <tbody>
 <tr>
 <td>
-<code>staticKey</code></br>
+<code>keys</code></br>
 <em>
 <a href="#kyverno.io/v1.StaticKeyAttestor">
 StaticKeyAttestor
@@ -618,7 +618,20 @@ StaticKeyAttestor
 </em>
 </td>
 <td>
-<p>StaticKey is a set of attributes used to verify an X.509 public key</p>
+<p>Keys specifies one or more public keys</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>certificates</code></br>
+<em>
+<a href="#kyverno.io/v1.CertificateAttestor">
+CertificateAttestor
+</a>
+</em>
+</td>
+<td>
+<p>Certificates specifies one or more certificates</p>
 </td>
 </tr>
 <tr>
@@ -791,6 +804,61 @@ string
 </td>
 <td>
 <p>URL is the address of the transparency log. Defaults to the public log <a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.CertificateAttestor">CertificateAttestor
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Attestor">Attestor</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>cert</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Certificate is an optional PEM encoded public certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>intermediates</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Intermediates is an optional PEM encoded set of certificates that are not trust
+anchors, but can be used to form a chain from the leaf certificate to a
+root certificate.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>roots</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Roots is an optional set of PEM encoded trusted root certificates.
+If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>
@@ -2833,7 +2901,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 <tbody>
 <tr>
 <td>
-<code>key</code></br>
+<code>publicKeys</code></br>
 <em>
 string
 </em>
@@ -2842,33 +2910,8 @@ string
 <p>Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 specified or can be a variable reference to a key specified in a ConfigMap (see
 <a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
-key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 attestors and the count is applied across the keys.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>intermediates</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Intermediates is an optional PEM encoded set of certificates that are not trust
-anchors, but can be used to form a chain from the leaf certificate to a
-root certificate.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>roots</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Roots is an optional set of PEM encoded trusted root certificates.
-If not provided, the system roots are used.</p>
 </td>
 </tr>
 </tbody>

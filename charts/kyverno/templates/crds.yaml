@@ -1409,6 +1409,19 @@ spec:
                                       attestor:
                                         description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
                                         x-kubernetes-preserve-unknown-fields: true
+                                      certificates:
+                                        description: Certificates specifies one or more certificates
+                                        properties:
+                                          cert:
+                                            description: Certificate is an optional PEM encoded public certificate.
+                                            type: string
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                            type: string
+                                        type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -1439,22 +1452,16 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      keys:
+                                        description: Keys specifies one or more public keys
+                                        properties:
+                                          publicKeys:
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                            type: string
+                                        type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
                                         type: string
-                                      staticKey:
-                                        description: StaticKey is a set of attributes used to verify an X.509 public key
-                                        properties:
-                                          intermediates:
-                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
-                                            type: string
-                                          key:
-                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
-                                            type: string
-                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -2937,6 +2944,19 @@ spec:
                                       attestor:
                                         description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
                                         x-kubernetes-preserve-unknown-fields: true
+                                      certificates:
+                                        description: Certificates specifies one or more certificates
+                                        properties:
+                                          cert:
+                                            description: Certificate is an optional PEM encoded public certificate.
+                                            type: string
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                            type: string
+                                        type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -2967,22 +2987,16 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      keys:
+                                        description: Keys specifies one or more public keys
+                                        properties:
+                                          publicKeys:
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                            type: string
+                                        type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
                                         type: string
-                                      staticKey:
-                                        description: StaticKey is a set of attributes used to verify an X.509 public key
-                                        properties:
-                                          intermediates:
-                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
-                                            type: string
-                                          key:
-                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
-                                            type: string
-                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -5180,6 +5194,19 @@ spec:
                                       attestor:
                                         description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
                                         x-kubernetes-preserve-unknown-fields: true
+                                      certificates:
+                                        description: Certificates specifies one or more certificates
+                                        properties:
+                                          cert:
+                                            description: Certificate is an optional PEM encoded public certificate.
+                                            type: string
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                            type: string
+                                        type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -5210,22 +5237,16 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      keys:
+                                        description: Keys specifies one or more public keys
+                                        properties:
+                                          publicKeys:
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                            type: string
+                                        type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
                                         type: string
-                                      staticKey:
-                                        description: StaticKey is a set of attributes used to verify an X.509 public key
-                                        properties:
-                                          intermediates:
-                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
-                                            type: string
-                                          key:
-                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
-                                            type: string
-                                        type: object
                                     type: object
                                   type: array
                               type: object
@@ -6708,6 +6729,19 @@ spec:
                                       attestor:
                                         description: Attestor is a nested AttestorSet used to specify a more complex set of match authorities
                                         x-kubernetes-preserve-unknown-fields: true
+                                      certificates:
+                                        description: Certificates specifies one or more certificates
+                                        properties:
+                                          cert:
+                                            description: Certificate is an optional PEM encoded public certificate.
+                                            type: string
+                                          intermediates:
+                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
+                                            type: string
+                                        type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
                                         properties:
@@ -6738,22 +6772,16 @@ spec:
                                             description: Subject is the verified identity used for keyless signing, for example the email address
                                             type: string
                                         type: object
+                                      keys:
+                                        description: Keys specifies one or more public keys
+                                        properties:
+                                          publicKeys:
+                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
+                                            type: string
+                                        type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
                                         type: string
-                                      staticKey:
-                                        description: StaticKey is a set of attributes used to verify an X.509 public key
-                                        properties:
-                                          intermediates:
-                                            description: Intermediates is an optional PEM encoded set of certificates that are not trust anchors, but can be used to form a chain from the leaf certificate to a root certificate.
-                                            type: string
-                                          key:
-                                            description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of attestors and the count is applied across the keys.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set of PEM encoded trusted root certificates. If not provided, the system roots are used.
-                                            type: string
-                                        type: object
                                     type: object
                                   type: array
                               type: object

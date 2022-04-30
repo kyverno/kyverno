@@ -358,10 +358,10 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVeri
 func expandStaticKeys(attestorSet v1.AttestorSet) v1.AttestorSet {
 	var entries []v1.Attestor
 	for _, e := range attestorSet.Entries {
-		if e.StaticKey != nil {
-			keys := splitPEM(e.StaticKey.Keys)
+		if e.Keys != nil {
+			keys := splitPEM(e.Keys.PublicKeys)
 			if len(keys) > 1 {
-				moreEntries := createStaticKeyAttestors(e.StaticKey, keys)
+				moreEntries := createStaticKeyAttestors(keys)
 				entries = append(entries, moreEntries...)
 				continue
 			}
@@ -385,14 +385,12 @@ func splitPEM(pem string) []string {
 	return keys[0 : len(keys)-1]
 }
 
-func createStaticKeyAttestors(ska *v1.StaticKeyAttestor, keys []string) []v1.Attestor {
+func createStaticKeyAttestors(keys []string) []v1.Attestor {
 	var attestors []v1.Attestor
 	for _, k := range keys {
 		a := v1.Attestor{
-			StaticKey: &v1.StaticKeyAttestor{
-				Keys:          k,
-				Intermediates: ska.Intermediates,
-				Roots:         ska.Roots,
+			Keys: &v1.StaticKeyAttestor{
+				PublicKeys:          k,
 			},
 		}
 		attestors = append(attestors, a)
@@ -422,15 +420,19 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		opts.Roots = []byte(imageVerify.Roots)
 	}
 
-	if attestor.StaticKey != nil {
+	if attestor.Keys != nil {
 		path = path + ".staticKey"
-		opts.Key = attestor.StaticKey.Keys
-		if attestor.StaticKey.Roots != "" {
-			opts.Roots = []byte(attestor.StaticKey.Roots)
+		opts.Key = attestor.Keys.PublicKeys
+
+	} else if attestor.Certificates != nil {
+
+		if attestor.Certificates.Roots != "" {
+			opts.Roots = []byte(attestor.Certificates.Roots)
 		}
-		if attestor.StaticKey.Intermediates != "" {
-			opts.Intermediates = []byte(attestor.StaticKey.Intermediates)
+		if attestor.Certificates.Intermediates != "" {
+			opts.Intermediates = []byte(attestor.Certificates.Intermediates)
 		}
+
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
 		if attestor.Keyless.Rekor != nil {
