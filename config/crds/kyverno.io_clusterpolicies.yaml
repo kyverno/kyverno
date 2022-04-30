@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -141,6 +140,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -181,17 +198,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -396,17 +413,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -607,15 +624,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -805,6 +822,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -817,6 +835,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -857,17 +909,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -1072,17 +1124,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -1283,15 +1335,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -1533,6 +1585,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -1668,6 +1740,26 @@ spec:
                             Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be
+                            mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be
@@ -1786,6 +1878,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -1956,7 +2068,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -2114,15 +2227,20 @@ spec:
                                     keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
                                           used to specify a more complex set of match
-                                          authorities TODO: Nested typed declarations
-                                          are cause issues with OpenAPIv3 Schemas.
-                                          Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute
                                           used to verify a Sigstore keyless attestor.
@@ -2135,13 +2253,39 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
-                                            description: Roots is a PEM encoded CA
-                                              certificate chain
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity
@@ -2149,16 +2293,41 @@ spec:
                                               the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes
                                           used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
                                             type: string
                                         type: object
                                     type: object
@@ -2191,12 +2360,25 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -2207,6 +2389,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -2269,11 +2456,6 @@ spec:
                     items:
                       type: string
                     type: array
-                  supported:
-                    description: Supported indicates the autogen supported controllers
-                    items:
-                      type: string
-                    type: array
                 type: object
               conditions:
                 description: Conditions is a list of conditions that apply to the
@@ -2282,13 +2464,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -2422,6 +2603,24 @@ spec:
                           name:
                             description: Name is the variable name.
                             type: string
+                          variable:
+                            description: Variable defines an arbitrary JMESPath context
+                              variable that can be defined inline.
+                            properties:
+                              default:
+                                description: Default is an optional arbitrary JSON
+                                  object that the variable may take if the JMESPath
+                                  expression evaluates to nil
+                                x-kubernetes-preserve-unknown-fields: true
+                              jmesPath:
+                                description: JMESPath is an optional JMESPath Expression
+                                  that can be used to transform the variable.
+                                type: string
+                              value:
+                                description: Value is any arbitrary JSON object representable
+                                  in YAML or JSON form.
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
                         type: object
                       type: array
                     exclude:
@@ -2462,17 +2661,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -2677,17 +2876,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -2888,15 +3087,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -3086,6 +3285,7 @@ spec:
                           type: string
                         name:
                           description: Name specifies the resource name.
+                          maxLength: 63
                           type: string
                         namespace:
                           description: Namespace specifies resource namespace.
@@ -3098,6 +3298,40 @@ spec:
                             resource specified in the Clone declaration. Optional.
                             Defaults to "false" if not specified.
                           type: boolean
+                      type: object
+                    imageExtractors:
+                      additionalProperties:
+                        items:
+                          properties:
+                            key:
+                              description: Key is an optional name of the field within
+                                'path' that will be used to uniquely identify an image.
+                                Note - this field MUST be unique.
+                              type: string
+                            name:
+                              description: Name is the entry the image will be available
+                                under 'images.<name>' in the context. If this field
+                                is not defined, image entries will appear under 'images.custom'.
+                              type: string
+                            path:
+                              description: Path is the path to the object containing
+                                the image field in a custom resource. It should be
+                                slash-separated. Each slash-separated key must by
+                                a valid YAML key or a wildcard '*'. Wildcard keys
+                                are expanded in case of arrays or objects.
+                              type: string
+                            value:
+                              description: Value is an optional name of the field
+                                within 'path' that points to the image URI. This is
+                                useful when a custom 'key' is also defined.
+                              type: string
+                          required:
+                          - path
+                          type: object
+                        type: array
+                      description: ImageExtractors defines a mapping from kinds to
+                        ImageExtractorConfigs. This config is only valid for verifyImages
+                        rules.
                       type: object
                     match:
                       description: MatchResources defines when this policy rule should
@@ -3138,17 +3372,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -3353,17 +3587,17 @@ spec:
                                       type: string
                                     type: array
                                   name:
-                                    description: Name is the name of the resource.
+                                    description: 'Name is the name of the resource.
                                       The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character).
-                                    type: string
-                                  names:
-                                    description: 'Names are the names of the resources.
-                                      Each name supports wildcard characters "*" (matches
                                       zero or many characters) and "?" (at least one
                                       character). NOTE: "Name" is being deprecated
                                       in favor of "Names".'
+                                    type: string
+                                  names:
+                                    description: Names are the names of the resources.
+                                      Each name supports wildcard characters "*" (matches
+                                      zero or many characters) and "?" (at least one
+                                      character).
                                     items:
                                       type: string
                                     type: array
@@ -3564,15 +3798,15 @@ spec:
                                 type: string
                               type: array
                             name:
-                              description: Name is the name of the resource. The name
-                                supports wildcard characters "*" (matches zero or
-                                many characters) and "?" (at least one character).
+                              description: 'Name is the name of the resource. The
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
+                                NOTE: "Name" is being deprecated in favor of "Names".'
                               type: string
                             names:
-                              description: 'Names are the names of the resources.
-                                Each name supports wildcard characters "*" (matches
-                                zero or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
+                              description: Names are the names of the resources. Each
+                                name supports wildcard characters "*" (matches zero
+                                or many characters) and "?" (at least one character).
                               items:
                                 type: string
                               type: array
@@ -3814,6 +4048,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               list:
@@ -3949,6 +4203,26 @@ spec:
                             Patch declarations used to modify resources. See https://tools.ietf.org/html/rfc6902
                             and https://kubectl.docs.kubernetes.io/references/kustomize/patchesjson6902/.
                           type: string
+                        targets:
+                          description: Targets defines the target resources to be
+                            mutated.
+                          items:
+                            properties:
+                              apiVersion:
+                                description: APIVersion specifies resource apiVersion.
+                                type: string
+                              kind:
+                                description: Kind specifies resource kind.
+                                type: string
+                              name:
+                                description: Name specifies the resource name.
+                                maxLength: 63
+                                type: string
+                              namespace:
+                                description: Namespace specifies resource namespace.
+                                type: string
+                            type: object
+                          type: array
                       type: object
                     name:
                       description: Name is a label to identify the rule, It must be
@@ -4067,6 +4341,26 @@ spec:
                                     name:
                                       description: Name is the variable name.
                                       type: string
+                                    variable:
+                                      description: Variable defines an arbitrary JMESPath
+                                        context variable that can be defined inline.
+                                      properties:
+                                        default:
+                                          description: Default is an optional arbitrary
+                                            JSON object that the variable may take
+                                            if the JMESPath expression evaluates to
+                                            nil
+                                          x-kubernetes-preserve-unknown-fields: true
+                                        jmesPath:
+                                          description: JMESPath is an optional JMESPath
+                                            Expression that can be used to transform
+                                            the variable.
+                                          type: string
+                                        value:
+                                          description: Value is any arbitrary JSON
+                                            object representable in YAML or JSON form.
+                                          x-kubernetes-preserve-unknown-fields: true
+                                      type: object
                                   type: object
                                 type: array
                               deny:
@@ -4237,7 +4531,8 @@ spec:
                             description: Annotations are used for image verification.
                               Every specified key-value pair must exist and match
                               in the verified payload. The payload may contain other
-                              key-value pairs.
+                              key-value pairs. Deprecated. Use annotations per Attestor
+                              instead.
                             type: object
                           attestations:
                             description: Attestations are optional checks for signed
@@ -4395,15 +4690,20 @@ spec:
                                     keyless verification, or a nested attestor declaration.
                                   items:
                                     properties:
-                                      attestors:
-                                        description: 'Attestor is a nested AttestorSet
+                                      annotations:
+                                        additionalProperties:
+                                          type: string
+                                        description: Annotations are used for image
+                                          verification. Every specified key-value
+                                          pair must exist and match in the verified
+                                          payload. The payload may contain other key-value
+                                          pairs.
+                                        type: object
+                                      attestor:
+                                        description: Attestor is a nested AttestorSet
                                           used to specify a more complex set of match
-                                          authorities TODO: Nested typed declarations
-                                          are cause issues with OpenAPIv3 Schemas.
-                                          Need to revisit.'
-                                        items:
-                                          x-kubernetes-preserve-unknown-fields: true
-                                        type: array
+                                          authorities
+                                        x-kubernetes-preserve-unknown-fields: true
                                       keyless:
                                         description: Keyless is a set of attribute
                                           used to verify a Sigstore keyless attestor.
@@ -4416,13 +4716,39 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides information
+                                              of the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked
+                                              and a root certificate chain is expected
+                                              instead. If an empty object is provided
+                                              the public instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                           roots:
-                                            description: Roots is a PEM encoded CA
-                                              certificate chain
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
                                             type: string
                                           subject:
                                             description: Subject is the verified identity
@@ -4430,16 +4756,41 @@ spec:
                                               the email address
                                             type: string
                                         type: object
+                                      repository:
+                                        description: Repository is an optional alternate
+                                          OCI repository to use for signatures and
+                                          attestations that match this rule. If specified
+                                          Repository will override other OCI image
+                                          repository locations for this Attestor.
+                                        type: string
                                       staticKey:
                                         description: StaticKey is a set of attributes
                                           used to verify an X.509 public key
                                         properties:
+                                          intermediates:
+                                            description: Intermediates is an optional
+                                              PEM encoded set of certificates that
+                                              are not trust anchors, but can be used
+                                              to form a chain from the leaf certificate
+                                              to a root certificate.
+                                            type: string
                                           key:
-                                            description: Key is an X.509 public key
-                                              used to verify image signatures. The
-                                              key can be directly specified or can
-                                              be a variable reference to a key specified
-                                              in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                            description: Keys is a set of X.509 public
+                                              keys used to verify image signatures.
+                                              The keys can be directly specified or
+                                              can be a variable reference to a key
+                                              specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/).
+                                              When multiple keys are specified each
+                                              key is processed as a separate staticKey
+                                              entry (.attestors[*].entries.staticKey)
+                                              within the set of attestors and the
+                                              count is applied across the keys.
+                                            type: string
+                                          roots:
+                                            description: Roots is an optional set
+                                              of PEM encoded trusted root certificates.
+                                              If not provided, the system roots are
+                                              used.
                                             type: string
                                         type: object
                                     type: object
@@ -4472,12 +4823,25 @@ spec:
                               image or attestation is signed with. Deprecated. Use
                               StaticKeyAttestor instead.
                             type: string
+                          mutateDigest:
+                            default: true
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
+                            type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
-                              to use for image signatures that match this rule. If
-                              specified Repository will override the default OCI image
-                              repository configured for the installation.
+                              to use for image signatures and attestations that match
+                              this rule. If specified Repository will override the
+                              default OCI image repository configured for the installation.
+                              The repository can also be overridden per Attestor or
+                              Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -4488,6 +4852,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object

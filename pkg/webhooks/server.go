@@ -9,11 +9,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	urinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -26,8 +27,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
-	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/generate"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
+	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -43,14 +44,11 @@ type WebhookServer struct {
 	client        *client.Client
 	kyvernoClient *kyvernoclient.Clientset
 
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestNamespaceLister
+	// urLister can list/get update requests from the shared informer's store
+	urLister urlister.UpdateRequestNamespaceLister
 
-	// grSynced returns true if the Generate Request store has been synced at least once
-	grSynced cache.InformerSynced
-
-	// list/get cluster policy resource
-	pLister kyvernolister.ClusterPolicyLister
+	// urSynced returns true if the Update Request store has been synced at least once
+	urSynced cache.InformerSynced
 
 	// returns true if the cluster policy store has synced atleast
 	pSynced cache.InformerSynced
@@ -100,8 +98,8 @@ type WebhookServer struct {
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
 
-	// generate request generator
-	grGenerator *webhookgenerate.Generator
+	// update request generator
+	urGenerator webhookgenerate.Interface
 
 	nsLister listerv1.NamespaceLister
 
@@ -114,7 +112,7 @@ type WebhookServer struct {
 
 	openAPIController *openapi.Controller
 
-	grController *background.Controller
+	urController *background.Controller
 
 	promConfig *metrics.PromConfig
 
@@ -127,7 +125,7 @@ func NewWebhookServer(
 	kyvernoClient *kyvernoclient.Clientset,
 	client *client.Client,
 	tlsPair *tlsutils.PemPair,
-	grInformer kyvernoinformer.GenerateRequestInformer,
+	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
@@ -140,12 +138,12 @@ func NewWebhookServer(
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	grGenerator *webhookgenerate.Generator,
+	urGenerator webhookgenerate.Interface,
 	auditHandler AuditHandler,
 	cleanUp chan<- struct{},
 	log logr.Logger,
 	openAPIController *openapi.Controller,
-	grc *background.Controller,
+	urc *background.Controller,
 	promConfig *metrics.PromConfig,
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
@@ -158,9 +156,8 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		grLister:          grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
-		grSynced:          grInformer.Informer().HasSynced,
-		pLister:           pInformer.Lister(),
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urSynced:          urInformer.Informer().HasSynced,
 		pSynced:           pInformer.Informer().HasSynced,
 		rbLister:          rbInformer.Lister(),
 		rbSynced:          rbInformer.Informer().HasSynced,
@@ -179,8 +176,8 @@ func NewWebhookServer(
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
 		prGenerator:       prGenerator,
-		grGenerator:       grGenerator,
-		grController:      grc,
+		urGenerator:       urGenerator,
+		urController:      urc,
 		auditHandler:      auditHandler,
 		log:               log,
 		openAPIController: openAPIController,
@@ -191,7 +188,7 @@ func NewWebhookServer(
 	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(true, ws.resourceValidation))
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(true, ws.policyMutation))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(true, ws.policyValidation))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(false, handlers.Verify(ws.webhookMonitor, ws.log)))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
@@ -205,7 +202,7 @@ func NewWebhookServer(
 }
 
 func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
-	userRequestInfo := v1.RequestInfo{
+	userRequestInfo := v1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
 
@@ -246,6 +243,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		ExcludeResourceFunc: ws.configHandler.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
+		AdmissionOperation:  true,
 	}
 
 	if request.Operation == admissionv1.Update {
@@ -257,7 +255,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.grSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
+	if !cache.WaitForCacheSync(stopCh, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
 		ws.log.Info("failed to sync informer cache")
 	}
 	go func() {

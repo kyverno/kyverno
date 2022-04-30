@@ -63,7 +63,7 @@ func Mutate(rule *kyverno.Rule, ctx context.Interface, resource unstructured.Uns
 	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
-func ForEach(name string, foreach *kyverno.ForEachMutation, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
+func ForEach(name string, foreach kyverno.ForEachMutation, ctx context.Interface, resource unstructured.Unstructured, logger logr.Logger) *Response {
 	fe, err := substituteAllInForEach(foreach, ctx, logger)
 	if err != nil {
 		return newErrorResponse("variable substitution failed", err)
@@ -90,7 +90,7 @@ func ForEach(name string, foreach *kyverno.ForEachMutation, ctx context.Interfac
 	return newResponse(response.RuleStatusPass, patchedResource, resp.Patches, resp.Message)
 }
 
-func substituteAllInForEach(fe *kyverno.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyverno.ForEachMutation, error) {
+func substituteAllInForEach(fe kyverno.ForEachMutation, ctx context.Interface, logger logr.Logger) (*kyverno.ForEachMutation, error) {
 	jsonObj, err := utils.ToMap(fe)
 	if err != nil {
 		return nil, err

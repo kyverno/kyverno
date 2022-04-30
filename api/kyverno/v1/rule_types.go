@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -36,6 +37,11 @@ type Rule struct {
 	// +optional
 	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
+	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
+	// This config is only valid for verifyImages rules.
+	// +optional
+	ImageExtractors kube.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
+
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
@@ -58,7 +64,7 @@ type Rule struct {
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -71,6 +77,17 @@ func (r *Rule) HasVerifyImages() bool {
 	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
+// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasImagesValidationChecks() bool {
+	for _, v := range r.VerifyImages {
+		if v.VerifyDigest || v.Required {
+			return true
+		}
+	}
+
+	return false
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
@@ -79,6 +96,25 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
+}
+
+// IsMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) IsMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
+// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
+func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+	if !r.HasGenerate() {
+		return
+	}
+
+	if r.Generation.Clone.Name != "" {
+		clone = true
+		sync = r.Generation.Synchronize
+	}
+
+	return
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -103,11 +139,15 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	} else if count != 1 {
 		errs = append(errs, field.Invalid(path, r, fmt.Sprintf("Multiple operations defined in the rule '%s', only one operation (mutate,validate,generate,verifyImages) is allowed per rule", r.Name)))
 	}
+
+	if r.ImageExtractors != nil && !r.HasVerifyImages() {
+		errs = append(errs, field.Invalid(path.Child("imageExtractors"), r, fmt.Sprintf("Invalid rule spec for rule '%s', imageExtractors can only be defined for verifyImages rule", r.Name)))
+	}
 	return errs
 }
 
-// ValidateMathExcludeConflict checks if the resultant of match and exclude block is not an empty set
-func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorList) {
+// ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
+func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -274,7 +314,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
-	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
+	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	return errs

@@ -34,6 +34,10 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with index .Values "policyPreconditions" $name }}
+      preconditions:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           HostPath volumes are forbidden. The field spec.volumes[*].hostPath must be unset.

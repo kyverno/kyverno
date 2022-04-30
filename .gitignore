@@ -7,7 +7,6 @@ coverage.txt
 .idea
 cmd/initContainer/kyvernopre
 cmd/kyverno/kyverno
-cmd/cli/kubectl-kyverno/kyverno
 kubectl-kyverno
 /release
 .DS_Store

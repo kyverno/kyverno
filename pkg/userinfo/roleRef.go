@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
+
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -45,7 +46,7 @@ func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.Clus
 func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authenticationv1.UserInfo) (roles []string, clusterRoles []string) {
 	for _, rolebinding := range roleBindings {
 		for _, subject := range rolebinding.Subjects {
-			if matchSubjectsMap(subject, userInfo) {
+			if matchSubjectsMap(subject, userInfo, rolebinding.Namespace) {
 				switch rolebinding.RoleRef.Kind {
 				case roleKind:
 					roles = append(roles, rolebinding.Namespace+":"+rolebinding.RoleRef.Name)
@@ -62,7 +63,7 @@ func getRoleRefByRoleBindings(roleBindings []*rbacv1.RoleBinding, userInfo authe
 func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBinding, userInfo authenticationv1.UserInfo) (clusterRoles []string) {
 	for _, clusterRoleBinding := range clusterroleBindings {
 		for _, subject := range clusterRoleBinding.Subjects {
-			if matchSubjectsMap(subject, userInfo) {
+			if matchSubjectsMap(subject, userInfo, subject.Namespace) {
 				if clusterRoleBinding.RoleRef.Kind == clusterroleKind {
 					clusterRoles = append(clusterRoles, clusterRoleBinding.RoleRef.Name)
 				}
@@ -75,17 +76,19 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 // matchSubjectsMap checks if userInfo found in subject
 // return true directly if found a match
 // subject.kind can only be ServiceAccount, User and Group
-func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
+func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
+
 	if strings.Contains(userInfo.Username, saPrefix) {
-		return matchServiceAccount(subject, userInfo)
+		return matchServiceAccount(subject, userInfo, namespace)
+
 	}
 	return matchUserOrGroup(subject, userInfo)
 }
 
 // matchServiceAccount checks if userInfo sa matche the subject sa
 // serviceaccount represents as saPrefix:namespace:name in userInfo
-func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo) bool {
-	subjectServiceAccount := subject.Namespace + ":" + subject.Name
+func matchServiceAccount(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
+	subjectServiceAccount := namespace + ":" + subject.Name
 	if userInfo.Username[len(saPrefix):] != subjectServiceAccount {
 		return false
 	}

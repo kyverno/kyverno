@@ -33,6 +33,10 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "selinux-type") (index .Values "policyPreconditions" $name) }}
+      preconditions:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           Setting the SELinux type is restricted. The fields
@@ -64,6 +68,10 @@ spec:
               - Pod
       {{- with merge (index .Values "policyExclude" "selinux-user-role") (index .Values "policyExclude" $name) }}
       exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "selinux-user-role") (index .Values "policyPreconditions" $name) }}
+      preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       validate:

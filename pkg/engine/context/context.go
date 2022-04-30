@@ -6,9 +6,8 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
-	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -41,6 +40,9 @@ type Interface interface {
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
 
+	// ReplaceContextEntry replaces a context entry to the context
+	ReplaceContextEntry(name string, dataRaw []byte) error
+
 	// AddResource merges resource json under request.object
 	AddResource(data map[string]interface{}) error
 
@@ -48,7 +50,7 @@ type Interface interface {
 	AddOldResource(data map[string]interface{}) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo kyverno.RequestInfo) error
+	AddUserInfo(userInfo urkyverno.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -60,13 +62,17 @@ type Interface interface {
 	AddElement(data map[string]interface{}, index int) error
 
 	// AddImageInfo adds image info to the context
-	AddImageInfo(info imageutils.ImageInfo) error
+	AddImageInfo(info kubeutils.ImageInfo) error
 
 	// AddImageInfos adds image infos to the context
 	AddImageInfos(resource *unstructured.Unstructured) error
 
 	// ImageInfo returns image infos present in the context
-	ImageInfo() map[string]map[string]imageutils.ImageInfo
+	ImageInfo() map[string]map[string]kubeutils.ImageInfo
+
+	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
+	// and updates the context
+	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error)
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
@@ -88,7 +94,7 @@ type context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	images             map[string]map[string]imageutils.ImageInfo
+	images             map[string]map[string]kubeutils.ImageInfo
 }
 
 // NewContext returns a new context
@@ -135,6 +141,20 @@ func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
 	return addToContext(ctx, data, name)
 }
 
+func (ctx *context) ReplaceContextEntry(name string, dataRaw []byte) error {
+	var data interface{}
+	if err := json.Unmarshal(dataRaw, &data); err != nil {
+		logger.Error(err, "failed to unmarshal the resource")
+		return err
+	}
+	// Adding a nil entry to clean out any existing data in the context with the entry name
+	if err := addToContext(ctx, nil, name); err != nil {
+		logger.Error(err, "unable to replace context entry", "context entry name", name)
+		return err
+	}
+	return addToContext(ctx, data, name)
+}
+
 // AddResource data at path: request.object
 func (ctx *context) AddResource(data map[string]interface{}) error {
 	return addToContext(ctx, data, "request", "object")
@@ -146,7 +166,7 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo kyverno.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo urkyverno.RequestInfo) error {
 	return addToContext(ctx, userRequestInfo, "request")
 }
 
@@ -211,7 +231,7 @@ func (ctx *context) AddElement(data map[string]interface{}, index int) error {
 	return addToContext(ctx, data)
 }
 
-func (ctx *context) AddImageInfo(info imageutils.ImageInfo) error {
+func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
 	data := map[string]interface{}{
 		"image":    info.String(),
 		"registry": info.Registry,
@@ -224,7 +244,7 @@ func (ctx *context) AddImageInfo(info imageutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-	images, err := kubeutils.ExtractImagesFromResource(*resource)
+	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
 		return err
 	}
@@ -235,7 +255,18 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	return addToContext(ctx, images, "images")
 }
 
-func (ctx *context) ImageInfo() map[string]map[string]imageutils.ImageInfo {
+func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error) {
+	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, nil
+	}
+	return images, addToContext(ctx, images, "images")
+}
+
+func (ctx *context) ImageInfo() map[string]map[string]kubeutils.ImageInfo {
 	return ctx.images
 }
 

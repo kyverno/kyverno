@@ -17,12 +17,12 @@ type ResourceDescription struct {
 
 	// Name is the name of the resource. The name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
+	// NOTE: "Name" is being deprecated in favor of "Names".
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	// Names are the names of the resources. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
-	// NOTE: "Name" is being deprecated in favor of "Names".
 	// +optional
 	Names []string `json:"names,omitempty" yaml:"names,omitempty"`
 

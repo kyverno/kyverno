@@ -225,11 +225,11 @@ func lastRequestTimeFromAnnotation(leaseClient coordinationv1.LeaseInterface, lo
 
 // skipWebhookCheck returns true if Kyverno is in rolling update
 func skipWebhookCheck(register *Register, logger logr.Logger) bool {
-	_, deploy, err := register.GetKubePolicyDeployment()
+	deploy, _, err := register.GetKubePolicyDeployment()
 	if err != nil {
 		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
 		return false
 	}
 
-	return tls.IsKyvernoInRollingUpdate(deploy.UnstructuredContent(), logger)
+	return tls.IsKyvernoInRollingUpdate(deploy, logger)
 }

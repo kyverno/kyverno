@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	informers "k8s.io/client-go/informers/apps/v1"
+	"k8s.io/client-go/kubernetes"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
@@ -46,6 +48,7 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	client       *client.Client
+	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 	resCache     resourcecache.ResourceCache
 
@@ -76,6 +79,7 @@ type Register struct {
 func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
+	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
@@ -92,6 +96,7 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		client:               client,
+		kubeClient:           kubeClient,
 		resCache:             resCache,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
@@ -125,7 +130,6 @@ func (wrc *Register) Register() error {
 			return err
 		}
 	}
-	wrc.removeWebhookConfigurations()
 
 	caData := wrc.readCaData()
 	if caData == nil {
@@ -195,17 +199,19 @@ func (wrc *Register) Check() error {
 // Remove removes all webhook configurations
 func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	defer close(cleanUp)
+
+	// delete Lease object to let init container do the cleanup
+	err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{})
+	if err != nil && errorsapi.IsNotFound(err) {
+		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
+	}
+
 	if !wrc.cleanupKyvernoResource() {
 		return
 	}
 
 	wrc.removeWebhookConfigurations()
 	wrc.removeSecrets()
-	err := wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
-	if err != nil && errorsapi.IsNotFound(err) {
-		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
-	}
-
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
@@ -269,7 +275,7 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-// cleanupKyvernoResource returns true if Kyverno lease is terminating
+// cleanupKyvernoResource returns true if Kyverno is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
@@ -315,9 +321,12 @@ func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) e
 	_, err := wrc.client.CreateResource("", kindMutating, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		logger.V(6).Info("resource mutating webhook configuration already exists", "name", config.Name)
+		err = wrc.updateMutatingWebhookConfiguration(config)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
-
 	if err != nil {
 		logger.Error(err, "failed to create resource mutating webhook configuration", "name", config.Name)
 		return err
@@ -341,6 +350,10 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte)
 	_, err := wrc.client.CreateResource("", kindValidating, "", *config, false)
 	if errorsapi.IsAlreadyExists(err) {
 		logger.V(6).Info("resource validating webhook configuration already exists", "name", config.Name)
+		err = wrc.updateValidatingWebhookConfiguration(config)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 
@@ -366,6 +379,10 @@ func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) e
 	if _, err := wrc.client.CreateResource("", kindValidating, "", *config, false); err != nil {
 		if errorsapi.IsAlreadyExists(err) {
 			wrc.log.V(6).Info("webhook already exists", "kind", kindValidating, "name", config.Name)
+			err = wrc.updateValidatingWebhookConfiguration(config)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -389,6 +406,10 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) err
 	if _, err := wrc.client.CreateResource("", kindMutating, "", *config, false); err != nil {
 		if errorsapi.IsAlreadyExists(err) {
 			wrc.log.V(6).Info("webhook already exists", "kind", kindMutating, "name", config.Name)
+			err = wrc.updateMutatingWebhookConfiguration(config)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -411,6 +432,10 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 	if _, err := wrc.client.CreateResource("", kindMutating, "", *config, false); err != nil {
 		if errorsapi.IsAlreadyExists(err) {
 			wrc.log.V(6).Info("webhook already exists", "kind", kindMutating, "name", config.Name)
+			err = wrc.updateMutatingWebhookConfiguration(config)
+			if err != nil {
+				return err
+			}
 			return nil
 		}
 
@@ -681,9 +706,6 @@ func (wrc *Register) checkEndpoint() error {
 		}
 	}
 
-	// clean up old webhook configurations, if any
-	wrc.removeWebhookConfigurations()
-
 	err = fmt.Errorf("endpoint not ready")
 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
 	return err
@@ -874,5 +896,95 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(webhookCfg confi
 		return err
 	}
 	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+	return nil
+}
+
+// updateMutatingWebhookConfiguration updates an existing MutatingWebhookConfiguration with the rules provided by
+// the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
+func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.MutatingWebhookConfiguration) error {
+	// Fetch the existing webhook.
+	currentConfiguration, err := wrc.mwcLister.Get(targetConfig.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get %s %s: %v", kindMutating, targetConfig.Name, err)
+	}
+	// Create a map of the target webhooks.
+	targetWebhooksMap := make(map[string]admregapi.MutatingWebhook)
+	for _, w := range targetConfig.Webhooks {
+		targetWebhooksMap[w.Name] = w
+	}
+	// Update the webhooks.
+	newWebhooks := make([]admregapi.MutatingWebhook, 0)
+	for _, w := range currentConfiguration.Webhooks {
+		target, exist := targetWebhooksMap[w.Name]
+		if !exist {
+			continue
+		}
+		delete(targetWebhooksMap, w.Name)
+		// Update the webhook configuration
+		w.ClientConfig.URL = target.ClientConfig.URL
+		w.ClientConfig.Service = target.ClientConfig.Service
+		w.ClientConfig.CABundle = target.ClientConfig.CABundle
+		if target.Rules != nil {
+			// If the target webhook has rule definitions override the current.
+			w.Rules = target.Rules
+		}
+		newWebhooks = append(newWebhooks, w)
+	}
+	// Check if there are additional webhooks defined and add them.
+	for _, w := range targetWebhooksMap {
+		newWebhooks = append(newWebhooks, w)
+	}
+	// Update the current configuration.
+	currentConfiguration.Webhooks = newWebhooks
+	_, err = wrc.client.UpdateResource("", kindMutating, "", currentConfiguration, false)
+	if err != nil {
+		return err
+	}
+	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", targetConfig.Name)
+	return nil
+}
+
+// updateValidatingWebhookConfiguration updates an existing ValidatingWebhookConfiguration with the rules provided by
+// the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
+func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregapi.ValidatingWebhookConfiguration) error {
+	// Fetch the existing webhook.
+	currentConfiguration, err := wrc.vwcLister.Get(targetConfig.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get %s %s: %v", kindValidating, targetConfig.Name, err)
+	}
+	// Create a map of the target webhooks.
+	targetWebhooksMap := make(map[string]admregapi.ValidatingWebhook)
+	for _, w := range targetConfig.Webhooks {
+		targetWebhooksMap[w.Name] = w
+	}
+	// Update the webhooks.
+	newWebhooks := make([]admregapi.ValidatingWebhook, 0)
+	for _, w := range currentConfiguration.Webhooks {
+		target, exist := targetWebhooksMap[w.Name]
+		if !exist {
+			continue
+		}
+		delete(targetWebhooksMap, w.Name)
+		// Update the webhook configuration
+		w.ClientConfig.URL = target.ClientConfig.URL
+		w.ClientConfig.Service = target.ClientConfig.Service
+		w.ClientConfig.CABundle = target.ClientConfig.CABundle
+		if target.Rules != nil {
+			// If the target webhook has rule definitions override the current.
+			w.Rules = target.Rules
+		}
+		newWebhooks = append(newWebhooks, w)
+	}
+	// Check if there are additional webhooks defined and add them.
+	for _, w := range targetWebhooksMap {
+		newWebhooks = append(newWebhooks, w)
+	}
+	// Update the current configuration.
+	currentConfiguration.Webhooks = newWebhooks
+	_, err = wrc.client.UpdateResource("", kindValidating, "", currentConfiguration, false)
+	if err != nil {
+		return err
+	}
+	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", targetConfig.Name)
 	return nil
 }

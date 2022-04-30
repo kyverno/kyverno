@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -11,15 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// PatchGenerateRequest patches a generate request object
-func PatchGenerateRequest(gr *kyverno.GenerateRequest, patch jsonutils.Patch, client kyvernoclient.Interface, subresources ...string) (*kyverno.GenerateRequest, error) {
+// PatchUpdateRequest patches a update request object
+func PatchUpdateRequest(ur *urkyverno.UpdateRequest, patch jsonutils.Patch, client kyvernoclient.Interface, subresources ...string) (*urkyverno.UpdateRequest, error) {
 	data, err := patch.ToPatchBytes()
 	if nil != err {
-		return gr, err
+		return ur, err
 	}
-	newGR, err := client.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Patch(context.TODO(), gr.Name, types.JSONPatchType, data, metav1.PatchOptions{}, subresources...)
+	newUR, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Patch(context.TODO(), ur.Name, types.JSONPatchType, data, metav1.PatchOptions{}, subresources...)
 	if err != nil {
-		return gr, err
+		return ur, err
 	}
-	return newGR, nil
+	return newUR, nil
 }

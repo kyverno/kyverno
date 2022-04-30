@@ -15,6 +15,12 @@ import (
 
 //ContainsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyverno.PolicyInterface, vars [][]string) error {
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.IsMutateExisting() {
+			return nil
+		}
+	}
+
 	for _, s := range vars {
 		if strings.Contains(s[0], "userInfo") {
 			return fmt.Errorf("variable %s is not allowed", s[0])

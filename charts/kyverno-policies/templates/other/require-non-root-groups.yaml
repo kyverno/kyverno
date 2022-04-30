@@ -35,6 +35,10 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "check-runasgroup") (index .Values "policyPreconditions" $name) }}
+      preconditions:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       validate:
         message: >-
           Running with root group IDs is disallowed. The fields
@@ -73,6 +77,10 @@ spec:
               - Pod
       {{- with merge (index .Values "policyExclude" "check-supplementalgroups") (index .Values "policyExclude" $name) }}
       exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "check-supplementalgroups") (index .Values "policyPreconditions" $name) }}
+      preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       validate:

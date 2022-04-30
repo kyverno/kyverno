@@ -28,7 +28,6 @@ func Test_ImageVerification(t *testing.T) {
 		errors: func(i *ImageVerification) field.ErrorList {
 			return field.ErrorList{
 				field.Invalid(path, i, "Either a static key, keyless, or an attestor is required"),
-				field.Invalid(path, i, "An issuer and a subject are required for keyless verification"),
 			}
 		},
 	}, {
@@ -90,7 +89,7 @@ func Test_ImageVerification(t *testing.T) {
 			name: "no attestors",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors:       []*AttestorSet{},
+				Attestors:       []AttestorSet{},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
@@ -102,13 +101,13 @@ func Test_ImageVerification(t *testing.T) {
 			name: "no entries",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{}},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
-					field.Invalid(path.Child("attestors").Index(0), i.Attestors[0], "An entry is required"),
+					field.Invalid(path.Child("attestors").Index(0), &i.Attestors[0], "An entry is required"),
 				}
 			},
 		},
@@ -116,14 +115,14 @@ func Test_ImageVerification(t *testing.T) {
 			name: "empty attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{}}},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0),
-						i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
+						&i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
 				}
 			},
 		},
@@ -131,8 +130,8 @@ func Test_ImageVerification(t *testing.T) {
 			name: "empty static key attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
 						StaticKey: &StaticKeyAttestor{},
 					}}},
 				},
@@ -148,9 +147,9 @@ func Test_ImageVerification(t *testing.T) {
 			name: "valid static key attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
-						StaticKey: &StaticKeyAttestor{Key: "bla"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						StaticKey: &StaticKeyAttestor{Keys: "bla"},
 					}}},
 				},
 			},
@@ -159,18 +158,16 @@ func Test_ImageVerification(t *testing.T) {
 			name: "invalid keyless attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "", Subject: ""},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keyless: &KeylessAttestor{Rekor: &CTLog{}, Issuer: "", Subject: ""},
 					}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-						i.Attestors[0].Entries[0].Keyless, "An issuer is required"),
-					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
-						i.Attestors[0].Entries[0].Keyless, "A subject is required"),
+						i.Attestors[0].Entries[0].Keyless, "An URL is required"),
 				}
 			},
 		},
@@ -178,9 +175,9 @@ func Test_ImageVerification(t *testing.T) {
 			name: "valid keyless attestor",
 			subject: ImageVerification{
 				ImageReferences: []string{"*"},
-				Attestors: []*AttestorSet{
-					{Entries: []*Attestor{{
-						Keyless: &KeylessAttestor{Issuer: "bla", Subject: "bla"},
+				Attestors: []AttestorSet{
+					{Entries: []Attestor{{
+						Keyless: &KeylessAttestor{Rekor: &CTLog{URL: "https://rekor.sigstore.dev"}, Issuer: "bla", Subject: "bla"},
 					}}},
 				},
 			},
