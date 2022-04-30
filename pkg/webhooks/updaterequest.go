@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"fmt"
+	"github.com/kyverno/kyverno/pkg/event"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -60,7 +61,8 @@ func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequ
 
 	if failedResponse := applyUpdateRequest(request, urkyverno.Mutate, ws.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
-			events := failedEvents(fmt.Errorf("failed to create update request: %v", failedUR.err), failedUR.ur, policyContext.NewResource)
+			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
+			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &policyContext.NewResource)
 			ws.eventGen.Add(events...)
 		}
 	}
