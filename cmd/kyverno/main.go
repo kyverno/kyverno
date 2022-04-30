@@ -83,7 +83,6 @@ func main() {
 	// deprecated
 	flag.IntVar(&genWorkers, "gen-workers", 10, "Workers for generate controller. Deprecated and will be removed in 1.6.0. ")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	// deprecated
@@ -116,6 +115,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
+	kubeconfig = ""
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
