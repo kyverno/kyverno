@@ -190,41 +190,25 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
-	var checkedItem int
 	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		checkedItem++
 
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
 
 	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		checkedItem++
 
 		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
 
 	if len(userInfo.Subjects) > 0 {
-		checkedItem++
-
 		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
-
-	if checkedItem != len(userInfoErrors) {
-		return errs
-	}
-
 	return append(errs, userInfoErrors...)
 }
 
@@ -233,7 +217,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	const SaPrefix = "system:serviceaccount:"
 
 	userGroups := append(userInfo.Groups, userInfo.Username)
-
 	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
 	for _, e := range dynamicConfig {
 		ruleSubjects = append(ruleSubjects,
