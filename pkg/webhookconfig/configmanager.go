@@ -249,7 +249,7 @@ func (m *webhookConfigManager) enqueueAllPolicies() {
 	logger := m.log.WithName("enqueueAllPolicies")
 	policies, err := m.listAllPolicies()
 	if err != nil {
-		logger.Error(err, "unabled to list policies")
+		logger.Error(err, "unable to list policies")
 	}
 	for _, policy := range policies {
 		m.enqueue(policy)
@@ -434,7 +434,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 	for _, p := range policies {
 		spec := p.GetSpec()
-		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() {
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() {
 			if spec.GetFailurePolicy() == kyverno.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
@@ -705,10 +705,9 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) error {
 	update := func(meta *metav1.ObjectMeta, spec *kyverno.Spec, status *kyverno.PolicyStatus) bool {
 		copy := status.DeepCopy()
-		requested, supported, activated := autogen.GetControllers(meta, spec, m.log)
+		requested, _, activated := autogen.GetControllers(meta, spec)
 		status.SetReady(ready)
 		status.Autogen.Requested = requested
-		status.Autogen.Supported = supported
 		status.Autogen.Activated = activated
 		status.Rules = spec.Rules
 		return !reflect.DeepEqual(status, copy)

@@ -98,7 +98,7 @@ func validationElemCount(v *kyverno.Validation) int {
 	return count
 }
 
-func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
+func (v *Validate) validateForEach(foreach kyverno.ForEachValidation) error {
 	if foreach.List == "" {
 		return fmt.Errorf("foreach.list is required")
 	}
@@ -119,11 +119,7 @@ func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
 	return nil
 }
 
-func foreachElemCount(foreach *kyverno.ForEachValidation) int {
-	if foreach == nil {
-		return 0
-	}
-
+func foreachElemCount(foreach kyverno.ForEachValidation) int {
 	count := 0
 	if foreach.GetPattern() != nil {
 		count++

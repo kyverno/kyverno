@@ -9,9 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -21,7 +19,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// GenerateRequests provides interface to manage update requests
+// UpdateRequest provides interface to manage update requests
 type Interface interface {
 	Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error
 }
@@ -37,22 +35,17 @@ type Generator struct {
 	client *kyvernoclient.Clientset
 	stopCh <-chan struct{}
 	log    logr.Logger
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestNamespaceLister
-	grSynced cache.InformerSynced
 
 	urLister urkyvernolister.UpdateRequestNamespaceLister
 	urSynced cache.InformerSynced
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.GenerateRequestInformer, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client *kyvernoclient.Clientset, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		client:   client,
 		stopCh:   stopCh,
 		log:      log,
-		grLister: grInformer.Lister().GenerateRequests(config.KyvernoNamespace),
-		grSynced: grInformer.Informer().HasSynced,
 		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 		urSynced: urInformer.Informer().HasSynced,
 	}
@@ -60,13 +53,13 @@ func NewGenerator(client *kyvernoclient.Clientset, grInformer kyvernoinformer.Ge
 }
 
 // Apply creates update request resource
-func (g *Generator) Apply(gr urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
+func (g *Generator) Apply(ur urkyverno.UpdateRequestSpec, action admissionv1.Operation) error {
 	logger := g.log
-	logger.V(4).Info("reconcile Update Request", "request", gr)
+	logger.V(4).Info("reconcile Update Request", "request", ur)
 
 	message := info{
 		action: action,
-		spec:   gr,
+		spec:   ur,
 	}
 	go g.processApply(message)
 	return nil
@@ -82,7 +75,7 @@ func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 		logger.V(4).Info("shutting down")
 	}()
 
-	if !cache.WaitForCacheSync(stopCh, g.grSynced, g.urSynced) {
+	if !cache.WaitForCacheSync(stopCh, g.urSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -129,7 +122,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 		queryLabels := make(map[string]string)
 		if ur.Spec.Type == urkyverno.Mutate {
 			queryLabels := map[string]string{
-				"mutate.updaterequest.kyverno.io/policy-name":       ur.Spec.Policy,
+				urkyverno.URMutatePolicyLabel:                       ur.Spec.Policy,
 				"mutate.updaterequest.kyverno.io/trigger-name":      ur.Spec.Resource.Name,
 				"mutate.updaterequest.kyverno.io/trigger-namespace": ur.Spec.Resource.Namespace,
 				"mutate.updaterequest.kyverno.io/trigger-kind":      ur.Spec.Resource.Kind,
@@ -140,7 +133,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			}
 		} else if ur.Spec.Type == urkyverno.Generate {
 			queryLabels = labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name":        policyName,
+				urkyverno.URGeneratePolicyLabel:          policyName,
 				"generate.kyverno.io/resource-name":      urSpec.Resource.Name,
 				"generate.kyverno.io/resource-kind":      urSpec.Resource.Kind,
 				"generate.kyverno.io/resource-namespace": urSpec.Resource.Namespace,
@@ -167,8 +160,9 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 
 			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
-				log.V(4).Info("failed to update UpdateRequest, retrying", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace())
+				log.V(4).Info("failed to update UpdateRequest, retrying", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
+				return err
 			} else {
 				log.V(4).Info("successfully updated UpdateRequest", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace())
 			}
@@ -176,6 +170,7 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			new.Status.State = urkyverno.Pending
 			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				log.Error(err, "failed to set UpdateRequest state to Pending")
+				return err
 			}
 
 			isExist = true
@@ -189,8 +184,9 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 
 			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &ur, metav1.CreateOptions{})
 			if err != nil {
-				log.V(4).Info("failed to create UpdateRequest, retrying", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
+				log.V(4).Info("failed to create UpdateRequest, retrying", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
+				return err
 			} else {
 				log.V(4).Info("successfully created UpdateRequest", "retryCount", i, "name", new.GetName(), "namespace", ur.GetNamespace())
 			}
@@ -198,10 +194,11 @@ func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.Update
 			new.Status.State = urkyverno.Pending
 			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				log.Error(err, "failed to set UpdateRequest state to Pending")
+				return err
 			}
 		}
 
-		return err
+		return nil
 	}
 
 	exbackoff := &backoff.ExponentialBackOff{

@@ -103,7 +103,7 @@ type PolicyReportResult struct {
 
 	// Resources is an optional reference to the resource checked by the policy and rule
 	// +optional
-	Resources []*corev1.ObjectReference `json:"resources,omitempty"`
+	Resources []corev1.ObjectReference `json:"resources,omitempty"`
 
 	// ResourceSelector is an optional selector for policy results that apply to multiple resources.
 	// For example, a policy result may apply to all pods that match a label.
@@ -170,7 +170,7 @@ type PolicyReport struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*PolicyReportResult `json:"results,omitempty"`
+	Results []PolicyReportResult `json:"results,omitempty"`
 }
 
 // PolicyReportList contains a list of PolicyReport
@@ -180,8 +180,4 @@ type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PolicyReport `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&PolicyReport{}, &PolicyReportList{})
 }

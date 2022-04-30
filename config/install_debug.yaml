@@ -1736,13 +1736,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -2375,9 +2368,8 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -2387,6 +2379,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -2397,6 +2395,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -2456,11 +2459,6 @@ spec:
                     type: array
                   requested:
                     description: Requested indicates the autogen requested controllers
-                    items:
-                      type: string
-                    type: array
-                  supported:
-                    description: Supported indicates the autogen supported controllers
                     items:
                       type: string
                     type: array
@@ -4201,13 +4199,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -4840,9 +4831,8 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -4852,6 +4842,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -4862,6 +4858,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -5760,7 +5761,6 @@ spec:
                 description: This will track the resources that are generated by the
                   generate Policy. Will be used during clean up resources.
                 items:
-                  description: ResourceSpec contains information to identify a resource.
                   properties:
                     apiVersion:
                       description: APIVersion specifies resource apiVersion.
@@ -7532,13 +7532,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -8171,9 +8164,8 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -8183,6 +8175,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -8193,6 +8191,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -8253,11 +8256,6 @@ spec:
                     type: array
                   requested:
                     description: Requested indicates the autogen requested controllers
-                    items:
-                      type: string
-                    type: array
-                  supported:
-                    description: Supported indicates the autogen supported controllers
                     items:
                       type: string
                     type: array
@@ -9998,13 +9996,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -10637,9 +10628,8 @@ spec:
                             type: string
                           mutateDigest:
                             default: true
-                            description: MutateDigest is an optional field which handles
-                              the tag-to-digest mutation for the provided image paths.
-                              Defaults to true.
+                            description: MutateDigest enables replacement of image
+                              tags with digests. Defaults to true.
                             type: boolean
                           repository:
                             description: Repository is an optional alternate OCI repository
@@ -10649,6 +10639,12 @@ spec:
                               The repository can also be overridden per Attestor or
                               Attestation.
                             type: string
+                          required:
+                            default: true
+                            description: Required validates that images are verified
+                              i.e. have matched passed a signature or attestation
+                              check.
+                            type: boolean
                           roots:
                             description: Roots is the PEM encoded Root certificate
                               chain used for keyless signing Deprecated. Use KeylessAttestor
@@ -10659,6 +10655,11 @@ spec:
                               signing, for example an email address Deprecated. Use
                               KeylessAttestor instead.
                             type: string
+                          verifyDigest:
+                            default: true
+                            description: VerifyDigest validates that images have a
+                              digest.
+                            type: boolean
                         type: object
                       type: array
                   type: object
@@ -11425,6 +11426,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.type
+      name: RuleType
+      type: string
     - jsonPath: .spec.resource.kind
       name: ResourceKind
       type: string
@@ -11563,7 +11567,6 @@ spec:
                 description: This will track the resources that are updated by the
                   generate Policy. Will be used during clean up resources.
                 items:
-                  description: ResourceSpec contains information to identify a resource.
                   properties:
                     apiVersion:
                       description: APIVersion specifies resource apiVersion.
@@ -11584,7 +11587,7 @@ spec:
                 description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request.
+                description: State represents state of the update request.
                 type: string
             required:
             - state

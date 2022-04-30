@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -417,7 +418,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 				continue
 			}
 
-			if file.Name() == fileName {
+			if path.Base(file.Name()) == fileName {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
 				bytes, err := ioutil.ReadAll(file)
@@ -520,7 +521,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 		result := report.PolicyReportResult{
 			Policy: policyName,
-			Resources: []*corev1.ObjectReference{
+			Resources: []corev1.ObjectReference{
 				{
 					Name: resourceName,
 				},
@@ -653,7 +654,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	for _, info := range infos {
 		for _, infoResult := range info.Results {
 			for _, rule := range infoResult.Rules {
-				if rule.Type != string(response.Validation) {
+				if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 					continue
 				}
 

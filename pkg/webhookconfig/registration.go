@@ -1,6 +1,7 @@
 package webhookconfig
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
 	informers "k8s.io/client-go/informers/apps/v1"
+	"k8s.io/client-go/kubernetes"
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
@@ -46,6 +48,7 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	client       *client.Client
+	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 	resCache     resourcecache.ResourceCache
 
@@ -76,6 +79,7 @@ type Register struct {
 func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
+	kubeClient kubernetes.Interface,
 	kyvernoClient *kyvernoclient.Clientset,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
@@ -92,6 +96,7 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		client:               client,
+		kubeClient:           kubeClient,
 		resCache:             resCache,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
@@ -194,17 +199,19 @@ func (wrc *Register) Check() error {
 // Remove removes all webhook configurations
 func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	defer close(cleanUp)
+
+	// delete Lease object to let init container do the cleanup
+	err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{})
+	if err != nil && errorsapi.IsNotFound(err) {
+		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
+	}
+
 	if !wrc.cleanupKyvernoResource() {
 		return
 	}
 
 	wrc.removeWebhookConfigurations()
 	wrc.removeSecrets()
-	err := wrc.client.DeleteResource("coordination.k8s.io/v1", "Lease", config.KyvernoNamespace, "kyvernopre-lock", false)
-	if err != nil && errorsapi.IsNotFound(err) {
-		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
-	}
-
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
@@ -268,7 +275,7 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-// cleanupKyvernoResource returns true if Kyverno lease is terminating
+// cleanupKyvernoResource returns true if Kyverno is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)

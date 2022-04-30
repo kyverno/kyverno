@@ -19,6 +19,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -226,9 +227,9 @@ func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstruct
 }
 
 // HigherThanKubernetesVersion compare Kubernetes client version to user given version
-func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, minor, patch int) bool {
+func HigherThanKubernetesVersion(client discovery.ServerVersionInterface, log logr.Logger, major, minor, patch int) bool {
 	logger := log.WithName("CompareKubernetesVersion")
-	serverVersion, err := client.DiscoveryClient.GetServerVersion()
+	serverVersion, err := client.ServerVersion()
 	if err != nil {
 		logger.Error(err, "Failed to get kubernetes server version")
 		return false

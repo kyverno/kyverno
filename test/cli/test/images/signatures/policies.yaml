@@ -1,0 +1,25 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-signature
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  rules:
+    - name: check-static-key
+      match:
+        resources:
+          kinds:
+          - Pod
+      verifyImages:
+        - imageReferences:
+          - "ghcr.io/kyverno/test-verify-image:*"
+          attestors:
+          - entries:
+            - staticKey:
+                key: |-
+                  -----BEGIN PUBLIC KEY-----
+                  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyBg8yod24/wIcc5QqlVLtCfL+6Te
+                  +nwdPdTvMb1AiZn24zBToHJVZvQdYLgRWAbh0Jd+6JhEwsDmnXRrlV7rfw==
+                  -----END PUBLIC KEY-----

@@ -148,6 +148,7 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 					break
 				}
 			}
+			break
 		}
 	}
 
@@ -163,7 +164,7 @@ func updateSourceResource(pName string, rule kyverno.Rule, client *dclient.Clien
 	update := false
 	labels := obj.GetLabels()
 	update, labels = removePolicyFromLabels(pName, labels)
-	if update {
+	if !update {
 		return nil
 	}
 
@@ -180,9 +181,14 @@ func removePolicyFromLabels(pName string, labels map[string]string) (bool, map[s
 	if labels["generate.kyverno.io/clone-policy-name"] != "" {
 		policyNames := labels["generate.kyverno.io/clone-policy-name"]
 		if strings.Contains(policyNames, pName) {
-			updatedPolicyNames := strings.Replace(policyNames, pName, "", -1)
-			labels["generate.kyverno.io/clone-policy-name"] = updatedPolicyNames
-			return true, labels
+			desiredLabels := make(map[string]string, len(labels)-1)
+			for k, v := range labels {
+				if k != "generate.kyverno.io/clone-policy-name" {
+					desiredLabels[k] = v
+				}
+			}
+
+			return true, desiredLabels
 		}
 	}
 

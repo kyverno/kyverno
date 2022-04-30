@@ -28,9 +28,9 @@ func EvaluateConditions(log logr.Logger, ctx context.EvalInterface, conditions i
 	return false
 }
 
-func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) bool {
+func EvaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyverno.AnyAllConditions) bool {
 	for _, c := range conditions {
-		if !evaluateAnyAllConditions(log, ctx, *c) {
+		if !evaluateAnyAllConditions(log, ctx, c) {
 			return false
 		}
 	}

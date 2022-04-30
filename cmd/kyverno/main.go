@@ -23,7 +23,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
-	backwardcompatibility "github.com/kyverno/kyverno/pkg/compatibility"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -90,7 +89,7 @@ func main() {
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 
@@ -105,7 +104,7 @@ func main() {
 	version.PrintVersionInfo(log.Log)
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
@@ -218,6 +217,7 @@ func main() {
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		client,
+		kubeClient,
 		pclient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -251,20 +251,16 @@ func main() {
 		excludeUsername,
 		prgen.ReconcileCh,
 		webhookCfg.UpdateWebhookChan,
-		log.Log.WithName("ConfigData"),
 	)
 
-	metricsConfigData, err := config.NewMetricsConfigData(
-		kubeClient,
-		log.Log.WithName("MetricsConfigData"),
-	)
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to fetch metrics config")
 		os.Exit(1)
 	}
 
 	if !disableMetricsExport {
-		promConfig, err = metrics.NewPromConfig(metricsConfigData, log.Log.WithName("MetricsConfig"))
+		promConfig, err = metrics.NewPromConfig(metricsConfigData)
 		if err != nil {
 			setupLog.Error(err, "failed to setup Prometheus metric configuration")
 			os.Exit(1)
@@ -291,7 +287,6 @@ func main() {
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		configData,
 		eventGenerator,
@@ -308,22 +303,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// GENERATE REQUEST GENERATOR
-	grgen := webhookgenerate.NewGenerator(pclient,
-		pInformer.Kyverno().V1().GenerateRequests(),
+	urgen := webhookgenerate.NewGenerator(pclient,
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		stopCh,
 		log.Log.WithName("UpdateRequestGenerator"))
 
-	// GENERATE CONTROLLER
-	// - applies generate rules on resources based on generate requests created by webhook
-	grc, err := background.NewController(
+	urc, err := background.NewController(
 		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
@@ -335,15 +325,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// GENERATE REQUEST CLEANUP
-	// -- cleans up the generate requests that have not been processed(i.e. state = [Pending, Failed]) for more than defined timeout
 	grcc, err := generatecleanup.NewController(
 		kubeClient,
 		pclient,
 		client,
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
@@ -372,7 +359,7 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer := ktls.NewCertRenewer(client, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
 	certManager, err := webhookconfig.NewCertManager(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeClient,
@@ -446,7 +433,6 @@ func main() {
 		pclient,
 		client,
 		tlsPair,
-		pInformer.Kyverno().V1().GenerateRequests(),
 		pInformer.Kyverno().V1beta1().UpdateRequests(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -460,12 +446,12 @@ func main() {
 		webhookMonitor,
 		configData,
 		reportReqGen,
-		grgen,
+		urgen,
 		auditHandler,
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		grc,
+		urc,
 		promConfig,
 	)
 
@@ -480,7 +466,7 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		go grc.Run(genWorkers, stopCh)
+		go urc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
 	}
 
@@ -516,9 +502,6 @@ func main() {
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
-
-	go backwardcompatibility.AddLabels(pclient, pInformer.Kyverno().V1().GenerateRequests())
-	go backwardcompatibility.AddCloneLabel(client, pInformer.Kyverno().V1().ClusterPolicies())
 
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)

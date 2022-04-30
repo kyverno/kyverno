@@ -22,7 +22,7 @@ import (
 func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if engineutils2.CheckEngineResponse(er) {
-			log.Info("spec.ValidationFailureAction set to enforce blocking resource request", "policy", er.PolicyResponse.Policy.Name)
+			log.Info("spec.ValidationFailureAction set to enforce, blocking resource request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
 	}

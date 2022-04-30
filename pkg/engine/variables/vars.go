@@ -138,7 +138,7 @@ func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
 	return rule, nil
 }
 
-func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) ([]*kyverno.AnyAllConditions, error) {
+func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyverno.AnyAllConditions) ([]kyverno.AnyAllConditions, error) {
 	c, err := ConditionsToJSONObject(conditions)
 	if err != nil {
 		return nil, err
@@ -152,7 +152,7 @@ func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, condi
 	return JSONObjectToConditions(i)
 }
 
-func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error) {
+func ConditionsToJSONObject(conditions []kyverno.AnyAllConditions) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(conditions)
 	if err != nil {
 		return nil, err
@@ -166,13 +166,13 @@ func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[strin
 	return m, nil
 }
 
-func JSONObjectToConditions(data interface{}) ([]*kyverno.AnyAllConditions, error) {
+func JSONObjectToConditions(data interface{}) ([]kyverno.AnyAllConditions, error) {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	var c []*kyverno.AnyAllConditions
+	var c []kyverno.AnyAllConditions
 	if err := json.Unmarshal(bytes, &c); err != nil {
 		return nil, err
 	}

@@ -1,12 +1,16 @@
 package verifyimages
 
-// Namespace Description
-var namespaceYaml = []byte(`
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test-verify-images
-`)
+import "fmt"
+
+func newNamespaceYaml(name string) []byte {
+	ns := fmt.Sprintf(`
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: %s
+  `, name)
+	return []byte(ns)
+}
 
 var tektonTaskCRD = []byte(`
 apiVersion: apiextensions.k8s.io/v1

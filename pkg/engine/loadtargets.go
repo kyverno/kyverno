@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func loadTargets(logger logr.Logger, targets []kyverno.TargetMutation, ctx *PolicyContext) ([]unstructured.Unstructured, error) {
+func loadTargets(logger logr.Logger, targets []kyverno.ResourceSpec, ctx *PolicyContext) ([]unstructured.Unstructured, error) {
 	targetObjects := make([]unstructured.Unstructured, len(targets))
 	var errors []error
 

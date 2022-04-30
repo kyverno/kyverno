@@ -201,7 +201,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	return r, patchedResource
 }
 
-func mutateElements(name string, foreach *kyverno.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+func mutateElements(name string, foreach kyverno.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
