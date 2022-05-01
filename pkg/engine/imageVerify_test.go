@@ -549,7 +549,7 @@ func Test_MarkImageVerified(t *testing.T) {
 
 	assert.Equal(t, ivm.Verified, true)
 	assert.Equal(t, ivm.Digest, digest)
-	
+
 	ruleResp.Patches = nil
 	imageVerifyRule = kyverno.ImageVerification{Required: false}
 	iv.rule = &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}}
