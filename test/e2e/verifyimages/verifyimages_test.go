@@ -67,7 +67,7 @@ func TestImageVerify(t *testing.T) {
 	})
 
 	// Created CRD is not a garantee that we already can create new resources
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	for _, tcase := range VerifyImagesTests {
 		test := tcase
@@ -107,8 +107,15 @@ func TestImageVerify(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create policy
-		By(fmt.Sprintf("Creating policy in \"%s\"", policyNamespace))
-		_, err = e2eClient.CreateClusteredResourceYaml(policyGVR, test.PolicyRaw)
+		By(fmt.Sprintf("Creating policy \"%s\"", test.PolicyName))
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
+			_, err := e2eClient.CreateClusteredResourceYaml(policyGVR, test.PolicyRaw)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(e2eClient.ClusterPolicyReady(test.PolicyName)).To(BeTrue())
