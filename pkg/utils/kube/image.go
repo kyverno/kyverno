@@ -180,9 +180,10 @@ func ExtractImagesFromResource(resource unstructured.Unstructured, configs Image
 	for _, extractor := range extractors {
 		if infoMap, err := extractor.ExtractFromResource(resource.Object); err != nil {
 			return nil, err
-		} else if infoMap != nil && len(infoMap) > 0 {
+		} else if len(infoMap) > 0 {
 			infos[extractor.Name] = infoMap
 		}
 	}
+
 	return infos, nil
 }
