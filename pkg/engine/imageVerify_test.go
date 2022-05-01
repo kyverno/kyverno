@@ -537,13 +537,19 @@ func Test_MarkImageVerified(t *testing.T) {
 	imageInfo.Name = "nginx"
 
 	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
-	assert.Equal(t, len(ruleResp.Patches), 1)
+	assert.Equal(t, len(ruleResp.Patches), 2)
 
 	u := applyPatches(t, ruleResp)
 	key := makeAnnotationKey(imageInfo.Name)
 	value := u.GetAnnotations()[key]
-	assert.Equal(t, value, "true")
 
+	var ivm ImageVerificationMetadata
+	err := json.Unmarshal([]byte(value), &ivm)
+	assert.NilError(t, err)
+
+	assert.Equal(t, ivm.Verified, true)
+	assert.Equal(t, ivm.Digest, digest)
+	
 	ruleResp.Patches = nil
 	imageVerifyRule = kyverno.ImageVerification{Required: false}
 	iv.rule = &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}}
