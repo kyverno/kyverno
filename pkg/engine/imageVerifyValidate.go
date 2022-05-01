@@ -1,7 +1,10 @@
 package engine
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -58,6 +61,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, imageInfo kubeutils.ImageInfo) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
+		log.Log.Info("missing digest", "request.object", ctx.NewResource.UnstructuredContent())
 		return fmt.Errorf("missing digest for %s", image)
 	}
 
@@ -75,17 +79,35 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, i
 	return nil
 }
 
+type ImageVerificationMetadata struct {
+	Verified bool   `json:"verified,omitempty"`
+	Digest   string `json:"digest,omitempty"`
+}
+
 func isImageVerified(ctx *PolicyContext, imageInfo kubeutils.ImageInfo) (bool, error) {
-	key := makeAnnotationKeyForJMESPath(imageInfo.Name, imageInfo.Digest)
+	key := makeAnnotationKeyForJMESPath(imageInfo.Name)
 	data, err := ctx.JSONContext.Query(key)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to query annotation for %s", key)
 	}
 
-	result, ok := data.(string)
+	jsonString, ok := data.(string)
 	if !ok {
-		return false, errors.Wrapf(err, "failed to convert data %s", key)
+		return false, errors.Errorf("failed to convert image metadata: %v", data)
 	}
 
-	return result == "true", nil
+	var ivm ImageVerificationMetadata
+	if err := json.Unmarshal([]byte(jsonString), &ivm); err != nil {
+		return false, errors.Wrapf(err, "failed to extract image metadata")
+	}
+
+	if !ivm.Verified {
+		return false, nil
+	}
+
+	if imageInfo.Digest != ivm.Digest {
+		return false, errors.Errorf("failed to verify image; digest mismatch")
+	}
+
+	return true, nil
 }

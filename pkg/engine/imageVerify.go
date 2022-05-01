@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -171,8 +170,8 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				}
 			}
 
-			if imageVerify.MutateDigest && imageInfo.Digest != "" {
-				patch, err := iv.handleDigest(digest, imageInfo)
+			if imageVerify.MutateDigest && imageInfo.Digest == "" {
+				patch, err := iv.handleMutateDigest(digest, imageInfo)
 				if err != nil {
 					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
 				}
@@ -194,7 +193,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	}
 }
 
-func (iv *imageVerifier) handleDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
+func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
 	if digest == "" {
 		digest, err := fetchImageDigest(imageInfo.String())
 		if err != nil {
@@ -220,11 +219,12 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 
 	if imageVerify.Required {
 		isImageVerified := ruleResp.Status == response.RuleStatusPass
-		patch, err := makeImageVerifiedPatch(imageInfo, digest, isImageVerified)
-		if err == nil {
-			ruleResp.Patches = [][]byte{patch}
-		} else {
+		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
+		patches, err := makeImageVerifiedPatches(imageInfo, digest, isImageVerified, hasAnnotations)
+		if err != nil {
 			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
+		} else {
+			ruleResp.Patches = append(ruleResp.Patches, patches...)
 		}
 	}
 
@@ -232,42 +232,69 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 }
 
 func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
-	if reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) ||
-		reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) {
+	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
+		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
 	}
 
-	key := makeAnnotationKey(name, digest)
+	key := makeAnnotationKey(name)
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
 	return newValue != oldValue
 }
 
-func makeImageVerifiedPatch(imageInfo kubeutils.ImageInfo, digest string, verified bool) ([]byte, error) {
-	var patch = make(map[string]interface{})
-	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name, digest)
-	patch["op"] = "add"
-	patch["path"] = annotationKey
-	patch["value"] = strconv.FormatBool(verified)
-	return json.Marshal(patch)
+func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
+	var patches [][]byte
+	if !hasAnnotations {
+		var addAnnotationsPatch = make(map[string]interface{})
+		addAnnotationsPatch["op"] = "add"
+		addAnnotationsPatch["path"] = "/metadata/annotations"
+		addAnnotationsPatch["value"] = map[string]string{}
+		patchBytes, err := json.Marshal(addAnnotationsPatch)
+		if err != nil {
+			return nil, err
+		}
+
+		patches = append(patches, patchBytes)
+	}
+
+	imageData := &ImageVerificationMetadata{
+		Verified: verified,
+		Digest:   digest,
+	}
+
+	data, err := json.Marshal(imageData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", imageData)
+	}
+
+	var addKeyPatch = make(map[string]interface{})
+	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name)
+	addKeyPatch["op"] = "add"
+	addKeyPatch["path"] = annotationKey
+	addKeyPatch["value"] = string(data)
+
+	patchBytes, err := json.Marshal(addKeyPatch)
+	if err != nil {
+		return nil, err
+	}
+
+	patches = append(patches, patchBytes)
+	return patches, err
 }
 
-func makeAnnotationKeyForJMESPath(imageName, imageDigest string) string {
-	key := makeAnnotationKey(imageName, imageDigest)
+func makeAnnotationKeyForJMESPath(imageName string) string {
+	key := makeAnnotationKey(imageName)
 	return "request.object.metadata.annotations." + `"` + key + `"`
 }
 
-func makeAnnotationKeyForJSONPatch(imageName, imageDigest string) string {
-	key := makeAnnotationKey(imageName, imageDigest)
+func makeAnnotationKeyForJSONPatch(imageName string) string {
+	key := makeAnnotationKey(imageName)
 	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")
 }
 
-func makeAnnotationKey(imageName, imageDigest string) string {
-	if imageDigest == "" {
-		return fmt.Sprintf("images.kyverno.io/%s", imageName)
-	}
-
-	return fmt.Sprintf("images.kyverno.io/%s/%s/%s", imageName, imageDigest[0:6], imageDigest[7:])
+func makeAnnotationKey(imageName string) string {
+	return fmt.Sprintf("images.kyverno.io/%s", imageName)
 }
 
 func fetchImageDigest(ref string) (string, error) {
