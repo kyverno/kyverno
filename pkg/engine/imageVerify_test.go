@@ -502,7 +502,7 @@ func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
 func Test_ChangedAnnotation(t *testing.T) {
 	name := "nginx"
 	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
-	annotationKey := makeAnnotationKey(name, digest)
+	annotationKey := makeAnnotationKey(name)
 	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
 	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
 
