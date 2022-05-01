@@ -283,11 +283,6 @@ func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, digest string, veri
 	return patches, err
 }
 
-func makeAnnotationKeyForJMESPath(imageName string) string {
-	key := makeAnnotationKey(imageName)
-	return "request.object.metadata.annotations." + `"` + key + `"`
-}
-
 func makeAnnotationKeyForJSONPatch(imageName string) string {
 	key := makeAnnotationKey(imageName)
 	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")

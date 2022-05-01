@@ -3,6 +3,8 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"reflect"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -65,7 +67,7 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, i
 		return fmt.Errorf("missing digest for %s", image)
 	}
 
-	if imageVerify.Required {
+	if imageVerify.Required && !reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		verified, err := isImageVerified(ctx, imageInfo)
 		if err != nil {
 			return err
@@ -85,19 +87,23 @@ type ImageVerificationMetadata struct {
 }
 
 func isImageVerified(ctx *PolicyContext, imageInfo kubeutils.ImageInfo) (bool, error) {
-	key := makeAnnotationKeyForJMESPath(imageInfo.Name)
-	data, err := ctx.JSONContext.Query(key)
-	if err != nil {
-		return false, errors.Wrapf(err, "failed to query annotation for %s", key)
+	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
+		return false, errors.Errorf("resource does not exist")
 	}
 
-	jsonString, ok := data.(string)
+	annotations := ctx.NewResource.GetAnnotations()
+	if annotations == nil || len(annotations) == 0 {
+		return false, nil
+	}
+
+	key := makeAnnotationKey(imageInfo.Name)
+	data, ok := annotations[key]
 	if !ok {
-		return false, errors.Errorf("failed to convert image metadata: %v", data)
+		return false, errors.Errorf("image is not verified")
 	}
 
 	var ivm ImageVerificationMetadata
-	if err := json.Unmarshal([]byte(jsonString), &ivm); err != nil {
+	if err := json.Unmarshal([]byte(data), &ivm); err != nil {
 		return false, errors.Wrapf(err, "failed to extract image metadata")
 	}
 
