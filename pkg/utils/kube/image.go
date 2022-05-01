@@ -177,7 +177,7 @@ func ExtractImagesFromResource(resource unstructured.Unstructured, configs Image
 		return nil, fmt.Errorf("no extractors found for %s", resource.GetKind())
 	}
 
-	for _, extractor := range extractors{
+	for _, extractor := range extractors {
 		if infoMap, err := extractor.ExtractFromResource(resource.Object); err != nil {
 			return nil, err
 		} else if infoMap != nil && len(infoMap) > 0 {

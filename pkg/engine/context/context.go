@@ -264,7 +264,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error) {
 	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
 	if err != nil {
-		return nil, errors.Wrapf(err,"failed to extract images")
+		return nil, errors.Wrapf(err, "failed to extract images")
 	}
 
 	if len(images) == 0 {
