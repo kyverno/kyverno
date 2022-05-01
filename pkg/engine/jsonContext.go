@@ -3,8 +3,6 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -39,12 +37,6 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 		if rule != nil && len(rule.Values) > 0 {
 			variables := rule.Values
 			for key, value := range variables {
-				if trimmedTypedValue := strings.Trim(value, "\n"); strings.Contains(trimmedTypedValue, "\n") {
-					tmp := map[string]interface{}{key: value}
-					newVal, _ := json.Marshal(tmp[key])
-					value = string(newVal)
-				}
-
 				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
 					return err
 				}
