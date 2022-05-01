@@ -440,13 +440,11 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		}
 	}
 
-	if rc.Fail > 0 {
-		fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
-		os.Exit(1)
-	}
-
 	fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
 
+	if rc.Fail > 0 {
+		os.Exit(1)
+	}
 	os.Exit(0)
 	return rc, nil
 }
