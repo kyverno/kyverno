@@ -92,7 +92,7 @@ func isImageVerified(ctx *PolicyContext, imageInfo kubeutils.ImageInfo) (bool, e
 	}
 
 	annotations := ctx.NewResource.GetAnnotations()
-	if annotations == nil || len(annotations) == 0 {
+	if len(annotations) == 0 {
 		return false, nil
 	}
 
