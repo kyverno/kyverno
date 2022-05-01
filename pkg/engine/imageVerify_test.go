@@ -540,7 +540,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, len(ruleResp.Patches), 1)
 
 	u := applyPatches(t, ruleResp)
-	key := makeAnnotationKey(imageInfo.Name, digest)
+	key := makeAnnotationKey(imageInfo.Name)
 	value := u.GetAnnotations()[key]
 	assert.Equal(t, value, "true")
 
