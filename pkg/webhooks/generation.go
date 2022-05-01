@@ -436,4 +436,3 @@ type updateRequestResponse struct {
 	ur  urkyverno.UpdateRequestSpec
 	err error
 }
-

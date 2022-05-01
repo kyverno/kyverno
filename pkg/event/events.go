@@ -2,10 +2,11 @@ package event
 
 import (
 	"fmt"
+	"strings"
+
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"strings"
 )
 
 func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse, blocked bool) *Info {

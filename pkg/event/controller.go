@@ -234,4 +234,3 @@ func (gen *Generator) syncHandler(key Info) error {
 	}
 	return nil
 }
-

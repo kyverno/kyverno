@@ -190,15 +190,15 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 		"kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace,
 		"name", er.PolicyResponse.Resource.Name)
 
-	for _, rule := range er.PolicyResponse.Rules {
+	for i, rule := range er.PolicyResponse.Rules {
 		if rule.Status == response.RuleStatusPass {
 			continue
 		}
 
-		eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &rule)
+		eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
 		eventInfos = append(eventInfos, *eventResource)
 
-		eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &rule, false)
+		eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
 		eventInfos = append(eventInfos, *eventPolicy)
 	}
 

@@ -2,8 +2,9 @@ package webhooks
 
 import (
 	"fmt"
-	"github.com/kyverno/kyverno/pkg/event"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/event"
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
