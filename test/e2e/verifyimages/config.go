@@ -28,7 +28,7 @@ var VerifyImagesTests = []struct {
 	{
 		// Case for custom image extraction
 		TestName:          "checks that custom images are populated with simple extractor",
-		PolicyName:        "tasks",
+		PolicyName:        "tasks-simple",
 		PolicyRaw:         kyvernoTaskPolicyWithSimpleExtractor,
 		ResourceName:      "example-task-name",
 		ResourceNamespace: "test-verify-images",
@@ -39,7 +39,7 @@ var VerifyImagesTests = []struct {
 	{
 		// Case for custom image extraction
 		TestName:          "checks that custom images are populated with complex extractor",
-		PolicyName:        "tasks",
+		PolicyName:        "tasks-complex",
 		PolicyRaw:         kyvernoTaskPolicyWithComplexExtractor,
 		ResourceName:      "example-task-name",
 		ResourceNamespace: "test-verify-images",
@@ -50,7 +50,7 @@ var VerifyImagesTests = []struct {
 	{
 		// Case for custom image extraction
 		TestName:          "checks that custom images are not populated",
-		PolicyName:        "tasks",
+		PolicyName:        "tasks-no-extractor",
 		PolicyRaw:         kyvernoTaskPolicyWithoutExtractor,
 		ResourceName:      "example-task-name",
 		ResourceNamespace: "test-verify-images",
@@ -61,7 +61,7 @@ var VerifyImagesTests = []struct {
 	{
 		// Case for custom image extraction
 		TestName:          "checks that custom images are populated and verified",
-		PolicyName:        "tasks",
+		PolicyName:        "tasks-keyless",
 		PolicyRaw:         kyvernoTaskPolicyKeyless,
 		ResourceName:      "example-task-name",
 		ResourceNamespace: "test-verify-images",
