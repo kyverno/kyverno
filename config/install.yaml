@@ -11479,6 +11479,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.type
+      name: RuleType
+      type: string
     - jsonPath: .spec.resource.kind
       name: ResourceKind
       type: string
@@ -11637,7 +11640,7 @@ spec:
                 description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request.
+                description: State represents state of the update request.
                 type: string
             required:
             - state

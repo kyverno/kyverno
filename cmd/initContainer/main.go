@@ -11,8 +11,11 @@ import (
 	"sync"
 	"time"
 
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -22,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -49,8 +53,8 @@ const (
 	clusterPolicyReportKind        string = "ClusterPolicyReport"
 	reportChangeRequestKind        string = "ReportChangeRequest"
 	clusterReportChangeRequestKind string = "ClusterReportChangeRequest"
-	policyViolation                string = "PolicyViolation"
 	clusterPolicyViolation         string = "ClusterPolicyViolation"
+	convertGenerateRequest         string = "ConvertGenerateRequest"
 )
 
 func main() {
@@ -58,7 +62,7 @@ func main() {
 	log.SetLogger(klogr.New())
 	// arguments
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
 		klog.Fatalf("failed to set log level: %v", err)
@@ -89,6 +93,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	pclient, err := kyvernoclient.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+
 	// Exit for unsupported version of kubernetes cluster
 	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), log.Log, 1, 16, 0) {
 		os.Exit(1)
@@ -101,9 +111,7 @@ func main() {
 		{reportChangeRequestKind, ""},
 		{clusterReportChangeRequestKind, ""},
 
-		// clean up policy violation CRD
-		{policyViolation, ""},
-		{clusterPolicyViolation, ""},
+		{convertGenerateRequest, ""},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -138,7 +146,7 @@ func main() {
 		name := tls.GenerateRootCASecretName(certProps)
 		secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
@@ -155,7 +163,7 @@ func main() {
 		name = tls.GenerateTLSPairSecretName(certProps)
 		secret, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
+			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
@@ -169,21 +177,17 @@ func main() {
 			}
 		}
 
-		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
-		if err != nil {
-			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
-		} else {
-			log.Log.Info("Clean-up complete. Leader exiting...")
-			os.Exit(0)
+		if err = acquireLeader(ctx, kubeClient); err != nil {
+			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
+			os.Exit(1)
 		}
 
 		// use pipline to pass request to cleanup resources
-		// generate requests
 		in := gen(done, stopCh, requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, done, stopCh, in)
-		p2 := process(client, done, stopCh, in)
+		p1 := process(client, pclient, done, stopCh, in)
+		p2 := process(client, pclient, done, stopCh, in)
 		// merge results from processing routines
 		for err := range merge(done, stopCh, p1, p2) {
 			if err != nil {
@@ -197,18 +201,6 @@ func main() {
 			os.Exit(1)
 		}
 
-		lease := coord.Lease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "kyvernopre-lock",
-			},
-		}
-		_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, metav1.CreateOptions{})
-		if err != nil {
-			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
-		}
-
-		log.Log.Info("Clean-up complete. Leader exiting...")
-
 		os.Exit(0)
 	}
 
@@ -221,7 +213,26 @@ func main() {
 	le.Run(ctx)
 }
 
-func executeRequest(client *client.Client, req request) error {
+func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
+	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
+	if err != nil {
+		log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+	} else {
+		log.Log.Info("Leader was elected, quiting")
+		os.Exit(0)
+	}
+
+	lease := coord.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kyvernopre-lock",
+		},
+	}
+	_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, metav1.CreateOptions{})
+
+	return err
+}
+
+func executeRequest(client *client.Client, kyvernoclient *kyvernoclient.Clientset, req request) error {
 	switch req.kind {
 	case policyReportKind:
 		return removePolicyReport(client, req.kind)
@@ -231,8 +242,8 @@ func executeRequest(client *client.Client, req request) error {
 		return removeReportChangeRequest(client, req.kind)
 	case clusterReportChangeRequestKind:
 		return removeClusterReportChangeRequest(client, req.kind)
-	case policyViolation, clusterPolicyViolation:
-		return removeViolationCRD(client)
+	case convertGenerateRequest:
+		return convertGR(kyvernoclient)
 	}
 
 	return nil
@@ -272,14 +283,14 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client *client.Client, kyvernoclient *kyvernoclient.Clientset, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- executeRequest(client, req):
+			case out <- executeRequest(client, kyvernoclient, req):
 			case <-done:
 				logger.Info("done")
 				return
@@ -419,21 +430,6 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	return nil
 }
 
-func removeViolationCRD(client *client.Client) error {
-	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
-		if !errors.IsNotFound(err) {
-			log.Log.Error(err, "failed to delete CRD policyViolation")
-		}
-	}
-
-	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
-		if !errors.IsNotFound(err) {
-			log.Log.Error(err, "failed to delete CRD clusterPolicyViolation")
-		}
-	}
-	return nil
-}
-
 func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
@@ -466,4 +462,66 @@ func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) 
 	}
 
 	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
+}
+
+func convertGR(pclient *kyvernoclient.Clientset) error {
+	logger := log.Log.WithName("convertGenerateRequest")
+
+	var errors []error
+	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		logger.Error(err, "failed to list update requests")
+		return err
+	}
+
+	for _, gr := range grs.Items {
+		var ur = &urkyverno.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "ur-",
+				Namespace:    config.KyvernoNamespace,
+				Labels:       gr.GetLabels(),
+			},
+			Spec: urkyverno.UpdateRequestSpec{
+				Type:     urkyverno.Generate,
+				Policy:   gr.Spec.Policy,
+				Resource: *gr.Spec.Resource.DeepCopy(),
+				Context: urkyverno.UpdateRequestSpecContext{
+					UserRequestInfo: urkyverno.RequestInfo{
+						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
+						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
+						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
+					},
+
+					AdmissionRequestInfo: urkyverno.AdmissionRequestInfoObject{
+						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
+						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+					},
+				},
+			},
+		}
+
+		new, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+		if err != nil {
+			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
+			errors = append(errors, err)
+			continue
+		} else {
+			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
+		}
+
+		new.Status.State = urkyverno.Pending
+		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			logger.Error(err, "failed to set UpdateRequest state to Pending")
+			errors = append(errors, err)
+			continue
+		}
+
+		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
+			errors = append(errors, err)
+			logger.Error(err, "failed to delete GR")
+		}
+	}
+
+	err = engineUtils.CombineErrors(errors)
+	return err
 }

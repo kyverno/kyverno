@@ -36,7 +36,8 @@ func createRule(rule *kyverno.Rule) *kyvernoRule {
 		return nil
 	}
 	jsonFriendlyStruct := kyvernoRule{
-		Name: rule.Name,
+		Name:         rule.Name,
+		VerifyImages: rule.VerifyImages,
 	}
 	if !reflect.DeepEqual(rule.MatchResources, kyverno.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
