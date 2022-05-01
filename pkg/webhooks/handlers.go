@@ -107,7 +107,7 @@ func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest)
 	response, err := policyvalidate.Validate(policy, ws.client, false, ws.openAPIController)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
-		return admissionutils.ResponseWithMessage(true, err.Error())
+		return admissionutils.ResponseWithMessage(false, err.Error())
 	}
 
 	if response != nil && len(response.Warnings) != 0 {

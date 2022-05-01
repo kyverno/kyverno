@@ -1731,13 +1731,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -1752,8 +1745,6 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
-                            description: ResourceSpec contains information to identify
-                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -4204,13 +4195,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing
-                            resource ONLY The existing resources will be mutated ONLY
-                            if set to "true". Otherwise all resources including admission
-                            requests are mutated. Optional. Defaults to "false" if
-                            not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch
                             used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -4225,8 +4209,6 @@ spec:
                           description: Targets defines the target resources to be
                             mutated.
                           items:
-                            description: ResourceSpec contains information to identify
-                              a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.

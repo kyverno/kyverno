@@ -214,13 +214,6 @@ type ResourceFilter struct {
 // Mutation defines how resource are modified.
 type Mutation struct {
 
-	// mutateExisting controls whether to mutate existing resource ONLY
-	// The existing resources will be mutated ONLY if set to "true".
-	// Otherwise all resources including admission requests are mutated.
-	// Optional. Defaults to "false" if not specified.
-	// +optional
-	MutateExisting bool `json:"mutateExisting,omitempty" yaml:"mutatingExisting,omitempty"`
-
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -465,7 +458,6 @@ type CloneFrom struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
-// ResourceSpec contains information to identify a resource.
 type ResourceSpec struct {
 	// APIVersion specifies resource apiVersion.
 	// +optional
