@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -58,8 +57,6 @@ type webhookConfigManager struct {
 	// npListerSynced returns true if the namespace policy store has been synced at least once
 	npListerSynced cache.InformerSynced
 
-	resCache resourcecache.ResourceCache
-
 	mutateInformer         adminformers.MutatingWebhookConfigurationInformer
 	validateInformer       adminformers.ValidatingWebhookConfigurationInformer
 	mutateLister           admlisters.MutatingWebhookConfigurationLister
@@ -95,7 +92,6 @@ func newWebhookConfigManager(
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	resCache resourcecache.ResourceCache,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -107,7 +103,6 @@ func newWebhookConfigManager(
 		kyvernoClient:        kyvernoClient,
 		pInformer:            pInformer,
 		npInformer:           npInformer,
-		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
