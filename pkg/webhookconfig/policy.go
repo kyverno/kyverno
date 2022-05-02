@@ -9,7 +9,6 @@ import (
 )
 
 func (wrc *Register) constructPolicyValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
-
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyValidatingWebhookConfigurationName,
@@ -40,7 +39,6 @@ func (wrc *Register) constructDebugPolicyValidatingWebhookConfig(caData []byte) 
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyValidatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyValidatingWebhookConfig is registered with url ", "url", url)
-
 	return &admregapi.ValidatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyValidatingWebhookConfigurationDebugName,
@@ -95,7 +93,6 @@ func (wrc *Register) constructDebugPolicyMutatingWebhookConfig(caData []byte) *a
 	logger := wrc.log
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.PolicyMutatingWebhookServicePath)
 	logger.V(4).Info("Debug PolicyMutatingWebhookConfig is registered with url ", "url", url)
-
 	return &admregapi.MutatingWebhookConfiguration{
 		ObjectMeta: v1.ObjectMeta{
 			Name: config.PolicyMutatingWebhookConfigurationDebugName,
