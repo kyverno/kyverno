@@ -13,10 +13,8 @@ import (
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
-var leaseName string = "kyverno"
-var leaseNamespace string = config.KyvernoNamespace
-
 const (
+	leaseName          string = "kyverno"
 	annWebhookStatus   string = "kyverno.io/webhookActive"
 	annLastRequestTime string = "kyverno.io/last-request-time"
 )
@@ -48,7 +46,7 @@ func newStatusControl(leaseClient coordinationv1.LeaseInterface, eventGen event.
 }
 
 func (vc statusControl) setStatus(status string) error {
-	logger := vc.log.WithValues("name", leaseName, "namespace", leaseNamespace)
+	logger := vc.log.WithValues("name", leaseName, "namespace", config.KyvernoNamespace)
 	var ann map[string]string
 	var err error
 
@@ -90,7 +88,7 @@ func (vc statusControl) setStatus(status string) error {
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
 	e.Kind = "Lease"
-	e.Namespace = leaseNamespace
+	e.Namespace = config.KyvernoNamespace
 	e.Name = leaseName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
