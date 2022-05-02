@@ -148,9 +148,6 @@ func (wrc *Register) Register() error {
 	return nil
 }
 
-func (wrc *Register) Start() {
-}
-
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
 	if _, err := wrc.mwcLister.Get(wrc.getVerifyWebhookMutatingWebhookName()); err != nil {

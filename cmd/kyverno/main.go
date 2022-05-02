@@ -153,7 +153,6 @@ func main() {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
-	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -371,9 +370,6 @@ func main() {
 		pInformer.WaitForCacheSync(stopCh)
 		kubeInformer.WaitForCacheSync(stopCh)
 		kubeKyvernoInformer.WaitForCacheSync(stopCh)
-		kubedynamicInformer.WaitForCacheSync(stopCh)
-
-		webhookCfg.Start()
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
@@ -491,11 +487,9 @@ func main() {
 	pInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubeKyvernoInformer.Start(stopCh)
-	kubedynamicInformer.Start(stopCh)
 	pInformer.WaitForCacheSync(stopCh)
 	kubeInformer.WaitForCacheSync(stopCh)
 	kubeKyvernoInformer.WaitForCacheSync(stopCh)
-	kubedynamicInformer.WaitForCacheSync(stopCh)
 
 	pCacheController.CheckPolicySync(stopCh)
 
