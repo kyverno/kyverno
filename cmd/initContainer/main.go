@@ -59,7 +59,7 @@ const (
 
 func main() {
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	log.SetLogger(klogr.New().WithCallDepth(1))
 	// arguments
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
