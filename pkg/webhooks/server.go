@@ -35,7 +35,6 @@ import (
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
@@ -47,12 +46,6 @@ type WebhookServer struct {
 	// urLister can list/get update requests from the shared informer's store
 	urLister urlister.UpdateRequestNamespaceLister
 
-	// urSynced returns true if the Update Request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	// returns true if the cluster policy store has synced atleast
-	pSynced cache.InformerSynced
-
 	// list/get role binding resource
 	rbLister rbaclister.RoleBindingLister
 
@@ -62,20 +55,8 @@ type WebhookServer struct {
 	// list/get role binding resource
 	crLister rbaclister.ClusterRoleLister
 
-	// return true if role bining store has synced atleast once
-	rbSynced cache.InformerSynced
-
-	// return true if role store has synced atleast once
-	rSynced cache.InformerSynced
-
 	// list/get cluster role binding resource
 	crbLister rbaclister.ClusterRoleBindingLister
-
-	// return true if cluster role binding store has synced atleast once
-	crbSynced cache.InformerSynced
-
-	// return true if cluster role  store has synced atleast once
-	crSynced cache.InformerSynced
 
 	// generate events
 	eventGen event.Interface
@@ -102,9 +83,6 @@ type WebhookServer struct {
 	urGenerator webhookgenerate.Interface
 
 	nsLister listerv1.NamespaceLister
-
-	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
 
 	auditHandler AuditHandler
 
@@ -157,18 +135,11 @@ func NewWebhookServer(
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
-		urSynced:          urInformer.Informer().HasSynced,
-		pSynced:           pInformer.Informer().HasSynced,
 		rbLister:          rbInformer.Lister(),
-		rbSynced:          rbInformer.Informer().HasSynced,
 		rLister:           rInformer.Lister(),
-		rSynced:           rInformer.Informer().HasSynced,
 		nsLister:          namespace.Lister(),
-		nsListerSynced:    namespace.Informer().HasSynced,
 		crbLister:         crbInformer.Lister(),
 		crLister:          crInformer.Lister(),
-		crbSynced:         crbInformer.Informer().HasSynced,
-		crSynced:          crInformer.Informer().HasSynced,
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
@@ -255,9 +226,6 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
-		ws.log.Info("failed to sync informer cache")
-	}
 	go func() {
 		ws.log.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {

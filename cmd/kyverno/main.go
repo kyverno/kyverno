@@ -72,7 +72,7 @@ var (
 
 func main() {
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	log.SetLogger(klogr.New().WithCallDepth(1))
 	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
 	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
 	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
@@ -153,7 +153,6 @@ func main() {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
-	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -368,7 +367,9 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
-		webhookCfg.Start()
+		pInformer.WaitForCacheSync(stopCh)
+		kubeInformer.WaitForCacheSync(stopCh)
+		kubeKyvernoInformer.WaitForCacheSync(stopCh)
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
@@ -483,10 +484,18 @@ func main() {
 		os.Exit(1)
 	}
 
+	pInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	kubeKyvernoInformer.Start(stopCh)
+	pInformer.WaitForCacheSync(stopCh)
+	kubeInformer.WaitForCacheSync(stopCh)
+	kubeKyvernoInformer.WaitForCacheSync(stopCh)
+
+	pCacheController.CheckPolicySync(stopCh)
+
 	// init events handlers
 	// start Kyverno controllers
 	go le.Run(ctx)
-
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
@@ -494,12 +503,6 @@ func main() {
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
-
-	pInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	kubeKyvernoInformer.Start(stopCh)
-	kubedynamicInformer.Start(stopCh)
-	pCacheController.CheckPolicySync(stopCh)
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)

@@ -20,8 +20,6 @@ import (
 // This cache is only used in the admission webhook to fast retrieve
 // policies based on types (Mutate/ValidateEnforce/Generate/imageVerify).
 type Controller struct {
-	pSynched   cache.InformerSynced
-	nspSynched cache.InformerSynced
 	Cache      Interface
 	log        logr.Logger
 	cpolLister kyvernolister.ClusterPolicyLister
@@ -55,8 +53,6 @@ func NewPolicyCacheController(
 		DeleteFunc: pc.deleteNsPolicy,
 	})
 
-	pc.pSynched = pInformer.Informer().HasSynced
-	pc.nspSynched = nspInformer.Informer().HasSynced
 	pc.cpolLister = pInformer.Lister()
 	pc.polLister = nspInformer.Lister()
 	pc.pCounter = -1
@@ -109,11 +105,6 @@ func (c *Controller) deleteNsPolicy(obj interface{}) {
 func (c *Controller) CheckPolicySync(stopCh <-chan struct{}) {
 	logger := c.log
 	logger.Info("starting")
-
-	if !cache.WaitForCacheSync(stopCh, c.pSynched, c.nspSynched) {
-		logger.Error(nil, "Failed to sync informer cache")
-		os.Exit(1)
-	}
 
 	policies := []kyverno.PolicyInterface{}
 	polList, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())

@@ -59,7 +59,7 @@ type Interface interface {
 	AddNamespace(namespace string) error
 
 	// AddElement adds element info to the context
-	AddElement(data map[string]interface{}, index int) error
+	AddElement(data interface{}, index int) error
 
 	// AddImageInfo adds image info to the context
 	AddImageInfo(info kubeutils.ImageInfo) error
@@ -223,7 +223,7 @@ func (ctx *context) AddNamespace(namespace string) error {
 	return addToContext(ctx, namespace, "request", "namespace")
 }
 
-func (ctx *context) AddElement(data map[string]interface{}, index int) error {
+func (ctx *context) AddElement(data interface{}, index int) error {
 	data = map[string]interface{}{
 		"element":      data,
 		"elementIndex": index,
@@ -245,7 +245,7 @@ func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 
-	log.Log.Info("extracting image info", "obj", resource.UnstructuredContent())
+	log.Log.V(4).Info("extracting image info", "obj", resource.UnstructuredContent())
 
 	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
@@ -256,7 +256,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	}
 	ctx.images = images
 
-	log.Log.Info("updated image info", "images", images)
+	log.Log.V(4).Info("updated image info", "images", images)
 
 	return addToContext(ctx, images, "images")
 }
@@ -268,7 +268,7 @@ func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured,
 	}
 
 	if len(images) == 0 {
-		logger.Info("no images found", "extractor", imageExtractorConfigs)
+		logger.V(4).Info("no images found", "extractor", imageExtractorConfigs)
 		return nil, nil
 	}
 
