@@ -349,11 +349,8 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 
 func getClient(t *testing.T, files []string) client.Interface {
 	var objects []k8sRuntime.Object
-	if files != nil {
-
-		for _, file := range files {
-			objects = loadObjects(t, file)
-		}
+	for _, file := range files {
+		objects = loadObjects(t, file)
 	}
 	// create mock client
 	scheme := k8sRuntime.NewScheme()

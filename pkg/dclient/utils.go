@@ -3,28 +3,8 @@ package client
 import (
 	"strings"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/discovery"
 )
-
-func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": apiVersion,
-			"kind":       kind,
-			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
-			},
-		},
-	}
-}
-
-func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
-	u := newUnstructured(apiVersion, kind, namespace, name)
-	u.Object["spec"] = spec
-	return u
-}
 
 func logDiscoveryErrors(err error, c serverPreferredResources) {
 	discoveryError := err.(*discovery.ErrGroupDiscoveryFailed)

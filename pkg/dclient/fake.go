@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
@@ -56,7 +56,7 @@ func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind s
 	return c.getGVR(resource)
 }
 
-func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
 }
 

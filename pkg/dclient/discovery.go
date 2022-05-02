@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
@@ -15,7 +15,7 @@ import (
 
 // IDiscovery provides interface to mange Kind and GVR mapping
 type IDiscovery interface {
-	FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error)
+	FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error)
 	GetGVRFromKind(kind string) (schema.GroupVersionResource, error)
 	GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource
 	GetServerVersion() (*version.Info, error)
@@ -92,7 +92,7 @@ func (c serverPreferredResources) GetServerVersion() (*version.Info, error) {
 
 // FindResource finds an API resource that matches 'kind'. If the resource is not
 // found and the Cache is not fresh, the cache is invalidated and a retry is attempted
-func (c serverPreferredResources) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
+func (c serverPreferredResources) FindResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
 	r, gvr, err := c.findResource(apiVersion, kind)
 	if err == nil {
 		return r, gvr, nil
@@ -108,8 +108,8 @@ func (c serverPreferredResources) FindResource(apiVersion string, kind string) (
 	return nil, schema.GroupVersionResource{}, err
 }
 
-func (c serverPreferredResources) findResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	var serverResources []*meta.APIResourceList
+func (c serverPreferredResources) findResource(apiVersion string, kind string) (*metav1.APIResource, schema.GroupVersionResource, error) {
+	var serverResources []*metav1.APIResourceList
 	var err error
 	if apiVersion == "" {
 		serverResources, err = c.cachedClient.ServerPreferredResources()
