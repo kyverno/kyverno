@@ -34,7 +34,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/signal"
 	ktls "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -156,12 +155,6 @@ func main() {
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
 	kubedynamicInformer := client.NewDynamicSharedInformerFactory(resyncPeriod)
 
-	rCache, err := resourcecache.NewResourceCache(client, kubedynamicInformer, log.Log.WithName("resourcecache"))
-	if err != nil {
-		setupLog.Error(err, "ConfigMap lookup disabled: failed to create resource cache")
-		os.Exit(1)
-	}
-
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
@@ -221,7 +214,6 @@ func main() {
 		pclient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		rCache,
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		pInformer.Kyverno().V1().ClusterPolicies(),
 		pInformer.Kyverno().V1().Policies(),
