@@ -67,7 +67,7 @@ type Register struct {
 // NewRegister creates new Register instance
 func NewRegister(
 	clientConfig *rest.Config,
-	client *client.Client,
+	client client.Interface,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,

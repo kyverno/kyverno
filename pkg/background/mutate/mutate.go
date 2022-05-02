@@ -26,7 +26,7 @@ import (
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
 type MutateExistingController struct {
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for Kyverno CRDs
 	kyvernoClient kyvernoclient.Interface
@@ -54,7 +54,7 @@ type MutateExistingController struct {
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
 	kyvernoClient kyvernoclient.Interface,
-	client *dclient.Client,
+	client dclient.Interface,
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,
 	urLister urlister.UpdateRequestNamespaceLister,

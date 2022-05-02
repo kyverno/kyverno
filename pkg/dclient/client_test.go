@@ -23,7 +23,7 @@ import (
 type fixture struct {
 	t       *testing.T
 	objects []runtime.Object
-	client  *Client
+	client  Interface
 }
 
 func newFixture(t *testing.T) *fixture {

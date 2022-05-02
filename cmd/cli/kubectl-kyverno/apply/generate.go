@@ -24,7 +24,7 @@ func generateCLIRaw(reports []*unstructured.Unstructured) (*unstructured.Unstruc
 
 // generateToCluster updates the existing policy reports in the cluster
 // creates new report if not exist
-func generateToCluster(dClient *client.Client, reports []*unstructured.Unstructured) {
+func generateToCluster(dClient client.Interface, reports []*unstructured.Unstructured) {
 	var clusterReports, namespaceReports []*unstructured.Unstructured
 	for _, report := range reports {
 		if report.GetNamespace() == "" {
@@ -49,7 +49,7 @@ func generateToCluster(dClient *client.Client, reports []*unstructured.Unstructu
 	}
 }
 
-func updateReport(dClient *client.Client, new *unstructured.Unstructured) error {
+func updateReport(dClient client.Interface, new *unstructured.Unstructured) error {
 	old, err := dClient.GetResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.GetName())
 	if err != nil {
 		if apierrors.IsNotFound(err) {

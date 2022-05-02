@@ -140,7 +140,7 @@ func main() {
 
 	// CRD CHECK
 	// - verify if Kyverno CRDs are available
-	if !utils.CRDsInstalled(client.DiscoveryClient) {
+	if !utils.CRDsInstalled(client.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
@@ -515,7 +515,7 @@ func main() {
 	setupLog.Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(client *dclient.Client, stopCh <-chan struct{}) *openapi.Controller {
+func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		setupLog.Error(err, "Failed to create openAPIController")
