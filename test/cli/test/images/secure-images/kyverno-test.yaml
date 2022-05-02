@@ -1,4 +1,4 @@
-name: test-image-digest
+name: test-image-enforce-signatures
 policies:
   - policies.yaml
 resources:
