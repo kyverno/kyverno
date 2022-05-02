@@ -168,7 +168,7 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 		}
 
 		// 3 - Report failure Events
-		events := common.FailedEvents(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource, logger)
+		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource)
 		c.eventGen.Add(events...)
 	}
 
