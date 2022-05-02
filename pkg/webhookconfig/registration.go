@@ -22,7 +22,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -553,15 +552,15 @@ func (wrc *Register) constructVerifyMutatingWebhookConfig(caData []byte) *admreg
 		admregapi.Ignore,
 	)
 
-	genWebHook.ObjectSelector = &v1.LabelSelector{
+	genWebHook.ObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/name": "kyverno",
 		},
 	}
 	return &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
+			OwnerReferences: []metav1.OwnerReference{
 				wrc.constructOwner(),
 			},
 		},
@@ -589,13 +588,13 @@ func (wrc *Register) constructDebugVerifyMutatingWebhookConfig(caData []byte) *a
 		[]admregapi.OperationType{admregapi.Update},
 		admregapi.Ignore,
 	)
-	genWebHook.ObjectSelector = &v1.LabelSelector{
+	genWebHook.ObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/name": "kyverno",
 		},
 	}
 	return &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.VerifyMutatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.MutatingWebhook{
@@ -647,7 +646,7 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 
 // removeSecrets removes Kyverno managed secrets
 func (wrc *Register) removeSecrets() {
-	selector := &v1.LabelSelector{
+	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			tls.ManagedByLabel: "kyverno",
 		},
@@ -679,7 +678,7 @@ func (wrc *Register) checkEndpoint() error {
 		return fmt.Errorf("failed to convert endpoint %s/%s from unstructured: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
 	}
 
-	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &v1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
+	pods, err := wrc.client.ListResource("", "Pod", config.KyvernoNamespace, &metav1.LabelSelector{MatchLabels: map[string]string{"app.kubernetes.io/name": "kyverno"}})
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
@@ -735,7 +734,7 @@ func getHealthyPodsIP(pods []unstructured.Unstructured) (ips []string, errs []er
 	return
 }
 
-func convertLabelSelector(selector *v1.LabelSelector, logger logr.Logger) (map[string]interface{}, error) {
+func convertLabelSelector(selector *metav1.LabelSelector, logger logr.Logger) (map[string]interface{}, error) {
 	if selector == nil {
 		return nil, nil
 	}
