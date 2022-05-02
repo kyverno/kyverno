@@ -37,7 +37,6 @@ type Generator struct {
 	log    logr.Logger
 
 	urLister urkyvernolister.UpdateRequestNamespaceLister
-	urSynced cache.InformerSynced
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
@@ -47,7 +46,6 @@ func NewGenerator(client *kyvernoclient.Clientset, urInformer urkyvernoinformer.
 		stopCh:   stopCh,
 		log:      log,
 		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
-		urSynced: urInformer.Informer().HasSynced,
 	}
 	return gen
 }
@@ -74,11 +72,6 @@ func (g *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer func() {
 		logger.V(4).Info("shutting down")
 	}()
-
-	if !cache.WaitForCacheSync(stopCh, g.urSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
 
 	<-g.stopCh
 }

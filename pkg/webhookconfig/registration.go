@@ -14,7 +14,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -28,7 +27,6 @@ import (
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -53,14 +51,6 @@ type Register struct {
 	vwcLister   admlisters.ValidatingWebhookConfigurationLister
 	kDeplLister listers.DeploymentLister
 
-	// sync
-	mwcListerSynced   cache.InformerSynced
-	vwcListerSynced   cache.InformerSynced
-	kDeplListerSynced cache.InformerSynced
-
-	// cache
-	resCache resourcecache.ResourceCache
-
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
 	log                logr.Logger
@@ -83,7 +73,6 @@ func NewRegister(
 	kyvernoClient *kyvernoclient.Clientset,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	resCache resourcecache.ResourceCache,
 	kDeplInformer informers.DeploymentInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -96,13 +85,9 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		kubeClient:           kubeClient,
-		resCache:             resCache,
 		mwcLister:            mwcInformer.Lister(),
 		vwcLister:            vwcInformer.Lister(),
 		kDeplLister:          kDeplInformer.Lister(),
-		mwcListerSynced:      mwcInformer.Informer().HasSynced,
-		vwcListerSynced:      vwcInformer.Informer().HasSynced,
-		kDeplListerSynced:    kDeplInformer.Informer().HasSynced,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
@@ -113,7 +98,7 @@ func NewRegister(
 		stopCh:               stopCh,
 	}
 
-	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, resCache, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -162,12 +147,6 @@ func (wrc *Register) Register() error {
 
 	go wrc.manage.start()
 	return nil
-}
-
-func (wrc *Register) Start() {
-	if !cache.WaitForCacheSync(wrc.stopCh, wrc.mwcListerSynced, wrc.vwcListerSynced, wrc.kDeplListerSynced) {
-		wrc.log.Info("failed to sync kyverno deployment informer cache")
-	}
 }
 
 // Check returns an error if any of the webhooks are not configured

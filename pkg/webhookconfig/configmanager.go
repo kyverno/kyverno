@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -52,20 +51,10 @@ type webhookConfigManager struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
-	// pListerSynced returns true if the cluster policy store has been synced at least once
-	pListerSynced cache.InformerSynced
-
-	// npListerSynced returns true if the namespace policy store has been synced at least once
-	npListerSynced cache.InformerSynced
-
-	resCache resourcecache.ResourceCache
-
-	mutateInformer         adminformers.MutatingWebhookConfigurationInformer
-	validateInformer       adminformers.ValidatingWebhookConfigurationInformer
-	mutateLister           admlisters.MutatingWebhookConfigurationLister
-	validateLister         admlisters.ValidatingWebhookConfigurationLister
-	mutateInformerSynced   cache.InformerSynced
-	validateInformerSynced cache.InformerSynced
+	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
+	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateLister     admlisters.MutatingWebhookConfigurationLister
+	validateLister   admlisters.ValidatingWebhookConfigurationLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -95,7 +84,6 @@ func newWebhookConfigManager(
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	resCache resourcecache.ResourceCache,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -107,7 +95,6 @@ func newWebhookConfigManager(
 		kyvernoClient:        kyvernoClient,
 		pInformer:            pInformer,
 		npInformer:           npInformer,
-		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
@@ -119,14 +106,10 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
-	m.pListerSynced = pInformer.Informer().HasSynced
-	m.npListerSynced = npInformer.Informer().HasSynced
 	m.mutateInformer = mwcInformer
 	m.mutateLister = mwcInformer.Lister()
-	m.mutateInformerSynced = mwcInformer.Informer().HasSynced
 	m.validateInformer = vwcInformer
 	m.validateLister = vwcInformer.Lister()
-	m.validateInformerSynced = vwcInformer.Informer().HasSynced
 
 	return m
 }
@@ -300,11 +283,6 @@ func (m *webhookConfigManager) start() {
 
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
-
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
-		m.log.Info("failed to sync informer cache")
-		return
-	}
 
 	m.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    m.addClusterPolicy,
