@@ -39,24 +39,19 @@ import (
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
-	server        *http.Server
+	server *http.Server
+
+	// clients
 	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
-	// urLister can list/get update requests from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
-
-	// list/get role binding resource
-	rbLister rbaclister.RoleBindingLister
-
-	// list/get role binding resource
-	rLister rbaclister.RoleLister
-
-	// list/get role binding resource
-	crLister rbaclister.ClusterRoleLister
-
-	// list/get cluster role binding resource
+	// listers
+	urLister  urlister.UpdateRequestNamespaceLister
+	rbLister  rbaclister.RoleBindingLister
+	rLister   rbaclister.RoleLister
+	crLister  rbaclister.ClusterRoleLister
 	crbLister rbaclister.ClusterRoleBindingLister
+	nsLister  listerv1.NamespaceLister
 
 	// generate events
 	eventGen event.Interface
@@ -82,8 +77,6 @@ type WebhookServer struct {
 	// update request generator
 	urGenerator webhookgenerate.Interface
 
-	nsLister listerv1.NamespaceLister
-
 	auditHandler AuditHandler
 
 	log logr.Logger
@@ -100,7 +93,7 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	client *client.Client,
 	tlsPair *tlsutils.PemPair,
 	urInformer urinformer.UpdateRequestInformer,

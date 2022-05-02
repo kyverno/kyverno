@@ -50,7 +50,7 @@ var LabelSelector = &metav1.LabelSelector{
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
-	pclient *kyvernoclient.Clientset
+	pclient kyvernoclient.Interface
 	dclient *dclient.Client
 
 	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
@@ -75,7 +75,7 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	pclient *kyvernoclient.Clientset,
+	pclient kyvernoclient.Interface,
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,

@@ -48,7 +48,7 @@ type Generator struct {
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
-func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
+func NewReportChangeRequestGenerator(client policyreportclient.Interface,
 	dclient *dclient.Client,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,

@@ -41,7 +41,7 @@ type GenerateController struct {
 	client *dclient.Client
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	// urStatusControl is used to update UR status
 	statusControl common.StatusControlInterface
@@ -68,7 +68,7 @@ type GenerateController struct {
 
 //NewGenerateController returns an instance of the Generate-Request Controller
 func NewGenerateController(
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	client *dclient.Client,
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,

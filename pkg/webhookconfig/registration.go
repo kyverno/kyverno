@@ -69,7 +69,7 @@ func NewRegister(
 	clientConfig *rest.Config,
 	client *client.Client,
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer informers.DeploymentInformer,
