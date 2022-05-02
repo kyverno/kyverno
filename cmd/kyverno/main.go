@@ -368,6 +368,11 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
+		pInformer.WaitForCacheSync(stopCh)
+		kubeInformer.WaitForCacheSync(stopCh)
+		kubeKyvernoInformer.WaitForCacheSync(stopCh)
+		kubedynamicInformer.WaitForCacheSync(stopCh)
+
 		webhookCfg.Start()
 
 		// validate the ConfigMap format
@@ -402,6 +407,8 @@ func main() {
 		setupLog.Error(err, "failed to elector leader")
 		os.Exit(1)
 	}
+
+	go webhookRegisterLeader.Run(ctx)
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(client, stopCh)
@@ -495,7 +502,6 @@ func main() {
 	// init events handlers
 	// start Kyverno controllers
 	go le.Run(ctx)
-	go webhookRegisterLeader.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
