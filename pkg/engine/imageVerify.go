@@ -143,7 +143,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
-	for _, infoMap := range images {
+	for name, infoMap := range images {
 		for _, imageInfo := range infoMap {
 			image := imageInfo.String()
 
@@ -170,20 +170,24 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				}
 			}
 
-			if imageVerify.MutateDigest && imageInfo.Digest == "" {
-				patch, err := iv.handleMutateDigest(digest, imageInfo)
+			if imageVerify.MutateDigest {
+				patch, retrievedDigest, err := iv.handleMutateDigest(digest, imageInfo)
 				if err != nil {
 					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
-				}
+				} else if patch != nil {
+					if ruleResp == nil {
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "adding digest", response.RuleStatusPass, nil)
+					}
 
-				if ruleResp != nil {
 					ruleResp.Patches = append(ruleResp.Patches, patch)
+					imageInfo.Digest = retrievedDigest
+					digest = retrievedDigest
 				}
 			}
 
 			if ruleResp != nil {
 				if ruleResp.Status == response.RuleStatusPass {
-					ruleResp = iv.markImageVerified(imageVerify, ruleResp, digest, imageInfo)
+					ruleResp = iv.markImageVerified(imageVerify, ruleResp, name, imageInfo)
 				}
 
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -193,26 +197,31 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	}
 }
 
-func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
-	if digest == "" {
-		digest, err := fetchImageDigest(imageInfo.String())
-		if err != nil {
-			return nil, err
-		}
+func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, string, error) {
+	if imageInfo.Digest != "" {
+		return nil, "", nil
+	}
 
-		imageInfo.Digest = digest
+	if digest == "" {
+		var err error
+		digest, err = fetchImageDigest(imageInfo.String())
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	patch, err := makeAddDigestPatch(imageInfo, digest)
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Wrapf(err, "failed to create image digest patch")
 	}
 
-	return patch, nil
+	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
+
+	return patch, digest, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
-	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
+func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, name string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+	if hasImageVerifiedAnnotationChanged(iv.policyContext, name) {
 		msg := "changes to `images.kyverno.io` annotation are not allowed"
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 	}
@@ -220,7 +229,7 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 	if imageVerify.Required {
 		isImageVerified := ruleResp.Status == response.RuleStatusPass
 		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
-		patches, err := makeImageVerifiedPatches(imageInfo, digest, isImageVerified, hasAnnotations)
+		patches, err := makeImageVerifiedPatches(imageInfo, isImageVerified, hasAnnotations)
 		if err != nil {
 			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
 		} else {
@@ -231,7 +240,7 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 	return ruleResp
 }
 
-func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
+func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name string) bool {
 	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
 		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
@@ -243,7 +252,7 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) 
 	return newValue != oldValue
 }
 
-func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
+func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, verified, hasAnnotations bool) ([][]byte, error) {
 	var patches [][]byte
 	if !hasAnnotations {
 		var addAnnotationsPatch = make(map[string]interface{})
@@ -260,7 +269,7 @@ func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, digest string, veri
 
 	imageData := &ImageVerificationMetadata{
 		Verified: verified,
-		Digest:   digest,
+		Digest:   imageInfo.Digest,
 	}
 
 	data, err := json.Marshal(imageData)
@@ -297,10 +306,12 @@ func fetchImageDigest(ref string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
+
 	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}
+
 	return desc.Digest.String(), nil
 }
 

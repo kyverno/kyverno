@@ -501,24 +501,23 @@ func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
 
 func Test_ChangedAnnotation(t *testing.T) {
 	name := "nginx"
-	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
 	annotationKey := makeAnnotationKey(name)
 	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
 	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, name)
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name)
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name, digest)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name)
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -535,8 +534,10 @@ func Test_MarkImageVerified(t *testing.T) {
 	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
 	imageInfo := kubeutils.ImageInfo{}
 	imageInfo.Name = "nginx"
+	imageInfo.Digest = digest
+	container := "nginx"
 
-	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
+	iv.markImageVerified(imageVerifyRule, ruleResp, container, imageInfo)
 	assert.Equal(t, len(ruleResp.Patches), 2)
 
 	u := applyPatches(t, ruleResp)
@@ -553,7 +554,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	ruleResp.Patches = nil
 	imageVerifyRule = kyverno.ImageVerification{Required: false}
 	iv.rule = &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}}
-	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)
+	iv.markImageVerified(imageVerifyRule, ruleResp, container, imageInfo)
 	assert.Equal(t, len(ruleResp.Patches), 0)
 }
 

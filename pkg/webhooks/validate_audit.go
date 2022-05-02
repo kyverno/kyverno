@@ -179,7 +179,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	}
 
 	if err := ctx.AddImageInfos(&newResource); err != nil {
-		return errors.Wrap(err, "failed add image information to policy rule context\"")
+		return errors.Wrap(err, "failed add image information to policy rule context")
 	}
 
 	policyContext := &engine.PolicyContext{
