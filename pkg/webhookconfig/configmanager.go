@@ -773,7 +773,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			continue
 		}
 
-		if (updateValidate && rule.HasValidate()) ||
+		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
 			(!updateValidate && rule.HasVerifyImages()) {
