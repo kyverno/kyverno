@@ -41,7 +41,7 @@ var DefaultWebhookTimeout int64 = 10
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
 	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
 	npInformer kyvernoinformer.PolicyInformer
@@ -60,8 +60,8 @@ type webhookConfigManager struct {
 
 	resCache resourcecache.ResourceCache
 
-	mutateInformer         cache.SharedIndexInformer
-	validateInformer       cache.SharedIndexInformer
+	mutateInformer         adminformers.MutatingWebhookConfigurationInformer
+	validateInformer       adminformers.ValidatingWebhookConfigurationInformer
 	mutateLister           admlisters.MutatingWebhookConfigurationLister
 	validateLister         admlisters.ValidatingWebhookConfigurationLister
 	mutateInformerSynced   cache.InformerSynced
@@ -119,15 +119,12 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
-
 	m.pListerSynced = pInformer.Informer().HasSynced
 	m.npListerSynced = npInformer.Informer().HasSynced
-
-	m.mutateInformer = mwcInformer.Informer()
+	m.mutateInformer = mwcInformer
 	m.mutateLister = mwcInformer.Lister()
 	m.mutateInformerSynced = mwcInformer.Informer().HasSynced
-
-	m.validateInformer = vwcInformer.Informer()
+	m.validateInformer = vwcInformer
 	m.validateLister = vwcInformer.Lister()
 	m.validateInformerSynced = vwcInformer.Informer().HasSynced
 
@@ -234,14 +231,43 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 	m.enqueue(p)
 }
 
-func (m *webhookConfigManager) deleteWebhook(obj interface{}) {
-	m.log.WithName("deleteWebhook").Info("resource webhook configuration was deleted, recreating...")
-	if webhook, ok := obj.(*unstructured.Unstructured); ok {
-		k := webhook.GetKind()
-		if (k == kindMutating && webhook.GetName() == config.MutatingWebhookConfigurationName) ||
-			(k == kindValidating && webhook.GetName() == config.ValidatingWebhookConfigurationName) {
-			m.enqueueAllPolicies()
+func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
+	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
+	webhook, ok := obj.(*admregapi.MutatingWebhookConfiguration)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			m.log.Info("Couldn't get object from tombstone", "obj", obj)
+			return
 		}
+		webhook, ok = tombstone.Obj.(*admregapi.MutatingWebhookConfiguration)
+		if !ok {
+			m.log.Info("tombstone contained object that is not a MutatingWebhookConfiguration", "obj", obj)
+			return
+		}
+	}
+	if webhook.GetName() == config.MutatingWebhookConfigurationName {
+		m.enqueueAllPolicies()
+	}
+}
+
+func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
+	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
+	webhook, ok := obj.(*admregapi.ValidatingWebhookConfiguration)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			m.log.Info("Couldn't get object from tombstone", "obj", obj)
+			return
+		}
+		webhook, ok = tombstone.Obj.(*admregapi.ValidatingWebhookConfiguration)
+		if !ok {
+			m.log.Info("tombstone contained object that is not a ValidatingWebhookConfiguration", "obj", obj)
+			return
+		}
+	}
+	if webhook.GetName() == config.ValidatingWebhookConfigurationName {
+		m.enqueueAllPolicies()
 	}
 }
 
@@ -292,12 +318,12 @@ func (m *webhookConfigManager) start() {
 		DeleteFunc: m.deletePolicy,
 	})
 
-	m.mutateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: m.deleteWebhook,
+	m.mutateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteMutatingWebhook,
 	})
 
-	m.validateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: m.deleteWebhook,
+	m.validateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteValidatingWebhook,
 	})
 
 	for m.processNextWorkItem() {
