@@ -192,12 +192,34 @@ func Test_extractImageInfo(t *testing.T) {
 				},
 			},
 		},
+		{
+			extractionConfig: ImageExtractorConfigs{
+				"ClusterTask": []ImageExtractorConfig{
+					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
+				},
+			},
+			raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"ClusterTask","metadata":{"name":"hello","resourceVersion":"5752181","uid":"395010b6-fe0e-4364-a7b4-6abb86974d54"},"spec":{"steps":[{"image":"alpine","name":"echo","resources":{},"script":"#!/bin/sh\necho \"Hello World\"\n"}]}}`),
+			images: map[string]map[string]ImageInfo{
+				"steps": {
+					"echo": {
+						imageutils.ImageInfo{
+							Registry: "docker.io",
+							Name:     "alpine",
+							Path:     "alpine",
+							Tag:      "latest",
+						},
+						"/spec/steps/0/image",
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		resource, err := utils.ConvertToUnstructured(test.raw)
 		assert.NilError(t, err)
 		images, err := ExtractImagesFromResource(*resource, test.extractionConfig)
+		assert.NilError(t, err)
 		assert.DeepEqual(t, test.images, images)
 	}
 }
