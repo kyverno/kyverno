@@ -69,4 +69,15 @@ var VerifyImagesTests = []struct {
 		ResourceRaw:       tektonTaskVerified,
 		MustSucceed:       true,
 	},
+	{
+		// Case for custom image extraction
+		TestName:          "checks that custom images are populated and verified for all images",
+		PolicyName:        "tasks-keyless-required",
+		PolicyRaw:         kyvernoTaskPolicyKeylessRequired,
+		ResourceName:      "example-task-name",
+		ResourceNamespace: "test-verify-images",
+		ResourceGVR:       taskGVR,
+		ResourceRaw:       tektonTaskVerified,
+		MustSucceed:       true,
+	},
 }
