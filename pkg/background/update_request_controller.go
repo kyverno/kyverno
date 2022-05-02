@@ -63,17 +63,6 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
-	// policySynced returns true if the Cluster policy store has been synced at least once
-	policySynced cache.InformerSynced
-
-	// policySynced returns true if the Namespace policy store has been synced at least once
-	npolicySynced cache.InformerSynced
-
-	// urSynced returns true if the Update Request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	nsSynced cache.InformerSynced
-
 	log logr.Logger
 
 	Config config.Interface
@@ -104,12 +93,6 @@ func NewController(
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
-
-	c.policySynced = policyInformer.Informer().HasSynced
-
-	c.npolicySynced = npolicyInformer.Informer().HasSynced
-
-	c.urSynced = urInformer.Informer().HasSynced
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
@@ -119,9 +102,7 @@ func NewController(
 	c.policyLister = policyInformer.Lister()
 	c.npolicyLister = npolicyInformer.Lister()
 	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
-
 	c.nsLister = namespaceInformer.Lister()
-	c.nsSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
 }
@@ -131,11 +112,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 	defer c.log.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.urSynced, c.npolicySynced, c.nsSynced) {
-		c.log.Info("failed to sync informer cache")
-		return
-	}
 
 	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
