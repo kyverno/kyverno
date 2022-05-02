@@ -29,7 +29,7 @@ type MutateExistingController struct {
 	client *dclient.Client
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	// urStatusControl is used to update UR status
 	statusControl common.StatusControlInterface
@@ -53,7 +53,7 @@ type MutateExistingController struct {
 
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	client *dclient.Client,
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,

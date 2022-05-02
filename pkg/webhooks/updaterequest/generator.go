@@ -32,7 +32,7 @@ type info struct {
 
 // Generator defines the implementation to mange update request resource
 type Generator struct {
-	client *kyvernoclient.Clientset
+	client kyvernoclient.Interface
 	stopCh <-chan struct{}
 	log    logr.Logger
 
@@ -40,7 +40,7 @@ type Generator struct {
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client *kyvernoclient.Clientset, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client kyvernoclient.Interface, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		client:   client,
 		stopCh:   stopCh,
@@ -89,7 +89,7 @@ func (g *Generator) generate(i info) error {
 	return nil
 }
 
-func retryApplyResource(client *kyvernoclient.Clientset, urSpec urkyverno.UpdateRequestSpec,
+func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateRequestSpec,
 	log logr.Logger, action admissionv1.Operation, urLister urkyvernolister.UpdateRequestNamespaceLister) error {
 
 	if action == admissionv1.Delete && urSpec.Type == urkyverno.Generate {

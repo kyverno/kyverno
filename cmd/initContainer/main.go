@@ -232,7 +232,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	return err
 }
 
-func executeRequest(client *client.Client, kyvernoclient *kyvernoclient.Clientset, req request) error {
+func executeRequest(client *client.Client, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
 	case policyReportKind:
 		return removePolicyReport(client, req.kind)
@@ -283,7 +283,7 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, kyvernoclient *kyvernoclient.Clientset, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client *client.Client, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
@@ -464,7 +464,7 @@ func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) 
 	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
 }
 
-func convertGR(pclient *kyvernoclient.Clientset) error {
+func convertGR(pclient kyvernoclient.Interface) error {
 	logger := log.Log.WithName("convertGenerateRequest")
 
 	var errors []error

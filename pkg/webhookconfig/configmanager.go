@@ -79,7 +79,7 @@ type manage interface {
 
 func newWebhookConfigManager(
 	client *client.Client,
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
