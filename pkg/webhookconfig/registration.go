@@ -13,6 +13,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/webhooks"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -68,6 +69,7 @@ type Register struct {
 
 	// manage implements methods to manage webhook configurations
 	manage
+	whController webhooks.Controller
 }
 
 // NewRegister creates new Register instance
@@ -107,6 +109,17 @@ func NewRegister(
 	}
 
 	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.whController = webhooks.NewController(
+		client,
+		kyvernoClient,
+		pInformer,
+		npInformer,
+		mwcInformer,
+		vwcInformer,
+		serverIP,
+		register.autoUpdateWebhooks,
+	)
+	newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -153,7 +166,8 @@ func (wrc *Register) Register() error {
 		return fmt.Errorf("%s", strings.Join(errors, ","))
 	}
 
-	go wrc.manage.start()
+	// go wrc.manage.start()
+	go wrc.whController.Run(wrc.stopCh)
 	return nil
 }
 
