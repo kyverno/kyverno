@@ -3,7 +3,6 @@ policies:
   - policies.yaml
 resources:
   - resources.yaml
-variables: variables.yaml
 results:
   - policy: validate-empty-dir-mountpath
     rule: check-mount-paths
@@ -40,3 +39,18 @@ results:
     resource: test-pod-with-resources-multiple-ctnrs
     kind: Pod
     status: pass
+  - policy: validate-image-list
+    rule: check-image
+    resource: test-pod
+    kind: Pod
+    status: fail
+  - policy: validate-image-list
+    rule: check-image
+    resource: test-pod-ghcr
+    kind: Pod
+    status: fail
+  - policy: validate-image-list-error
+    rule: check-image
+    resource: test-pod-ghcr
+    kind: Pod
+    status: error
