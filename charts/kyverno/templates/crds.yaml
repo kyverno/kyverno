@@ -547,7 +547,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -1082,9 +1082,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
@@ -1094,7 +1091,6 @@ spec:
                         targets:
                           description: Targets defines the target resources to be mutated.
                           items:
-                            description: ResourceSpec contains information to identify a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -2079,7 +2075,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -2614,9 +2610,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
@@ -2626,7 +2619,6 @@ spec:
                         targets:
                           description: Targets defines the target resources to be mutated.
                           items:
-                            description: ResourceSpec contains information to identify a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -3739,7 +3731,6 @@ spec:
               generatedResources:
                 description: This will track the resources that are generated by the generate Policy. Will be used during clean up resources.
                 items:
-                  description: ResourceSpec contains information to identify a resource.
                   properties:
                     apiVersion:
                       description: APIVersion specifies resource apiVersion.
@@ -4327,7 +4318,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -4862,9 +4853,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
@@ -4874,7 +4862,6 @@ spec:
                         targets:
                           description: Targets defines the target resources to be mutated.
                           items:
-                            description: ResourceSpec contains information to identify a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -5859,7 +5846,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -6394,9 +6381,6 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        mutateExisting:
-                          description: mutateExisting controls whether to mutate existing resource ONLY The existing resources will be mutated ONLY if set to "true". Otherwise all resources including admission requests are mutated. Optional. Defaults to "false" if not specified.
-                          type: boolean
                         patchStrategicMerge:
                           description: PatchStrategicMerge is a strategic merge patch used to modify resources. See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/ and https://kubectl.docs.kubernetes.io/references/kustomize/patchesstrategicmerge/.
                           x-kubernetes-preserve-unknown-fields: true
@@ -6406,7 +6390,6 @@ spec:
                         targets:
                           description: Targets defines the target resources to be mutated.
                           items:
-                            description: ResourceSpec contains information to identify a resource.
                             properties:
                               apiVersion:
                                 description: APIVersion specifies resource apiVersion.
@@ -7405,6 +7388,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.type
+      name: RuleType
+      type: string
     - jsonPath: .spec.resource.kind
       name: ResourceKind
       type: string
@@ -7525,7 +7511,6 @@ spec:
               generatedResources:
                 description: This will track the resources that are updated by the generate Policy. Will be used during clean up resources.
                 items:
-                  description: ResourceSpec contains information to identify a resource.
                   properties:
                     apiVersion:
                       description: APIVersion specifies resource apiVersion.
@@ -7546,7 +7531,7 @@ spec:
                 description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request.
+                description: State represents state of the update request.
                 type: string
             required:
             - state

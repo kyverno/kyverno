@@ -40,12 +40,12 @@ type Controller struct {
 	kyvernoClient *kyvernoclient.Clientset
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
-	grInformer kyvernoinformer.GenerateRequestInformer
+	urInformer urkyvernoinformer.UpdateRequestInformer
 
-	// control is used to delete the GR
+	// control is used to delete the UR
 	control ControlInterface
 
-	// gr that need to be synced
+	// ur that need to be synced
 	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get cluster policy from the shared informer's store
@@ -53,9 +53,6 @@ type Controller struct {
 
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
-
-	// grLister can list/get generate request from the shared informer's store
-	grLister kyvernolister.GenerateRequestNamespaceLister
 
 	// urLister can list/get update request from the shared informer's store
 	urLister urkyvernolister.UpdateRequestNamespaceLister
@@ -68,9 +65,6 @@ type Controller struct {
 
 	// pSynced returns true if the Namespace policy has been synced at least once
 	npSynced cache.InformerSynced
-
-	// grSynced returns true if the generate request store has been synced at least once
-	grSynced cache.InformerSynced
 
 	// urSynced returns true if the update request store has been synced at least once
 	urSynced cache.InformerSynced
@@ -89,7 +83,6 @@ func NewController(
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	grInformer kyvernoinformer.GenerateRequestInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
 	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
@@ -98,7 +91,7 @@ func NewController(
 		kyvernoClient: kyvernoclient,
 		client:        client,
 		pInformer:     pInformer,
-		grInformer:    grInformer,
+		urInformer:    urInformer,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 		log:           log,
 	}
@@ -107,13 +100,11 @@ func NewController(
 
 	c.pLister = pInformer.Lister()
 	c.npLister = npInformer.Lister()
-	c.grLister = grInformer.Lister().GenerateRequests(config.KyvernoNamespace)
 	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c.nsLister = namespaceInformer.Lister()
 
 	c.pSynced = pInformer.Informer().HasSynced
 	c.npSynced = npInformer.Informer().HasSynced
-	c.grSynced = grInformer.Informer().HasSynced
 	c.urSynced = urInformer.Informer().HasSynced
 	c.nsListerSynced = namespaceInformer.Informer().HasSynced
 
@@ -129,80 +120,76 @@ func (c *Controller) deletePolicy(obj interface{}) {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		_, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
 		if !ok {
-			logger.Info("Tombstone contained object that is not a Generate Request", "obj", obj)
+			logger.Info("Tombstone contained object that is not a Update Request", "obj", obj)
 			return
 		}
 	}
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
-	// clean up the GR
-	// Get the corresponding GR
-	// get the list of GR for the current Policy version
 	rules := autogen.ComputeRules(p)
 
 	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
 
-	// get the generated resource name from generate request for log
+	// get the generated resource name from update request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		urkyverno.URGeneratePolicyLabel: p.Name,
 	}))
 
-	grList, err := c.urLister.List(selector)
+	urList, err := c.urLister.List(selector)
 	if err != nil {
-		logger.Error(err, "failed to get generate request for the resource", "label", urkyverno.URGeneratePolicyLabel)
+		logger.Error(err, "failed to get update request for the resource", "label", urkyverno.URGeneratePolicyLabel)
 		return
 	}
 
-	for _, gr := range grList {
-		for _, generatedResource := range gr.Status.GeneratedResources {
+	for _, ur := range urList {
+		for _, generatedResource := range ur.Status.GeneratedResources {
 			logger.V(4).Info("retaining resource", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
 		}
 	}
 
 	if !generatePolicyWithClone {
-		grs, err := c.urLister.GetUpdateRequestsForClusterPolicy(p.Name)
+		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(p.Name)
 		if err != nil {
-			logger.Error(err, "failed to generate request for the policy", "name", p.Name)
+			logger.Error(err, "failed to update request for the policy", "name", p.Name)
 			return
 		}
 
-		for _, gr := range grs {
-			logger.V(4).Info("enqueue the gr for cleanup", "gr name", gr.Name)
-			c.addUR(gr)
+		for _, ur := range urs {
+			logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
+			c.addUR(ur)
 		}
 	}
 }
 
 func (c *Controller) addUR(obj interface{}) {
-	gr := obj.(*urkyverno.UpdateRequest)
-	c.enqueue(gr)
+	ur := obj.(*urkyverno.UpdateRequest)
+	c.enqueue(ur)
 }
 
 func (c *Controller) updateUR(old, cur interface{}) {
-	gr := cur.(*urkyverno.UpdateRequest)
-	c.enqueue(gr)
+	ur := cur.(*urkyverno.UpdateRequest)
+	c.enqueue(ur)
 }
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	gr, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := obj.(*urkyverno.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-
-		_, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
 		if !ok {
-			logger.Info("ombstone contained object that is not a Generate Request", "obj", obj)
+			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
 			return
 		}
 	}
 
-	for _, resource := range gr.Status.GeneratedResources {
+	for _, resource := range ur.Status.GeneratedResources {
 		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
 		if err != nil && !apierrors.IsNotFound(err) {
 			logger.Error(err, "failed to fetch generated resource", "resource", resource.Name)
@@ -217,29 +204,29 @@ func (c *Controller) deleteUR(obj interface{}) {
 		}
 	}
 
-	logger.V(4).Info("deleting Generate Request CR", "name", gr.Name)
+	logger.V(4).Info("deleting Update Request CR", "name", ur.Name)
 	// sync Handler will remove it from the queue
-	c.enqueue(gr)
+	c.enqueue(ur)
 }
 
-func (c *Controller) enqueue(gr *urkyverno.UpdateRequest) {
+func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
 	// skip enqueueing Pending requests
-	if gr.Status.State == urkyverno.Pending {
+	if ur.Status.State == urkyverno.Pending {
 		return
 	}
 
 	logger := c.log
-	key, err := cache.MetaNamespaceKeyFunc(gr)
+	key, err := cache.MetaNamespaceKeyFunc(ur)
 	if err != nil {
 		logger.Error(err, "failed to extract key")
 		return
 	}
 
-	logger.V(5).Info("enqueue generate request", "name", gr.Name)
+	logger.V(5).Info("enqueue update request", "name", ur.Name)
 	c.queue.Add(key)
 }
 
-//Run starts the generate-request re-conciliation loop
+//Run starts the update-request re-conciliation loop
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger := c.log
 	defer utilruntime.HandleCrash()
@@ -247,7 +234,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.grSynced, c.urSynced, c.npSynced, c.nsListerSynced) {
+	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.urSynced, c.npSynced, c.nsListerSynced) {
 		logger.Info("failed to sync informer cache")
 		return
 	}
@@ -256,7 +243,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
 	})
 
-	c.grInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	c.urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
@@ -270,7 +257,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 }
 
 // worker runs a worker thread that just de-queues items, processes them, and marks them done.
-// It enforces that the syncGenerateRequest is never invoked concurrently with the same key.
+// It enforces that the syncUpdateRequest is never invoked concurrently with the same key.
 func (c *Controller) worker() {
 	for c.processNextWorkItem() {
 	}
@@ -282,7 +269,7 @@ func (c *Controller) processNextWorkItem() bool {
 		return false
 	}
 	defer c.queue.Done(key)
-	err := c.syncGenerateRequest(key.(string))
+	err := c.syncUpdateRequest(key.(string))
 	c.handleErr(err, key)
 
 	return true
@@ -296,43 +283,43 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	}
 
 	if apierrors.IsNotFound(err) {
-		logger.V(4).Info("dropping generate request", "key", key, "error", err.Error())
+		logger.V(4).Info("dropping update request", "key", key, "error", err.Error())
 		c.queue.Forget(key)
 		return
 	}
 
 	if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("retrying generate request", "key", key, "error", err.Error())
+		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 		return
 	}
 
-	logger.Error(err, "failed to cleanup generate request", "key", key)
+	logger.Error(err, "failed to cleanup update request", "key", key)
 	c.queue.Forget(key)
 }
 
-func (c *Controller) syncGenerateRequest(key string) error {
+func (c *Controller) syncUpdateRequest(key string) error {
 	logger := c.log.WithValues("key", key)
 	var err error
 	startTime := time.Now()
-	logger.V(4).Info("started syncing generate request", "startTime", startTime)
+	logger.V(4).Info("started syncing update request", "startTime", startTime)
 	defer func() {
-		logger.V(4).Info("finished syncing generate request", "processingTIme", time.Since(startTime).String())
+		logger.V(4).Info("finished syncing update request", "processingTIme", time.Since(startTime).String())
 	}()
-	_, grName, err := cache.SplitMetaNamespaceKey(key)
+	_, urName, err := cache.SplitMetaNamespaceKey(key)
 	if apierrors.IsNotFound(err) {
-		logger.Info("generate request has been deleted")
+		logger.Info("update request has been deleted")
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	gr, err := c.urLister.Get(grName)
+	ur, err := c.urLister.Get(urName)
 	if err != nil {
 		return err
 	}
 
-	pNamespace, pName, err := cache.SplitMetaNamespaceKey(gr.Spec.Policy)
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
 		return err
 	}
@@ -343,8 +330,8 @@ func (c *Controller) syncGenerateRequest(key string) error {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
-			logger.Error(err, "failed to get clusterpolicy, deleting the generate request")
-			err = c.control.Delete(gr.Name)
+			logger.Error(err, "failed to get clusterpolicy, deleting the update request")
+			err = c.control.Delete(ur.Name)
 			if err != nil {
 				return err
 			}
@@ -356,13 +343,13 @@ func (c *Controller) syncGenerateRequest(key string) error {
 			if !apierrors.IsNotFound(err) {
 				return err
 			}
-			logger.Error(err, "failed to get policy, deleting the generate request")
-			err = c.control.Delete(gr.Name)
+			logger.Error(err, "failed to get policy, deleting the update request")
+			err = c.control.Delete(ur.Name)
 			if err != nil {
 				return err
 			}
 			return nil
 		}
 	}
-	return c.processGR(*gr)
+	return c.processUR(*ur)
 }

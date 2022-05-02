@@ -705,7 +705,7 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) error {
 	update := func(meta *metav1.ObjectMeta, spec *kyverno.Spec, status *kyverno.PolicyStatus) bool {
 		copy := status.DeepCopy()
-		requested, _, activated := autogen.GetControllers(meta, spec, m.log)
+		requested, _, activated := autogen.GetControllers(meta, spec)
 		status.SetReady(ready)
 		status.Autogen.Requested = requested
 		status.Autogen.Activated = activated
@@ -747,7 +747,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			continue
 		}
 
-		if (updateValidate && rule.HasValidate()) ||
+		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
 			(!updateValidate && rule.HasVerifyImages()) {
