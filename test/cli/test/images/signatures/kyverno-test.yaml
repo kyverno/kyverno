@@ -1,4 +1,4 @@
-name: test-image-verify-signature
+name: test-image-signature
 policies:
   - policies.yaml
 resources:
