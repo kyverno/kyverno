@@ -38,7 +38,7 @@ type Controller struct {
 	client *dclient.Client
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	policyInformer kyvernoinformer.ClusterPolicyInformer
 
@@ -71,7 +71,7 @@ type Controller struct {
 //NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	client *dclient.Client,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
