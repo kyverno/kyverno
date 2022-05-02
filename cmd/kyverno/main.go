@@ -403,8 +403,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	go webhookRegisterLeader.Run(ctx)
-
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(client, stopCh)
 
@@ -483,10 +481,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	pInformer.Start(stopCh)
+	kubeInformer.Start(stopCh)
+	kubeKyvernoInformer.Start(stopCh)
+	kubedynamicInformer.Start(stopCh)
+	pInformer.WaitForCacheSync(stopCh)
+	kubeInformer.WaitForCacheSync(stopCh)
+	kubeKyvernoInformer.WaitForCacheSync(stopCh)
+	kubedynamicInformer.WaitForCacheSync(stopCh)
+
+	pCacheController.CheckPolicySync(stopCh)
+
 	// init events handlers
 	// start Kyverno controllers
 	go le.Run(ctx)
-
+	go webhookRegisterLeader.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
 	go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
@@ -494,12 +503,6 @@ func main() {
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
-
-	pInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	kubeKyvernoInformer.Start(stopCh)
-	kubedynamicInformer.Start(stopCh)
-	pCacheController.CheckPolicySync(stopCh)
 
 	// verifies if the admission control is enabled and active
 	server.RunAsync(stopCh)

@@ -39,7 +39,6 @@ type ConfigData struct {
 	restrictDevelopmentUsername []string
 	webhooks                    []WebhookConfig
 	generateSuccessEvents       bool
-	cmSycned                    cache.InformerSynced
 	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
 }
@@ -137,7 +136,6 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 	cd := ConfigData{
 		client:                      rclient,
 		cmName:                      os.Getenv(cmNameEnv),
-		cmSycned:                    cmInformer.Informer().HasSynced,
 		reconcilePolicyReport:       reconcilePolicyReport,
 		updateWebhookConfigurations: updateWebhookConfigurations,
 	}
@@ -172,10 +170,6 @@ func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapI
 
 // Run checks syncing
 func (cd *ConfigData) Run(stopCh <-chan struct{}) {
-	// wait for cache to populate first time
-	if !cache.WaitForCacheSync(stopCh, cd.cmSycned) {
-		logger.Info("configuration: failed to sync informer cache")
-	}
 }
 
 func (cd *ConfigData) addCM(obj interface{}) {
