@@ -215,7 +215,8 @@ func mutateElements(name string, foreach kyverno.ForEachMutation, ctx *PolicyCon
 		ctx.JSONContext.Reset()
 		ctx := ctx.Copy()
 		store.SetForeachElement(i)
-		if err := addElementToContext(ctx, e, i, false); err != nil {
+		falseVar := false
+		if err := addElementToContext(ctx, e, i, &falseVar); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 

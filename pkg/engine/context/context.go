@@ -59,7 +59,7 @@ type Interface interface {
 	AddNamespace(namespace string) error
 
 	// AddElement adds element info to the context
-	AddElement(data map[string]interface{}, index int) error
+	AddElement(data interface{}, index int) error
 
 	// AddImageInfo adds image info to the context
 	AddImageInfo(info kubeutils.ImageInfo) error
@@ -223,7 +223,7 @@ func (ctx *context) AddNamespace(namespace string) error {
 	return addToContext(ctx, namespace, "request", "namespace")
 }
 
-func (ctx *context) AddElement(data map[string]interface{}, index int) error {
+func (ctx *context) AddElement(data interface{}, index int) error {
 	data = map[string]interface{}{
 		"element":      data,
 		"elementIndex": index,
