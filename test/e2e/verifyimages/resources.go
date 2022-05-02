@@ -150,6 +150,34 @@ spec:
       required: false
 `)
 
+var kyvernoTaskPolicyKeylessRequired = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: tasks-keyless-required
+spec:
+  validationFailureAction: enforce
+  webhookTimeoutSeconds: 30
+  rules:
+  - name: verify-images
+    match:
+      resources:
+        kinds:
+        - tekton.dev/v1beta1/Task
+    preconditions:
+    - key: '{{request.operation}}'
+      operator: NotEquals
+      value: DELETE
+    imageExtractors:
+      Task:
+        - path: /spec/steps/*/image
+    verifyImages:
+    - image: "ghcr.io/*"
+      subject: "https://github.com/*"
+      issuer: "https://token.actions.githubusercontent.com"
+      required: true
+`)
+
 var kyvernoTaskPolicyWithoutExtractor = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
