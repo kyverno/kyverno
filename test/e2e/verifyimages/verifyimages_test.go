@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
-	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -38,7 +37,40 @@ func TestImageVerify(t *testing.T) {
 	// Generate E2E Client
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
-	for _, test := range VerifyImagesTests {
+
+	By(fmt.Sprintf("Deleting CRD: %s...", crdName))
+	e2eClient.DeleteClusteredResource(crdGVR, crdName)
+
+	By("Wait Till Deletion of CRD...")
+	err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+		_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
+		if err != nil {
+			return nil
+		}
+
+		return fmt.Errorf("failed to crd: %v", err)
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	// Create Tekton CRD
+	By("Creating Tekton CRD")
+	_, err = e2eClient.CreateClusteredResourceYaml(crdGVR, tektonTaskCRD)
+	Expect(err).NotTo(HaveOccurred())
+
+	// Wait till CRD is created
+	e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
+		_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
+		if err == nil {
+			return nil
+		}
+		return errors.New("Waiting for CRD to be created...")
+	})
+
+	// Created CRD is not a garantee that we already can create new resources
+	time.Sleep(15 * time.Second)
+
+	for _, tcase := range VerifyImagesTests {
+		test := tcase
 		By("Deleting Cluster Policies...")
 		_ = e2eClient.CleanClusterPolicies(policyGVR)
 
@@ -59,20 +91,6 @@ func TestImageVerify(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		By(fmt.Sprintf("Deleting CRD: %s...", policyNamespace))
-		e2eClient.DeleteClusteredResource(crdGVR, crdName)
-
-		By("Wait Till Deletion of CRD...")
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
-			if err != nil {
-				return nil
-			}
-
-			return fmt.Errorf("failed to crd: %v", err)
-		})
-		Expect(err).NotTo(HaveOccurred())
-
 		By(fmt.Sprintf("Creating Namespace: %s...", test.ResourceNamespace))
 		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.ResourceNamespace))
 		Expect(err).NotTo(HaveOccurred())
@@ -88,33 +106,22 @@ func TestImageVerify(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		// Create Tekton CRD
-		By("Creating Tekton CRD")
-		_, err = e2eClient.CreateClusteredResourceYaml(crdGVR, tektonTaskCRD)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Wait till CRD is created
-		e2e.GetWithRetry(time.Duration(1*time.Second), 15, func() error {
-			_, err := e2eClient.GetClusteredResource(crdGVR, crdName)
-			if err == nil {
-				return nil
-			}
-			return errors.New("Waiting for CRD to be created...")
-		})
-
-		// Created CRD is not a garantee that we already can create new resources
-		time.Sleep(3 * time.Second)
-
 		// Create policy
-		By(fmt.Sprintf("Creating policy in \"%s\"", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+		By(fmt.Sprintf("Creating policy \"%s\"", test.PolicyName))
+		err = e2e.GetWithRetry(1*time.Second, 30, func() error {
+			_, err := e2eClient.CreateClusteredResourceYaml(policyGVR, test.PolicyRaw)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
 		Expect(err).NotTo(HaveOccurred())
-		err = commonE2E.PolicyCreated(test.PolicyName)
-		Expect(err).NotTo(HaveOccurred())
+
+		Expect(e2eClient.ClusterPolicyReady(test.PolicyName)).To(BeTrue())
 
 		By("Creating Resource...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.PolicyName, test.ResourceRaw)
-
+		_, err := e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.ResourceName, test.ResourceRaw)
 		if test.MustSucceed {
 			Expect(err).NotTo(HaveOccurred())
 		} else {
@@ -125,9 +132,6 @@ func TestImageVerify(t *testing.T) {
 		By("Deleting Cluster Policies...")
 		err = e2eClient.CleanClusterPolicies(policyGVR)
 		Expect(err).NotTo(HaveOccurred())
-
-		//CleanUp CRDs
-		e2eClient.DeleteClusteredResource(crdGVR, crdName)
 
 		// Clear Namespace
 		e2eClient.DeleteClusteredResource(namespaceGVR, nspace)
@@ -143,5 +147,7 @@ func TestImageVerify(t *testing.T) {
 		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
 
 	}
+	//CleanUp CRDs
+	e2eClient.DeleteClusteredResource(crdGVR, crdName)
 
 }

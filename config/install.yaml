@@ -870,7 +870,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -3333,7 +3333,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -6690,7 +6690,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -9154,7 +9154,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string

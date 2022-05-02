@@ -14,7 +14,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -44,7 +43,6 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	// clients
-	// client       *client.Client
 	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 
@@ -57,9 +55,6 @@ type Register struct {
 	mwcListerSynced   cache.InformerSynced
 	vwcListerSynced   cache.InformerSynced
 	kDeplListerSynced cache.InformerSynced
-
-	// cache
-	resCache resourcecache.ResourceCache
 
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
@@ -83,7 +78,6 @@ func NewRegister(
 	kyvernoClient *kyvernoclient.Clientset,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	resCache resourcecache.ResourceCache,
 	kDeplInformer informers.DeploymentInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -96,7 +90,6 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		kubeClient:           kubeClient,
-		resCache:             resCache,
 		mwcLister:            mwcInformer.Lister(),
 		vwcLister:            vwcInformer.Lister(),
 		kDeplLister:          kDeplInformer.Lister(),
@@ -113,7 +106,7 @@ func NewRegister(
 		stopCh:               stopCh,
 	}
 
-	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, resCache, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
