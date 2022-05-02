@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: signed
-sspec:
+spec:
   containers:
     - name: signed
       image: ghcr.io/kyverno/test-verify-image:signed
@@ -12,7 +12,7 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: unsigned
-sspec:
+spec:
   containers:
     - name: signed
       image: ghcr.io/kyverno/test-verify-image:unsigned
