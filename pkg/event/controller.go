@@ -14,7 +14,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -25,12 +24,8 @@ type Generator struct {
 	client *client.Client
 	// list/get cluster policy
 	cpLister kyvernolister.ClusterPolicyLister
-	// returns true if the cluster policy store has been synced at least once
-	cpSynced cache.InformerSynced
 	// list/get policy
 	pLister kyvernolister.PolicyLister
-	// returns true if the policy store has been synced at least once
-	pSynced cache.InformerSynced
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -55,9 +50,7 @@ func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.Cluster
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
-		cpSynced:               cpInformer.Informer().HasSynced,
 		pLister:                pInformer.Lister(),
-		pSynced:                pInformer.Informer().HasSynced,
 		queue:                  workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		policyCtrRecorder:      initRecorder(client, PolicyController, log),
 		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
@@ -121,10 +114,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, gen.cpSynced, gen.pSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
