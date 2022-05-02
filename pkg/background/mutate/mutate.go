@@ -23,6 +23,8 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
+var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
+
 type MutateExistingController struct {
 	client *dclient.Client
 
@@ -128,7 +130,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 				}
 
 				if patchedNew == nil {
-					logger.Error(common.ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
 					errs = append(errs, err)
 					continue
 				}
@@ -172,9 +174,9 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	}
 
 	if err != nil {
-		events = common.FailedEvents(err, policy, rule, event.MutateExistingController, target, c.log)
+		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController, target)
 	} else {
-		events = common.SucceedEvents(policy, rule, event.MutateExistingController, target, c.log)
+		events = event.NewBackgroundSuccessEvent(policy, rule, event.MutateExistingController, target)
 	}
 
 	c.eventGen.Add(events...)
