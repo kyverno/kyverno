@@ -267,7 +267,7 @@ test-clean: ## Clean tests cache
 	go clean -testcache ./...
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
@@ -291,7 +291,7 @@ test-cli-test-case-selector-flag: cli
 
 .PHONY: test-cli-registry
 test-cli-registry: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry --registry
 
 test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"
@@ -306,6 +306,7 @@ code-cov-report: ## Generate code coverage report
 # Test E2E
 test-e2e:
 	$(eval export E2E="ok")
+	go test ./test/e2e/verifyimages -v
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
@@ -315,6 +316,7 @@ test-e2e-local:
 	$(eval export E2E="ok")
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
+	go test ./test/e2e/verifyimages -v
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v

@@ -130,7 +130,7 @@ type RuleStats struct {
 	RuleExecutionTimestamp int64 `json:"ruleExecutionTimestamp"`
 }
 
-//IsSuccessful checks if any rule has failed or not
+//IsSuccessful checks if any rule has failed or produced an error during execution
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail || r.Status == RuleStatusError {

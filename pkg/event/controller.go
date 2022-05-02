@@ -73,7 +73,7 @@ func rateLimiter() workqueue.RateLimiter {
 }
 
 func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
-	// Initliaze Event Broadcaster
+	// Initialize Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
 		log.Error(err, "failed to add to scheme")
@@ -233,29 +233,4 @@ func (gen *Generator) syncHandler(key Info) error {
 		logger.Info("info.source not defined for the request")
 	}
 	return nil
-}
-
-//NewEvent builds a event creation request
-func NewEvent(
-	log logr.Logger,
-	rkind,
-	rapiVersion,
-	rnamespace,
-	rname,
-	reason string,
-	source Source,
-	message MsgKey,
-	args ...interface{}) Info {
-	msgText, err := getEventMsg(message, args...)
-	if err != nil {
-		log.Error(err, "failed to get event message")
-	}
-	return Info{
-		Kind:      rkind,
-		Name:      rname,
-		Namespace: rnamespace,
-		Reason:    reason,
-		Source:    source,
-		Message:   msgText,
-	}
 }

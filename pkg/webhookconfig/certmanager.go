@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	ktls "github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
 	informerv1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -25,17 +25,17 @@ type Interface interface {
 	InitTLSPemPair()
 
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() (*ktls.PemPair, error)
+	GetTLSPemPair() (*tls.PemPair, error)
 }
 type certManager struct {
-	renewer        *ktls.CertRenewer
+	renewer        *tls.CertRenewer
 	secretInformer informerv1.SecretInformer
 	secretQueue    chan bool
 	stopCh         <-chan struct{}
 	log            logr.Logger
 }
 
-func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *ktls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
+func NewCertManager(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, log logr.Logger, stopCh <-chan struct{}) (Interface, error) {
 	manager := &certManager{
 		renewer:        certRenewer,
 		secretInformer: secretInformer,
@@ -58,7 +58,7 @@ func (m *certManager) addSecretFunc(obj interface{}) {
 		return
 	}
 
-	val, ok := secret.GetAnnotations()[ktls.SelfSignedAnnotation]
+	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
 	if !ok || val != "true" {
 		return
 	}
@@ -73,7 +73,7 @@ func (m *certManager) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 		return
 	}
 
-	val, ok := new.GetAnnotations()[ktls.SelfSignedAnnotation]
+	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]
 	if !ok || val != "true" {
 		return
 	}
@@ -94,12 +94,12 @@ func (m *certManager) InitTLSPemPair() {
 	}
 }
 
-func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
-	var tls *ktls.PemPair
+func (m *certManager) GetTLSPemPair() (*tls.PemPair, error) {
+	var keyPair *tls.PemPair
 	var err error
 
 	retryReadTLS := func() error {
-		tls, err = ktls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
+		keyPair, err = tls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func (m *certManager) GetTLSPemPair() (*ktls.PemPair, error) {
 	f := common.RetryFunc(time.Second, time.Minute, retryReadTLS, msg, m.log.WithName("GetTLSPemPair/Retry"))
 	err = f()
 
-	return tls, err
+	return keyPair, err
 }
 
 func (m *certManager) Run(stopCh <-chan struct{}) {
@@ -127,7 +127,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 	})
 
 	m.log.Info("start managing certificate")
-	certsRenewalTicker := time.NewTicker(ktls.CertRenewalInterval)
+	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()
 
 	for {
@@ -137,7 +137,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 			if err != nil {
 				m.log.Error(err, "failed to validate cert")
 
-				if !strings.Contains(err.Error(), ktls.ErrorsNotFound) {
+				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
 					continue
 				}
 			}
@@ -157,7 +157,7 @@ func (m *certManager) Run(stopCh <-chan struct{}) {
 			if err != nil {
 				m.log.Error(err, "failed to validate cert")
 
-				if !strings.Contains(err.Error(), ktls.ErrorsNotFound) {
+				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
 					continue
 				}
 			}
