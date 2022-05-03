@@ -31,15 +31,13 @@ type controller struct {
 	renewer        *tls.CertRenewer
 	secretInformer informerv1.SecretInformer
 	secretQueue    chan bool
-	stopCh         <-chan struct{}
 }
 
-func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, stopCh <-chan struct{}) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer) (Controller, error) {
 	manager := &controller{
 		renewer:        certRenewer,
 		secretInformer: secretInformer,
 		secretQueue:    make(chan bool, 1),
-		stopCh:         stopCh,
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
@@ -139,7 +137,7 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 				logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
 				os.Exit(1)
 			}
-		case <-m.stopCh:
+		case <-stopCh:
 			logger.V(2).Info("stopping cert renewer")
 			return
 		}

@@ -116,7 +116,7 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
@@ -344,12 +344,7 @@ func main() {
 	)
 
 	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
-	certManager, err := certmanager.NewController(
-		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeClient,
-		certRenewer,
-		stopCh,
-	)
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), kubeClient, certRenewer)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
