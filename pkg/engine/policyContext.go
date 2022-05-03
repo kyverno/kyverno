@@ -26,7 +26,7 @@ type PolicyContext struct {
 	AdmissionInfo urkyverno.RequestInfo
 
 	// Dynamic client - used for api lookups
-	Client *client.Client
+	Client client.Interface
 
 	// Config handler
 	ExcludeGroupRole []string

@@ -127,7 +127,7 @@ func main() {
 	}
 
 	// sanity checks
-	if !utils.CRDsInstalled(dynamicClient.DiscoveryClient) {
+	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
@@ -149,7 +149,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
-	pInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(kyvernoClient, policyControllerResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(kyvernoClient, policyControllerResyncPeriod)
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -169,27 +169,27 @@ func main() {
 	// - generate event with retry mechanism
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(kyvernoClient,
 		dynamicClient,
-		pInformer.Kyverno().V1alpha2().ReportChangeRequests(),
-		pInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1alpha2().ReportChangeRequests(),
+		kyvernoInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
 	prgen, err := policyreport.NewReportGenerator(
 		kyvernoClient,
 		dynamicClient,
-		pInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
-		pInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
-		pInformer.Kyverno().V1alpha2().ReportChangeRequests(),
-		pInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
+		kyvernoInformer.Kyverno().V1alpha2().ReportChangeRequests(),
+		kyvernoInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyReportGenerator"),
 	)
@@ -206,8 +206,8 @@ func main() {
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		serverIP,
 		int32(webhookTimeout),
 		debug,
@@ -268,9 +268,9 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		configData,
 		eventGenerator,
 		reportReqGen,
@@ -287,7 +287,7 @@ func main() {
 	}
 
 	urgen := webhookgenerate.NewGenerator(kyvernoClient,
-		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		stopCh,
 		log.Log.WithName("UpdateRequestGenerator"))
 
@@ -295,9 +295,9 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("BackgroundController"),
@@ -312,9 +312,9 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
-		pInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
@@ -324,8 +324,8 @@ func main() {
 	}
 
 	pCacheController := policycache.NewPolicyCacheController(
-		pInformer.Kyverno().V1().ClusterPolicies(),
-		pInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		log.Log.WithName("PolicyCacheController"),
 	)
 
@@ -358,7 +358,7 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
-		pInformer.WaitForCacheSync(stopCh)
+		kyvernoInformer.WaitForCacheSync(stopCh)
 		kubeInformer.WaitForCacheSync(stopCh)
 		kubeKyvernoInformer.WaitForCacheSync(stopCh)
 
@@ -416,8 +416,8 @@ func main() {
 		kyvernoClient,
 		dynamicClient,
 		tlsPair,
-		pInformer.Kyverno().V1beta1().UpdateRequests(),
-		pInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		kubeInformer.Rbac().V1().Roles(),
@@ -474,10 +474,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	pInformer.Start(stopCh)
+	kyvernoInformer.Start(stopCh)
 	kubeInformer.Start(stopCh)
 	kubeKyvernoInformer.Start(stopCh)
-	pInformer.WaitForCacheSync(stopCh)
+	kyvernoInformer.WaitForCacheSync(stopCh)
 	kubeInformer.WaitForCacheSync(stopCh)
 	kubeKyvernoInformer.WaitForCacheSync(stopCh)
 
@@ -505,7 +505,7 @@ func main() {
 	setupLog.Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(client *dclient.Client, stopCh <-chan struct{}) *openapi.Controller {
+func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		setupLog.Error(err, "Failed to create openAPIController")

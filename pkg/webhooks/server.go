@@ -42,7 +42,7 @@ type WebhookServer struct {
 	server *http.Server
 
 	// clients
-	client        *client.Client
+	client        client.Interface
 	kyvernoClient kyvernoclient.Interface
 
 	// listers
@@ -94,7 +94,7 @@ type WebhookServer struct {
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
 	kyvernoClient kyvernoclient.Interface,
-	client *client.Client,
+	client client.Interface,
 	tlsPair *tlsutils.PemPair,
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,

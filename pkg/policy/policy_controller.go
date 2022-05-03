@@ -53,7 +53,7 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	client        *client.Client
+	client        client.Interface
 	kyvernoClient kyvernoclient.Interface
 	pInformer     kyvernoinformer.ClusterPolicyInformer
 	npInformer    kyvernoinformer.PolicyInformer
@@ -98,7 +98,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	client *client.Client,
+	client client.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
