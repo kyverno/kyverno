@@ -38,10 +38,10 @@ import (
 
 type GenerateController struct {
 	//	GenerateController updaterequest.GenerateController
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	// urStatusControl is used to update UR status
 	statusControl common.StatusControlInterface
@@ -68,8 +68,8 @@ type GenerateController struct {
 
 //NewGenerateController returns an instance of the Generate-Request Controller
 func NewGenerateController(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *dclient.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client dclient.Interface,
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,
 	urLister urlister.UpdateRequestNamespaceLister,
@@ -168,7 +168,7 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 		}
 
 		// 3 - Report failure Events
-		events := common.FailedEvents(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource, logger)
+		events := event.NewBackgroundFailedEvent(err, ur.Spec.Policy, "", event.GeneratePolicyController, resource)
 		c.eventGen.Add(events...)
 	}
 
@@ -370,7 +370,7 @@ func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiv
 	return
 }
 
-func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, ur urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, ur urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -519,7 +519,7 @@ func applyRule(log logr.Logger, client *dclient.Client, rule kyverno.Rule, resou
 	return newGenResource, nil
 }
 
-func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client *dclient.Client) (map[string]interface{}, ResourceMode, error) {
+func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -542,7 +542,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone map[string]interface{}, client *dclient.Client) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	rNamespace, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, fmt.Errorf("failed to find source namespace: %v", err)

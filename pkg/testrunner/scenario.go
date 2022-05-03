@@ -201,11 +201,11 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	return true
 }
 
-func createNamespace(client *client.Client, ns *unstructured.Unstructured) error {
+func createNamespace(client client.Interface, ns *unstructured.Unstructured) error {
 	_, err := client.CreateResource("", "Namespace", "", ns, false)
 	return err
 }
-func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client client.Interface, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
@@ -347,13 +347,10 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 	return resources[0]
 }
 
-func getClient(t *testing.T, files []string) *client.Client {
+func getClient(t *testing.T, files []string) client.Interface {
 	var objects []k8sRuntime.Object
-	if files != nil {
-
-		for _, file := range files {
-			objects = loadObjects(t, file)
-		}
+	for _, file := range files {
+		objects = loadObjects(t, file)
 	}
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
