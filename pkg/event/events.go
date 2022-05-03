@@ -30,7 +30,7 @@ func buildPolicyEventMessage(resp *response.RuleResponse, resource response.Reso
 		fmt.Fprintf(&b, "%s %s", resource.Kind, resource.Name)
 	}
 
-	fmt.Fprintf(&b, ": %s", resp.Status.String())
+	fmt.Fprintf(&b, ": [%s] %s", resp.Name, resp.Status.String())
 	if blocked {
 		fmt.Fprintf(&b, " (blocked)")
 	}

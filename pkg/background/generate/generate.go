@@ -63,7 +63,7 @@ type GenerateController struct {
 	// policyLister can list/get Namespace policy from the shared informer's store
 	npolicyLister kyvernolister.PolicyLister
 
-	Config config.Interface
+	Config config.Configuration
 }
 
 //NewGenerateController returns an instance of the Generate-Request Controller
@@ -76,7 +76,7 @@ func NewGenerateController(
 	eventGen event.Interface,
 	nsLister corelister.NamespaceLister,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 ) (*GenerateController, error) {
 
 	c := GenerateController{

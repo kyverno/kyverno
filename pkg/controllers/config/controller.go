@@ -1,10 +1,10 @@
 package config
 
 import (
-	"os"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -17,13 +17,11 @@ import (
 
 const (
 	maxRetries = 10
-	cmNameEnv  = "INIT_CONFIG"
+	workers    = 3
 )
 
-var cmName = os.Getenv(cmNameEnv)
-
 type controller struct {
-	configuration config.Interface
+	configuration config.Configuration
 
 	// listers
 	configmapLister corev1listers.ConfigMapLister
@@ -32,30 +30,30 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(configmapInformer corev1informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) *controller {
-	cd := controller{
+func NewController(configmapInformer corev1informers.ConfigMapInformer, configuration config.Configuration) *controller {
+	c := controller{
+		configuration:   configuration,
 		configmapLister: configmapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "config-controller"),
 	}
 	configmapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    cd.addCM,
-		UpdateFunc: cd.updateCM,
-		DeleteFunc: cd.deleteCM,
+		AddFunc:    c.add,
+		UpdateFunc: c.update,
+		DeleteFunc: c.delete,
 	})
-	return &cd
+	return &c
 }
 
-func (c *controller) addCM(obj interface{}) {
+func (c *controller) add(obj interface{}) {
 	c.enqueue(obj.(*corev1.ConfigMap))
 }
 
-func (c *controller) updateCM(old, cur interface{}) {
+func (c *controller) update(old, cur interface{}) {
 	c.enqueue(cur.(*corev1.ConfigMap))
 }
 
-func (c *controller) deleteCM(obj interface{}) {
-	// cm, ok := kubeutils.GetObjectWithTombstone(obj).(*corev1.ConfigMap)
-	cm, ok := obj.(*corev1.ConfigMap)
+func (c *controller) delete(obj interface{}) {
+	cm, ok := kubeutils.GetObjectWithTombstone(obj).(*corev1.ConfigMap)
 	if ok {
 		c.enqueue(cm)
 	} else {
@@ -74,20 +72,16 @@ func (c *controller) enqueue(obj *corev1.ConfigMap) {
 func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
-		return
-	}
-	if errors.IsNotFound(err) {
-		c.queue.Forget(key)
+	} else if errors.IsNotFound(err) {
 		logger.V(4).Info("Dropping update request from the queue", "key", key, "error", err.Error())
-		return
-	}
-	if c.queue.NumRequeues(key) < maxRetries {
+		c.queue.Forget(key)
+	} else if c.queue.NumRequeues(key) < maxRetries {
 		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
-		return
+	} else {
+		logger.Error(err, "failed to process update request", "key", key)
+		c.queue.Forget(key)
 	}
-	logger.Error(err, "failed to process update request", "key", key)
-	c.queue.Forget(key)
 }
 
 func (c *controller) processNextWorkItem() bool {
@@ -104,7 +98,7 @@ func (c *controller) worker() {
 	}
 }
 
-func (c *controller) Run(workers int, stopCh <-chan struct{}) {
+func (c *controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
@@ -115,11 +109,12 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *controller) reconcile(key string) error {
+	logger.Info("reconciling ...", "key", key)
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-	if namespace != config.KyvernoNamespace || name != cmName {
+	if namespace != config.KyvernoNamespace || name != config.KyvernoConfigMapName {
 		return nil
 	}
 	configMap, err := c.configmapLister.ConfigMaps(namespace).Get(name)
@@ -129,6 +124,6 @@ func (c *controller) reconcile(key string) error {
 		}
 		return err
 	}
-	c.configuration.Load(configMap)
+	c.configuration.Load(configMap.DeepCopy())
 	return nil
 }

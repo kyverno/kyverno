@@ -11,7 +11,7 @@ type filter struct {
 	Name      string
 }
 
-//ParseKinds parses the kinds if a single string contains comma separated kinds
+// ParseKinds parses the kinds if a single string contains comma separated kinds
 // {"1,2,3","4","5"} => {"1","2","3","4","5"}
 func parseKinds(list string) []filter {
 	resources := []filter{}

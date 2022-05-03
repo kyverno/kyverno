@@ -196,7 +196,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
 // +deprecated
-func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
+func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configuration) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
 		<-wrc.UpdateWebhookChan
