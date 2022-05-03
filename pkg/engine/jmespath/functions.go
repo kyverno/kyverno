@@ -62,6 +62,7 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
+	mapToObject            = "map_to_object"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -367,6 +368,16 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpAny},
 			Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: mapToObject,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpObject}},
+				},
+				Handler: jpMapToObject,
+			},
+			ReturnType: []JpType{JpArray},
+			Note:       "converts a map to an array of jpObjects where each key:value is an item in the array",
 		},
 	}
 
@@ -793,6 +804,23 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	var output interface{}
 	err = json.Unmarshal(jsonData, &output)
 	return output, err
+}
+
+func jpMapToObject(arguments []interface{}) (interface{}, error) {
+	input, ok := arguments[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
+	}
+
+	arrayOfObj := make([]map[string]interface{}, 0)
+
+	for key, value := range input {
+		m := make(map[string]interface{})
+		m[key] = value
+		arrayOfObj = append(arrayOfObj, m)
+	}
+
+	return arrayOfObj, nil
 }
 
 // InterfaceToString casts an interface to a string type

@@ -1284,3 +1284,42 @@ func Test_SemverCompare(t *testing.T) {
 		})
 	}
 }
+
+func Test_MapToObject(t *testing.T) {
+
+	testCases := []struct {
+		resource       []byte
+		test           string
+		expectedResult string
+	}{
+		{
+			test:           `{ "key1": "value1" }`,
+			expectedResult: `[{ "key1": "value1" }]`,
+		},
+		{
+			test:           `{ "key1": "value1", "key2": "value2" }`,
+			expectedResult: `[{ "key1": "value1" }, { "key2": "value2" }]`,
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+
+			query, err := New("map_to_object(`" + tc.test + "`)")
+			assert.NilError(t, err)
+
+			res, err := query.Search("")
+			assert.NilError(t, err)
+
+			result, ok := res.([]map[string]interface{})
+			assert.Assert(t, ok)
+
+			var resource []map[string]interface{}
+			err = json.Unmarshal([]byte(tc.expectedResult), &resource)
+			assert.NilError(t, err)
+
+			assert.DeepEqual(t, result, resource)
+		})
+	}
+
+}
