@@ -191,7 +191,21 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		return err
 	}
 
-	return c.ProcessUR(ur)
+	ok, err := c.MarkUR(ur)
+	if !ok {
+		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
+	}
+	if err != nil {
+		logger.Error(err, "failed to mark UR handler", "key", key)
+		return err
+	}
+
+	if err := c.ProcessUR(ur); err != nil {
+		logger.Error(err, "failed to process UR", "key", key)
+		return err
+	}
+
+	return c.UnmarkUR(ur)
 }
 
 func (c *Controller) enqueueUpdateRequest(obj interface{}) {
