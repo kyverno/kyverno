@@ -53,8 +53,8 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	client        client.Interface
+	kyvernoClient kyvernoclient.Interface
 	pInformer     kyvernoinformer.ClusterPolicyInformer
 	npInformer    kyvernoinformer.PolicyInformer
 
@@ -97,8 +97,8 @@ type PolicyController struct {
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
-	client *client.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client client.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
@@ -565,7 +565,7 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func deleteGR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
 			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
@@ -576,7 +576,7 @@ func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func updateUR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels

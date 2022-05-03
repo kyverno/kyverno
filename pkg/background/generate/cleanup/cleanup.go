@@ -44,7 +44,7 @@ func (c *Controller) processUR(ur urkyverno.UpdateRequest) error {
 	return nil
 }
 
-func ownerResourceExists(log logr.Logger, client *dclient.Client, ur urkyverno.UpdateRequest) bool {
+func ownerResourceExists(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) bool {
 	_, err := client.GetResource("", ur.Spec.Resource.Kind, ur.Spec.Resource.Namespace, ur.Spec.Resource.Name)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
@@ -58,7 +58,7 @@ func ownerResourceExists(log logr.Logger, client *dclient.Client, ur urkyverno.U
 	return true
 }
 
-func deleteGeneratedResources(log logr.Logger, client *dclient.Client, ur urkyverno.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {

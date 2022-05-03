@@ -27,7 +27,7 @@ const workQueueRetryLimit = 10
 
 // Generator creates report request
 type Generator struct {
-	dclient *dclient.Client
+	dclient dclient.Interface
 
 	reportChangeRequestLister requestlister.ReportChangeRequestLister
 
@@ -48,8 +48,8 @@ type Generator struct {
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
-func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
-	dclient *dclient.Client,
+func NewReportChangeRequestGenerator(client policyreportclient.Interface,
+	dclient dclient.Interface,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	cpolInformer kyvernoinformer.ClusterPolicyInformer,

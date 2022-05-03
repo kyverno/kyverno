@@ -42,7 +42,6 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	// clients
-	// client       *client.Client
 	kubeClient   kubernetes.Interface
 	clientConfig *rest.Config
 
@@ -68,9 +67,9 @@ type Register struct {
 // NewRegister creates new Register instance
 func NewRegister(
 	clientConfig *rest.Config,
-	client *client.Client,
+	client client.Interface,
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer informers.DeploymentInformer,

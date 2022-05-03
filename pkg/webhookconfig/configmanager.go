@@ -39,7 +39,7 @@ var DefaultWebhookTimeout int64 = 10
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
-	client        *client.Client
+	client        client.Interface
 	kyvernoClient kyvernoclient.Interface
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
@@ -78,8 +78,8 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	client *client.Client,
-	kyvernoClient *kyvernoclient.Clientset,
+	client client.Interface,
+	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
@@ -783,7 +783,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			case "ServiceProxyOptions":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services/proxy"})
 			default:
-				_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
+				_, gvr, err := m.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 					continue
@@ -820,6 +820,10 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 
 	if utils.ContainsString(rsrcs, "pods") {
 		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
+	}
+
+	if utils.ContainsString(rsrcs, "services") {
+		rsrcs = append(rsrcs, "services/status")
 	}
 
 	if len(groups) > 0 {

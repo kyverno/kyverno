@@ -42,7 +42,7 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client      *client.Client
+	client      client.Interface
 	queue       workqueue.RateLimitingInterface
 	pCache      policycache.Interface
 	eventGen    event.Interface
@@ -66,7 +66,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Interface,
-	client *client.Client,
+	client client.Interface,
 	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{

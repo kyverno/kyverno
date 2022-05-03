@@ -21,7 +21,7 @@ import (
 
 //Generator generate events
 type Generator struct {
-	client *client.Client
+	client client.Interface
 	// list/get cluster policy
 	cpLister kyvernolister.ClusterPolicyLister
 	// list/get policy
@@ -46,7 +46,7 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -65,7 +65,7 @@ func rateLimiter() workqueue.RateLimiter {
 	return workqueue.DefaultItemBasedRateLimiter()
 }
 
-func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
+func initRecorder(client client.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
 	// Initialize Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {

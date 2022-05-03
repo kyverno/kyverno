@@ -90,13 +90,11 @@ func CreateClientConfig(kubeconfig string, qps float64, burst int) (*rest.Config
 	if err != nil {
 		return nil, err
 	}
-
 	if qps > math.MaxFloat32 {
 		return nil, fmt.Errorf("client rate limit QPS must not be higher than %e", math.MaxFloat32)
 	}
 	clientConfig.Burst = burst
 	clientConfig.QPS = float32(qps)
-
 	return clientConfig, nil
 }
 
