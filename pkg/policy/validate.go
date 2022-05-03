@@ -31,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
@@ -78,7 +78,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -95,7 +95,7 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 	clusterResources := sets.NewString()
 	if !mock && namespaced {
 		// Get all the cluster type kind supported by cluster
-		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+		res, err := client.Discovery().DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return nil, err
 		}
@@ -1017,7 +1017,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found
-func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.PolicyInterface) error {
+func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyverno.PolicyInterface) error {
 	for _, kind := range kinds {
 		gv, k := kubeutils.GetKindFromGVK(kind)
 		if k == p.GetKind() {
@@ -1025,7 +1025,7 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 		}
 
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
-			_, _, err := client.DiscoveryClient.FindResource(gv, k)
+			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
 				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
 			}

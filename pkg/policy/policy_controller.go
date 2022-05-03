@@ -53,8 +53,8 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	client        client.Interface
+	kyvernoClient kyvernoclient.Interface
 	pInformer     kyvernoinformer.ClusterPolicyInformer
 	npInformer    kyvernoinformer.PolicyInformer
 
@@ -75,18 +75,6 @@ type PolicyController struct {
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister listerv1.NamespaceLister
-
-	// pListerSynced returns true if the cluster policy store has been synced at least once
-	pListerSynced cache.InformerSynced
-
-	// npListerSynced returns true if the namespace policy store has been synced at least once
-	npListerSynced cache.InformerSynced
-
-	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
-
-	// urListerSynced returns true if the update request store has been synced at least once
-	urListerSynced cache.InformerSynced
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -109,8 +97,8 @@ type PolicyController struct {
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
-	client *client.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client client.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
@@ -154,12 +142,6 @@ func NewPolicyController(
 
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
-
-	pc.pListerSynced = pInformer.Informer().HasSynced
-	pc.npListerSynced = npInformer.Informer().HasSynced
-
-	pc.nsListerSynced = namespaces.Informer().HasSynced
-	pc.urListerSynced = urInformer.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -422,11 +404,6 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, pc.pListerSynced, pc.npListerSynced, pc.nsListerSynced, pc.urListerSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
-
 	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
 		UpdateFunc: pc.updatePolicy,
@@ -588,7 +565,7 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func deleteGR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
 			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
@@ -599,7 +576,7 @@ func deleteGR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList [
 	}
 }
 
-func updateUR(kyvernoClient *kyvernoclient.Clientset, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, gr := range grList {
 		if policyKey == gr.Spec.Policy {
 			grLabels := gr.Labels

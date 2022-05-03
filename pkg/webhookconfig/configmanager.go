@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -40,8 +39,8 @@ var DefaultWebhookTimeout int64 = 10
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	client        client.Interface
+	kyvernoClient kyvernoclient.Interface
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
 	npInformer kyvernoinformer.PolicyInformer
@@ -52,20 +51,10 @@ type webhookConfigManager struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
-	// pListerSynced returns true if the cluster policy store has been synced at least once
-	pListerSynced cache.InformerSynced
-
-	// npListerSynced returns true if the namespace policy store has been synced at least once
-	npListerSynced cache.InformerSynced
-
-	resCache resourcecache.ResourceCache
-
-	mutateInformer         cache.SharedIndexInformer
-	validateInformer       cache.SharedIndexInformer
-	mutateLister           admlisters.MutatingWebhookConfigurationLister
-	validateLister         admlisters.ValidatingWebhookConfigurationLister
-	mutateInformerSynced   cache.InformerSynced
-	validateInformerSynced cache.InformerSynced
+	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
+	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateLister     admlisters.MutatingWebhookConfigurationLister
+	validateLister   admlisters.ValidatingWebhookConfigurationLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -89,13 +78,12 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	client *client.Client,
-	kyvernoClient *kyvernoclient.Clientset,
+	client client.Interface,
+	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	resCache resourcecache.ResourceCache,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -107,7 +95,6 @@ func newWebhookConfigManager(
 		kyvernoClient:        kyvernoClient,
 		pInformer:            pInformer,
 		npInformer:           npInformer,
-		resCache:             resCache,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
@@ -119,17 +106,10 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
-
-	m.pListerSynced = pInformer.Informer().HasSynced
-	m.npListerSynced = npInformer.Informer().HasSynced
-
-	m.mutateInformer = mwcInformer.Informer()
+	m.mutateInformer = mwcInformer
 	m.mutateLister = mwcInformer.Lister()
-	m.mutateInformerSynced = mwcInformer.Informer().HasSynced
-
-	m.validateInformer = vwcInformer.Informer()
+	m.validateInformer = vwcInformer
 	m.validateLister = vwcInformer.Lister()
-	m.validateInformerSynced = vwcInformer.Informer().HasSynced
 
 	return m
 }
@@ -234,14 +214,43 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 	m.enqueue(p)
 }
 
-func (m *webhookConfigManager) deleteWebhook(obj interface{}) {
-	m.log.WithName("deleteWebhook").Info("resource webhook configuration was deleted, recreating...")
-	if webhook, ok := obj.(*unstructured.Unstructured); ok {
-		k := webhook.GetKind()
-		if (k == kindMutating && webhook.GetName() == config.MutatingWebhookConfigurationName) ||
-			(k == kindValidating && webhook.GetName() == config.ValidatingWebhookConfigurationName) {
-			m.enqueueAllPolicies()
+func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
+	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
+	webhook, ok := obj.(*admregapi.MutatingWebhookConfiguration)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			m.log.Info("Couldn't get object from tombstone", "obj", obj)
+			return
 		}
+		webhook, ok = tombstone.Obj.(*admregapi.MutatingWebhookConfiguration)
+		if !ok {
+			m.log.Info("tombstone contained object that is not a MutatingWebhookConfiguration", "obj", obj)
+			return
+		}
+	}
+	if webhook.GetName() == config.MutatingWebhookConfigurationName {
+		m.enqueueAllPolicies()
+	}
+}
+
+func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
+	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
+	webhook, ok := obj.(*admregapi.ValidatingWebhookConfiguration)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			m.log.Info("Couldn't get object from tombstone", "obj", obj)
+			return
+		}
+		webhook, ok = tombstone.Obj.(*admregapi.ValidatingWebhookConfiguration)
+		if !ok {
+			m.log.Info("tombstone contained object that is not a ValidatingWebhookConfiguration", "obj", obj)
+			return
+		}
+	}
+	if webhook.GetName() == config.ValidatingWebhookConfigurationName {
+		m.enqueueAllPolicies()
 	}
 }
 
@@ -275,11 +284,6 @@ func (m *webhookConfigManager) start() {
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
-		m.log.Info("failed to sync informer cache")
-		return
-	}
-
 	m.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    m.addClusterPolicy,
 		UpdateFunc: m.updateClusterPolicy,
@@ -292,12 +296,12 @@ func (m *webhookConfigManager) start() {
 		DeleteFunc: m.deletePolicy,
 	})
 
-	m.mutateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: m.deleteWebhook,
+	m.mutateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteMutatingWebhook,
 	})
 
-	m.validateInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: m.deleteWebhook,
+	m.validateInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: m.deleteValidatingWebhook,
 	})
 
 	for m.processNextWorkItem() {
@@ -779,7 +783,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			case "ServiceProxyOptions":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services/proxy"})
 			default:
-				_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
+				_, gvr, err := m.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 					continue
@@ -816,6 +820,10 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 
 	if utils.ContainsString(rsrcs, "pods") {
 		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
+	}
+
+	if utils.ContainsString(rsrcs, "services") {
+		rsrcs = append(rsrcs, "services/status")
 	}
 
 	if len(groups) > 0 {

@@ -48,3 +48,48 @@ spec:
                  ephemeral-storage: "?*"
                 limits:
                   ephemeral-storage: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-list
+spec:
+  rules:
+  - name: check-image
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "images must begin with ghcr.io"
+      foreach:
+      - list: "request.object.spec.containers[].image"
+        deny:
+          conditions:
+            all:
+              - key: '{{ element }}'
+                operator: NotEquals
+                value: 'ghcr.io'
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-image-list-error
+spec:
+  rules:
+  - name: check-image
+    match:
+      resources:
+        kinds:
+          - Pod
+    validate:
+      message: "images must begin with ghcr.io"
+      foreach:
+      - list: "request.object.spec.containers[].image"
+        elementScope: true
+        deny:
+          conditions:
+            all:
+              - key: '{{ element }}'
+                operator: NotEquals
+                value: 'ghcr.io'
