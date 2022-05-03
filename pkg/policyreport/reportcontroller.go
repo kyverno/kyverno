@@ -50,7 +50,7 @@ var LabelSelector = &metav1.LabelSelector{
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
-	pclient *kyvernoclient.Clientset
+	pclient kyvernoclient.Interface
 	dclient *dclient.Client
 
 	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
@@ -58,20 +58,11 @@ type ReportGenerator struct {
 	reportReqInformer        requestinformer.ReportChangeRequestInformer
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer
 
-	reportLister policyreport.PolicyReportLister
-	reportSynced cache.InformerSynced
-
-	clusterReportLister policyreport.ClusterPolicyReportLister
-	clusterReportSynced cache.InformerSynced
-
-	reportChangeRequestLister requestlister.ReportChangeRequestLister
-	reportReqSynced           cache.InformerSynced
-
+	reportLister                     policyreport.PolicyReportLister
+	clusterReportLister              policyreport.ClusterPolicyReportLister
+	reportChangeRequestLister        requestlister.ReportChangeRequestLister
 	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
-	clusterReportReqSynced           cache.InformerSynced
-
-	nsLister       listerv1.NamespaceLister
-	nsListerSynced cache.InformerSynced
+	nsLister                         listerv1.NamespaceLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -84,7 +75,7 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	pclient *kyvernoclient.Clientset,
+	pclient kyvernoclient.Interface,
 	dclient *dclient.Client,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,
@@ -106,15 +97,10 @@ func NewReportGenerator(
 	}
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
-	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
 	gen.reportLister = reportInformer.Lister()
-	gen.reportSynced = reportInformer.Informer().HasSynced
 	gen.clusterReportChangeRequestLister = clusterReportReqInformer.Lister()
-	gen.clusterReportReqSynced = clusterReportReqInformer.Informer().HasSynced
 	gen.reportChangeRequestLister = reportReqInformer.Lister()
-	gen.reportReqSynced = reportReqInformer.Informer().HasSynced
 	gen.nsLister = namespace.Lister()
-	gen.nsListerSynced = namespace.Informer().HasSynced
 
 	return gen, nil
 }
@@ -240,10 +226,6 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	g.reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

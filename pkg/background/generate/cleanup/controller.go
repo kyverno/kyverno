@@ -37,7 +37,7 @@ type Controller struct {
 	client *dclient.Client
 
 	// typed client for kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
 	urInformer urkyvernoinformer.UpdateRequestInformer
@@ -60,18 +60,6 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
-	// pSynced returns true if the cluster policy has been synced at least once
-	pSynced cache.InformerSynced
-
-	// pSynced returns true if the Namespace policy has been synced at least once
-	npSynced cache.InformerSynced
-
-	// urSynced returns true if the update request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
-
 	// logger
 	log logr.Logger
 }
@@ -79,7 +67,7 @@ type Controller struct {
 //NewController returns a new controller instance to manage generate-requests
 func NewController(
 	kubeClient kubernetes.Interface,
-	kyvernoclient *kyvernoclient.Clientset,
+	kyvernoclient kyvernoclient.Interface,
 	client *dclient.Client,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
@@ -102,11 +90,6 @@ func NewController(
 	c.npLister = npInformer.Lister()
 	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c.nsLister = namespaceInformer.Lister()
-
-	c.pSynced = pInformer.Informer().HasSynced
-	c.npSynced = npInformer.Informer().HasSynced
-	c.urSynced = urInformer.Informer().HasSynced
-	c.nsListerSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
 }
@@ -233,11 +216,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	logger.Info("starting")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, c.pSynced, c.urSynced, c.npSynced, c.nsListerSynced) {
-		logger.Info("failed to sync informer cache")
-		return
-	}
 
 	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete

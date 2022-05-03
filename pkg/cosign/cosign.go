@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
@@ -45,12 +44,10 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
-	Log                  logr.Logger
 }
 
 // VerifySignature verifies that the image has the expected signatures
 func VerifySignature(opts Options) (digest string, err error) {
-	log := opts.Log
 	ctx := context.Background()
 	var remoteOpts []remote.Option
 	ro := options.RegistryOptions{}
@@ -122,7 +119,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 	signatures, bundleVerified, err := client.VerifyImageSignatures(ctx, ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
-		log.Info("image verification failed", "error", msg)
+		logger.Info("image verification failed", "error", msg)
 		if strings.Contains(msg, "failed to verify signature") {
 			return "", fmt.Errorf("signature mismatch")
 		} else if strings.Contains(msg, "no matching signatures") {
@@ -132,7 +129,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", err
 	}
 
-	log.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
+	logger.V(3).Info("verified image", "count", len(signatures), "bundleVerified", bundleVerified)
 	pld, err := extractPayload(signatures)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get pld")
@@ -142,7 +139,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", err
 	}
 
-	if err := matchExtensions(signatures, opts.AdditionalExtensions, log); err != nil {
+	if err := matchExtensions(signatures, opts.AdditionalExtensions); err != nil {
 		return "", errors.Wrap(err, "extensions mismatch")
 	}
 
@@ -151,7 +148,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 		return "", errors.Wrap(err, "annotation mismatch")
 	}
 
-	digest, err = extractDigest(opts.ImageRef, pld, log)
+	digest, err = extractDigest(opts.ImageRef, pld)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get digest")
 	}
@@ -178,7 +175,7 @@ func loadCertPool(roots []byte) (*x509.CertPool, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, imageVerify v1.ImageVerification, log logr.Logger) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, imageVerify v1.ImageVerification) ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	var err error
 
@@ -228,7 +225,7 @@ func FetchAttestations(imageRef string, imageVerify v1.ImageVerification, log lo
 	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
 	if err != nil {
 		msg := err.Error()
-		log.Info("failed to fetch attestations", "error", msg)
+		logger.Info("failed to fetch attestations", "error", msg)
 		if strings.Contains(msg, "MANIFEST_UNKNOWN: manifest unknown") {
 			return nil, fmt.Errorf("not found")
 		}
@@ -236,7 +233,7 @@ func FetchAttestations(imageRef string, imageVerify v1.ImageVerification, log lo
 		return nil, err
 	}
 
-	log.V(3).Info("verified images", "count", len(signatures), "bundleVerified", bundleVerified)
+	logger.V(3).Info("verified images", "count", len(signatures), "bundleVerified", bundleVerified)
 	inTotoStatements, err := decodeStatements(signatures)
 	if err != nil {
 		return nil, err
@@ -367,12 +364,12 @@ func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, e
 	return sigPayloads, nil
 }
 
-func extractDigest(imgRef string, payload []payload.SimpleContainerImage, log logr.Logger) (string, error) {
+func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (string, error) {
 	for _, p := range payload {
 		if digest := p.Critical.Image.DockerManifestDigest; digest != "" {
 			return digest, nil
 		} else {
-			log.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
+			logger.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
 			return "", fmt.Errorf("unknown image response for " + imgRef)
 		}
 	}
@@ -408,7 +405,7 @@ func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) e
 	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
 }
 
-func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string, log logr.Logger) error {
+func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string) error {
 	if len(requiredExtensions) == 0 {
 		return nil
 	}

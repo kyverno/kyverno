@@ -78,7 +78,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 	}
 }
 
-func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error {
+func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error {
 	var errors []string
 
 	var gracePeriod int64 = 0
@@ -101,7 +101,7 @@ func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister cha
 	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
-func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {
+func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {
 	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to erase results entries %v", err)
