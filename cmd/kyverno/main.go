@@ -24,6 +24,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
@@ -115,7 +116,7 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
@@ -151,6 +152,9 @@ func main() {
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactoryWithOptions(kyvernoClient, policyControllerResyncPeriod)
 
+	// utils
+	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
@@ -169,8 +173,8 @@ func main() {
 	// - generate event with retry mechanism
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
@@ -178,8 +182,8 @@ func main() {
 		dynamicClient,
 		kyvernoInformer.Kyverno().V1alpha2().ReportChangeRequests(),
 		kyvernoInformer.Kyverno().V1alpha2().ClusterReportChangeRequests(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -206,8 +210,8 @@ func main() {
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		serverIP,
 		int32(webhookTimeout),
 		debug,
@@ -268,8 +272,8 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		configData,
 		eventGenerator,
@@ -295,8 +299,8 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
@@ -312,8 +316,8 @@ func main() {
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
@@ -323,11 +327,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pCacheController := policycache.NewPolicyCacheController(
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		log.Log.WithName("PolicyCacheController"),
-	)
+	pCacheController := policycache.NewPolicyCacheController(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	auditHandler := webhooks.NewValidateAuditHandler(
 		pCacheController.Cache,
@@ -343,13 +343,7 @@ func main() {
 	)
 
 	certRenewer := ktls.NewCertRenewer(kubeClient, clientConfig, ktls.CertRenewalInterval, ktls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
-	certManager, err := webhookconfig.NewCertManager(
-		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeClient,
-		certRenewer,
-		log.Log.WithName("CertManager"),
-		stopCh,
-	)
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), kubeClient, certRenewer)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
@@ -417,7 +411,7 @@ func main() {
 		dynamicClient,
 		tlsPair,
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoV1.ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings(),
 		kubeInformer.Rbac().V1().Roles(),

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"gotest.tools/assert"
 )
 
@@ -506,18 +506,19 @@ func Test_ChangedAnnotation(t *testing.T) {
 	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, name)
+
+	hasChanged := hasImageVerifiedAnnotationChanged(name, policyContext)
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name)
+	hasChanged = hasImageVerifiedAnnotationChanged(name, policyContext)
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, name)
+	hasChanged = hasImageVerifiedAnnotationChanged(name, policyContext)
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -532,9 +533,12 @@ func Test_MarkImageVerified(t *testing.T) {
 
 	ruleResp := &response.RuleResponse{Status: response.RuleStatusPass}
 	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
-	imageInfo := kubeutils.ImageInfo{}
+	imageInfo := apiutils.ImageInfo{}
 	imageInfo.Name = "nginx"
 	imageInfo.Digest = digest
+	imageInfo.Registry = "docker.io"
+	imageInfo.Path = "nginx"
+	imageInfo.Tag = "v2"
 	container := "nginx"
 
 	iv.markImageVerified(imageVerifyRule, ruleResp, container, imageInfo)
@@ -549,7 +553,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.NilError(t, err)
 
 	assert.Equal(t, ivm.Verified, true)
-	assert.Equal(t, ivm.Digest, digest)
+	assert.Equal(t, ivm.Image, digest)
 
 	ruleResp.Patches = nil
 	imageVerifyRule = kyverno.ImageVerification{Required: false}

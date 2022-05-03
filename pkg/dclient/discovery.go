@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,7 +25,6 @@ type IDiscovery interface {
 // serverPreferredResources stores the cachedClient instance for discovery client
 type serverPreferredResources struct {
 	cachedClient discovery.CachedDiscoveryInterface
-	log          logr.Logger
 }
 
 // DiscoveryCache gets the discovery client cache
@@ -36,7 +34,7 @@ func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInte
 
 // Poll will keep invalidate the local cache
 func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struct{}) {
-	logger := c.log.WithName("Poll")
+	logger := logger.WithName("Poll")
 	// start a ticker
 	ticker := time.NewTicker(resync)
 	defer func() { ticker.Stop() }()
@@ -67,7 +65,7 @@ func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersi
 
 	_, gvr, err := c.FindResource("", kind)
 	if err != nil {
-		c.log.Info("schema not found", "kind", kind)
+		logger.Info("schema not found", "kind", kind)
 		return schema.GroupVersionResource{}, err
 	}
 
@@ -78,7 +76,7 @@ func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersi
 func (c serverPreferredResources) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
 	_, gvr, err := c.FindResource(apiVersion, kind)
 	if err != nil {
-		c.log.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "error : ", err)
+		logger.Info("schema not found", "kind", kind, "apiVersion", apiVersion, "error : ", err)
 		return schema.GroupVersionResource{}
 	}
 
@@ -121,9 +119,9 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err, c)
 		} else if isMetricsServerUnavailable(kind, err) {
-			c.log.V(3).Info("failed to find preferred resource version", "error", err.Error())
+			logger.V(3).Info("failed to find preferred resource version", "error", err.Error())
 		} else {
-			c.log.Error(err, "failed to find preferred resource version")
+			logger.Error(err, "failed to find preferred resource version")
 			return nil, schema.GroupVersionResource{}, err
 		}
 	}
@@ -144,7 +142,7 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 			if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
 				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
 				if err != nil {
-					c.log.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
+					logger.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
 					return nil, schema.GroupVersionResource{}, err
 				}
 
