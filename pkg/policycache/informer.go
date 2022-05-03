@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -22,22 +21,15 @@ import (
 // policies based on types (Mutate/ValidateEnforce/Generate/imageVerify).
 type Controller struct {
 	Cache      Interface
-	log        logr.Logger
 	cpolLister kyvernolister.ClusterPolicyLister
 	polLister  kyvernolister.PolicyLister
 	pCounter   int64
 }
 
 // NewPolicyCacheController create a new PolicyController
-func NewPolicyCacheController(
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	nspInformer kyvernoinformer.PolicyInformer,
-	log logr.Logger,
-) *Controller {
-
+func NewPolicyCacheController(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyvernoinformer.PolicyInformer) *Controller {
 	pc := Controller{
-		Cache: newPolicyCache(log, pInformer.Lister(), nspInformer.Lister()),
-		log:   log,
+		Cache: newPolicyCache(pInformer.Lister(), nspInformer.Lister()),
 	}
 
 	// ClusterPolicy Informer
@@ -80,7 +72,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	if ok {
 		c.Cache.remove(p)
 	} else {
-		c.log.Info("Failed to get deleted object", "obj", obj)
+		logger.Info("Failed to get deleted object", "obj", obj)
 	}
 }
 
@@ -106,13 +98,12 @@ func (c *Controller) deleteNsPolicy(obj interface{}) {
 	if ok {
 		c.Cache.remove(p)
 	} else {
-		c.log.Info("Failed to get deleted object", "obj", obj)
+		logger.Info("Failed to get deleted object", "obj", obj)
 	}
 }
 
 // CheckPolicySync wait until the internal policy cache is fully loaded
 func (c *Controller) CheckPolicySync(stopCh <-chan struct{}) {
-	logger := c.log
 	logger.Info("starting")
 
 	policies := []kyverno.PolicyInterface{}

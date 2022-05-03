@@ -1,7 +1,6 @@
 package policycache
 
 import (
-	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -29,8 +28,7 @@ type Interface interface {
 
 // policyCache ...
 type policyCache struct {
-	pMap   pMap
-	logger logr.Logger
+	pMap pMap
 
 	// list/get cluster policy resource
 	pLister kyvernolister.ClusterPolicyLister
@@ -40,7 +38,7 @@ type policyCache struct {
 }
 
 // newPolicyCache ...
-func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
+func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
 	namesCache := map[PolicyType]map[string]bool{
 		Mutate:               make(map[string]bool),
 		ValidateEnforce:      make(map[string]bool),
@@ -55,7 +53,6 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 			nameCacheMap: namesCache,
 			kindDataMap:  make(map[string]map[PolicyType][]string),
 		},
-		log,
 		pLister,
 		npLister,
 	}
@@ -64,7 +61,7 @@ func newPolicyCache(log logr.Logger, pLister kyvernolister.ClusterPolicyLister, 
 // Add a policy to cache
 func (pc *policyCache) add(policy kyverno.PolicyInterface) {
 	pc.pMap.add(policy)
-	pc.logger.V(4).Info("policy is added to cache", "name", policy.GetName())
+	logger.V(4).Info("policy is added to cache", "name", policy.GetName())
 }
 
 // Get the list of matched policies
@@ -84,12 +81,12 @@ func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []kyver
 // Remove a policy from cache
 func (pc *policyCache) remove(p kyverno.PolicyInterface) {
 	pc.pMap.remove(p)
-	pc.logger.V(4).Info("policy is removed from cache", "name", p.GetName())
+	logger.V(4).Info("policy is removed from cache", "name", p.GetName())
 }
 
 func (pc *policyCache) update(oldP kyverno.PolicyInterface, newP kyverno.PolicyInterface) {
 	pc.pMap.update(oldP, newP)
-	pc.logger.V(4).Info("policy is updated from cache", "name", newP.GetName())
+	logger.V(4).Info("policy is updated from cache", "name", newP.GetName())
 }
 
 func (pc *policyCache) getPolicyObject(key PolicyType, gvk string, nspace string) (policyObject []kyverno.PolicyInterface) {
