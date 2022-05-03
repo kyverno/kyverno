@@ -72,7 +72,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	if ok {
 		c.Cache.remove(p)
 	} else {
-		logger.Info("Failed to get deleted object", "obj", obj)
+		logger.Info("Failed to get deleted object, the deleted policy cannot be removed from the cache", "obj", obj)
 	}
 }
 
@@ -98,7 +98,7 @@ func (c *Controller) deleteNsPolicy(obj interface{}) {
 	if ok {
 		c.Cache.remove(p)
 	} else {
-		logger.Info("Failed to get deleted object", "obj", obj)
+		logger.Info("Failed to get deleted object, the deleted cluster policy cannot be removed from the cache", "obj", obj)
 	}
 }
 
