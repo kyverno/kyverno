@@ -347,7 +347,12 @@ func getResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 		return nil, fmt.Errorf("API client is not available")
 	}
 
-	return ctx.Client.Clientset.RESTClient().Get().AbsPath(p.Raw).DoRaw(context.TODO())
+	kubeClientset, err := ctx.Client.CreateKubeClientset()
+	if err != nil {
+		return nil, fmt.Errorf("kubernetes clientset is not available")
+	}
+
+	return kubeClientset.RESTClient().Get().AbsPath(p.Raw).DoRaw(context.TODO())
 }
 
 func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {

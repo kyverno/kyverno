@@ -29,7 +29,6 @@ type Client struct {
 	client          dynamic.Interface
 	log             logr.Logger
 	clientConfig    *rest.Config
-	Clientset       *kubernetes.Clientset
 	kclient         kubernetes.Interface
 	DiscoveryClient IDiscovery
 }
@@ -48,7 +47,6 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 	client := Client{
 		client:       dclient,
 		clientConfig: config,
-		Clientset:    kclient,
 		kclient:      kclient,
 		log:          log.WithName("dclient"),
 	}
@@ -159,6 +157,11 @@ func (c *Client) CreateResource(apiVersion string, kind string, namespace string
 		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to create resource ")
+}
+
+// CreateKubeClientset creates kubernetes clientset
+func (c *Client) CreateKubeClientset() (*kubernetes.Clientset, error) {
+	return kubernetes.NewForConfig(c.clientConfig)
 }
 
 // UpdateResource updates object for the specified resource/namespace
