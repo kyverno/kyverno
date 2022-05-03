@@ -1,10 +1,11 @@
-package kube
+package api
 
 import (
 	"fmt"
 	"strconv"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -13,27 +14,6 @@ type ImageInfo struct {
 	imageutils.ImageInfo
 	// Pointer is the path to the image object in the resource
 	Pointer string `json:"-"`
-}
-
-type ImageExtractorConfigs map[string][]ImageExtractorConfig
-
-type ImageExtractorConfig struct {
-	// Path is the path to the object containing the image field in a custom resource.
-	// It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'.
-	// Wildcard keys are expanded in case of arrays or objects.
-	Path string `json:"path" yaml:"path"`
-	// Value is an optional name of the field within 'path' that points to the image URI.
-	// This is useful when a custom 'key' is also defined.
-	// +optional
-	Value string `json:"value,omitempty" yaml:"value,omitempty"`
-	// Name is the entry the image will be available under 'images.<name>' in the context.
-	// If this field is not defined, image entries will appear under 'images.custom'.
-	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-	// Key is an optional name of the field within 'path' that will be used to uniquely identify an image.
-	// Note - this field MUST be unique.
-	// +optional
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
 }
 
 var (
@@ -132,7 +112,7 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 	return extractors
 }
 
-func lookupImageExtractor(kind string, configs ImageExtractorConfigs) []imageExtractor {
+func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
 	if configs != nil {
 		if extractorConfigs, ok := configs[kind]; ok {
 			extractors := []imageExtractor{}
@@ -169,7 +149,7 @@ func lookupImageExtractor(kind string, configs ImageExtractorConfigs) []imageExt
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured, configs ImageExtractorConfigs) (map[string]map[string]ImageInfo, error) {
+func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
 
 	extractors := lookupImageExtractor(resource.GetKind(), configs)

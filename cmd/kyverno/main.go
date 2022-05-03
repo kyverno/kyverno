@@ -115,7 +115,7 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
