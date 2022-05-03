@@ -116,11 +116,6 @@ func (m *certManager) GetTLSPemPair() (*tls.PemPair, error) {
 }
 
 func (m *certManager) Run(stopCh <-chan struct{}) {
-	m.secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    m.addSecretFunc,
-		UpdateFunc: m.updateSecretFunc,
-	})
-
 	m.log.Info("start managing certificate")
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()

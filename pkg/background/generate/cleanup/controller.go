@@ -34,7 +34,7 @@ const (
 type Controller struct {
 
 	// dynamic client implementation
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for kyverno CRDs
 	kyvernoClient kyvernoclient.Interface
@@ -68,7 +68,7 @@ type Controller struct {
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoclient kyvernoclient.Interface,
-	client *dclient.Client,
+	client dclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
