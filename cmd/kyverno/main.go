@@ -231,14 +231,13 @@ func main() {
 	// - resource filters
 	// if the configMap is update, the configuration will be updated :D
 	configData := config.NewConfigData(
-		kubeClient,
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		filterK8sResources,
 		excludeGroupRole,
 		excludeUsername,
 		prgen.ReconcileCh,
 		webhookCfg.UpdateWebhookChan,
 	)
+	// TODO config controller
 
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
@@ -356,11 +355,11 @@ func main() {
 		kubeInformer.WaitForCacheSync(stopCh)
 		kubeKyvernoInformer.WaitForCacheSync(stopCh)
 
-		// validate the ConfigMap format
-		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
-			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			os.Exit(1)
-		}
+		// // validate the ConfigMap format
+		// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
+		// 	setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+		// 	os.Exit(1)
+		// }
 		if autoUpdateWebhooks {
 			go webhookCfg.UpdateWebhookConfigurations(configData)
 		}
@@ -481,7 +480,7 @@ func main() {
 	// start Kyverno controllers
 	go le.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
-	go configData.Run(stopCh)
+	// go configData.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go auditHandler.Run(10, stopCh)
 	if !debug {
