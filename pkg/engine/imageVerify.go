@@ -21,7 +21,7 @@ import (
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -139,7 +139,7 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]apiutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
@@ -193,7 +193,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	}
 }
 
-func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
+func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.ImageInfo) ([]byte, error) {
 	if digest == "" {
 		digest, err := fetchImageDigest(imageInfo.String())
 		if err != nil {
@@ -211,7 +211,7 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.I
 	return patch, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo apiutils.ImageInfo) *response.RuleResponse {
 	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
 		msg := "changes to `images.kyverno.io` annotation are not allowed"
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
@@ -243,7 +243,7 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) 
 	return newValue != oldValue
 }
 
-func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
+func makeImageVerifiedPatches(imageInfo apiutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
 	var patches [][]byte
 	if !hasAnnotations {
 		var addAnnotationsPatch = make(map[string]interface{})
@@ -314,7 +314,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
@@ -479,7 +479,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 	return opts, path
 }
 
-func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = imageInfo.Pointer
@@ -487,7 +487,7 @@ func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, e
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
@@ -539,7 +539,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img apiutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}

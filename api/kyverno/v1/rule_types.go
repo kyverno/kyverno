@@ -6,12 +6,32 @@ import (
 	"reflect"
 
 	wildcard "github.com/kyverno/go-wildcard"
-	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+type ImageExtractorConfigs map[string][]ImageExtractorConfig
+
+type ImageExtractorConfig struct {
+	// Path is the path to the object containing the image field in a custom resource.
+	// It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'.
+	// Wildcard keys are expanded in case of arrays or objects.
+	Path string `json:"path" yaml:"path"`
+	// Value is an optional name of the field within 'path' that points to the image URI.
+	// This is useful when a custom 'key' is also defined.
+	// +optional
+	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+	// Name is the entry the image will be available under 'images.<name>' in the context.
+	// If this field is not defined, image entries will appear under 'images.custom'.
+	// +optional
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Key is an optional name of the field within 'path' that will be used to uniquely identify an image.
+	// Note - this field MUST be unique.
+	// +optional
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+}
 
 // Rule defines a validation, mutation, or generation control for matching resources.
 // Each rules contains a match declaration to select resources, and an optional exclude
@@ -40,7 +60,7 @@ type Rule struct {
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
 	// +optional
-	ImageExtractors kube.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
+	ImageExtractors ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
