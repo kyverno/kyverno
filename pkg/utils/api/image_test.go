@@ -1,8 +1,9 @@
-package kube
+package api
 
 import (
 	"testing"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"gotest.tools/assert"
@@ -10,7 +11,7 @@ import (
 
 func Test_extractImageInfo(t *testing.T) {
 	tests := []struct {
-		extractionConfig ImageExtractorConfigs
+		extractionConfig kyvernov1.ImageExtractorConfigs
 		raw              []byte
 		images           map[string]map[string]ImageInfo
 	}{
@@ -125,8 +126,8 @@ func Test_extractImageInfo(t *testing.T) {
 			},
 		},
 		{
-			extractionConfig: ImageExtractorConfigs{
-				"Task": []ImageExtractorConfig{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"Task": []kyvernov1.ImageExtractorConfig{
 					{Path: "/spec/steps/*/image"},
 				},
 			},
@@ -164,8 +165,8 @@ func Test_extractImageInfo(t *testing.T) {
 			},
 		},
 		{
-			extractionConfig: ImageExtractorConfigs{
-				"Task": []ImageExtractorConfig{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"Task": []kyvernov1.ImageExtractorConfig{
 					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
 				},
 			}, raw: []byte(`{"apiVersion":"tekton.dev/v1beta1","kind":"Task","metadata":{"name":"example-task-name"},"spec":{"steps":[{"name":"ubuntu-example","image":"ubuntu","args":["ubuntu-build-example","SECRETS-example.md"]},{"name":"dockerfile-pushexample","image":"gcr.io/example-builders/push-example","args":["push","$(resources.outputs.builtImage.url)"]}]}}`),
@@ -193,8 +194,8 @@ func Test_extractImageInfo(t *testing.T) {
 			},
 		},
 		{
-			extractionConfig: ImageExtractorConfigs{
-				"ClusterTask": []ImageExtractorConfig{
+			extractionConfig: kyvernov1.ImageExtractorConfigs{
+				"ClusterTask": []kyvernov1.ImageExtractorConfig{
 					{Name: "steps", Path: "/spec/steps/*", Value: "image", Key: "name"},
 				},
 			},
