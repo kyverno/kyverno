@@ -20,6 +20,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 		return nil
 	}
 
+	log = log.WithValues("rule", rule.Name)
 	if err := LoadContext(log, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
@@ -46,24 +47,28 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range ctx.JSONContext.ImageInfo() {
-			for containerName, imageInfo := range infoMap {
+			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
+				log = log.WithValues("rule", rule.Name)
+
 				if !imageMatches(image, imageVerify.ImageReferences) {
-					log.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
+					log.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)
 					return nil
 				}
 
-				if err := validateImage(ctx, imageVerify, containerName, imageInfo, log); err != nil {
+				log.V(4).Info("validating image", "image", image)
+				if err := validateImage(ctx, imageVerify, name, imageInfo, log); err != nil {
 					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 				}
 			}
 		}
 	}
 
+	log.V(4).Info("validated image", "rule", rule.Name)
 	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass, nil)
 }
 
-func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, containerName string, imageInfo kubeutils.ImageInfo, log logr.Logger) error {
+func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, name string, imageInfo kubeutils.ImageInfo, log logr.Logger) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		log.Info("missing digest", "image", imageInfo.String())
@@ -71,7 +76,7 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, c
 	}
 
 	if imageVerify.Required && !reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx, containerName, imageInfo, log)
+		verified, err := isImageVerified(ctx, name, imageInfo, log)
 		if err != nil {
 			return err
 		}
@@ -85,11 +90,11 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, c
 }
 
 type ImageVerificationMetadata struct {
+	Image    string `json:"image,omitempty"`
 	Verified bool   `json:"verified,omitempty"`
-	Digest   string `json:"digest,omitempty"`
 }
 
-func isImageVerified(ctx *PolicyContext, containerName string, imageInfo kubeutils.ImageInfo, log logr.Logger) (bool, error) {
+func isImageVerified(ctx *PolicyContext, name string, imageInfo kubeutils.ImageInfo, log logr.Logger) (bool, error) {
 	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		return false, errors.Errorf("resource does not exist")
 	}
@@ -99,7 +104,7 @@ func isImageVerified(ctx *PolicyContext, containerName string, imageInfo kubeuti
 		return false, nil
 	}
 
-	key := makeAnnotationKey(containerName)
+	key := makeAnnotationKey(name)
 	data, ok := annotations[key]
 	if !ok {
 		log.V(2).Info("missing image metadata in annotation", "key", key)
@@ -116,9 +121,11 @@ func isImageVerified(ctx *PolicyContext, containerName string, imageInfo kubeuti
 		return false, nil
 	}
 
-	if imageInfo.Digest != ivm.Digest {
-		log.V(2).Info("digest mismatch", "image", imageInfo.String(), "expected", imageInfo.Digest, "received", ivm.Digest)
-		return false, errors.Errorf("failed to verify image; digest mismatch")
+	expected := ivm.Image
+	received := imageInfo.String()
+	if expected != received {
+		log.V(2).Info("image mismatch", "expected", expected, "received", received)
+		return false, errors.Errorf("image %s does not match %s", received, expected)
 	}
 
 	return true, nil

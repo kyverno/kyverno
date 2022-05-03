@@ -38,7 +38,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 	startTime := time.Now()
 	defer func() {
 		buildResponse(policyContext, resp, startTime)
-		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
+		logger.V(4).Info("processed image verification rules",
+			"time", resp.PolicyResponse.ProcessingTime.String(),
+			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
 	policyContext.JSONContext.Checkpoint()
@@ -143,12 +145,17 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
-	for name, infoMap := range images {
-		for _, imageInfo := range infoMap {
+	for _, infoMap := range images {
+		for imageKey, imageInfo := range infoMap {
 			image := imageInfo.String()
 
 			if !imageMatches(image, imageVerify.ImageReferences) {
 				iv.logger.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
+				continue
+			}
+
+			if iv.hasImageVerifiedAnnotationChanged(imageKey) {
+				iv.logger.Info("detected changes to immutable annotation", "key", imageKey)
 				continue
 			}
 
@@ -176,7 +183,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
 				} else if patch != nil {
 					if ruleResp == nil {
-						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "adding digest", response.RuleStatusPass, nil)
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass, nil)
 					}
 
 					ruleResp.Patches = append(ruleResp.Patches, patch)
@@ -186,10 +193,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 			}
 
 			if ruleResp != nil {
-				if ruleResp.Status == response.RuleStatusPass {
-					ruleResp = iv.markImageVerified(imageVerify, ruleResp, name, imageInfo)
-				}
-
+				ruleResp = iv.markImageVerified(imageVerify, ruleResp, imageKey, imageInfo)
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 				incrementAppliedCount(iv.resp)
 			}
@@ -221,15 +225,15 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo kubeutils.I
 }
 
 func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, name string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
-	if hasImageVerifiedAnnotationChanged(iv.policyContext, name) {
-		msg := "changes to `images.kyverno.io` annotation are not allowed"
-		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+	if len(imageVerify.Attestors) == 0 && len(imageVerify.Attestations) == 0 {
+		iv.logger.V(4).Info("skip adding image verification metadata", "reason", "rule with no attestors or attestations")
+		return ruleResp
 	}
 
 	if imageVerify.Required {
-		isImageVerified := ruleResp.Status == response.RuleStatusPass
+		verified := ruleResp.Status == response.RuleStatusPass
 		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
-		patches, err := makeImageVerifiedPatches(imageInfo, isImageVerified, hasAnnotations)
+		patches, err := iv.makeImageVerifiedPatches(imageInfo, name, verified, hasAnnotations)
 		if err != nil {
 			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
 		} else {
@@ -240,7 +244,8 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 	return ruleResp
 }
 
-func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name string) bool {
+func (iv *imageVerifier) hasImageVerifiedAnnotationChanged(name string) bool {
+	ctx := iv.policyContext
 	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
 		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
@@ -249,10 +254,20 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name string) bool {
 	key := makeAnnotationKey(name)
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
-	return newValue != oldValue
+
+	if !reflect.DeepEqual(newValue, oldValue) {
+		msg := "kyverno.io annotations cannot be changed"
+		iv.logger.Info("image verification error", "reason", msg)
+		ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+		iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+		incrementAppliedCount(iv.resp)
+		return true
+	}
+
+	return false
 }
 
-func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, verified, hasAnnotations bool) ([][]byte, error) {
+func (iv *imageVerifier) makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, name string, verified, hasAnnotations bool) ([][]byte, error) {
 	var patches [][]byte
 	if !hasAnnotations {
 		var addAnnotationsPatch = make(map[string]interface{})
@@ -264,12 +279,13 @@ func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, verified, hasAnnota
 			return nil, err
 		}
 
+		iv.logger.V(4).Info("adding annotation patch", "patch", string(patchBytes))
 		patches = append(patches, patchBytes)
 	}
 
 	imageData := &ImageVerificationMetadata{
 		Verified: verified,
-		Digest:   imageInfo.Digest,
+		Image:    imageInfo.String(),
 	}
 
 	data, err := json.Marshal(imageData)
@@ -278,9 +294,8 @@ func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, verified, hasAnnota
 	}
 
 	var addKeyPatch = make(map[string]interface{})
-	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name)
 	addKeyPatch["op"] = "add"
-	addKeyPatch["path"] = annotationKey
+	addKeyPatch["path"] = makeAnnotationKeyForJSONPatch(name)
 	addKeyPatch["value"] = string(data)
 
 	patchBytes, err := json.Marshal(addKeyPatch)
@@ -288,8 +303,9 @@ func makeImageVerifiedPatches(imageInfo kubeutils.ImageInfo, verified, hasAnnota
 		return nil, err
 	}
 
+	iv.logger.V(4).Info("adding image verification patch", "patch", string(patchBytes))
 	patches = append(patches, patchBytes)
-	return patches, err
+	return patches, nil
 }
 
 func makeAnnotationKeyForJSONPatch(imageName string) string {

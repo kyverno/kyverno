@@ -244,9 +244,6 @@ func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-
-	log.Log.V(4).Info("extracting image info", "obj", resource.UnstructuredContent())
-
 	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
 		return err
@@ -257,7 +254,6 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	ctx.images = images
 
 	log.Log.V(4).Info("updated image info", "images", images)
-
 	return addToContext(ctx, images, "images")
 }
 
