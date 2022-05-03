@@ -35,7 +35,7 @@ const (
 // Controller manages the life-cycle for Generate-Requests and applies generate rule
 type Controller struct {
 	// dynamic client implementation
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for Kyverno CRDs
 	kyvernoClient kyvernoclient.Interface
@@ -72,7 +72,7 @@ type Controller struct {
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	client *dclient.Client,
+	client dclient.Interface,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
