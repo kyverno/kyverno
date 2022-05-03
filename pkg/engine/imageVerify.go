@@ -257,12 +257,7 @@ func hasImageVerifiedAnnotationChanged(name string, ctx *PolicyContext) bool {
 	key := makeAnnotationKey(name)
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
-
-	if !reflect.DeepEqual(newValue, oldValue) {
-		return true
-	}
-
-	return false
+	return !reflect.DeepEqual(newValue, oldValue)
 }
 
 func (iv *imageVerifier) makeImageVerifiedPatches(imageInfo apiutils.ImageInfo, name string, verified, hasAnnotations bool) ([][]byte, error) {
