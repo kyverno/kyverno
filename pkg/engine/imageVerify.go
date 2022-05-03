@@ -464,7 +464,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		ImageRef:    image,
 		Repository:  imageVerify.Repository,
 		Annotations: imageVerify.Annotations,
-		Log:         iv.logger,
 	}
 
 	if imageVerify.Roots != "" {
@@ -519,7 +518,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, im
 	image := imageInfo.String()
 	start := time.Now()
 
-	statements, err := cosign.FetchAttestations(image, imageVerify, iv.logger)
+	statements, err := cosign.FetchAttestations(image, imageVerify)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, response.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)

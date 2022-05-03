@@ -37,47 +37,23 @@ import (
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 )
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
-	server        *http.Server
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	server *http.Server
 
-	// urLister can list/get update requests from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
+	// clients
+	client        client.Interface
+	kyvernoClient kyvernoclient.Interface
 
-	// urSynced returns true if the Update Request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	// returns true if the cluster policy store has synced atleast
-	pSynced cache.InformerSynced
-
-	// list/get role binding resource
-	rbLister rbaclister.RoleBindingLister
-
-	// list/get role binding resource
-	rLister rbaclister.RoleLister
-
-	// list/get role binding resource
-	crLister rbaclister.ClusterRoleLister
-
-	// return true if role bining store has synced atleast once
-	rbSynced cache.InformerSynced
-
-	// return true if role store has synced atleast once
-	rSynced cache.InformerSynced
-
-	// list/get cluster role binding resource
+	// listers
+	urLister  urlister.UpdateRequestNamespaceLister
+	rbLister  rbaclister.RoleBindingLister
+	rLister   rbaclister.RoleLister
+	crLister  rbaclister.ClusterRoleLister
 	crbLister rbaclister.ClusterRoleBindingLister
-
-	// return true if cluster role binding store has synced atleast once
-	crbSynced cache.InformerSynced
-
-	// return true if cluster role  store has synced atleast once
-	crSynced cache.InformerSynced
+	nsLister  listerv1.NamespaceLister
 
 	// generate events
 	eventGen event.Interface
@@ -103,11 +79,6 @@ type WebhookServer struct {
 	// update request generator
 	urGenerator webhookgenerate.Interface
 
-	nsLister listerv1.NamespaceLister
-
-	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
-
 	auditHandler AuditHandler
 
 	log logr.Logger
@@ -124,8 +95,8 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *client.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client client.Interface,
 	tlsPair *tlsutils.PemPair,
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
@@ -159,18 +130,11 @@ func NewWebhookServer(
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
-		urSynced:          urInformer.Informer().HasSynced,
-		pSynced:           pInformer.Informer().HasSynced,
 		rbLister:          rbInformer.Lister(),
-		rbSynced:          rbInformer.Informer().HasSynced,
 		rLister:           rInformer.Lister(),
-		rSynced:           rInformer.Informer().HasSynced,
 		nsLister:          namespace.Lister(),
-		nsListerSynced:    namespace.Informer().HasSynced,
 		crbLister:         crbInformer.Lister(),
 		crLister:          crInformer.Lister(),
-		crbSynced:         crbInformer.Informer().HasSynced,
-		crSynced:          crInformer.Informer().HasSynced,
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
@@ -269,9 +233,6 @@ func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) 
 
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
-		ws.log.Info("failed to sync informer cache")
-	}
 	go func() {
 		ws.log.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {

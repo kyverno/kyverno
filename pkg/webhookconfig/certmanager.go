@@ -116,16 +116,6 @@ func (m *certManager) GetTLSPemPair() (*tls.PemPair, error) {
 }
 
 func (m *certManager) Run(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, m.secretInformer.Informer().HasSynced) {
-		m.log.Info("failed to sync informer cache")
-		return
-	}
-
-	m.secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    m.addSecretFunc,
-		UpdateFunc: m.updateSecretFunc,
-	})
-
 	m.log.Info("start managing certificate")
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()

@@ -27,7 +27,6 @@ import (
 	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
 	listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -51,11 +50,6 @@ type Register struct {
 	vwcLister   admlisters.ValidatingWebhookConfigurationLister
 	kDeplLister listers.DeploymentLister
 
-	// sync
-	mwcListerSynced   cache.InformerSynced
-	vwcListerSynced   cache.InformerSynced
-	kDeplListerSynced cache.InformerSynced
-
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
 	log                logr.Logger
@@ -73,9 +67,9 @@ type Register struct {
 // NewRegister creates new Register instance
 func NewRegister(
 	clientConfig *rest.Config,
-	client *client.Client,
+	client client.Interface,
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
+	kyvernoClient kyvernoclient.Interface,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
 	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer informers.DeploymentInformer,
@@ -93,9 +87,6 @@ func NewRegister(
 		mwcLister:            mwcInformer.Lister(),
 		vwcLister:            vwcInformer.Lister(),
 		kDeplLister:          kDeplInformer.Lister(),
-		mwcListerSynced:      mwcInformer.Informer().HasSynced,
-		vwcListerSynced:      vwcInformer.Informer().HasSynced,
-		kDeplListerSynced:    kDeplInformer.Informer().HasSynced,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
@@ -155,12 +146,6 @@ func (wrc *Register) Register() error {
 
 	go wrc.manage.start()
 	return nil
-}
-
-func (wrc *Register) Start() {
-	if !cache.WaitForCacheSync(wrc.stopCh, wrc.mwcListerSynced, wrc.vwcListerSynced, wrc.kDeplListerSynced) {
-		wrc.log.Info("failed to sync kyverno deployment informer cache")
-	}
 }
 
 // Check returns an error if any of the webhooks are not configured

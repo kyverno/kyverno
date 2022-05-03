@@ -39,7 +39,7 @@ var DefaultWebhookTimeout int64 = 10
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
-	client        *client.Client
+	client        client.Interface
 	kyvernoClient kyvernoclient.Interface
 
 	pInformer  kyvernoinformer.ClusterPolicyInformer
@@ -51,18 +51,10 @@ type webhookConfigManager struct {
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
 
-	// pListerSynced returns true if the cluster policy store has been synced at least once
-	pListerSynced cache.InformerSynced
-
-	// npListerSynced returns true if the namespace policy store has been synced at least once
-	npListerSynced cache.InformerSynced
-
-	mutateInformer         adminformers.MutatingWebhookConfigurationInformer
-	validateInformer       adminformers.ValidatingWebhookConfigurationInformer
-	mutateLister           admlisters.MutatingWebhookConfigurationLister
-	validateLister         admlisters.ValidatingWebhookConfigurationLister
-	mutateInformerSynced   cache.InformerSynced
-	validateInformerSynced cache.InformerSynced
+	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
+	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateLister     admlisters.MutatingWebhookConfigurationLister
+	validateLister   admlisters.ValidatingWebhookConfigurationLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -86,8 +78,8 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	client *client.Client,
-	kyvernoClient *kyvernoclient.Clientset,
+	client client.Interface,
+	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
@@ -114,14 +106,10 @@ func newWebhookConfigManager(
 
 	m.pLister = pInformer.Lister()
 	m.npLister = npInformer.Lister()
-	m.pListerSynced = pInformer.Informer().HasSynced
-	m.npListerSynced = npInformer.Informer().HasSynced
 	m.mutateInformer = mwcInformer
 	m.mutateLister = mwcInformer.Lister()
-	m.mutateInformerSynced = mwcInformer.Informer().HasSynced
 	m.validateInformer = vwcInformer
 	m.validateLister = vwcInformer.Lister()
-	m.validateInformerSynced = vwcInformer.Informer().HasSynced
 
 	return m
 }
@@ -295,11 +283,6 @@ func (m *webhookConfigManager) start() {
 
 	m.log.Info("starting")
 	defer m.log.Info("shutting down")
-
-	if !cache.WaitForCacheSync(m.stopCh, m.pListerSynced, m.npListerSynced, m.mutateInformerSynced, m.validateInformerSynced) {
-		m.log.Info("failed to sync informer cache")
-		return
-	}
 
 	m.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    m.addClusterPolicy,
@@ -800,7 +783,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 			case "ServiceProxyOptions":
 				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services/proxy"})
 			default:
-				_, gvr, err := m.client.DiscoveryClient.FindResource(gv, k)
+				_, gvr, err := m.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
 					continue
@@ -837,6 +820,10 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 
 	if utils.ContainsString(rsrcs, "pods") {
 		rsrcs = append(rsrcs, "pods/ephemeralcontainers")
+	}
+
+	if utils.ContainsString(rsrcs, "services") {
+		rsrcs = append(rsrcs, "services/status")
 	}
 
 	if len(groups) > 0 {

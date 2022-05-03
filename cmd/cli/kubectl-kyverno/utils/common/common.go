@@ -650,7 +650,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []v1.PolicyInterface, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []v1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {

@@ -1,12 +1,8 @@
 package apply
 
 import (
-	"reflect"
-
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -20,63 +16,6 @@ func generateCLIRaw(reports []*unstructured.Unstructured) (*unstructured.Unstruc
 	}
 
 	return mergeClusterReport(reports)
-}
-
-// generateToCluster updates the existing policy reports in the cluster
-// creates new report if not exist
-func generateToCluster(dClient *client.Client, reports []*unstructured.Unstructured) {
-	var clusterReports, namespaceReports []*unstructured.Unstructured
-	for _, report := range reports {
-		if report.GetNamespace() == "" {
-			clusterReports = append(clusterReports, report)
-		} else {
-			namespaceReports = append(namespaceReports, report)
-		}
-	}
-
-	if clusterReport, err := mergeClusterReport(clusterReports); err != nil {
-		log.Log.V(3).Info("failed to merge cluster report", "error", err)
-	} else {
-		if err := updateReport(dClient, clusterReport); err != nil {
-			log.Log.V(3).Info("failed to update policy report", "report", clusterReport.GetName(), "error", err)
-		}
-	}
-
-	for _, report := range namespaceReports {
-		if err := updateReport(dClient, report); err != nil {
-			log.Log.V(3).Info("failed to update policy report", "report", report.GetName(), "error", err)
-		}
-	}
-}
-
-func updateReport(dClient *client.Client, new *unstructured.Unstructured) error {
-	old, err := dClient.GetResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.GetName())
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err := dClient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
-				return err
-			}
-		}
-		return err
-	}
-
-	oldResults, _, err := unstructured.NestedSlice(old.UnstructuredContent(), "results")
-	if err != nil {
-		log.Log.V(3).Info("failed to get results entry", "error", err)
-	}
-
-	newResults, _, err := unstructured.NestedSlice(new.UnstructuredContent(), "results")
-	if err != nil {
-		log.Log.V(3).Info("failed to get results entry", "error", err)
-	}
-
-	if reflect.DeepEqual(oldResults, newResults) {
-		log.Log.V(3).Info("policy report unchanged", "name", new.GetName())
-		return nil
-	}
-
-	_, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false)
-	return err
 }
 
 func mergeClusterReport(reports []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
