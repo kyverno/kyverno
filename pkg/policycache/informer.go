@@ -8,6 +8,7 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -67,8 +68,12 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
-	p := obj.(*kyverno.ClusterPolicy)
-	c.Cache.remove(p)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyverno.ClusterPolicy)
+	if ok {
+		c.Cache.remove(p)
+	} else {
+		logger.Info("Failed to get deleted object, the deleted policy cannot be removed from the cache", "obj", obj)
+	}
 }
 
 // addNsPolicy - Add Policy to cache
@@ -89,8 +94,12 @@ func (c *Controller) updateNsPolicy(old, cur interface{}) {
 
 // deleteNsPolicy - Delete Policy from cache
 func (c *Controller) deleteNsPolicy(obj interface{}) {
-	p := obj.(*kyverno.Policy)
-	c.Cache.remove(p)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyverno.Policy)
+	if ok {
+		c.Cache.remove(p)
+	} else {
+		logger.Info("Failed to get deleted object, the deleted cluster policy cannot be removed from the cache", "obj", obj)
+	}
 }
 
 // CheckPolicySync wait until the internal policy cache is fully loaded
