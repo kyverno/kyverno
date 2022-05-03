@@ -127,44 +127,24 @@ type Interface interface {
 }
 
 // NewConfigData ...
-func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, filterK8sResources, excludeGroupRole, excludeUsername string, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) *ConfigData {
+func NewConfigData(rclient kubernetes.Interface, cmInformer informers.ConfigMapInformer, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) *ConfigData {
 	// environment var is read at start only
 	if cmNameEnv == "" {
 		logger.Info("ConfigMap name not defined in env:INIT_CONFIG: loading no default configuration")
 	}
-
 	cd := ConfigData{
 		client:                      rclient,
 		cmName:                      os.Getenv(cmNameEnv),
 		reconcilePolicyReport:       reconcilePolicyReport,
 		updateWebhookConfigurations: updateWebhookConfigurations,
+		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 	}
-
-	cd.restrictDevelopmentUsername = []string{"minikube-user", "kubernetes-admin"}
-
-	if filterK8sResources != "" {
-		logger.Info("init configuration from commandline arguments for filterK8sResources")
-		cd.initFilters(filterK8sResources)
-	}
-
-	if excludeGroupRole != "" {
-		logger.Info("init configuration from commandline arguments for excludeGroupRole")
-		cd.initRbac("excludeRoles", excludeGroupRole)
-	} else {
-		cd.initRbac("excludeRoles", "")
-	}
-
-	if excludeUsername != "" {
-		logger.Info("init configuration from commandline arguments for excludeUsername")
-		cd.initRbac("excludeUsername", excludeUsername)
-	}
-
+	cd.initRbac("excludeRoles", "")
 	cmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    cd.addCM,
 		UpdateFunc: cd.updateCM,
 		DeleteFunc: cd.deleteCM,
 	})
-
 	return &cd
 }
 
