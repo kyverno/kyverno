@@ -14,4 +14,8 @@ results:
     resource: test-pod-with-trusted-registry
     kind: Pod
     status: pass
-
+  - policy: check-image-base
+    rule: check-image-base-rule
+    resource: test-pod-with-trusted-registry
+    kind: Pod
+    status: pass
