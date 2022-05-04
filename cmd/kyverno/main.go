@@ -343,9 +343,7 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
-		kyvernoInformer.WaitForCacheSync(stopCh)
-		kubeInformer.WaitForCacheSync(stopCh)
-		kubeKyvernoInformer.WaitForCacheSync(stopCh)
+		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, configData.GetInitConfigMapName()); err != nil {
@@ -459,12 +457,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kyvernoInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	kubeKyvernoInformer.Start(stopCh)
-	kyvernoInformer.WaitForCacheSync(stopCh)
-	kubeInformer.WaitForCacheSync(stopCh)
-	kubeKyvernoInformer.WaitForCacheSync(stopCh)
+	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 	pCacheController.CheckPolicySync(stopCh)
 
