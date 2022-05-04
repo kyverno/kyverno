@@ -26,13 +26,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
-	kubeconfig           string
 	setupLog             = log.Log.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
@@ -72,10 +72,13 @@ func main() {
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// create client config
-	kubeconfig = ""
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
+	clientConfig, err := rest.InClusterConfig()
 	if err != nil {
-		setupLog.Error(err, "Failed to build kubeconfig")
+		setupLog.Error(err, "Failed to create clientConfig")
+		os.Exit(1)
+	}
+	if err := config.ConfigureClientConfig(clientConfig, clientRateLimitQPS, clientRateLimitBurst); err != nil {
+		setupLog.Error(err, "Failed to create clientConfig")
 		os.Exit(1)
 	}
 
