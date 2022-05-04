@@ -1285,31 +1285,31 @@ func Test_SemverCompare(t *testing.T) {
 	}
 }
 
-func Test_MapToObject(t *testing.T) {
+func Test_Items(t *testing.T) {
 
 	testCases := []struct {
 		resource       []byte
-		test           string
-		key            string
-		value          string
+		object         string
+		keyName        string
+		valName        string
 		expectedResult string
 	}{
 		{
-			test:           `{ "key1": "value1" }`,
-			key:            `"key"`,
-			value:          `"value"`,
+			object:         `{ "key1": "value1" }`,
+			keyName:        `"key"`,
+			valName:        `"value"`,
 			expectedResult: `[{ "key": "key1", "value": "value1" }]`,
 		},
 		{
-			test:           `{ "key1": "value1", "key2": "value2" }`,
-			key:            `"key"`,
-			value:          `"value"`,
+			object:         `{ "key1": "value1", "key2": "value2" }`,
+			keyName:        `"key"`,
+			valName:        `"value"`,
 			expectedResult: `[{ "key": "key1", "value": "value1" }, { "key": "key2", "value": "value2" }]`,
 		},
 		{
-			test:           `{ "key1": "value1", "key2": "value2" }`,
-			key:            `"myKey"`,
-			value:          `"myValue"`,
+			object:         `{ "key1": "value1", "key2": "value2" }`,
+			keyName:        `"myKey"`,
+			valName:        `"myValue"`,
 			expectedResult: `[{ "myKey": "key1", "myValue": "value1" }, { "myKey": "key2", "myValue": "value2" }]`,
 		},
 	}
@@ -1317,7 +1317,7 @@ func Test_MapToObject(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 
-			query, err := New("items(`" + tc.test + "`,`" + tc.key + "`,`" + tc.value + "`)")
+			query, err := New("items(`" + tc.object + "`,`" + tc.keyName + "`,`" + tc.valName + "`)")
 			assert.NilError(t, err)
 
 			res, err := query.Search("")
