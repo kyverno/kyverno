@@ -16,7 +16,7 @@ type ImageVerificationMetadata struct {
 
 func (ivm *ImageVerificationMetadata) add(image string, verified bool) {
 	if ivm.Data == nil {
-		ivm.Data = make(map[string]bool, 0)
+		ivm.Data = make(map[string]bool)
 	}
 
 	ivm.Data[image] = verified

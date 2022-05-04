@@ -64,7 +64,8 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 		if err != nil {
 			logger.Error(err, "failed to create image verification annotation patches")
 		} else {
-			patches = append(annotationPatches)
+			// add annotation patches first
+			patches = append(annotationPatches, patches...)
 		}
 	}
 

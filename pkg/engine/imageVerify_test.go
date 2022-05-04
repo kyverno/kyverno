@@ -534,6 +534,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 
 	assert.Assert(t, verifiedImages != nil)
+	assert.Assert(t, verifiedImages.Data != nil)
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.isVerified(image), true)
 
