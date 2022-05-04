@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"gotest.tools/assert"
 )
 
@@ -533,7 +533,7 @@ func Test_MarkImageVerified(t *testing.T) {
 
 	ruleResp := &response.RuleResponse{Status: response.RuleStatusPass}
 	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
-	imageInfo := kubeutils.ImageInfo{}
+	imageInfo := apiutils.ImageInfo{}
 	imageInfo.Name = "nginx"
 
 	iv.markImageVerified(imageVerifyRule, ruleResp, digest, imageInfo)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -54,13 +53,12 @@ type Interface interface {
 type client struct {
 	client          dynamic.Interface
 	discoveryClient IDiscovery
-	log             logr.Logger
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
 }
 
 // NewClient creates new instance of client
-func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}, log logr.Logger) (Interface, error) {
+func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -73,12 +71,10 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
-		log:          log.WithName("dclient"),
 	}
 	// Set discovery client
 	discoveryClient := &serverPreferredResources{
 		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
-		log:          client.log,
 	}
 	// client will invalidate registered resources cache every x seconds,
 	// As there is no way to identify if the registered resource is available or not
