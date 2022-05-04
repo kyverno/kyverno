@@ -1290,22 +1290,34 @@ func Test_MapToObject(t *testing.T) {
 	testCases := []struct {
 		resource       []byte
 		test           string
+		key            string
+		value          string
 		expectedResult string
 	}{
 		{
 			test:           `{ "key1": "value1" }`,
-			expectedResult: `[{ "key1": "value1" }]`,
+			key:            `"key"`,
+			value:          `"value"`,
+			expectedResult: `[{ "key": "key1", "value": "value1" }]`,
 		},
 		{
 			test:           `{ "key1": "value1", "key2": "value2" }`,
-			expectedResult: `[{ "key1": "value1" }, { "key2": "value2" }]`,
+			key:            `"key"`,
+			value:          `"value"`,
+			expectedResult: `[{ "key": "key1", "value": "value1" }, { "key": "key2", "value": "value2" }]`,
+		},
+		{
+			test:           `{ "key1": "value1", "key2": "value2" }`,
+			key:            `"myKey"`,
+			value:          `"myValue"`,
+			expectedResult: `[{ "myKey": "key1", "myValue": "value1" }, { "myKey": "key2", "myValue": "value2" }]`,
 		},
 	}
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
 
-			query, err := New("map_to_object(`" + tc.test + "`)")
+			query, err := New("items(`" + tc.test + "`,`" + tc.key + "`,`" + tc.value + "`)")
 			assert.NilError(t, err)
 
 			res, err := query.Search("")

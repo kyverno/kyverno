@@ -62,7 +62,7 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
-	mapToObject            = "map_to_object"
+	items                  = "items"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -370,11 +370,13 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: mapToObject,
+			Entry: &gojmespath.FunctionEntry{Name: items,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpObject}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
 				},
-				Handler: jpMapToObject,
+				Handler: jpItems,
 			},
 			ReturnType: []JpType{JpArray},
 			Note:       "converts a map to an array of jpObjects where each key:value is an item in the array",
@@ -806,17 +808,26 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	return output, err
 }
 
-func jpMapToObject(arguments []interface{}) (interface{}, error) {
+func jpItems(arguments []interface{}) (interface{}, error) {
 	input, ok := arguments[0].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
+	}
+	keyName, ok := arguments[1].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "String")
+	}
+	valName, ok := arguments[2].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 2, "String")
 	}
 
 	arrayOfObj := make([]map[string]interface{}, 0)
 
 	for key, value := range input {
 		m := make(map[string]interface{})
-		m[key] = value
+		m[keyName] = key
+		m[valName] = value
 		arrayOfObj = append(arrayOfObj, m)
 	}
 
