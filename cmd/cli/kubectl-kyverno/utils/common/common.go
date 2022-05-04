@@ -501,7 +501,7 @@ OuterLoop:
 		}
 	}
 
-	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		updateResultCounts(policy, verifyImageResponse, resPath, rc)

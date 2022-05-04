@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse {
+func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
 	resp := &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
 
@@ -54,6 +54,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 		}
 	}
 
+	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
 	for i := range rules {
 		rule := &rules[i]
@@ -96,6 +97,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 			policyContext: policyContext,
 			rule:          ruleCopy,
 			resp:          resp,
+			ivm:           ivm,
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
@@ -103,7 +105,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 		}
 	}
 
-	return resp
+	return resp, ivm
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
@@ -139,14 +141,17 @@ type imageVerifier struct {
 	policyContext *PolicyContext
 	rule          *v1.Rule
 	resp          *response.EngineResponse
+	ivm           *ImageVerificationMetadata
 }
 
+// verify applies policy rules to each matching image. The policy rule results and annotation patches are
+// added to tme imageVerifier `resp` and `ivm` fields.
 func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]apiutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
 	for _, infoMap := range images {
-		for imageKey, imageInfo := range infoMap {
+		for _, imageInfo := range infoMap {
 			image := imageInfo.String()
 
 			if !imageMatches(image, imageVerify.ImageReferences) {
@@ -154,9 +159,9 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				continue
 			}
 
-			if hasImageVerifiedAnnotationChanged(imageKey, iv.policyContext) {
-				msg := "kyverno.io annotations cannot be changed"
-				iv.logger.Info("image verification error", "key", imageKey, "reason", msg)
+			if hasImageVerifiedAnnotationChanged(iv.policyContext) {
+				msg := imageVerifyAnnotationKey + " annotation cannot be changed"
+				iv.logger.Info("image verification error",  "reason", msg)
 				ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 				incrementAppliedCount(iv.resp)
@@ -192,12 +197,17 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 
 					ruleResp.Patches = append(ruleResp.Patches, patch)
 					imageInfo.Digest = retrievedDigest
+					image = imageInfo.String()
 					digest = retrievedDigest
 				}
 			}
 
 			if ruleResp != nil {
-				ruleResp = iv.markImageVerified(imageVerify, ruleResp, imageKey, imageInfo)
+				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+					verified := ruleResp.Status == response.RuleStatusPass
+					iv.ivm.add(image, verified)
+				}
+
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 				incrementAppliedCount(iv.resp)
 			}
@@ -228,86 +238,16 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.Im
 	return patch, digest, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, name string, imageInfo apiutils.ImageInfo) *response.RuleResponse {
-	if len(imageVerify.Attestors) == 0 && len(imageVerify.Attestations) == 0 {
-		iv.logger.V(4).Info("skip adding image verification metadata", "reason", "rule with no attestors or attestations")
-		return ruleResp
-	}
-
-	if imageVerify.Required {
-		verified := ruleResp.Status == response.RuleStatusPass
-		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
-		patches, err := iv.makeImageVerifiedPatches(imageInfo, name, verified, hasAnnotations)
-		if err != nil {
-			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
-		} else {
-			ruleResp.Patches = append(ruleResp.Patches, patches...)
-		}
-	}
-
-	return ruleResp
-}
-
-func hasImageVerifiedAnnotationChanged(name string, ctx *PolicyContext) bool {
+func hasImageVerifiedAnnotationChanged(ctx *PolicyContext) bool {
 	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
 		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
 	}
 
-	key := makeAnnotationKey(name)
+	key := imageVerifyAnnotationKey
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
-	return !reflect.DeepEqual(newValue, oldValue)
-}
-
-func (iv *imageVerifier) makeImageVerifiedPatches(imageInfo apiutils.ImageInfo, name string, verified, hasAnnotations bool) ([][]byte, error) {
-	var patches [][]byte
-	if !hasAnnotations {
-		var addAnnotationsPatch = make(map[string]interface{})
-		addAnnotationsPatch["op"] = "add"
-		addAnnotationsPatch["path"] = "/metadata/annotations"
-		addAnnotationsPatch["value"] = map[string]string{}
-		patchBytes, err := json.Marshal(addAnnotationsPatch)
-		if err != nil {
-			return nil, err
-		}
-
-		iv.logger.V(4).Info("adding annotation patch", "patch", string(patchBytes))
-		patches = append(patches, patchBytes)
-	}
-
-	imageData := &ImageVerificationMetadata{
-		Verified: verified,
-		Image:    imageInfo.String(),
-	}
-
-	data, err := json.Marshal(imageData)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", imageData)
-	}
-
-	var addKeyPatch = make(map[string]interface{})
-	addKeyPatch["op"] = "add"
-	addKeyPatch["path"] = makeAnnotationKeyForJSONPatch(name)
-	addKeyPatch["value"] = string(data)
-
-	patchBytes, err := json.Marshal(addKeyPatch)
-	if err != nil {
-		return nil, err
-	}
-
-	iv.logger.V(4).Info("adding image verification patch", "patch", string(patchBytes))
-	patches = append(patches, patchBytes)
-	return patches, nil
-}
-
-func makeAnnotationKeyForJSONPatch(imageName string) string {
-	key := makeAnnotationKey(imageName)
-	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")
-}
-
-func makeAnnotationKey(imageName string) string {
-	return fmt.Sprintf("images.kyverno.io/%s", imageName)
+	return newValue != oldValue
 }
 
 func fetchImageDigest(ref string) (string, error) {

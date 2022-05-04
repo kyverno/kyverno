@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 
@@ -76,7 +75,7 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, n
 	}
 
 	if imageVerify.Required && !reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx, name, imageInfo, log)
+		verified, err := isImageVerified(ctx.NewResource, image, log)
 		if err != nil {
 			return err
 		}
@@ -89,44 +88,28 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, n
 	return nil
 }
 
-type ImageVerificationMetadata struct {
-	Image    string `json:"image,omitempty"`
-	Verified bool   `json:"verified,omitempty"`
-}
-
-func isImageVerified(ctx *PolicyContext, name string, imageInfo apiutils.ImageInfo, log logr.Logger) (bool, error) {
-	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		return false, errors.Errorf("resource does not exist")
+func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
+	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+		return false, errors.Errorf("nil resource")
 	}
 
-	annotations := ctx.NewResource.GetAnnotations()
+	annotations := resource.GetAnnotations()
 	if len(annotations) == 0 {
 		return false, nil
 	}
 
-	key := makeAnnotationKey(name)
+	key := imageVerifyAnnotationKey
 	data, ok := annotations[key]
 	if !ok {
 		log.V(2).Info("missing image metadata in annotation", "key", key)
 		return false, errors.Errorf("image is not verified")
 	}
 
-	var ivm ImageVerificationMetadata
-	if err := json.Unmarshal([]byte(data), &ivm); err != nil {
+	ivm, err := parseImageMetadata(data)
+	if err != nil {
 		log.Error(err, "failed to parse image verification metadata", "data", data)
 		return false, errors.Wrapf(err, "failed to parse image metadata")
 	}
 
-	if !ivm.Verified {
-		return false, nil
-	}
-
-	expected := ivm.Image
-	received := imageInfo.String()
-	if expected != received {
-		log.V(2).Info("image mismatch", "expected", expected, "received", received)
-		return false, errors.Errorf("image %s does not match %s", received, expected)
-	}
-
-	return true, nil
+	return ivm.isVerified(image), nil
 }

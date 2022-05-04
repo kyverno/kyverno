@@ -3,18 +3,16 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-	"testing"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"strings"
+	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"gotest.tools/assert"
 )
 
@@ -141,13 +139,14 @@ var payloads = [][]byte{
 
 func Test_CosignMockAttest(t *testing.T) {
 	policyContext := buildContext(t, testPolicyGood, testResource, "")
-
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", payloads)
 	assert.NilError(t, err)
 
-	er := VerifyAndPatchImages(policyContext)
+	er, ivm := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
+	assert.Equal(t, ivm.IsEmpty(), false)
+	assert.Equal(t, ivm.isVerified("ghcr.io/jimbugwadia/pause2:latest"), true)
 }
 
 func Test_CosignMockAttest_fail(t *testing.T) {
@@ -155,7 +154,7 @@ func Test_CosignMockAttest_fail(t *testing.T) {
 	err := cosign.SetMock("ghcr.io/jimbugwadia/pause2:latest", payloads)
 	assert.NilError(t, err)
 
-	er := VerifyAndPatchImages(policyContext)
+	er, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 }
@@ -321,7 +320,7 @@ var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcD
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
 	cosign.ClearMock()
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
@@ -330,7 +329,7 @@ func Test_SignatureUnsigned(t *testing.T) {
 	cosign.ClearMock()
 	unsigned := strings.Replace(testSampleResource, ":signed", ":unsigned", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, unsigned, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
@@ -339,7 +338,7 @@ func Test_SignatureWrongKey(t *testing.T) {
 	cosign.ClearMock()
 	otherKey := strings.Replace(testSampleResource, ":signed", ":signed-by-someone-else", -1)
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, otherKey, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
@@ -350,7 +349,7 @@ func Test_SignaturesMultiKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
@@ -360,7 +359,7 @@ func Test_SignaturesMultiKeyFail(t *testing.T) {
 	policy := strings.Replace(testSampleMultipleKeyPolicy, "KEY1", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
@@ -371,7 +370,7 @@ func Test_SignaturesMultiKeyOneGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass, err.PolicyResponse.Rules[0].Message)
 }
@@ -382,7 +381,7 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
 }
@@ -455,7 +454,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testVerifyImageKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err := VerifyAndPatchImages(policyContext)
+	err, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 
@@ -463,7 +462,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "0", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err = VerifyAndPatchImages(policyContext)
+	err, _ = VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 
@@ -471,7 +470,7 @@ func Test_NestedAttestors(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext = buildContext(t, policy, testSampleResource, "")
-	err = VerifyAndPatchImages(policyContext)
+	err, _ = VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
 	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 }
@@ -500,70 +499,61 @@ func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
 }
 
 func Test_ChangedAnnotation(t *testing.T) {
-	name := "nginx"
-	annotationKey := makeAnnotationKey(name)
+	annotationKey := imageVerifyAnnotationKey
 	annotationNew := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "true")
 	newResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationNew)
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(name, policyContext)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext)
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(name, policyContext)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext)
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(name, policyContext)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext)
 	assert.Equal(t, hasChanged, true)
 }
 
 func Test_MarkImageVerified(t *testing.T) {
-	imageVerifyRule := kyverno.ImageVerification{Required: true}
-	iv := &imageVerifier{
-		logger:        log.Log,
-		policyContext: buildContext(t, testPolicyGood, testResource, ""),
-		rule:          &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}},
-		resp:          &response.EngineResponse{},
-	}
-
-	ruleResp := &response.RuleResponse{Status: response.RuleStatusPass}
-	digest := "sha256:859ab6768a6f26a79bc42b231664111317d095a4f04e4b6fe79ce37b3d199097"
-	imageInfo := apiutils.ImageInfo{}
-	imageInfo.Name = "nginx"
-	imageInfo.Digest = digest
-	imageInfo.Registry = "docker.io"
-	imageInfo.Path = "nginx"
-	imageInfo.Tag = "v2"
-	container := "nginx"
-
-	iv.markImageVerified(imageVerifyRule, ruleResp, container, imageInfo)
-	assert.Equal(t, len(ruleResp.Patches), 2)
-
-	u := applyPatches(t, ruleResp)
-	key := makeAnnotationKey(imageInfo.Name)
-	value := u.GetAnnotations()[key]
-
-	var ivm ImageVerificationMetadata
-	err := json.Unmarshal([]byte(value), &ivm)
+	image := "ghcr.io/jimbugwadia/pause2:latest"
+	cosign.ClearMock()
+	policyContext := buildContext(t, testPolicyGood, testResource, "")
+	err := cosign.SetMock(image, payloads)
 	assert.NilError(t, err)
 
-	assert.Equal(t, ivm.Verified, true)
-	assert.Equal(t, ivm.Image, digest)
+	engineResponse, verifiedImages := VerifyAndPatchImages(policyContext)
+	assert.Assert(t, engineResponse != nil)
+	assert.Equal(t, len(engineResponse.PolicyResponse.Rules), 1)
+	assert.Equal(t, engineResponse.PolicyResponse.Rules[0].Status, response.RuleStatusPass)
 
-	ruleResp.Patches = nil
-	imageVerifyRule = kyverno.ImageVerification{Required: false}
-	iv.rule = &kyverno.Rule{VerifyImages: []kyverno.ImageVerification{imageVerifyRule}}
-	iv.markImageVerified(imageVerifyRule, ruleResp, container, imageInfo)
-	assert.Equal(t, len(ruleResp.Patches), 0)
+	assert.Assert(t, verifiedImages != nil)
+	assert.Equal(t, len(verifiedImages.Data), 1)
+	assert.Equal(t, verifiedImages.isVerified(image), true)
+
+	patches, err := verifiedImages.Patches(false, log.Log)
+	assert.NilError(t, err)
+	assert.Equal(t, len(patches), 2)
+
+	resource := applyPatches(t, patches)
+	patchedAnnotations := resource.GetAnnotations()
+	assert.Equal(t, len(patchedAnnotations), 1)
+
+	json := patchedAnnotations[imageVerifyAnnotationKey]
+	assert.Assert(t, json != "")
+
+	verified, err := isImageVerified(resource, image, log.Log)
+	assert.NilError(t, err)
+	assert.Equal(t, verified, true)
 }
 
-func applyPatches(t *testing.T, ruleResp *response.RuleResponse) unstructured.Unstructured {
-	patchedResource, err := utils.ApplyPatches([]byte(testResource), ruleResp.Patches)
+func applyPatches(t *testing.T, patches [][]byte) unstructured.Unstructured {
+	patchedResource, err := utils.ApplyPatches([]byte(testResource), patches)
 	assert.NilError(t, err)
 	assert.Assert(t, patchedResource != nil)
 

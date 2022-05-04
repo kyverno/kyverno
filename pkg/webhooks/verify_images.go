@@ -36,18 +36,20 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 
 	var engineResponses []*response.EngineResponse
 	var patches [][]byte
+	verifiedImageData := &engine.ImageVerificationMetadata{}
 	for _, p := range policies {
 		policyContext.Policy = p
-		resp := engine.VerifyAndPatchImages(policyContext)
+		resp, ivm := engine.VerifyAndPatchImages(policyContext)
+
 		engineResponses = append(engineResponses, resp)
 		patches = append(patches, resp.GetPatches()...)
+		verifiedImageData.Merge(ivm)
 	}
 
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	ws.prGenerator.Add(prInfos...)
 
 	blocked := toBlockResource(engineResponses, logger)
-
 	events := generateEvents(engineResponses, blocked, logger)
 	ws.eventGen.Add(events...)
 
@@ -56,5 +58,20 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 		return false, getEnforceFailureErrorMsg(engineResponses), nil
 	}
 
+	if !verifiedImageData.IsEmpty() {
+		hasAnnotations := hasAnnotations(policyContext)
+		annotationPatches, err  := verifiedImageData.Patches(hasAnnotations, logger)
+		if err != nil {
+			logger.Error(err, "failed to create image verification annotation patches")
+		} else {
+			patches = append(annotationPatches)
+		}
+	}
+
 	return true, "", jsonutils.JoinPatches(patches...)
+}
+
+func hasAnnotations(context *engine.PolicyContext) bool {
+	annotations := context.NewResource.GetAnnotations()
+	return len(annotations) != 0
 }
