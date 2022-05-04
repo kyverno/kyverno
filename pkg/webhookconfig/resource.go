@@ -1,13 +1,14 @@
 package webhookconfig
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (wrc *Register) defaultResourceWebhookRule() admregapi.Rule {
@@ -27,7 +28,7 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.MutatingWebhookServicePath)
 	logger.V(4).Info("Debug MutatingWebhookConfig registered", "url", url)
 	webhook := &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.MutatingWebhook{
@@ -61,9 +62,9 @@ func (wrc *Register) constructDefaultDebugMutatingWebhookConfig(caData []byte) *
 
 func (wrc *Register) constructDefaultMutatingWebhookConfig(caData []byte) *admregapi.MutatingWebhookConfiguration {
 	webhook := &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.MutatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
+			OwnerReferences: []metav1.OwnerReference{
 				wrc.constructOwner(),
 			},
 		},
@@ -115,8 +116,7 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 		return
 	}
 
-	// delete webhook configuration
-	err := wrc.client.DeleteResource("", kindMutating, "", configName, false)
+	err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
 	if errorsapi.IsNotFound(err) {
 		logger.V(4).Info("webhook configuration not found")
 		return
@@ -134,7 +134,7 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 	url := fmt.Sprintf("https://%s%s", wrc.serverIP, config.ValidatingWebhookServicePath)
 
 	webhook := &admregapi.ValidatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationDebugName,
 		},
 		Webhooks: []admregapi.ValidatingWebhook{
@@ -168,9 +168,9 @@ func (wrc *Register) constructDefaultDebugValidatingWebhookConfig(caData []byte)
 
 func (wrc *Register) constructDefaultValidatingWebhookConfig(caData []byte) *admregapi.ValidatingWebhookConfiguration {
 	webhook := &admregapi.ValidatingWebhookConfiguration{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name: config.ValidatingWebhookConfigurationName,
-			OwnerReferences: []v1.OwnerReference{
+			OwnerReferences: []metav1.OwnerReference{
 				wrc.constructOwner(),
 			},
 		},
@@ -223,7 +223,7 @@ func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitG
 		return
 	}
 
-	err := wrc.client.DeleteResource("", kindValidating, "", configName, false)
+	err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
 	if errorsapi.IsNotFound(err) {
 		logger.V(5).Info("webhook configuration not found")
 		return

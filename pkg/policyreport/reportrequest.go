@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -28,7 +27,7 @@ const workQueueRetryLimit = 10
 
 // Generator creates report request
 type Generator struct {
-	dclient *dclient.Client
+	dclient dclient.Interface
 
 	reportChangeRequestLister requestlister.ReportChangeRequestLister
 
@@ -40,18 +39,6 @@ type Generator struct {
 	// polLister can list/get namespace policy from the shared informer's store
 	polLister kyvernolister.PolicyLister
 
-	// returns true if the cluster report request store has been synced at least once
-	reportReqSynced cache.InformerSynced
-
-	// returns true if the namespaced report request store has been synced at at least once
-	clusterReportReqSynced cache.InformerSynced
-
-	// cpolListerSynced returns true if the cluster policy store has been synced at least once
-	cpolListerSynced cache.InformerSynced
-
-	// polListerSynced returns true if the namespace policy store has been synced at least once
-	polListerSynced cache.InformerSynced
-
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
 
@@ -61,8 +48,8 @@ type Generator struct {
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
-func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
-	dclient *dclient.Client,
+func NewReportChangeRequestGenerator(client policyreportclient.Interface,
+	dclient dclient.Interface,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	cpolInformer kyvernoinformer.ClusterPolicyInformer,
@@ -71,13 +58,9 @@ func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
 	gen := Generator{
 		dclient:                          dclient,
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
-		clusterReportReqSynced:           clusterReportReqInformer.Informer().HasSynced,
 		reportChangeRequestLister:        reportReqInformer.Lister(),
-		reportReqSynced:                  reportReqInformer.Informer().HasSynced,
 		cpolLister:                       cpolInformer.Lister(),
-		cpolListerSynced:                 cpolInformer.Informer().HasSynced,
 		polLister:                        polInformer.Lister(),
-		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
@@ -177,10 +160,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, gen.reportReqSynced, gen.clusterReportReqSynced, gen.cpolListerSynced, gen.polListerSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)

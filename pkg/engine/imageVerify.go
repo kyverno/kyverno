@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,7 +21,7 @@ import (
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -140,7 +139,7 @@ type imageVerifier struct {
 	resp          *response.EngineResponse
 }
 
-func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]kubeutils.ImageInfo) {
+func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]apiutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
 
@@ -171,8 +170,8 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				}
 			}
 
-			if imageVerify.MutateDigest && imageInfo.Digest != "" {
-				patch, err := iv.handleDigest(digest, imageInfo)
+			if imageVerify.MutateDigest && imageInfo.Digest == "" {
+				patch, err := iv.handleMutateDigest(digest, imageInfo)
 				if err != nil {
 					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
 				}
@@ -194,7 +193,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	}
 }
 
-func (iv *imageVerifier) handleDigest(digest string, imageInfo kubeutils.ImageInfo) ([]byte, error) {
+func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.ImageInfo) ([]byte, error) {
 	if digest == "" {
 		digest, err := fetchImageDigest(imageInfo.String())
 		if err != nil {
@@ -212,7 +211,7 @@ func (iv *imageVerifier) handleDigest(digest string, imageInfo kubeutils.ImageIn
 	return patch, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo apiutils.ImageInfo) *response.RuleResponse {
 	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
 		msg := "changes to `images.kyverno.io` annotation are not allowed"
 		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
@@ -220,11 +219,12 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 
 	if imageVerify.Required {
 		isImageVerified := ruleResp.Status == response.RuleStatusPass
-		patch, err := makeImageVerifiedPatch(imageInfo, digest, isImageVerified)
-		if err == nil {
-			ruleResp.Patches = [][]byte{patch}
-		} else {
+		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
+		patches, err := makeImageVerifiedPatches(imageInfo, digest, isImageVerified, hasAnnotations)
+		if err != nil {
 			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
+		} else {
+			ruleResp.Patches = append(ruleResp.Patches, patches...)
 		}
 	}
 
@@ -232,42 +232,64 @@ func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, rul
 }
 
 func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
-	if reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) ||
-		reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) {
+	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
+		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
 	}
 
-	key := makeAnnotationKey(name, digest)
+	key := makeAnnotationKey(name)
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
 	return newValue != oldValue
 }
 
-func makeImageVerifiedPatch(imageInfo kubeutils.ImageInfo, digest string, verified bool) ([]byte, error) {
-	var patch = make(map[string]interface{})
-	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name, digest)
-	patch["op"] = "add"
-	patch["path"] = annotationKey
-	patch["value"] = strconv.FormatBool(verified)
-	return json.Marshal(patch)
+func makeImageVerifiedPatches(imageInfo apiutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
+	var patches [][]byte
+	if !hasAnnotations {
+		var addAnnotationsPatch = make(map[string]interface{})
+		addAnnotationsPatch["op"] = "add"
+		addAnnotationsPatch["path"] = "/metadata/annotations"
+		addAnnotationsPatch["value"] = map[string]string{}
+		patchBytes, err := json.Marshal(addAnnotationsPatch)
+		if err != nil {
+			return nil, err
+		}
+
+		patches = append(patches, patchBytes)
+	}
+
+	imageData := &ImageVerificationMetadata{
+		Verified: verified,
+		Digest:   digest,
+	}
+
+	data, err := json.Marshal(imageData)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", imageData)
+	}
+
+	var addKeyPatch = make(map[string]interface{})
+	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name)
+	addKeyPatch["op"] = "add"
+	addKeyPatch["path"] = annotationKey
+	addKeyPatch["value"] = string(data)
+
+	patchBytes, err := json.Marshal(addKeyPatch)
+	if err != nil {
+		return nil, err
+	}
+
+	patches = append(patches, patchBytes)
+	return patches, err
 }
 
-func makeAnnotationKeyForJMESPath(imageName, imageDigest string) string {
-	key := makeAnnotationKey(imageName, imageDigest)
-	return "request.object.metadata.annotations." + `"` + key + `"`
-}
-
-func makeAnnotationKeyForJSONPatch(imageName, imageDigest string) string {
-	key := makeAnnotationKey(imageName, imageDigest)
+func makeAnnotationKeyForJSONPatch(imageName string) string {
+	key := makeAnnotationKey(imageName)
 	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")
 }
 
-func makeAnnotationKey(imageName, imageDigest string) string {
-	if imageDigest == "" {
-		return fmt.Sprintf("images.kyverno.io/%s", imageName)
-	}
-
-	return fmt.Sprintf("images.kyverno.io/%s/%s/%s", imageName, imageDigest[0:6], imageDigest[7:])
+func makeAnnotationKey(imageName string) string {
+	return fmt.Sprintf("images.kyverno.io/%s", imageName)
 }
 
 func fetchImageDigest(ref string) (string, error) {
@@ -292,7 +314,7 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) (*response.RuleResponse, string) {
+func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
 	image := imageInfo.String()
 	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
@@ -415,7 +437,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		ImageRef:    image,
 		Repository:  imageVerify.Repository,
 		Annotations: imageVerify.Annotations,
-		Log:         iv.logger,
 	}
 
 	if imageVerify.Roots != "" {
@@ -458,7 +479,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 	return opts, path
 }
 
-func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, error) {
+func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
 	var patch = make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = imageInfo.Pointer
@@ -466,11 +487,11 @@ func makeAddDigestPatch(imageInfo kubeutils.ImageInfo, digest string) ([]byte, e
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo kubeutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) *response.RuleResponse {
 	image := imageInfo.String()
 	start := time.Now()
 
-	statements, err := cosign.FetchAttestations(image, imageVerify, iv.logger)
+	statements, err := cosign.FetchAttestations(image, imageVerify)
 	if err != nil {
 		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
 		return ruleError(iv.rule, response.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
@@ -518,7 +539,7 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 	return results
 }
 
-func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img kubeutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img apiutils.ImageInfo) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}

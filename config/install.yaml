@@ -870,7 +870,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -3333,7 +3333,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -6690,7 +6690,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -9154,7 +9154,7 @@ spec:
                             path:
                               description: Path is the path to the object containing
                                 the image field in a custom resource. It should be
-                                slash-separated. Each slash-separated key must by
+                                slash-separated. Each slash-separated key must be
                                 a valid YAML key or a wildcard '*'. Wildcard keys
                                 are expanded in case of arrays or objects.
                               type: string
@@ -12266,7 +12266,6 @@ spec:
             weight: 1
       containers:
       - args:
-        - --filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]
         - -v=2
         - --autogenInternals=false
         env:

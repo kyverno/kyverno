@@ -47,23 +47,12 @@ const (
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
 	// When the issue is closed, we should use TypeMeta struct instead of this constants
 
-	// DeploymentKind define the default deployment resource kind
-	DeploymentKind = "Deployment"
-
-	// DeploymentAPIVersion define the default deployment resource apiVersion
-	DeploymentAPIVersion = "apps/v1"
-
-	// NamespaceKind define the default namespace resource kind
-	NamespaceKind = "Namespace"
-
-	// NamespaceAPIVersion define the default namespace resource apiVersion
-	NamespaceAPIVersion = "v1"
-
 	// ClusterRoleAPIVersion define the default clusterrole resource apiVersion
 	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
 
 	// ClusterRoleKind define the default clusterrole resource kind
 	ClusterRoleKind = "ClusterRole"
+
 	//MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
 
@@ -101,13 +90,11 @@ func CreateClientConfig(kubeconfig string, qps float64, burst int) (*rest.Config
 	if err != nil {
 		return nil, err
 	}
-
 	if qps > math.MaxFloat32 {
 		return nil, fmt.Errorf("client rate limit QPS must not be higher than %e", math.MaxFloat32)
 	}
 	clientConfig.Burst = burst
 	clientConfig.QPS = float32(qps)
-
 	return clientConfig, nil
 }
 

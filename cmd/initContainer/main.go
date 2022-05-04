@@ -59,7 +59,7 @@ const (
 
 func main() {
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	log.SetLogger(klogr.New().WithCallDepth(1))
 	// arguments
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
@@ -81,13 +81,13 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
-	kubeClient, err := utils.NewKubeClient(clientConfig)
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
@@ -232,7 +232,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	return err
 }
 
-func executeRequest(client *client.Client, kyvernoclient *kyvernoclient.Clientset, req request) error {
+func executeRequest(client client.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
 	case policyReportKind:
 		return removePolicyReport(client, req.kind)
@@ -283,7 +283,7 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, kyvernoclient *kyvernoclient.Clientset, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client client.Interface, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
@@ -337,7 +337,7 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 	return out
 }
 
-func removeClusterPolicyReport(client *client.Client, kind string) error {
+func removeClusterPolicyReport(client client.Interface, kind string) error {
 	logger := log.Log.WithName("removeClusterPolicyReport")
 
 	cpolrs, err := client.ListResource("", kind, "", policyreport.LabelSelector)
@@ -352,7 +352,7 @@ func removeClusterPolicyReport(client *client.Client, kind string) error {
 	return nil
 }
 
-func removePolicyReport(client *client.Client, kind string) error {
+func removePolicyReport(client client.Interface, kind string) error {
 	logger := log.Log.WithName("removePolicyReport")
 
 	polrs, err := client.ListResource("", kind, metav1.NamespaceAll, policyreport.LabelSelector)
@@ -368,7 +368,7 @@ func removePolicyReport(client *client.Client, kind string) error {
 	return nil
 }
 
-func addClusterPolicyReportSelectorLabel(client *client.Client) {
+func addClusterPolicyReportSelectorLabel(client client.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
 	cpolrs, err := client.ListResource("", clusterPolicyReportKind, "", updateLabelSelector)
@@ -384,7 +384,7 @@ func addClusterPolicyReportSelectorLabel(client *client.Client) {
 	}
 }
 
-func addPolicyReportSelectorLabel(client *client.Client) {
+func addPolicyReportSelectorLabel(client client.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
 	polrs, err := client.ListResource("", policyReportKind, metav1.NamespaceAll, updateLabelSelector)
@@ -400,7 +400,7 @@ func addPolicyReportSelectorLabel(client *client.Client) {
 	}
 }
 
-func removeReportChangeRequest(client *client.Client, kind string) error {
+func removeReportChangeRequest(client client.Interface, kind string) error {
 	logger := log.Log.WithName("removeReportChangeRequest")
 
 	ns := config.KyvernoNamespace
@@ -417,7 +417,7 @@ func removeReportChangeRequest(client *client.Client, kind string) error {
 	return nil
 }
 
-func removeClusterReportChangeRequest(client *client.Client, kind string) error {
+func removeClusterReportChangeRequest(client client.Interface, kind string) error {
 	crcrList, err := client.ListResource("", kind, "", nil)
 	if err != nil {
 		log.Log.Error(err, "failed to list clusterReportChangeRequest")
@@ -430,7 +430,7 @@ func removeClusterReportChangeRequest(client *client.Client, kind string) error 
 	return nil
 }
 
-func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
+func deleteResource(client client.Interface, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
@@ -440,7 +440,7 @@ func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
 	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
 }
 
-func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) {
+func addSelectorLabel(client client.Interface, apiversion, kind, ns, name string) {
 	res, err := client.GetResource(apiversion, kind, ns, name)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
@@ -464,7 +464,7 @@ func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) 
 	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
 }
 
-func convertGR(pclient *kyvernoclient.Clientset) error {
+func convertGR(pclient kyvernoclient.Interface) error {
 	logger := log.Log.WithName("convertGenerateRequest")
 
 	var errors []error
