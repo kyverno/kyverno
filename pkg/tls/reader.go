@@ -45,12 +45,15 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) (res
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
-
-	result = stlsca.Data[RootCAKey]
+	// try "tls.crt"
+	result = stlsca.Data[v1.TLSCertKey]
+	// if not there, try old "rootCA.crt"
+	if len(result) == 0 {
+		result = stlsca.Data[rootCAKey]
+	}
 	if len(result) == 0 {
 		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, stlsca.Name)
 	}
-
 	return result, nil
 }
 

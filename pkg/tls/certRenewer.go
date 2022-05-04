@@ -26,7 +26,7 @@ const (
 	MasterDeploymentUID string = "cert.kyverno.io/master-deployment-uid"
 
 	SelfSignedAnnotation    string = "self-signed-cert"
-	RootCAKey               string = "rootCA.crt"
+	rootCAKey               string = "rootCA.crt"
 	rollingUpdateAnnotation string = "update.kyverno.io/force-rolling-update"
 )
 
@@ -147,9 +147,10 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 					},
 				},
 				Data: map[string][]byte{
-					RootCAKey: caPEM.Certificate,
+					v1.TLSCertKey:       caPEM.Certificate,
+					v1.TLSPrivateKeyKey: caPEM.PrivateKey,
 				},
-				Type: v1.SecretTypeOpaque,
+				Type: v1.SecretTypeTLS,
 			}
 			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
@@ -170,9 +171,11 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	}
 
 	dataMap := map[string][]byte{
-		RootCAKey: caPEM.Certificate,
+		v1.TLSCertKey:       caPEM.Certificate,
+		v1.TLSPrivateKeyKey: caPEM.PrivateKey,
 	}
 
+	secret.Type = v1.SecretTypeTLS
 	secret.Data = dataMap
 	_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
