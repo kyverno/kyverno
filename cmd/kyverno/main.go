@@ -50,11 +50,8 @@ const resyncPeriod = 15 * time.Minute
 var (
 	//TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	filterK8sResources           string
 	kubeconfig                   string
 	serverIP                     string
-	excludeGroupRole             string
-	excludeUsername              string
 	profilePort                  string
 	metricsPort                  string
 	webhookTimeout               int
@@ -74,9 +71,6 @@ var (
 func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New().WithCallDepth(1))
-	flag.StringVar(&filterK8sResources, "filterK8sResources", "", "Resource in format [kind,namespace,name] where policy is not evaluated by the admission webhook. For example, --filterK8sResources \"[Deployment, kyverno, kyverno],[Events, *, *]\"")
-	flag.StringVar(&excludeGroupRole, "excludeGroupRole", "", "")
-	flag.StringVar(&excludeUsername, "excludeUsername", "", "")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
@@ -233,9 +227,6 @@ func main() {
 	configData := config.NewConfigData(
 		kubeClient,
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
-		filterK8sResources,
-		excludeGroupRole,
-		excludeUsername,
 		prgen.ReconcileCh,
 		webhookCfg.UpdateWebhookChan,
 	)
