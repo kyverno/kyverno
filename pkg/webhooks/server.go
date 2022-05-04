@@ -63,7 +63,7 @@ type WebhookServer struct {
 	webhookRegister *webhookconfig.Register
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Interface
+	configHandler config.Configuration
 
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
@@ -107,7 +107,7 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	configHandler config.Interface,
+	configHandler config.Configuration,
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Interface,
 	auditHandler AuditHandler,
