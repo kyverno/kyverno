@@ -87,7 +87,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kubeClient, err := utils.NewKubeClient(clientConfig)
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
