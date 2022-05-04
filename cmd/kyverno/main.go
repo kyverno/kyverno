@@ -74,7 +74,6 @@ func main() {
 	log.SetLogger(klogr.New().WithCallDepth(1))
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller")
-	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
@@ -98,6 +97,7 @@ func main() {
 
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
+	kubeconfig = ""
 	debug := serverIP != ""
 
 	// clients
