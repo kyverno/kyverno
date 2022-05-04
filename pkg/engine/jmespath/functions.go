@@ -379,7 +379,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpItems,
 			},
 			ReturnType: []JpType{JpArray},
-			Note:       "converts a map to an array of jpObjects where each key:value is an item in the array",
+			Note:       "converts a map to an array of objects where each key:value is an item in the array",
 		},
 	}
 
