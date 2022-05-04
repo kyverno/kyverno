@@ -65,7 +65,7 @@ type Controller struct {
 
 	log logr.Logger
 
-	Config config.Interface
+	Config config.Configuration
 }
 
 //NewController returns an instance of the Generate-Request Controller
@@ -79,7 +79,7 @@ func NewController(
 	eventGen event.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 ) (*Controller, error) {
 
 	c := Controller{
