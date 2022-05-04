@@ -60,7 +60,7 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 
 	if !verifiedImageData.IsEmpty() {
 		hasAnnotations := hasAnnotations(policyContext)
-		annotationPatches, err  := verifiedImageData.Patches(hasAnnotations, logger)
+		annotationPatches, err := verifiedImageData.Patches(hasAnnotations, logger)
 		if err != nil {
 			logger.Error(err, "failed to create image verification annotation patches")
 		} else {

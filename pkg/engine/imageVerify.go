@@ -161,7 +161,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 
 			if hasImageVerifiedAnnotationChanged(iv.policyContext) {
 				msg := imageVerifyAnnotationKey + " annotation cannot be changed"
-				iv.logger.Info("image verification error",  "reason", msg)
+				iv.logger.Info("image verification error", "reason", msg)
 				ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
 				incrementAppliedCount(iv.resp)

@@ -2,15 +2,16 @@ package engine
 
 import (
 	"encoding/json"
+	"strings"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"strings"
 )
 
-const imageVerifyAnnotationKey = "kyverno.io/images"
+const imageVerifyAnnotationKey = "kyverno.io/verify-images"
 
 type ImageVerificationMetadata struct {
-	Data map[string] bool `json:"data"`
+	Data map[string]bool `json:"data"`
 }
 
 func (ivm *ImageVerificationMetadata) add(image string, verified bool) {
