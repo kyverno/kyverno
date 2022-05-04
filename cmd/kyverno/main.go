@@ -40,9 +40,10 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -115,7 +116,7 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-	kubeClient, err := utils.NewKubeClient(clientConfig)
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
@@ -336,9 +337,7 @@ func main() {
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
 		certManager.InitTLSPemPair()
-		kyvernoInformer.WaitForCacheSync(stopCh)
-		kubeInformer.WaitForCacheSync(stopCh)
-		kubeKyvernoInformer.WaitForCacheSync(stopCh)
+		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, config.KyvernoConfigMapName); err != nil {
@@ -431,7 +430,7 @@ func main() {
 		go grcc.Run(1, stopCh)
 	}
 
-	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
@@ -452,12 +451,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	kyvernoInformer.Start(stopCh)
-	kubeInformer.Start(stopCh)
-	kubeKyvernoInformer.Start(stopCh)
-	kyvernoInformer.WaitForCacheSync(stopCh)
-	kubeInformer.WaitForCacheSync(stopCh)
-	kubeKyvernoInformer.WaitForCacheSync(stopCh)
+	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 	pCacheController.CheckPolicySync(stopCh)
 
