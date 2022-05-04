@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -23,7 +24,7 @@ import (
 type fixture struct {
 	t       *testing.T
 	objects []runtime.Object
-	client  *Client
+	client  Interface
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -43,12 +44,12 @@ func newFixture(t *testing.T) *fixture {
 	}
 
 	objects := []runtime.Object{
-		newUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
-		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
-		newUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
-		newUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
-		newUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		newUnstructured("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName),
+		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-foo"),
+		kubeutils.NewUnstructured("group2/version", "TheKind", "ns-foo", "name2-foo"),
+		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
+		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
+		kubeutils.NewUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
+		kubeutils.NewUnstructured("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName),
 	}
 
 	scheme := runtime.NewScheme()
@@ -88,17 +89,17 @@ func TestCRUDResource(t *testing.T) {
 		t.Errorf("DeleteResouce not working: %s", err)
 	}
 	// CreateResource
-	_, err = f.client.CreateResource("", "thekind", "ns-foo", newUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
+	_, err = f.client.CreateResource("", "thekind", "ns-foo", kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-foo1"), false)
 	if err != nil {
 		t.Errorf("CreateResource not working: %s", err)
 	}
 	//	UpdateResource
-	_, err = f.client.UpdateResource("", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
+	_, err = f.client.UpdateResource("", "thekind", "ns-foo", kubeutils.NewUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "bar"}), false)
 	if err != nil {
 		t.Errorf("UpdateResource not working: %s", err)
 	}
 	// UpdateStatusResource
-	_, err = f.client.UpdateStatusResource("", "thekind", "ns-foo", newUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
+	_, err = f.client.UpdateStatusResource("", "thekind", "ns-foo", kubeutils.NewUnstructuredWithSpec("group/version", "TheKind", "ns-foo", "name-foo1", map[string]interface{}{"foo": "status"}), false)
 	if err != nil {
 		t.Errorf("UpdateStatusResource not working: %s", err)
 	}
@@ -110,7 +111,7 @@ func TestEventInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetEventsInterface not working: %s", err)
 	}
-	_, err = iEvent.List(context.TODO(), meta.ListOptions{})
+	_, err = iEvent.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing Event interface not working: %s", err)
 	}
@@ -121,7 +122,7 @@ func TestCSRInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetCSRInterface not working: %s", err)
 	}
-	_, err = iCSR.List(context.TODO(), meta.ListOptions{})
+	_, err = iCSR.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		t.Errorf("Testing CSR interface not working: %s", err)
 	}

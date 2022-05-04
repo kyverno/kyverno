@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func GetResource(client *dclient.Client, urSpec urkyverno.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
+func GetResource(client dclient.Interface, urSpec urkyverno.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
 	resourceSpec := urSpec.Resource
 
 	get := func() (*unstructured.Unstructured, error) {

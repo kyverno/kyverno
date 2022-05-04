@@ -547,7 +547,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -2082,7 +2082,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -4332,7 +4332,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.
@@ -5867,7 +5867,7 @@ spec:
                               description: Name is the entry the image will be available under 'images.<name>' in the context. If this field is not defined, image entries will appear under 'images.custom'.
                               type: string
                             path:
-                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must by a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
+                              description: Path is the path to the object containing the image field in a custom resource. It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'. Wildcard keys are expanded in case of arrays or objects.
                               type: string
                             value:
                               description: Value is an optional name of the field within 'path' that points to the image URI. This is useful when a custom 'key' is also defined.

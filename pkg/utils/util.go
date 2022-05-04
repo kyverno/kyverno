@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
@@ -99,15 +97,6 @@ func compareNamespaces(pattern, ns string) bool {
 
 func compareString(str, name string) bool {
 	return str == name
-}
-
-// NewKubeClient returns a new kubernetes client
-func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
-	kclient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return kclient, nil
 }
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not

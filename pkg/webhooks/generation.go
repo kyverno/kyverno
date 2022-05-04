@@ -78,8 +78,9 @@ func (ws *WebhookServer) handleGenerate(
 		if failedResponse := applyUpdateRequest(request, urkyverno.Generate, ws.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedUR := range failedResponse {
-				events := failedEvents(fmt.Errorf("failed to create Update Request: %v", failedUR.err), failedUR.ur, policyContext.NewResource)
-				ws.eventGen.Add(events...)
+				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
+				e := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &policyContext.NewResource)
+				ws.eventGen.Add(e...)
 			}
 		}
 	}
@@ -240,7 +241,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client client.Interface, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
@@ -434,16 +435,4 @@ func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRe
 type updateRequestResponse struct {
 	ur  urkyverno.UpdateRequestSpec
 	err error
-}
-
-func failedEvents(err error, ur urkyverno.UpdateRequestSpec, resource unstructured.Unstructured) []event.Info {
-	re := event.Info{}
-	re.Kind = resource.GetKind()
-	re.Namespace = resource.GetNamespace()
-	re.Name = resource.GetName()
-	re.Reason = event.PolicyFailed.String()
-	re.Source = event.GeneratePolicyController
-	re.Message = fmt.Sprintf("policy %s failed to apply: %v", ur.Policy, err)
-
-	return []event.Info{re}
 }

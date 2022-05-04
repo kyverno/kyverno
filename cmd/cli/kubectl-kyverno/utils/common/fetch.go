@@ -25,7 +25,7 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient *client.Client, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient client.Interface, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 	var resourceTypesMap = make(map[string]bool)
@@ -58,7 +58,7 @@ func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient
 	return resources, err
 }
 
-func whenClusterIsTrue(resourceTypes []string, dClient *client.Client, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsTrue(resourceTypes []string, dClient client.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 	if err != nil {
@@ -191,7 +191,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient *client.Client, namespace string) (map[string]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient client.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
 
 	for _, kind := range resourceTypes {
