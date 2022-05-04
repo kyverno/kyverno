@@ -12,12 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	kubeinformers "k8s.io/client-go/informers"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/kyverno/kyverno/pkg/background"
 	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -43,6 +37,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	kubeinformers "k8s.io/client-go/informers"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const resyncPeriod = 15 * time.Minute
@@ -115,7 +115,7 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-	kubeClient, err := utils.NewKubeClient(clientConfig)
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
@@ -436,7 +436,7 @@ func main() {
 		go grcc.Run(1, stopCh)
 	}
 
-	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
