@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -824,10 +825,19 @@ func jpItems(arguments []interface{}) (interface{}, error) {
 
 	arrayOfObj := make([]map[string]interface{}, 0)
 
-	for key, value := range input {
+	keys := []string{}
+
+	// Sort the keys so that the output is deterministic
+	for key := range input {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
 		m := make(map[string]interface{})
 		m[keyName] = key
-		m[valName] = value
+		m[valName] = input[key]
 		arrayOfObj = append(arrayOfObj, m)
 	}
 
