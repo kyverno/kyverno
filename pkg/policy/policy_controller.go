@@ -80,7 +80,7 @@ type PolicyController struct {
 	rm resourceManager
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Interface
+	configHandler config.Configuration
 
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
@@ -102,7 +102,7 @@ func NewPolicyController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
-	configHandler config.Interface,
+	configHandler config.Configuration,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	policyReportEraser policyreport.PolicyReportEraser,

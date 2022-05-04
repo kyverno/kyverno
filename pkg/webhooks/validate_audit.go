@@ -53,7 +53,7 @@ type auditHandler struct {
 	nsLister  listerv1.NamespaceLister
 
 	log           logr.Logger
-	configHandler config.Interface
+	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
 }
 
@@ -65,7 +65,7 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 	client client.Interface,
 	promConfig *metrics.PromConfig) AuditHandler {
 
