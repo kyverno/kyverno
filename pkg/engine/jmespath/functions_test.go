@@ -1288,7 +1288,6 @@ func Test_SemverCompare(t *testing.T) {
 func Test_Items(t *testing.T) {
 
 	testCases := []struct {
-		resource       []byte
 		object         string
 		keyName        string
 		valName        string
