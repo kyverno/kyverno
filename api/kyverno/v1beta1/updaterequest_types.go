@@ -25,6 +25,8 @@ import (
 
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
+	// Handler represents the instance ID that handles the UR
+	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
 	// State represents state of the update request.
 	State UpdateRequestState `json:"state" yaml:"state"`
@@ -43,7 +45,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
-// +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.type"
+// +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.requestType"
 // +kubebuilder:printcolumn:name="ResourceKind",type="string",JSONPath=".spec.resource.kind"
 // +kubebuilder:printcolumn:name="ResourceName",type="string",JSONPath=".spec.resource.name"
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"

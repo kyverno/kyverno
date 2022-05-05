@@ -3,6 +3,10 @@ kind: Namespace
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -11,6 +15,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -74,6 +83,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              onPolicyUpdate:
+                description: OnPolicyUpdate controls if a policy is applied to existing
+                  resources for mutateExisting and generate policies. Default value
+                  is "false".
+                type: boolean
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.
@@ -4890,6 +4904,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -5252,6 +5271,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -5614,6 +5638,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -5806,6 +5835,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -5870,6 +5904,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              onPolicyUpdate:
+                description: OnPolicyUpdate controls if a policy is applied to existing
+                  resources for mutateExisting and generate policies. Default value
+                  is "false".
+                type: boolean
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.
@@ -10687,6 +10726,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -11048,6 +11092,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -11410,6 +11459,11 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -11426,7 +11480,7 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
-    - jsonPath: .spec.type
+    - jsonPath: .spec.requestType
       name: RuleType
       type: string
     - jsonPath: .spec.resource.kind
@@ -11583,6 +11637,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              handler:
+                description: Handler represents the instance ID that handles the UR
+                type: string
               message:
                 description: Specifies request status message.
                 type: string
@@ -11609,6 +11666,10 @@ kind: ServiceAccount
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -11617,6 +11678,10 @@ kind: Role
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:leaderelection
   namespace: kyverno
 rules:
@@ -11646,6 +11711,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-generaterequest
 rules:
@@ -11667,6 +11736,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -11689,6 +11762,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -11711,6 +11788,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -11733,6 +11814,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:events
 rules:
 - apiGroups:
@@ -11750,6 +11835,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:generate
 rules:
 - apiGroups:
@@ -11792,6 +11881,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:policies
 rules:
 - apiGroups:
@@ -11840,6 +11933,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -11858,6 +11955,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:view
 rules:
 - apiGroups:
@@ -11874,6 +11975,10 @@ kind: ClusterRole
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -11895,6 +12000,10 @@ kind: RoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:leaderelection
   namespace: kyverno
 roleRef:
@@ -11911,6 +12020,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:events
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11926,6 +12039,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:generate
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11941,6 +12058,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:policies
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11956,6 +12077,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11971,6 +12096,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:view
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -11986,6 +12115,10 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -12005,6 +12138,10 @@ kind: ConfigMap
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno
   namespace: kyverno
 ---
@@ -12016,6 +12153,10 @@ kind: ConfigMap
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -12024,6 +12165,10 @@ kind: Service
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -12040,6 +12185,10 @@ kind: Service
 metadata:
   labels:
     app: kyverno
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
