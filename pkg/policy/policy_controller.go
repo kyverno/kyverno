@@ -473,9 +473,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			// here only takes care of mutateExisting policies
+			// generate cleanup controller handles policy deletion
 			mutateURs := pc.listMutateURs(key, nil)
-			generateURs := pc.listGenerateURs(key, nil)
-			deleteUR(pc.kyvernoClient, key, append(mutateURs, generateURs...), logger)
+			deleteUR(pc.kyvernoClient, key, mutateURs, logger)
 			return nil
 		}
 		return err

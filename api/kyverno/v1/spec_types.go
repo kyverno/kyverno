@@ -148,6 +148,16 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
+// IsMutateExisting checks if the mutate policy applies to existing resources
+func (s *Spec) IsMutateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.IsMutateExisting() {
+			return true
+		}
+	}
+	return false
+}
+
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate

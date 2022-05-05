@@ -14,6 +14,13 @@ import (
 
 func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInterface) {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
+
+	// TODO: add check for genExisting
+	if !policy.GetSpec().MutateExistingOnPolicyUpdate {
+		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate)
+		return
+	}
+
 	logger.Info("update URs on policy event")
 
 	mutateURs := pc.listMutateURs(policyKey, nil)

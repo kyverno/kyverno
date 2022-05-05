@@ -21,8 +21,8 @@ func (ws *WebhookServer) createUpdateRequests(request *admissionv1.AdmissionRequ
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
 
 	go ws.handleMutateExisting(request, mutatePolicies, policyContext, ts)
-
 	go ws.handleGenerate(request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+
 	go ws.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
 	go ws.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
@@ -38,6 +38,10 @@ func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequ
 
 	var engineResponses []*response.EngineResponse
 	for _, policy := range policies {
+		if !policy.GetSpec().IsMutateExisting() {
+			continue
+		}
+
 		var rules []response.RuleResponse
 		policyContext.Policy = policy
 		engineResponse := engine.ApplyBackgroundChecks(policyContext)
