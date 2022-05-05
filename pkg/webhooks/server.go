@@ -95,7 +95,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
-	tlsPair *tlsutils.PemPair,
+	tlsPair func() (*tlsutils.PemPair, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -119,10 +119,6 @@ func NewWebhookServer(
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
-	}
-	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
-	if err != nil {
-		return nil, err
 	}
 	ws := &WebhookServer{
 		client:            client,
@@ -156,8 +152,22 @@ func NewWebhookServer(
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
-		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
+		Addr: ":9443", // Listen on port for HTTPS requests
+		TLSConfig: &tls.Config{
+			// Certificates: []tls.Certificate{pair},
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				tlsPair, err := tlsPair()
+				if err != nil {
+					return nil, err
+				}
+				pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
+				if err != nil {
+					return nil, err
+				}
+				return &pair, nil
+			},
+			MinVersion: tls.VersionTLS12,
+		},
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,

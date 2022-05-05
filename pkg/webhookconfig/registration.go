@@ -219,6 +219,70 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 			retry = true
 		}
 
+		// update ca
+		caaData := wrc.readCaData()
+
+		m := []string{
+			config.MutatingWebhookConfigurationName,
+			// config.	MutatingWebhookConfigurationDebugName,
+			config.VerifyMutatingWebhookConfigurationName,
+			// config.VerifyMutatingWebhookConfigurationDebugName,
+			config.PolicyMutatingWebhookConfigurationName,
+			// config.PolicyMutatingWebhookConfigurationDebugName,
+		}
+		for _, wh := range m {
+			r, err := wrc.mwcLister.Get(wh)
+			if err != nil {
+				if !errorsapi.IsNotFound(err) {
+					retry = true
+					logger.Error(err, "failed to fetch webhook ca bundle", "name", wh)
+				}
+			} else {
+				r = r.DeepCopy()
+				for i := range r.Webhooks {
+					r.Webhooks[i].ClientConfig.CABundle = caaData
+				}
+				if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), r, metav1.UpdateOptions{}); err != nil {
+					retry = true
+					logger.Error(err, "failed to update webhook ca bundle", "name", wh)
+				} else {
+					logger.Info("updates webhook ca bundle", "name", wh)
+				}
+			}
+		}
+
+		v := []string{
+			config.ValidatingWebhookConfigurationName,
+			// config.ValidatingWebhookConfigurationDebugName,
+			config.PolicyValidatingWebhookConfigurationName,
+			// config.PolicyValidatingWebhookConfigurationDebugName,
+		}
+		for _, wh := range v {
+			r, err := wrc.vwcLister.Get(wh)
+			if err != nil {
+				if !errorsapi.IsNotFound(err) {
+					retry = true
+					logger.Error(err, "failed to fetch webhook ca bundle", "name", wh)
+				}
+			} else {
+				r = r.DeepCopy()
+				for i := range r.Webhooks {
+					r.Webhooks[i].ClientConfig.CABundle = caaData
+				}
+				if _, err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), r, metav1.UpdateOptions{}); err != nil {
+					retry = true
+					logger.Error(err, "failed to update webhook ca bundle", "name", wh)
+				} else {
+					logger.Info("updates webhook ca bundle", "name", wh)
+				}
+			}
+		}
+
+		if err := wrc.Register(); err != nil {
+			logger.Error(err, "unable to register webhooks")
+			retry = true
+		}
+
 		if retry {
 			go func() {
 				time.Sleep(1 * time.Second)

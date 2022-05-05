@@ -28,16 +28,18 @@ type Controller interface {
 }
 
 type controller struct {
-	renewer        *tls.CertRenewer
-	secretInformer informerv1.SecretInformer
-	secretQueue    chan bool
+	renewer           *tls.CertRenewer
+	secretInformer    informerv1.SecretInformer
+	secretQueue       chan bool
+	updateWebhookChan chan<- bool
 }
 
-func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer, updateWebhookChan chan<- bool) (Controller, error) {
 	manager := &controller{
-		renewer:        certRenewer,
-		secretInformer: secretInformer,
-		secretQueue:    make(chan bool, 1),
+		renewer:           certRenewer,
+		secretInformer:    secretInformer,
+		secretQueue:       make(chan bool, 1),
+		updateWebhookChan: updateWebhookChan,
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
@@ -91,7 +93,7 @@ func (m *controller) GetTLSPemPair() (*tls.PemPair, error) {
 		if err != nil {
 			return err
 		}
-		logger.Info("read TLS pem pair from the secret")
+		logger.V(4).Info("read TLS pem pair from the secret")
 		return nil
 	}
 	msg := "failed to read TLS pair"
@@ -117,10 +119,11 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 				continue
 			}
 			logger.Info("rootCA is about to expire, trigger a rolling update to renew the cert")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to renew rootCA, force restarting")
-				os.Exit(1)
-			}
+			m.InitTLSPemPair()
+			// if err := m.renewer.RollingUpdate(); err != nil {
+			// 	logger.Error(err, "unable to trigger a rolling update to renew rootCA, force restarting")
+			// 	os.Exit(1)
+			// }
 		case <-m.secretQueue:
 			valid, err := m.renewer.ValidCert()
 			if err != nil {
@@ -133,10 +136,11 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 				continue
 			}
 			logger.Info("rootCA has changed, updating webhook configurations")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
-				os.Exit(1)
-			}
+			m.updateWebhookChan <- true
+			// if err := m.renewer.RollingUpdate(); err != nil {
+			// 	logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
+			// 	os.Exit(1)
+			// }
 		case <-stopCh:
 			logger.V(2).Info("stopping cert renewer")
 			return

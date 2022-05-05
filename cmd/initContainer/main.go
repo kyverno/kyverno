@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
-	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	coord "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -129,54 +127,6 @@ func main() {
 	failure := false
 
 	run := func() {
-		certProps, err := tls.GetTLSCertProps(clientConfig)
-		if err != nil {
-			log.Log.Info("failed to get cert properties: %v", err.Error())
-			os.Exit(1)
-		}
-
-		depl, err := kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
-		deplHash := ""
-		if err != nil {
-			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
-			os.Exit(1)
-		}
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-
-		name := tls.GenerateRootCASecretName(certProps)
-		secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
-
-			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
-			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
-				os.Exit(1)
-			}
-		}
-
-		name = tls.GenerateTLSPairSecretName(certProps)
-		secret, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
-
-			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
-			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = kubeClient.CoreV1().Secrets(certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
-				os.Exit(1)
-			}
-		}
-
 		if err = acquireLeader(ctx, kubeClient); err != nil {
 			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)

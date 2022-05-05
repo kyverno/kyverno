@@ -41,12 +41,12 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) (res
 	if label, ok := stlsca.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
-	deplHashSec, ok = stlsca.GetAnnotations()[MasterDeploymentUID]
+	deplHashSec, ok = stlsca.GetAnnotations()[masterDeploymentUID]
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
 
-	result = stlsca.Data[RootCAKey]
+	result = stlsca.Data[rootCAKey]
 	if len(result) == 0 {
 		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, stlsca.Name)
 	}
@@ -79,7 +79,7 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
 		managedByKyverno = label == "kyverno"
 	}
-	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
+	deplHashSec, ok = secret.GetAnnotations()[masterDeploymentUID]
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
@@ -111,16 +111,14 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 }
 
 //GetTLSCertProps provides the TLS Certificate Properties
-func GetTLSCertProps(configuration *rest.Config) (certProps CertificateProps, err error) {
+func GetTLSCertProps(configuration *rest.Config) (*CertificateProps, error) {
 	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
-		return certProps, err
+		return nil, err
 	}
-
-	certProps = CertificateProps{
+	return &CertificateProps{
 		Service:       config.KyvernoServiceName,
 		Namespace:     config.KyvernoNamespace,
 		APIServerHost: apiServerURL.Hostname(),
-	}
-	return certProps, nil
+	}, nil
 }

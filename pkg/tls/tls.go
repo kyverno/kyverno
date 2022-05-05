@@ -14,11 +14,14 @@ import (
 	"time"
 )
 
-// CertRenewalInterval is the renewal interval for rootCA
-const CertRenewalInterval time.Duration = 12 * time.Hour
-
-// CertValidityDuration is the valid duration for a new cert
-const CertValidityDuration time.Duration = 365 * 24 * time.Hour
+const (
+	// CertRenewalInterval is the renewal interval for rootCA
+	// CertRenewalInterval time.Duration = 12 * time.Hour
+	CertRenewalInterval time.Duration = 2 * time.Minute
+	// CertValidityDuration is the valid duration for a new cert
+	// CertValidityDuration time.Duration = 365 * 24 * time.Hour
+	CertValidityDuration time.Duration = 4 * time.Minute
+)
 
 // CertificateProps Properties of TLS certificate which should be issued for webhook server
 type CertificateProps struct {
@@ -114,7 +117,7 @@ func GenerateCACert(certValidityDuration time.Duration) (*KeyPair, *PemPair, err
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, certValidityDuration time.Duration) (*PemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props *CertificateProps, serverIP string, certValidityDuration time.Duration) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -178,7 +181,7 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, c
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate
-func generateInClusterServiceName(props CertificateProps) string {
+func generateInClusterServiceName(props *CertificateProps) string {
 	return props.Service + "." + props.Namespace + ".svc"
 }
 
