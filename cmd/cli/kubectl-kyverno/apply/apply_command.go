@@ -170,13 +170,13 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
 
-	var dClient *client.Client
+	var dClient client.Interface
 	if cluster {
 		restConfig, err := kubernetesConfig.ToRESTConfig()
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}), log.Log)
+		dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}

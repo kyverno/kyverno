@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -186,13 +187,23 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
 	}
-	manifest, err := image.Manifest()
+	// We need to use the raw config and manifest to avoid dropping unknown keys
+	// which are not defined in GGCR structs.
+	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
-	config, err := image.ConfigFile()
+	var manifest interface{}
+	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
+	}
+	rawConfig, err := image.RawConfigFile()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
+	}
+	var configData interface{}
+	if err := json.Unmarshal(rawConfig, &configData); err != nil {
+		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
 	data := map[string]interface{}{
 		"image":         ref,
@@ -201,7 +212,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 		"repository":    parsedRef.Context().RepositoryStr(),
 		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
-		"configData":    config,
+		"configData":    configData,
 	}
 	// we need to do the conversion from struct types to an interface type so that jmespath
 	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum

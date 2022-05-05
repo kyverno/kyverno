@@ -24,7 +24,6 @@ import (
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -43,21 +42,18 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client      *client.Client
+	client      client.Interface
 	queue       workqueue.RateLimitingInterface
 	pCache      policycache.Interface
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
 
-	rbLister       rbaclister.RoleBindingLister
-	rbSynced       cache.InformerSynced
-	crbLister      rbaclister.ClusterRoleBindingLister
-	crbSynced      cache.InformerSynced
-	nsLister       listerv1.NamespaceLister
-	nsListerSynced cache.InformerSynced
+	rbLister  rbaclister.RoleBindingLister
+	crbLister rbaclister.ClusterRoleBindingLister
+	nsLister  listerv1.NamespaceLister
 
 	log           logr.Logger
-	configHandler config.Interface
+	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
 }
 
@@ -69,25 +65,22 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	crbInformer rbacinformer.ClusterRoleBindingInformer,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
-	dynamicConfig config.Interface,
-	client *client.Client,
+	dynamicConfig config.Configuration,
+	client client.Interface,
 	promConfig *metrics.PromConfig) AuditHandler {
 
 	return &auditHandler{
-		pCache:         pCache,
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
-		eventGen:       eventGen,
-		rbLister:       rbInformer.Lister(),
-		rbSynced:       rbInformer.Informer().HasSynced,
-		crbLister:      crbInformer.Lister(),
-		crbSynced:      crbInformer.Informer().HasSynced,
-		nsLister:       namespaces.Lister(),
-		nsListerSynced: namespaces.Informer().HasSynced,
-		log:            log,
-		prGenerator:    prGenerator,
-		configHandler:  dynamicConfig,
-		client:         client,
-		promConfig:     promConfig,
+		pCache:        pCache,
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
+		eventGen:      eventGen,
+		rbLister:      rbInformer.Lister(),
+		crbLister:     crbInformer.Lister(),
+		nsLister:      namespaces.Lister(),
+		log:           log,
+		prGenerator:   prGenerator,
+		configHandler: dynamicConfig,
+		client:        client,
+		promConfig:    promConfig,
 	}
 }
 
@@ -103,10 +96,6 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 		utilruntime.HandleCrash()
 		h.log.V(4).Info("shutting down")
 	}()
-
-	if !cache.WaitForCacheSync(stopCh, h.rbSynced, h.crbSynced) {
-		h.log.Info("failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(h.runWorker, time.Second, stopCh)

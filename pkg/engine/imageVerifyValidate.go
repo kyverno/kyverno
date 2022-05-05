@@ -13,7 +13,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 )
 
@@ -61,7 +61,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass, nil)
 }
 
-func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, imageInfo kubeutils.ImageInfo) error {
+func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, imageInfo apiutils.ImageInfo) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
 		log.Log.Info("missing digest", "request.object", ctx.NewResource.UnstructuredContent())
@@ -87,7 +87,7 @@ type ImageVerificationMetadata struct {
 	Digest   string `json:"digest,omitempty"`
 }
 
-func isImageVerified(ctx *PolicyContext, imageInfo kubeutils.ImageInfo) (bool, error) {
+func isImageVerified(ctx *PolicyContext, imageInfo apiutils.ImageInfo) (bool, error) {
 	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		return false, errors.Errorf("resource does not exist")
 	}

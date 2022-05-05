@@ -343,18 +343,10 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 
 	// build cert pool
 	pool := x509.NewCertPool()
-	caPem, _ := pem.Decode(rootCA)
-	if caPem == nil {
+	if !pool.AppendCertsFromPEM(rootCA) {
 		logger.Error(err, "bad certificate")
 		return false, nil
 	}
-
-	cac, err := x509.ParseCertificate(caPem.Bytes)
-	if err != nil {
-		logger.Error(err, "failed to parse CA cert")
-		return false, nil
-	}
-	pool.AddCert(cac)
 
 	// valid PEM pair
 	_, err = tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)

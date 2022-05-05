@@ -26,10 +26,10 @@ import (
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
 type MutateExistingController struct {
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	// urStatusControl is used to update UR status
 	statusControl common.StatusControlInterface
@@ -48,19 +48,19 @@ type MutateExistingController struct {
 	// policyLister can list/get Namespace policy from the shared informer's store
 	npolicyLister kyvernolister.PolicyLister
 
-	Config config.Interface
+	Config config.Configuration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *dclient.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client dclient.Interface,
 	policyLister kyvernolister.ClusterPolicyLister,
 	npolicyLister kyvernolister.PolicyLister,
 	urLister urlister.UpdateRequestNamespaceLister,
 	eventGen event.Interface,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 ) (*MutateExistingController, error) {
 
 	c := MutateExistingController{

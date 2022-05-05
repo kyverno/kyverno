@@ -241,7 +241,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1
 	}
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client client.Interface, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]

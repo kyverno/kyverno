@@ -20,12 +20,12 @@ type Operations interface {
 
 //Auth provides implementation to check if caller/self/kyverno has access to perofrm operations
 type Auth struct {
-	client *dclient.Client
+	client dclient.Interface
 	log    logr.Logger
 }
 
 //NewAuth returns a new instance of Auth for operations
-func NewAuth(client *dclient.Client, log logr.Logger) *Auth {
+func NewAuth(client dclient.Interface, log logr.Logger) *Auth {
 	a := Auth{
 		client: client,
 		log:    log,

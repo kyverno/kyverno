@@ -15,11 +15,11 @@ type CanIOptions struct {
 	namespace string
 	verb      string
 	kind      string
-	client    *client.Client
+	client    client.Interface
 }
 
 //NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
+func NewCanI(client client.Interface, kind, namespace, verb string) *CanIOptions {
 	return &CanIOptions{
 		namespace: namespace,
 		kind:      kind,
@@ -37,7 +37,7 @@ func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
 func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr, err := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
+	gvr, err := o.client.Discovery().GetGVRFromKind(o.kind)
 	if err != nil {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}

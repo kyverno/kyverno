@@ -14,7 +14,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -22,15 +21,11 @@ import (
 
 //Generator generate events
 type Generator struct {
-	client *client.Client
+	client client.Interface
 	// list/get cluster policy
 	cpLister kyvernolister.ClusterPolicyLister
-	// returns true if the cluster policy store has been synced at least once
-	cpSynced cache.InformerSynced
 	// list/get policy
 	pLister kyvernolister.PolicyLister
-	// returns true if the policy store has been synced at least once
-	pSynced cache.InformerSynced
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -51,13 +46,11 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
-		cpSynced:               cpInformer.Informer().HasSynced,
 		pLister:                pInformer.Lister(),
-		pSynced:                pInformer.Informer().HasSynced,
 		queue:                  workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
 		policyCtrRecorder:      initRecorder(client, PolicyController, log),
 		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
@@ -72,7 +65,7 @@ func rateLimiter() workqueue.RateLimiter {
 	return workqueue.DefaultItemBasedRateLimiter()
 }
 
-func initRecorder(client *client.Client, eventSource Source, log logr.Logger) record.EventRecorder {
+func initRecorder(client client.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
 	// Initialize Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -121,10 +114,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, gen.cpSynced, gen.pSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)

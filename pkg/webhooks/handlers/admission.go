@@ -76,7 +76,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	}
 }
 
-func Filter(c config.Interface, inner AdmissionHandler) AdmissionHandler {
+func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
 	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil

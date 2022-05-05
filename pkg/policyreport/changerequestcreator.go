@@ -25,7 +25,7 @@ type creator interface {
 }
 
 type changeRequestCreator struct {
-	client *policyreportclient.Clientset
+	client policyreportclient.Interface
 
 	// addCache preserves requests that are to be added to report
 	RCRCache *cache.Cache
@@ -41,7 +41,7 @@ type changeRequestCreator struct {
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client *policyreportclient.Clientset, tickerInterval time.Duration, log logr.Logger) creator {
+func newChangeRequestCreator(client policyreportclient.Interface, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
 		client:         client,
 		RCRCache:       cache.New(0, 24*time.Hour),
