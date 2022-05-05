@@ -80,7 +80,7 @@ type PolicyController struct {
 	rm resourceManager
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Interface
+	configHandler config.Configuration
 
 	// policy report generator
 	prGenerator policyreport.GeneratorInterface
@@ -102,7 +102,7 @@ func NewPolicyController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
-	configHandler config.Interface,
+	configHandler config.Configuration,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	policyReportEraser policyreport.PolicyReportEraser,
@@ -475,7 +475,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		if errors.IsNotFound(err) {
 			mutateURs := pc.listMutateURs(key, nil)
 			generateURs := pc.listGenerateURs(key, nil)
-			deleteGR(pc.kyvernoClient, key, append(mutateURs, generateURs...), logger)
+			deleteUR(pc.kyvernoClient, key, append(mutateURs, generateURs...), logger)
 			return nil
 		}
 		return err
@@ -565,7 +565,7 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func deleteGR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
 			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
@@ -576,24 +576,24 @@ func deleteGR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []
 	}
 }
 
-func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
-	for _, gr := range grList {
-		if policyKey == gr.Spec.Policy {
-			grLabels := gr.Labels
-			if len(grLabels) == 0 {
-				grLabels = make(map[string]string)
+func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []*urkyverno.UpdateRequest, logger logr.Logger) {
+	for _, ur := range urList {
+		if policyKey == ur.Spec.Policy {
+			urLabels := ur.Labels
+			if len(urLabels) == 0 {
+				urLabels = make(map[string]string)
 			}
 
 			nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
 			if err != nil {
 				logger.Error(err, "failed to generate random interger")
 			}
-			grLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
-			gr.SetLabels(grLabels)
+			urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
+			ur.SetLabels(urLabels)
 
-			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), gr, metav1.UpdateOptions{})
+			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), ur, metav1.UpdateOptions{})
 			if err != nil {
-				logger.Error(err, "failed to update gr", "name", gr.GetName())
+				logger.Error(err, "failed to update gr", "name", ur.GetName())
 				continue
 			}
 

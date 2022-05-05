@@ -196,7 +196,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
 // +deprecated
-func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Interface) {
+func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configuration) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
 		<-wrc.UpdateWebhookChan
@@ -260,7 +260,7 @@ func (wrc *Register) cleanupKyvernoResource() bool {
 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
 		return true
 	}
-	if deploy.Spec.Replicas == nil && *deploy.Spec.Replicas == 0 {
+	if deploy.Spec.Replicas != nil && *deploy.Spec.Replicas == 0 {
 		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
 		return true
 	}

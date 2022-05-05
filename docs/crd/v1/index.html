@@ -189,6 +189,19 @@ After the configured time expires, the admission request may fail, or may simply
 based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>onPolicyUpdate</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OnPolicyUpdate controls if a policy is applied to existing resources for mutateExisting and generate policies.
+Default value is &ldquo;false&rdquo;.</p>
+</td>
+</tr>
 </table>
 </td>
 </tr>
@@ -367,6 +380,19 @@ int32
 <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>onPolicyUpdate</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OnPolicyUpdate controls if a policy is applied to existing resources for mutateExisting and generate policies.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 </table>
@@ -2888,6 +2914,19 @@ int32
 <p>WebhookTimeoutSeconds specifies the maximum time in seconds allowed to apply this policy.
 After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>onPolicyUpdate</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>OnPolicyUpdate controls if a policy is applied to existing resources for mutateExisting and generate policies.
+Default value is &ldquo;false&rdquo;.</p>
 </td>
 </tr>
 </tbody>

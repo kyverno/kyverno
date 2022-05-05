@@ -85,6 +85,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              onPolicyUpdate:
+                description: OnPolicyUpdate controls if a policy is applied to existing
+                  resources for mutateExisting and generate policies. Default value
+                  is "false".
+                type: boolean
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.
@@ -5905,6 +5910,11 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              onPolicyUpdate:
+                description: OnPolicyUpdate controls if a policy is applied to existing
+                  resources for mutateExisting and generate policies. Default value
+                  is "false".
+                type: boolean
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.
@@ -11479,7 +11489,7 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
-    - jsonPath: .spec.type
+    - jsonPath: .spec.requestType
       name: RuleType
       type: string
     - jsonPath: .spec.resource.kind
@@ -11636,6 +11646,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              handler:
+                description: Handler represents the instance ID that handles the UR
+                type: string
               message:
                 description: Specifies request status message.
                 type: string
@@ -12277,6 +12290,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: KYVERNO_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: KYVERNO_SVC
           value: kyverno-svc
         - name: TUF_ROOT

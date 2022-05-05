@@ -48,7 +48,7 @@ type MutateExistingController struct {
 	// policyLister can list/get Namespace policy from the shared informer's store
 	npolicyLister kyvernolister.PolicyLister
 
-	Config config.Interface
+	Config config.Configuration
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -60,7 +60,7 @@ func NewMutateExistingController(
 	urLister urlister.UpdateRequestNamespaceLister,
 	eventGen event.Interface,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 ) (*MutateExistingController, error) {
 
 	c := MutateExistingController{
