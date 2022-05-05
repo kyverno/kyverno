@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	clusterpolicycontroller "github.com/kyverno/kyverno/pkg/controllers/clusterpolicy"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
@@ -153,6 +154,7 @@ func main() {
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+	admissionregistrationV1 := kubeInformer.Admissionregistration().V1()
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -227,6 +229,12 @@ func main() {
 		os.Exit(1)
 	}
 	configurationController := configcontroller.NewController(kubeKyvernoInformer.Core().V1().ConfigMaps(), configuration)
+	clusterpolicyController := clusterpolicycontroller.NewController(
+		kubeClient,
+		kyvernoV1.ClusterPolicies(),
+		admissionregistrationV1.MutatingWebhookConfigurations(),
+		admissionregistrationV1.ValidatingWebhookConfigurations(),
+	)
 
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
@@ -465,6 +473,7 @@ func main() {
 	go configurationController.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go auditHandler.Run(10, stopCh)
+	go clusterpolicyController.Run(stopCh)
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}
