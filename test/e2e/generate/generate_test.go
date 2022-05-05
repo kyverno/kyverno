@@ -1116,6 +1116,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 			}
 			return nil
 		})
+
 		Expect(err).NotTo(HaveOccurred())
 
 		// ===========================================
