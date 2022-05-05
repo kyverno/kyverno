@@ -109,9 +109,12 @@ func NewController(
 
 // Run starts workers
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
+	logger := c.log
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
-	defer c.log.Info("shutting down")
+
+	logger.Info("starting")
+	defer logger.Info("shutting down")
 
 	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
