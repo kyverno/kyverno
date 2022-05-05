@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func loadTargets(logger logr.Logger, targets []kyverno.ResourceSpec, ctx *PolicyContext) ([]unstructured.Unstructured, error) {
+func loadTargets(targets []kyverno.ResourceSpec, ctx *PolicyContext, logger logr.Logger) ([]unstructured.Unstructured, error) {
 	targetObjects := []unstructured.Unstructured{}
 	var errors []error
 
@@ -79,23 +79,18 @@ func getTargets(target kyverno.ResourceSpec, ctx *PolicyContext, logger logr.Log
 	}
 
 	// list all targets if wildcard is specified
-	if namespace == "" || stringutils.ContainsWildcard(namespace) {
-		objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
-		if err != nil {
-			return nil, err
-		}
+	objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
+	if err != nil {
+		return nil, err
+	}
 
-		for i := range objList.Items {
-			obj := objList.Items[i].DeepCopy()
-			// TODO: verify if needed?
-			obj.SetKind(target.Kind)
-			obj.SetAPIVersion(target.APIVersion)
-
-			if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-				targetObjects = append(targetObjects, *obj)
-			}
+	for i := range objList.Items {
+		obj := objList.Items[i].DeepCopy()
+		if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
+			targetObjects = append(targetObjects, *obj)
 		}
 	}
+
 	return targetObjects, nil
 }
 
