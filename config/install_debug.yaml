@@ -2255,18 +2255,10 @@ spec:
                                             description: Certificate is an optional
                                               PEM encoded public certificate.
                                             type: string
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set
-                                              of PEM encoded trusted root certificates.
-                                              If not provided, the system roots are
-                                              used.
+                                          certChain:
+                                            description: CertificateChain is an optional
+                                              PEM encoded set of certificates used
+                                              to verify
                                             type: string
                                         type: object
                                       keyless:
@@ -2281,13 +2273,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
@@ -4727,18 +4712,10 @@ spec:
                                             description: Certificate is an optional
                                               PEM encoded public certificate.
                                             type: string
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set
-                                              of PEM encoded trusted root certificates.
-                                              If not provided, the system roots are
-                                              used.
+                                          certChain:
+                                            description: CertificateChain is an optional
+                                              PEM encoded set of certificates used
+                                              to verify
                                             type: string
                                         type: object
                                       keyless:
@@ -4753,13 +4730,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
@@ -8069,18 +8039,10 @@ spec:
                                             description: Certificate is an optional
                                               PEM encoded public certificate.
                                             type: string
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set
-                                              of PEM encoded trusted root certificates.
-                                              If not provided, the system roots are
-                                              used.
+                                          certChain:
+                                            description: CertificateChain is an optional
+                                              PEM encoded set of certificates used
+                                              to verify
                                             type: string
                                         type: object
                                       keyless:
@@ -8095,13 +8057,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.
@@ -10542,18 +10497,10 @@ spec:
                                             description: Certificate is an optional
                                               PEM encoded public certificate.
                                             type: string
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
-                                          roots:
-                                            description: Roots is an optional set
-                                              of PEM encoded trusted root certificates.
-                                              If not provided, the system roots are
-                                              used.
+                                          certChain:
+                                            description: CertificateChain is an optional
+                                              PEM encoded set of certificates used
+                                              to verify
                                             type: string
                                         type: object
                                       keyless:
@@ -10568,13 +10515,6 @@ spec:
                                               certificate-extensions used for keyless
                                               signing.
                                             type: object
-                                          intermediates:
-                                            description: Intermediates is an optional
-                                              PEM encoded set of certificates that
-                                              are not trust anchors, but can be used
-                                              to form a chain from the leaf certificate
-                                              to a root certificate.
-                                            type: string
                                           issuer:
                                             description: Issuer is the certificate
                                               issuer used for keyless signing.

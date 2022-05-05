@@ -284,7 +284,7 @@ func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imag
 		path := fmt.Sprintf(".attestors[%d]", i)
 		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify signature", "attestorSet", attestorSet)
+			iv.logger.Error(err, "failed to verify signature")
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
 			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 		}
@@ -398,7 +398,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 	}
 
 	if imageVerify.Roots != "" {
-		opts.Roots = []byte(imageVerify.Roots)
+		opts.Roots = imageVerify.Roots
 	}
 
 	if attestor.Keys != nil {
@@ -406,25 +406,17 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		opts.Key = attestor.Keys.PublicKeys
 
 	} else if attestor.Certificates != nil {
-
-		if attestor.Certificates.Roots != "" {
-			opts.Roots = []byte(attestor.Certificates.Roots)
-		}
-		if attestor.Certificates.Intermediates != "" {
-			opts.Intermediates = []byte(attestor.Certificates.Intermediates)
-		}
+		path = path + ".certificates"
+		opts.Cert = attestor.Certificates.Certificate
+		opts.CertChain = attestor.Certificates.CertificateChain
 
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
 		if attestor.Keyless.Rekor != nil {
 			opts.RekorURL = attestor.Keyless.Rekor.URL
 		}
-		if attestor.Keyless.Roots != "" {
-			opts.Roots = []byte(attestor.Keyless.Roots)
-		}
-		if attestor.Keyless.Intermediates != "" {
-			opts.Intermediates = []byte(attestor.Keyless.Intermediates)
-		}
+
+		opts.Roots = attestor.Keyless.Roots
 		opts.Issuer = attestor.Keyless.Issuer
 		opts.Subject = attestor.Keyless.Subject
 		opts.AdditionalExtensions = attestor.Keyless.AdditionalExtensions

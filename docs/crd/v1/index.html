@@ -838,27 +838,13 @@ string
 </tr>
 <tr>
 <td>
-<code>intermediates</code></br>
+<code>certChain</code></br>
 <em>
 string
 </em>
 </td>
 <td>
-<p>Intermediates is an optional PEM encoded set of certificates that are not trust
-anchors, but can be used to form a chain from the leaf certificate to a
-root certificate.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>roots</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Roots is an optional set of PEM encoded trusted root certificates.
-If not provided, the system roots are used.</p>
+<p>CertificateChain is an optional PEM encoded set of certificates used to verify</p>
 </td>
 </tr>
 </tbody>
@@ -2087,19 +2073,6 @@ string
 </td>
 <td>
 <p>Subject is the verified identity used for keyless signing, for example the email address</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>intermediates</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Intermediates is an optional PEM encoded set of certificates that are not trust
-anchors, but can be used to form a chain from the leaf certificate to a
-root certificate.</p>
 </td>
 </tr>
 <tr>

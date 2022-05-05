@@ -143,16 +143,9 @@ type CertificateAttestor struct {
 	// +kubebuilder:validation:Optional
 	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
 
-	// Intermediates is an optional PEM encoded set of certificates that are not trust
-	// anchors, but can be used to form a chain from the leaf certificate to a
-	// root certificate.
+	// CertificateChain is an optional PEM encoded set of certificates used to verify
 	// +kubebuilder:validation:Optional
-	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
-
-	// Roots is an optional set of PEM encoded trusted root certificates.
-	// If not provided, the system roots are used.
-	// +kubebuilder:validation:Optional
-	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
+	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
 }
 
 type KeylessAttestor struct {
@@ -170,12 +163,6 @@ type KeylessAttestor struct {
 	// Subject is the verified identity used for keyless signing, for example the email address
 	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
-
-	// Intermediates is an optional PEM encoded set of certificates that are not trust
-	// anchors, but can be used to form a chain from the leaf certificate to a
-	// root certificate.
-	// +kubebuilder:validation:Optional
-	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
 
 	// Roots is an optional set of PEM encoded trusted root certificates.
 	// If not provided, the system roots are used.
@@ -272,14 +259,20 @@ func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
 		(a.Certificates != nil && (a.Keys != nil || a.Keyless != nil || a.Attestor != nil)) ||
 		(a.Keyless != nil && (a.Certificates != nil || a.Keys != nil || a.Attestor != nil)) ||
 		(a.Attestor != nil && (a.Certificates != nil || a.Keys != nil || a.Keyless != nil)) ||
-		(a.Keys == nil && a.Certificates != nil && a.Keyless == nil && a.Attestor == nil) {
+		(a.Keys == nil && a.Certificates == nil && a.Keyless == nil && a.Attestor == nil) {
 		errs = append(errs, field.Invalid(path, a, "keys, certificates, keyless, or a nested attestor is required"))
 	}
 
 	if a.Keys != nil {
-		staticKeyPath := path.Child("staticKey")
+		staticKeyPath := path.Child("keys")
 		staticKeyErrors := a.Keys.Validate(staticKeyPath)
 		errs = append(errs, staticKeyErrors...)
+	}
+
+	if a.Certificates != nil {
+		certificatesPath := path.Child("certificates")
+		certificatesErrors := a.Certificates.Validate(certificatesPath)
+		errs = append(errs, certificatesErrors...)
 	}
 
 	if a.Keyless != nil {
@@ -315,6 +308,14 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
 	if ska.PublicKeys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
+	}
+
+	return errs
+}
+
+func (ca *CertificateAttestor) Validate(path *field.Path) (errs field.ErrorList) {
+	if ca.Certificate == "" && ca.CertificateChain == "" {
+		errs = append(errs, field.Invalid(path, ca, "cert or certChain required"))
 	}
 
 	return errs
