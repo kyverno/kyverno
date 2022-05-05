@@ -139,8 +139,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 					Name:      name,
 					Namespace: props.Namespace,
 					Annotations: map[string]string{
-						SelfSignedAnnotation: "true",
-						MasterDeploymentUID:  deplHash,
+						MasterDeploymentUID: deplHash,
 					},
 					Labels: map[string]string{
 						ManagedByLabel: "kyverno",
@@ -209,7 +208,8 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 					Name:      name,
 					Namespace: props.Namespace,
 					Annotations: map[string]string{
-						MasterDeploymentUID: deplHash,
+						SelfSignedAnnotation: "true",
+						MasterDeploymentUID:  deplHash,
 					},
 					Labels: map[string]string{
 						ManagedByLabel: "kyverno",
