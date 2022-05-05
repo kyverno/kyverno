@@ -148,6 +148,11 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
+// GetOnPolicyUpdate return OnPolicyUpdate set value
+func (s *Spec) GetOnPolicyUpdate() bool {
+	return s.OnPolicyUpdate
+}
+
 // GetFailurePolicy returns the failure policy to be applied
 func (s *Spec) GetFailurePolicy() FailurePolicyType {
 	if s.FailurePolicy == nil {
