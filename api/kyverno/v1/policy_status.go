@@ -29,10 +29,12 @@ type PolicyStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Autogen contains autogen status information
 	// +optional
-	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
+	// TODO: finalize status content
+	// Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
 	// Rules is a list of Rule instances. It contains original rules defined in the spec
 	// auto generated rules added for pod controllers
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
+	// TODO: finalize status content
+	// Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 }
 
 func (status *PolicyStatus) SetReady(ready bool) {
