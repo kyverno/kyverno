@@ -404,11 +404,17 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 	if attestor.Keys != nil {
 		path = path + ".staticKey"
 		opts.Key = attestor.Keys.PublicKeys
+		if attestor.Keys.Rekor != nil {
+			opts.RekorURL = attestor.Keys.Rekor.URL
+		}
 
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
 		opts.Cert = attestor.Certificates.Certificate
 		opts.CertChain = attestor.Certificates.CertificateChain
+		if attestor.Certificates.Rekor != nil {
+			opts.RekorURL = attestor.Certificates.Rekor.URL
+		}
 
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"

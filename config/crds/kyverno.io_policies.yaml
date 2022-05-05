@@ -2260,6 +2260,22 @@ spec:
                                               PEM encoded set of certificates used
                                               to verify
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration
+                                              for the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked.
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute
@@ -2278,8 +2294,8 @@ spec:
                                               issuer used for keyless signing.
                                             type: string
                                           rekor:
-                                            description: Rekor provides information
-                                              of the Rekor transparency log service.
+                                            description: Rekor provides configuration
+                                              for the Rekor transparency log service.
                                               If the value is nil, Rekor is not checked
                                               and a root certificate chain is expected
                                               instead. If an empty object is provided
@@ -2322,6 +2338,22 @@ spec:
                                               the set of attestors and the count is
                                               applied across the keys.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration
+                                              for the Rekor transparency log service.
+                                              If the value is nil, Rekor is not checked.
+                                              If an empty object is provided the public
+                                              instance of Rekor (https://rekor.sigstore.dev)
+                                              is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of
+                                                  the transparency log. Defaults to
+                                                  the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate

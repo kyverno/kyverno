@@ -135,6 +135,12 @@ type StaticKeyAttestor struct {
 	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 	// attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
+
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked. If an empty object is provided the public instance of
+	// Rekor (https://rekor.sigstore.dev) is used.
+	// +kubebuilder:validation:Optional
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 }
 
 type CertificateAttestor struct {
@@ -146,11 +152,17 @@ type CertificateAttestor struct {
 	// CertificateChain is an optional PEM encoded set of certificates used to verify
 	// +kubebuilder:validation:Optional
 	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
+
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked. If an empty object is provided the public instance of
+	// Rekor (https://rekor.sigstore.dev) is used.
+	// +kubebuilder:validation:Optional
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 }
 
 type KeylessAttestor struct {
 
-	// Rekor provides information of the Rekor transparency log service. If the value is nil,
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional

@@ -1421,6 +1421,15 @@ spec:
                                           certChain:
                                             description: CertificateChain is an optional PEM encoded set of certificates used to verify
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
@@ -1434,7 +1443,7 @@ spec:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           rekor:
-                                            description: Rekor provides information of the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
                                             properties:
                                               url:
                                                 description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
@@ -1455,6 +1464,15 @@ spec:
                                           publicKeys:
                                             description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.
@@ -3748,6 +3766,15 @@ spec:
                                           certChain:
                                             description: CertificateChain is an optional PEM encoded set of certificates used to verify
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       keyless:
                                         description: Keyless is a set of attribute used to verify a Sigstore keyless attestor. See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
@@ -3761,7 +3788,7 @@ spec:
                                             description: Issuer is the certificate issuer used for keyless signing.
                                             type: string
                                           rekor:
-                                            description: Rekor provides information of the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked and a root certificate chain is expected instead. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
                                             properties:
                                               url:
                                                 description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
@@ -3782,6 +3809,15 @@ spec:
                                           publicKeys:
                                             description: Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly specified or can be a variable reference to a key specified in a ConfigMap (see https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of attestors and the count is applied across the keys.
                                             type: string
+                                          rekor:
+                                            description: Rekor provides configuration for the Rekor transparency log service. If the value is nil, Rekor is not checked. If an empty object is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
+                                            properties:
+                                              url:
+                                                description: URL is the address of the transparency log. Defaults to the public log https://rekor.sigstore.dev.
+                                                type: string
+                                            required:
+                                            - url
+                                            type: object
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate OCI repository to use for signatures and attestations that match this rule. If specified Repository will override other OCI image repository locations for this Attestor.

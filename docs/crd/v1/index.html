@@ -805,7 +805,9 @@ automatically generating rules.</p>
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>)
+<a href="#kyverno.io/v1.CertificateAttestor">CertificateAttestor</a>, 
+<a href="#kyverno.io/v1.KeylessAttestor">KeylessAttestor</a>, 
+<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
 </p>
 <p>
 </p>
@@ -867,6 +869,21 @@ string
 </td>
 <td>
 <p>CertificateChain is an optional PEM encoded set of certificates used to verify</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rekor</code></br>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+Rekor is not checked. If an empty object is provided the public instance of
+Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
 </td>
 </tr>
 </tbody>
@@ -2070,7 +2087,7 @@ CTLog
 </em>
 </td>
 <td>
-<p>Rekor provides information of the Rekor transparency log service. If the value is nil,
+<p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 Rekor is not checked and a root certificate chain is expected instead. If an empty object
 is provided the public instance of Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
 </td>
@@ -2968,6 +2985,21 @@ specified or can be a variable reference to a key specified in a ConfigMap (see
 <a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
 key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 attestors and the count is applied across the keys.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>rekor</code></br>
+<em>
+<a href="#kyverno.io/v1.CTLog">
+CTLog
+</a>
+</em>
+</td>
+<td>
+<p>Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+Rekor is not checked. If an empty object is provided the public instance of
+Rekor (<a href="https://rekor.sigstore.dev">https://rekor.sigstore.dev</a>) is used.</p>
 </td>
 </tr>
 </tbody>
