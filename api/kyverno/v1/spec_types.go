@@ -64,10 +64,10 @@ type Spec struct {
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
 
-	// OnPolicyUpdate controls if a policy is applied to existing resources for mutateExisting and generate policies.
+	// MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
 	// Default value is "false".
 	// +optional
-	OnPolicyUpdate bool `json:"onPolicyUpdate,omitempty" yaml:"onPolicyUpdate,omitempty"`
+	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -148,9 +148,9 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	return *s.Background
 }
 
-// GetOnPolicyUpdate return OnPolicyUpdate set value
-func (s *Spec) GetOnPolicyUpdate() bool {
-	return s.OnPolicyUpdate
+// GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
+func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
+	return s.MutateExistingOnPolicyUpdate
 }
 
 // GetFailurePolicy returns the failure policy to be applied

@@ -82,7 +82,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
-	onPolicyUpdate := spec.GetOnPolicyUpdate()
+	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -412,7 +412,7 @@ func ValidateOnPolicyUpdate(p kyverno.PolicyInterface, onPolicyUpdate bool) erro
 	}
 
 	if err := containsUserVariables(p, vars); err != nil {
-		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.onPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
+		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
 	}
 
 	return nil
