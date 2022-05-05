@@ -17,9 +17,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
+func NewBackgroundContext(dclient dclient.Interface, ur *urkyverno.UpdateRequest,
 	policy kyverno.PolicyInterface, trigger *unstructured.Unstructured,
-	cfg config.Interface, namespaceLabels map[string]string, logger logr.Logger) (*engine.PolicyContext, bool, error) {
+	cfg config.Configuration, namespaceLabels map[string]string, logger logr.Logger) (*engine.PolicyContext, bool, error) {
 
 	ctx := context.NewContext()
 	requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest

@@ -70,7 +70,6 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: Always
           args:
-          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
           #- "--webhookTimeout=4"
           # enable profiling

@@ -127,7 +127,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclient.Client, pName string, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client dclient.Interface, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
 	for _, rule := range rules {
 		if rule.Generation.Clone.Name == "" {
@@ -155,7 +155,7 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client *dclie
 	return generatePolicyWithClone
 }
 
-func updateSourceResource(pName string, rule kyverno.Rule, client *dclient.Client, log logr.Logger) error {
+func updateSourceResource(pName string, rule kyverno.Rule, client dclient.Interface, log logr.Logger) error {
 	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)

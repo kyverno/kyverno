@@ -3,7 +3,6 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -39,13 +38,6 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 		if rule != nil && len(rule.Values) > 0 {
 			variables := rule.Values
 			for key, value := range variables {
-				if trimmedTypedValue := strings.Trim(value, "\n"); strings.Contains(trimmedTypedValue, "\n") {
-					tmp := map[string]interface{}{key: value}
-					tmp = parseMultilineBlockBody(tmp)
-					newVal, _ := json.Marshal(tmp[key])
-					value = string(newVal)
-				}
-
 				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
 					return err
 				}
@@ -195,13 +187,23 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
 	}
-	manifest, err := image.Manifest()
+	// We need to use the raw config and manifest to avoid dropping unknown keys
+	// which are not defined in GGCR structs.
+	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
-	config, err := image.ConfigFile()
+	var manifest interface{}
+	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
+	}
+	rawConfig, err := image.RawConfigFile()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
+	}
+	var configData interface{}
+	if err := json.Unmarshal(rawConfig, &configData); err != nil {
+		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
 	data := map[string]interface{}{
 		"image":         ref,
@@ -210,7 +212,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 		"repository":    parsedRef.Context().RepositoryStr(),
 		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
-		"configData":    config,
+		"configData":    configData,
 	}
 	// we need to do the conversion from struct types to an interface type so that jmespath
 	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum
@@ -383,9 +385,6 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 
 	unstructuredObj := obj.DeepCopy().Object
 
-	// update the unstructuredObj["data"] to delimit and split the string value (containing "\n") with "\n"
-	unstructuredObj["data"] = parseMultilineBlockBody(unstructuredObj["data"].(map[string]interface{}))
-
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
 	contextData["metadata"] = unstructuredObj["metadata"]
@@ -395,30 +394,4 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 	}
 
 	return data, nil
-}
-
-// parseMultilineBlockBody recursively iterates through a map and updates its values to a list of strings
-// if it encounters a string value containing newline delimiters "\n" and not in PEM format. This is done to
-// allow specifying a list with newlines. Since PEM format keys can also contain newlines, an additional check
-// is performed to skip splitting those into an array.
-func parseMultilineBlockBody(m map[string]interface{}) map[string]interface{} {
-	for k, v := range m {
-		switch typedValue := v.(type) {
-		case string:
-			trimmedTypedValue := strings.Trim(typedValue, "\n")
-			if !pemFormat(trimmedTypedValue) && strings.Contains(trimmedTypedValue, "\n") {
-				m[k] = strings.Split(trimmedTypedValue, "\n")
-			} else {
-				m[k] = trimmedTypedValue // trimming a str if it has trailing newline characters
-			}
-		default:
-			continue
-		}
-	}
-	return m
-}
-
-// check for PEM header found in certs and public keys
-func pemFormat(s string) bool {
-	return strings.Contains(s, "-----BEGIN")
 }

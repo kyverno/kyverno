@@ -20,7 +20,7 @@ import (
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
-	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
+	client client.Interface, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
 
 	startTime := time.Now()
 	defer func() {

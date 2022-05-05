@@ -713,7 +713,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter) (err error) {
 
 	engineResponses := make([]*response.EngineResponse, 0)
-	var dClient *client.Client
+	var dClient client.Interface
 	values := &Test{}
 	var variablesString string
 	var pvInfos []policyreport.Info

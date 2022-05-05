@@ -725,10 +725,6 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <h3 id="kyverno.io/v1.AutogenStatus">AutogenStatus
 </h3>
 <p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
-</p>
-<p>
 <p>AutogenStatus contains autogen status information.
 It indicates requested and effective autogen controllers used when
 automatically generating rules.</p>
@@ -1648,6 +1644,81 @@ resource will be created with default data only.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ImageExtractorConfig">ImageExtractorConfig
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>path</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Path is the path to the object containing the image field in a custom resource.
+It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard &lsquo;*&rsquo;.
+Wildcard keys are expanded in case of arrays or objects.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value is an optional name of the field within &lsquo;path&rsquo; that points to the image URI.
+This is useful when a custom &lsquo;key&rsquo; is also defined.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>name</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Name is the entry the image will be available under &lsquo;images.<name>&rsquo; in the context.
+If this field is not defined, image entries will appear under &lsquo;images.custom&rsquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>key</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Key is an optional name of the field within &lsquo;path&rsquo; that will be used to uniquely identify an image.
+Note - this field MUST be unique.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ImageExtractorConfigs">ImageExtractorConfigs
+(<code>map[string][]./api/kyverno/v1.ImageExtractorConfig</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Rule">Rule</a>)
+</p>
+<p>
+</p>
 <h3 id="kyverno.io/v1.ImageRegistry">ImageRegistry
 </h3>
 <p>
@@ -2195,34 +2266,6 @@ Deprecated in favor of Conditions</p>
 <p>Conditions is a list of conditions that apply to the policy</p>
 </td>
 </tr>
-<tr>
-<td>
-<code>autogen</code></br>
-<em>
-<a href="#kyverno.io/v1.AutogenStatus">
-AutogenStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Autogen contains autogen status information</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>rules</code></br>
-<em>
-<a href="#kyverno.io/v1.Rule">
-[]Rule
-</a>
-</em>
-</td>
-<td>
-<p>Rules is a list of Rule instances. It contains original rules defined in the spec
-auto generated rules added for pod controllers</p>
-</td>
-</tr>
 </tbody>
 </table>
 <hr />
@@ -2530,7 +2573,6 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
@@ -2607,7 +2649,9 @@ and admission review request information like the name or role.</p>
 <td>
 <code>imageExtractors</code></br>
 <em>
-github.com/kyverno/kyverno/pkg/utils/kube.ImageExtractorConfigs
+<a href="#kyverno.io/v1.ImageExtractorConfigs">
+ImageExtractorConfigs
+</a>
 </em>
 </td>
 <td>

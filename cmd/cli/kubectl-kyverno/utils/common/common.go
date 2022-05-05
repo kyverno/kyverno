@@ -501,12 +501,6 @@ OuterLoop:
 		}
 	}
 
-	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
-	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
-		engineResponses = append(engineResponses, verifyImageResponse)
-		updateResultCounts(policy, verifyImageResponse, resPath, rc)
-	}
-
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasValidate() || rule.HasImagesValidationChecks() {
@@ -525,6 +519,12 @@ OuterLoop:
 
 	if validateResponse != nil && !validateResponse.IsEmpty() {
 		engineResponses = append(engineResponses, validateResponse)
+	}
+
+	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
+		engineResponses = append(engineResponses, verifyImageResponse)
+		info = ProcessValidateEngineResponse(policy, verifyImageResponse, resPath, rc, policyReport)
 	}
 
 	var policyHasGenerate bool
@@ -650,7 +650,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []v1.PolicyInterface, dClient *client.Client, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []v1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
@@ -709,7 +709,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
-		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() {
+		if !policyRule.HasValidate() && !policyRule.HasImagesValidationChecks() && !policyRule.HasVerifyImages() {
 			continue
 		}
 
@@ -793,6 +793,7 @@ func updateResultCounts(policy v1.PolicyInterface, engineResponse *response.Engi
 		for i, ruleResponse := range engineResponse.PolicyResponse.Rules {
 			if policyRule.Name == ruleResponse.Name {
 				ruleFoundInEngineResponse = true
+
 				if ruleResponse.Status == response.RuleStatusPass {
 					rc.Pass++
 				} else {

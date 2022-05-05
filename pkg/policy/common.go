@@ -187,7 +187,7 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyverno.Rule
 }
 
 // ExcludeResources ...
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Interface, log logr.Logger) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
 	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
 		return
 	}
