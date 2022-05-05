@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-
 	"github.com/go-logr/logr"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/informers"
 	listerv1 "k8s.io/client-go/listers/core/v1"
@@ -127,10 +128,11 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client dclient.Interface, pName string, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(policy kyverno.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister urkyvernolister.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
-	for _, rule := range rules {
-		if rule.Generation.Clone.Name == "" {
+	for _, rule := range policy.GetSpec().Rules {
+		clone, sync := rule.GetCloneSyncForGenerate()
+		if !(clone && sync) {
 			continue
 		}
 
@@ -139,7 +141,7 @@ func ProcessDeletePolicyForCloneGenerateRule(rules []kyverno.Rule, client dclien
 
 		retryCount := 0
 		for retryCount < 5 {
-			err := updateSourceResource(pName, rule, client, logger)
+			err := updateSourceResource(policy.GetName(), rule, client, logger)
 			if err != nil {
 				logger.Error(err, "failed to update generate source resource labels")
 				if apierrors.IsConflict(err) {
