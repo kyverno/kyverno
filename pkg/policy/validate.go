@@ -82,6 +82,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
+	onPolicyUpdate := spec.GetOnPolicyUpdate()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -89,6 +90,13 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return nil, err
+	}
+
+	if onPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var res []*metav1.APIResourceList
@@ -388,6 +396,23 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 		if _, err := variables.SubstituteAllInRule(log.Log, ctx, *ruleCopy); !checkNotFoundErr(err) {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
+	}
+
+	return nil
+}
+
+func ValidateOnPolicyUpdate(p kyverno.PolicyInterface, onPolicyUpdate bool) error {
+	vars := hasVariables(p)
+	if len(vars) == 0 {
+		return nil
+	}
+
+	if err := hasInvalidVariables(p, onPolicyUpdate); err != nil {
+		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+	}
+
+	if err := containsUserVariables(p, vars); err != nil {
+		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.onPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
 	}
 
 	return nil
