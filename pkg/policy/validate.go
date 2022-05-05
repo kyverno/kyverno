@@ -82,11 +82,12 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
+	onPolicyUpdate := spec.GetOnPolicyUpdate()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
 
-	err := ValidateVariables(policy, background)
+	err := ValidateVariables(policy, background, onPolicyUpdate)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +350,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	return nil, nil
 }
 
-func ValidateVariables(p kyverno.PolicyInterface, backgroundMode bool) error {
+func ValidateVariables(p kyverno.PolicyInterface, backgroundMode, onPolicyUpdate bool) error {
 	vars := hasVariables(p)
 	if len(vars) == 0 {
 		return nil
@@ -362,6 +363,12 @@ func ValidateVariables(p kyverno.PolicyInterface, backgroundMode bool) error {
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
+		}
+	}
+
+	if onPolicyUpdate {
+		if err := containsUserVariables(p, vars); err != nil {
+			return fmt.Errorf("only select variables are allowed in on policy update. Set spec.onPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
 		}
 	}
 
