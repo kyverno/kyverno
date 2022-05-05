@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
@@ -111,9 +110,8 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	}
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
-	rules := autogen.ComputeRules(p)
 
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(rules, c.client, p.GetName(), logger)
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, p.GetName(), logger)
 
 	// get the generated resource name from update request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
@@ -141,19 +139,9 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 		for _, ur := range urs {
 			logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
-			c.addUR(ur)
+			c.enqueue(ur)
 		}
 	}
-}
-
-func (c *Controller) addUR(obj interface{}) {
-	ur := obj.(*urkyverno.UpdateRequest)
-	c.enqueue(ur)
-}
-
-func (c *Controller) updateUR(old, cur interface{}) {
-	ur := cur.(*urkyverno.UpdateRequest)
-	c.enqueue(ur)
 }
 
 func (c *Controller) deleteUR(obj interface{}) {
@@ -172,23 +160,10 @@ func (c *Controller) deleteUR(obj interface{}) {
 		}
 	}
 
-	for _, resource := range ur.Status.GeneratedResources {
-		r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-		if err != nil && !apierrors.IsNotFound(err) {
-			logger.Error(err, "failed to fetch generated resource", "resource", resource.Name)
-			return
-		}
-
-		if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-			if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "failed to delete the generated resource", "resource", r.GetName())
-				return
-			}
-		}
+	if ur.Status.Handler != "" {
+		return
 	}
 
-	logger.V(4).Info("deleting Update Request CR", "name", ur.Name)
-	// sync Handler will remove it from the queue
 	c.enqueue(ur)
 }
 
@@ -222,8 +197,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	})
 
 	c.urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.addUR,
-		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
 
@@ -304,30 +277,19 @@ func (c *Controller) syncUpdateRequest(key string) error {
 
 	if pNamespace == "" {
 		_, err = c.pLister.Get(pName)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-			logger.Error(err, "failed to get clusterpolicy, deleting the update request")
-			err = c.control.Delete(ur.Name)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
+
 	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-			logger.Error(err, "failed to get policy, deleting the update request")
-			err = c.control.Delete(ur.Name)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
 	}
+
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		logger.Error(err, "failed to get policy, deleting the update request", "key", ur.Spec.Policy)
+		return c.control.Delete(ur.Name)
+	}
+
 	return c.processUR(*ur)
 }

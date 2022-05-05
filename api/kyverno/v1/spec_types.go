@@ -63,6 +63,11 @@ type Spec struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+
+	// OnPolicyUpdate controls if a policy is applied to existing resources for mutateExisting and generate policies.
+	// Default value is "false".
+	// +optional
+	OnPolicyUpdate bool `json:"onPolicyUpdate,omitempty" yaml:"onPolicyUpdate,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -141,6 +146,11 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	}
 
 	return *s.Background
+}
+
+// GetOnPolicyUpdate return OnPolicyUpdate set value
+func (s *Spec) GetOnPolicyUpdate() bool {
+	return s.OnPolicyUpdate
 }
 
 // GetFailurePolicy returns the failure policy to be applied
