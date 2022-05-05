@@ -191,7 +191,23 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		return err
 	}
 
-	return c.ProcessUR(ur)
+	ur, ok, err := c.MarkUR(ur)
+	if !ok {
+		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
+		return nil
+	}
+	if err != nil {
+		logger.Error(err, "failed to mark UR handler", "key", key)
+		return err
+	}
+
+	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
+	if err := c.ProcessUR(ur); err != nil {
+		logger.Error(err, "failed to process UR", "key", key)
+		return err
+	}
+
+	return c.UnmarkUR(ur)
 }
 
 func (c *Controller) enqueueUpdateRequest(obj interface{}) {
@@ -247,6 +263,9 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 func (c *Controller) addUR(obj interface{}) {
 	ur := obj.(*urkyverno.UpdateRequest)
+	if ur.Status.Handler != "" {
+		return
+	}
 	c.enqueueUpdateRequest(ur)
 }
 
@@ -261,6 +280,10 @@ func (c *Controller) updateUR(old, cur interface{}) {
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the UPDATE Request fails due to incorrect policy, it will be requeued during policy update
 	if curUr.Status.State != urkyverno.Pending {
+		return
+	}
+
+	if curUr.Status.Handler != "" {
 		return
 	}
 	c.enqueueUpdateRequest(curUr)
@@ -282,22 +305,8 @@ func (c *Controller) deleteUR(obj interface{}) {
 		}
 	}
 
-	if ur.Spec.GetRequestType() == urkyverno.Generate {
-		for _, resource := range ur.Status.GeneratedResources {
-			r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
-				continue
-			}
-
-			if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-				if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-					logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
-				}
-			}
-		}
-
-		logger.V(3).Info("deleting update request", "name", ur.Name)
+	if ur.Status.Handler != "" {
+		return
 	}
 
 	// sync Handler will remove it from the queue

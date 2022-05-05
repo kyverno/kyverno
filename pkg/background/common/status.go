@@ -66,7 +66,7 @@ func (sc StatusControl) Success(ur urkyverno.UpdateRequest, genResources []kyver
 		log.Log.Error(err, "failed to patch update request status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyverno.Completed))
+	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(urkyverno.Completed))
 	return nil
 }
 

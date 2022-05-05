@@ -131,9 +131,9 @@ func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
 
 	if r.Generation.Clone.Name != "" {
 		clone = true
-		sync = r.Generation.Synchronize
 	}
 
+	sync = r.Generation.Synchronize
 	return
 }
 
