@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse {
+func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
 	resp := &response.EngineResponse{}
 	images := policyContext.JSONContext.ImageInfo()
 
@@ -38,7 +38,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 	startTime := time.Now()
 	defer func() {
 		buildResponse(policyContext, resp, startTime)
-		logger.V(4).Info("finished policy processing", "processingTime", resp.PolicyResponse.ProcessingTime.String(), "rulesApplied", resp.PolicyResponse.RulesAppliedCount)
+		logger.V(4).Info("processed image verification rules",
+			"time", resp.PolicyResponse.ProcessingTime.String(),
+			"applied", resp.PolicyResponse.RulesAppliedCount, "successful", resp.IsSuccessful())
 	}()
 
 	policyContext.JSONContext.Checkpoint()
@@ -52,6 +54,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 		}
 	}
 
+	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
 	for i := range rules {
 		rule := &rules[i]
@@ -94,6 +97,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 			policyContext: policyContext,
 			rule:          ruleCopy,
 			resp:          resp,
+			ivm:           ivm,
 		}
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
@@ -101,7 +105,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) *response.EngineResponse
 		}
 	}
 
-	return resp
+	return resp, ivm
 }
 
 func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, status response.RuleStatus) {
@@ -137,8 +141,11 @@ type imageVerifier struct {
 	policyContext *PolicyContext
 	rule          *v1.Rule
 	resp          *response.EngineResponse
+	ivm           *ImageVerificationMetadata
 }
 
+// verify applies policy rules to each matching image. The policy rule results and annotation patches are
+// added to tme imageVerifier `resp` and `ivm` fields.
 func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[string]map[string]apiutils.ImageInfo) {
 	// for backward compatibility
 	imageVerify = *imageVerify.Convert()
@@ -149,6 +156,15 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 
 			if !imageMatches(image, imageVerify.ImageReferences) {
 				iv.logger.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
+				continue
+			}
+
+			if hasImageVerifiedAnnotationChanged(iv.policyContext) {
+				msg := imageVerifyAnnotationKey + " annotation cannot be changed"
+				iv.logger.Info("image verification error", "reason", msg)
+				ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
+				incrementAppliedCount(iv.resp)
 				continue
 			}
 
@@ -170,20 +186,26 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				}
 			}
 
-			if imageVerify.MutateDigest && imageInfo.Digest == "" {
-				patch, err := iv.handleMutateDigest(digest, imageInfo)
+			if imageVerify.MutateDigest {
+				patch, retrievedDigest, err := iv.handleMutateDigest(digest, imageInfo)
 				if err != nil {
 					ruleResp = ruleError(iv.rule, response.ImageVerify, "failed to update digest", err)
-				}
+				} else if patch != nil {
+					if ruleResp == nil {
+						ruleResp = ruleResponse(*iv.rule, response.ImageVerify, "mutated image digest", response.RuleStatusPass, nil)
+					}
 
-				if ruleResp != nil {
 					ruleResp.Patches = append(ruleResp.Patches, patch)
+					imageInfo.Digest = retrievedDigest
+					image = imageInfo.String()
+					digest = retrievedDigest
 				}
 			}
 
 			if ruleResp != nil {
-				if ruleResp.Status == response.RuleStatusPass {
-					ruleResp = iv.markImageVerified(imageVerify, ruleResp, digest, imageInfo)
+				if len(imageVerify.Attestors) > 0 || len(imageVerify.Attestations) > 0 {
+					verified := ruleResp.Status == response.RuleStatusPass
+					iv.ivm.add(image, verified)
 				}
 
 				iv.resp.PolicyResponse.Rules = append(iv.resp.PolicyResponse.Rules, *ruleResp)
@@ -193,103 +215,39 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 	}
 }
 
-func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.ImageInfo) ([]byte, error) {
-	if digest == "" {
-		digest, err := fetchImageDigest(imageInfo.String())
-		if err != nil {
-			return nil, err
-		}
+func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.ImageInfo) ([]byte, string, error) {
+	if imageInfo.Digest != "" {
+		return nil, "", nil
+	}
 
-		imageInfo.Digest = digest
+	if digest == "" {
+		var err error
+		digest, err = fetchImageDigest(imageInfo.String())
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	patch, err := makeAddDigestPatch(imageInfo, digest)
 	if err != nil {
-		return nil, err
+		return nil, "", errors.Wrapf(err, "failed to create image digest patch")
 	}
 
-	return patch, nil
+	iv.logger.V(4).Info("adding digest patch", "image", imageInfo.String(), "patch", string(patch))
+
+	return patch, digest, nil
 }
 
-func (iv *imageVerifier) markImageVerified(imageVerify v1.ImageVerification, ruleResp *response.RuleResponse, digest string, imageInfo apiutils.ImageInfo) *response.RuleResponse {
-	if hasImageVerifiedAnnotationChanged(iv.policyContext, imageInfo.Name, digest) {
-		msg := "changes to `images.kyverno.io` annotation are not allowed"
-		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
-	}
-
-	if imageVerify.Required {
-		isImageVerified := ruleResp.Status == response.RuleStatusPass
-		hasAnnotations := len(iv.policyContext.NewResource.GetAnnotations()) > 0
-		patches, err := makeImageVerifiedPatches(imageInfo, digest, isImageVerified, hasAnnotations)
-		if err != nil {
-			iv.logger.Error(err, "failed to create patch", "image", imageInfo.String())
-		} else {
-			ruleResp.Patches = append(ruleResp.Patches, patches...)
-		}
-	}
-
-	return ruleResp
-}
-
-func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, name, digest string) bool {
+func hasImageVerifiedAnnotationChanged(ctx *PolicyContext) bool {
 	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
 		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
 		return false
 	}
 
-	key := makeAnnotationKey(name)
+	key := imageVerifyAnnotationKey
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
 	return newValue != oldValue
-}
-
-func makeImageVerifiedPatches(imageInfo apiutils.ImageInfo, digest string, verified, hasAnnotations bool) ([][]byte, error) {
-	var patches [][]byte
-	if !hasAnnotations {
-		var addAnnotationsPatch = make(map[string]interface{})
-		addAnnotationsPatch["op"] = "add"
-		addAnnotationsPatch["path"] = "/metadata/annotations"
-		addAnnotationsPatch["value"] = map[string]string{}
-		patchBytes, err := json.Marshal(addAnnotationsPatch)
-		if err != nil {
-			return nil, err
-		}
-
-		patches = append(patches, patchBytes)
-	}
-
-	imageData := &ImageVerificationMetadata{
-		Verified: verified,
-		Digest:   digest,
-	}
-
-	data, err := json.Marshal(imageData)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", imageData)
-	}
-
-	var addKeyPatch = make(map[string]interface{})
-	annotationKey := makeAnnotationKeyForJSONPatch(imageInfo.Name)
-	addKeyPatch["op"] = "add"
-	addKeyPatch["path"] = annotationKey
-	addKeyPatch["value"] = string(data)
-
-	patchBytes, err := json.Marshal(addKeyPatch)
-	if err != nil {
-		return nil, err
-	}
-
-	patches = append(patches, patchBytes)
-	return patches, err
-}
-
-func makeAnnotationKeyForJSONPatch(imageName string) string {
-	key := makeAnnotationKey(imageName)
-	return "/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1")
-}
-
-func makeAnnotationKey(imageName string) string {
-	return fmt.Sprintf("images.kyverno.io/%s", imageName)
 }
 
 func fetchImageDigest(ref string) (string, error) {
@@ -297,10 +255,12 @@ func fetchImageDigest(ref string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
+
 	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}
+
 	return desc.Digest.String(), nil
 }
 

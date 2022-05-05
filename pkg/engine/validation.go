@@ -462,7 +462,7 @@ func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
 		}
 	}
 
-	logger.V(4).Info("resource does not match rule", "reason", err.Error())
+	logger.V(5).Info("resource does not match rule", "reason", err.Error())
 	return false
 }
 

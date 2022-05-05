@@ -1,13 +1,10 @@
 package engine
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -18,6 +15,11 @@ import (
 )
 
 func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
+	if isDeleteRequest(ctx) {
+		return nil
+	}
+
+	log = log.WithValues("rule", rule.Name)
 	if err := LoadContext(log, rule.Context, ctx, rule.Name); err != nil {
 		if _, ok := err.(gojmespath.NotFoundError); ok {
 			log.V(3).Info("failed to load context", "reason", err.Error())
@@ -44,32 +46,36 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 	for _, v := range rule.VerifyImages {
 		imageVerify := v.Convert()
 		for _, infoMap := range ctx.JSONContext.ImageInfo() {
-			for _, imageInfo := range infoMap {
+			for name, imageInfo := range infoMap {
 				image := imageInfo.String()
+				log = log.WithValues("rule", rule.Name)
+
 				if !imageMatches(image, imageVerify.ImageReferences) {
-					log.V(4).Info("image does not match pattern", "image", image, "patterns", imageVerify.ImageReferences)
+					log.V(4).Info("image does not match", "imageReferences", imageVerify.ImageReferences)
 					return nil
 				}
 
-				if err := validateImage(ctx, imageVerify, imageInfo); err != nil {
+				log.V(4).Info("validating image", "image", image)
+				if err := validateImage(ctx, imageVerify, name, imageInfo, log); err != nil {
 					return ruleResponse(*rule, response.ImageVerify, err.Error(), response.RuleStatusFail, nil)
 				}
 			}
 		}
 	}
 
+	log.V(4).Info("validated image", "rule", rule.Name)
 	return ruleResponse(*rule, response.Validation, "image verified", response.RuleStatusPass, nil)
 }
 
-func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, imageInfo apiutils.ImageInfo) error {
+func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
-		log.Log.Info("missing digest", "request.object", ctx.NewResource.UnstructuredContent())
+		log.Info("missing digest", "image", imageInfo.String())
 		return fmt.Errorf("missing digest for %s", image)
 	}
 
 	if imageVerify.Required && !reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		verified, err := isImageVerified(ctx, imageInfo)
+		verified, err := isImageVerified(ctx.NewResource, image, log)
 		if err != nil {
 			return err
 		}
@@ -82,39 +88,28 @@ func validateImage(ctx *PolicyContext, imageVerify *kyverno.ImageVerification, i
 	return nil
 }
 
-type ImageVerificationMetadata struct {
-	Verified bool   `json:"verified,omitempty"`
-	Digest   string `json:"digest,omitempty"`
-}
-
-func isImageVerified(ctx *PolicyContext, imageInfo apiutils.ImageInfo) (bool, error) {
-	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
-		return false, errors.Errorf("resource does not exist")
+func isImageVerified(resource unstructured.Unstructured, image string, log logr.Logger) (bool, error) {
+	if reflect.DeepEqual(resource, unstructured.Unstructured{}) {
+		return false, errors.Errorf("nil resource")
 	}
 
-	annotations := ctx.NewResource.GetAnnotations()
+	annotations := resource.GetAnnotations()
 	if len(annotations) == 0 {
 		return false, nil
 	}
 
-	key := makeAnnotationKey(imageInfo.Name)
+	key := imageVerifyAnnotationKey
 	data, ok := annotations[key]
 	if !ok {
+		log.V(2).Info("missing image metadata in annotation", "key", key)
 		return false, errors.Errorf("image is not verified")
 	}
 
-	var ivm ImageVerificationMetadata
-	if err := json.Unmarshal([]byte(data), &ivm); err != nil {
-		return false, errors.Wrapf(err, "failed to extract image metadata")
+	ivm, err := parseImageMetadata(data)
+	if err != nil {
+		log.Error(err, "failed to parse image verification metadata", "data", data)
+		return false, errors.Wrapf(err, "failed to parse image metadata")
 	}
 
-	if !ivm.Verified {
-		return false, nil
-	}
-
-	if imageInfo.Digest != ivm.Digest {
-		return false, errors.Errorf("failed to verify image; digest mismatch")
-	}
-
-	return true, nil
+	return ivm.isVerified(image), nil
 }
