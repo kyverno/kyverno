@@ -429,7 +429,6 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		go urc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
 	}
 
@@ -460,6 +459,7 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
+	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
 	go configurationController.Run(stopCh)
