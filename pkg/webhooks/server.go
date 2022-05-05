@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -183,21 +185,13 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		return nil, errors.Wrap(err, "failed to create policy rule context")
 	}
 
-	// convert RAW to unstructured
-	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := convertResource(request, request.Object.Raw)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+		return nil, err
 	}
 
 	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
-	}
-
-	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
-		resource, err = utils.NormalizeSecret(&resource)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
-		}
 	}
 
 	policyContext := &engine.PolicyContext{
@@ -211,10 +205,30 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 	}
 
 	if request.Operation == admissionv1.Update {
-		policyContext.OldResource = resource
+		policyContext.OldResource, err = convertResource(request, request.OldObject.Raw)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return policyContext, nil
+}
+
+// convertResource converts RAW to unstructured
+func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) (unstructured.Unstructured, error) {
+	resource, err := utils.ConvertResource(resourceRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+	}
+
+	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
+	}
+
+	return resource, nil
 }
 
 // RunAsync TLS server in separate thread and returns control immediately
