@@ -491,8 +491,8 @@ func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
 	return kyverno.AttestorSet{
 		Entries: []kyverno.Attestor{
 			{
-				StaticKey: &kyverno.StaticKeyAttestor{
-					Keys: s,
+				Keys: &kyverno.StaticKeyAttestor{
+					PublicKeys: s,
 				},
 			},
 		},
