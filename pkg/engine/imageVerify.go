@@ -372,7 +372,7 @@ func createStaticKeyAttestors(keys []string) []v1.Attestor {
 	for _, k := range keys {
 		a := v1.Attestor{
 			Keys: &v1.StaticKeyAttestor{
-				PublicKeys:          k,
+				PublicKeys: k,
 			},
 		}
 		attestors = append(attestors, a)
