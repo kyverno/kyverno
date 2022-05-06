@@ -40,12 +40,13 @@ func fetchUniqueSpec(specs []*kyverno.ResourceSpec) []*kyverno.ResourceSpec {
 	return result
 }
 
-func constructUniquelist(ulists []*unstructured.UnstructuredList) []*unstructured.UnstructuredList {
-	inResult := make(map[*unstructured.UnstructuredList]bool)
-	var result []*unstructured.UnstructuredList
+func constructUniquelist(ulists []unstructured.Unstructured) []unstructured.Unstructured {
+	inResult := make(map[*unstructured.Unstructured]bool)
+	var result []unstructured.Unstructured
 	for _, list := range ulists {
-		if _, ok := inResult[list]; !ok {
-			inResult[list] = true
+		list := list
+		if _, ok := inResult[&list]; !ok {
+			inResult[&list] = true
 			result = append(result, list)
 		}
 	}

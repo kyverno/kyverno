@@ -19,8 +19,8 @@ import (
 func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
 
-	if !policy.GetSpec().MutateExistingOnPolicyUpdate || !policy.GetSpec().IsGenerateExisting() {
-		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExisting())
+	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExistingOnPolicyUpdate())
 		return nil
 	}
 
@@ -49,40 +49,21 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-
-				triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
+				err := pc.handleUpdateRequest(ur, rule, policy)
 				if err != nil {
-					pc.log.WithName(rule.Name).Error(err, "failed to get trigger resource")
-				}
-				policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
-				if err != nil {
-					pc.log.WithName(rule.Name).Error(err, "failed to build policy context for mutateExisting")
+					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
 					continue
-				}
-				engineResponse := engine.ApplyBackgroundChecks(policyContext)
-
-				for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-					if ruleResponse.Status != response.RuleStatusPass {
-						pc.log.Error(err, "can not create new UR for mutateExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
-						errors = append(errors, err)
-						continue
-					}
-
-					err := pc.handleUpdateRequest(ur)
-					if err != nil {
-						pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
-						continue
-					} else {
-						pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
-					}
+				} else {
+					pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
 				}
 			}
 		}
-		if rule.IsGenerateExisting() {
+		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 			ruleType = urkyverno.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
+			pc.log.Info("trigger are >>>>>", "trigger", triggers)
 			for _, trigger := range triggers {
 				gurs := pc.listGenerateURs(policyKey, trigger)
 
@@ -94,35 +75,15 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-				triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
+				err := pc.handleUpdateRequest(ur, rule, policy)
 				if err != nil {
-					pc.log.WithName(rule.Name).Error(err, "failed to get trigger resource")
-				}
-
-				policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
-				if err != nil {
-					pc.log.WithName(rule.Name).Error(err, "failed to build policy context for genExisting")
+					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+					errors = append(errors, err)
 					continue
-				}
-				engineResponse := engine.ApplyBackgroundChecks(policyContext)
-
-				for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
-					if ruleResponse.Status != response.RuleStatusPass {
-						pc.log.Error(err, "can not create new UR for genExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
-						errors = append(errors, err)
-						continue
-					}
-					err := pc.handleUpdateRequest(ur)
-					if err != nil {
-						pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
-
-						errors = append(errors, err)
-						continue
-					} else {
-						pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
-					}
+				} else {
+					pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
 				}
 			}
 			err := engineutils.CombineErrors(errors)
@@ -132,16 +93,34 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 	return nil
 }
 
-func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest) error {
-	new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, rule kyverno.Rule, policy kyverno.PolicyInterface) error {
+	triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
 	if err != nil {
 		return err
 	}
 
-	new.Status.State = urkyverno.Pending
-	if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-		pc.log.Error(err, "failed to set UpdateRequest state to Pending")
-		return err
+	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
+	if err != nil {
+		pc.log.WithName(rule.Name).Error(err, "failed to build policy context for existing")
+	}
+	engineResponse := engine.ApplyBackgroundChecks(policyContext)
+
+	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
+		if ruleResponse.Status != response.RuleStatusPass {
+			pc.log.Error(err, "can not create new UR for genExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+			continue
+		}
+
+		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		new.Status.State = urkyverno.Pending
+		if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			pc.log.Error(err, "failed to set UpdateRequest state to Pending")
+			return err
+		}
 	}
 	return err
 }

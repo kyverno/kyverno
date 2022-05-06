@@ -572,14 +572,14 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 
 func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*kyverno.ResourceSpec {
 	var specs []*kyverno.ResourceSpec
-	var list []*unstructured.UnstructuredList
+	list := &unstructured.UnstructuredList{}
 
 	for _, kind := range rule.MatchResources.Kinds {
 		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 		}
-		list = append(list, mlist)
+		list.Items = append(list.Items, mlist.Items...)
 	}
 
 	for _, any := range rule.MatchResources.Any {
@@ -588,70 +588,47 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 			if err != nil {
 				log.Error(err, "failed to list any matched resource")
 			}
-			list = append(list, anyList)
+			list.Items = append(list.Items, anyList.Items...)
 		}
 	}
 
+	var kindlist []string
 	for _, all := range rule.MatchResources.All {
-		if isMatchResourcesAllValid(all.Kinds) {
+		kindlist = append(kindlist, all.Kinds...)
+	}
+
+	if isMatchResourcesAllValid(kindlist) {
+		for _, all := range rule.MatchResources.All {
+
 			for _, kind := range all.Kinds {
 				allList, err := client.ListResource("", kind, "", all.Selector)
 				if err != nil {
 					log.Error(err, "failed to list all matched resource")
 				}
-				list = append(list, allList)
+				list.Items = append(list.Items, allList.Items...)
 			}
 		}
 	}
 	// construct unique resource list
-	uniquelist := constructUniquelist(list)
+	uniquelist := constructUniquelist(list.Items)
 
-	triggers := genTrigger(uniquelist, rule.MatchResources.ResourceDescription)
+	triggers := genTrigger(uniquelist)
 	specs = append(specs, triggers...)
 
-	for _, any := range rule.MatchResources.Any {
-		triggers = genTrigger(uniquelist, any.ResourceDescription)
-		specs = append(specs, triggers...)
-	}
-
-	triggers = []*kyverno.ResourceSpec{}
-	for _, all := range rule.MatchResources.All {
-		triggers = genTrigger(uniquelist, all.ResourceDescription)
-	}
-
-	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
-	for _, trigger := range triggers {
-		c := subset[trigger]
-		subset[trigger] = c + 1
-	}
-
-	for k, v := range subset {
-		if v == len(rule.MatchResources.All) {
-			specs = append(specs, k)
-		}
-	}
 	return fetchUniqueSpec(specs)
 }
 
-func genTrigger(rlist []*unstructured.UnstructuredList, rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
+func genTrigger(rlist []unstructured.Unstructured) []*kyverno.ResourceSpec {
 	var specs []*kyverno.ResourceSpec
 
-	for _, list := range rlist {
-		for _, resource := range list.Items {
-			for _, k := range rd.Kinds {
-				_, kind := kubeutils.GetKindFromGVK(k)
-				if kind == "" {
-					continue
-				}
-				spec := &kyverno.ResourceSpec{
-					APIVersion: resource.GetAPIVersion(),
-					Kind:       resource.GetKind(),
-					Namespace:  resource.GetNamespace(),
-					Name:       resource.GetName(),
-				}
-				specs = append(specs, spec)
-			}
+	for _, resource := range rlist {
+		spec := &kyverno.ResourceSpec{
+			APIVersion: resource.GetAPIVersion(),
+			Kind:       resource.GetKind(),
+			Namespace:  resource.GetNamespace(),
+			Name:       resource.GetName(),
 		}
+		specs = append(specs, spec)
 	}
 	return specs
 }

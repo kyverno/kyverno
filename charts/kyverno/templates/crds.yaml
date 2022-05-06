@@ -64,6 +64,9 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              generateExistingOnPolicyUpdate:
+                description: GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources If is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.
+                type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events. Default value is "false".
                 type: boolean
@@ -525,9 +528,6 @@ spec:
                         data:
                           description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
-                        genExisting:
-                          description: GenerateExisting controls wether to trigger generate rule in existing resources If GenerateExisting is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.
-                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
@@ -2412,6 +2412,9 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              generateExistingOnPolicyUpdate:
+                description: GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources If is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.
+                type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events. Default value is "false".
                 type: boolean
@@ -2873,9 +2876,6 @@ spec:
                         data:
                           description: Data provides the resource declaration used to populate each generated resource. At most one of Data or Clone must be specified. If neither are provided, the generated resource will be created with default data only.
                           x-kubernetes-preserve-unknown-fields: true
-                        genExisting:
-                          description: GenerateExisting controls wether to trigger generate rule in existing resources If GenerateExisting is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.
-                          type: boolean
                         kind:
                           description: Kind specifies resource kind.
                           type: string
