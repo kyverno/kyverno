@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +33,7 @@ type Interface interface {
 	Discovery() IDiscovery
 	// SetDiscovery sets the discovery client implementation
 	SetDiscovery(discoveryClient IDiscovery)
+	RawAbsPath(path string) ([]byte, error)
 	// GetResource returns the resource in unstructured/json format
 	GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error)
 	// PatchResource patches the resource
@@ -55,6 +57,7 @@ type client struct {
 	discoveryClient IDiscovery
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
+	restClient      rest.Interface
 }
 
 // NewClient creates new instance of client
@@ -71,6 +74,7 @@ func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}
 		client:       dclient,
 		clientConfig: config,
 		kclient:      kclient,
+		restClient:   kclient.RESTClient(),
 	}
 	// Set discovery client
 	discoveryClient := &serverPreferredResources{
@@ -131,6 +135,13 @@ func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 // GetResource returns the resource in unstructured/json format
 func (c *client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
+}
+
+func (c *client) RawAbsPath(path string) ([]byte, error) {
+	if c.restClient == nil {
+		return nil, errors.New("rest client not supported")
+	}
+	return c.restClient.Get().AbsPath(path).DoRaw(context.TODO())
 }
 
 // PatchResource patches the resource
