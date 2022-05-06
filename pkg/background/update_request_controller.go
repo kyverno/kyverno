@@ -1,6 +1,7 @@
 package background
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -190,8 +191,7 @@ func (c *Controller) syncUpdateRequest(key string) error {
 			return nil
 		}
 
-		logger.Error(err, "failed to fetch update request", "key", key)
-		return err
+		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
 
 	ur, ok, err := c.MarkUR(ur)
@@ -200,17 +200,19 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		return nil
 	}
 	if err != nil {
-		logger.Error(err, "failed to mark UR handler", "key", key)
-		return err
+		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
 	}
 
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
 	if err := c.ProcessUR(ur); err != nil {
-		logger.Error(err, "failed to process UR", "key", key)
-		return err
+		return fmt.Errorf("failed to process UR %s: %v", key, err)
 	}
 
-	return c.UnmarkUR(ur)
+	if err = c.UnmarkUR(ur); err != nil {
+		return fmt.Errorf("failed to un-mark UR %s: %v", key, err)
+	}
+
+	return nil
 }
 
 func (c *Controller) enqueueUpdateRequest(obj interface{}) {

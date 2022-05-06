@@ -68,10 +68,9 @@ spec:
                 - Ignore
                 - Fail
                 type: string
-              onPolicyUpdate:
-                description: OnPolicyUpdate controls if a policy is applied to existing
-                  resources for mutateExisting and generate policies. Default value
-                  is "false".
+              mutateExistingOnPolicyUpdate:
+                description: MutateExistingOnPolicyUpdate controls if a mutateExisting
+                  policy is applied on policy events. Default value is "false".
                 type: boolean
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
