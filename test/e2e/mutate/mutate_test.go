@@ -511,7 +511,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 
 			// wait for UR to be completed
-			time.Sleep(10 * time.Second)
+			time.Sleep(20 * time.Second)
 
 			res, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
 			Expect(err).NotTo(HaveOccurred())
