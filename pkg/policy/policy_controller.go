@@ -30,7 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -570,25 +570,53 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log logr.Logger) []*kyverno.ResourceSpec {
+func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*kyverno.ResourceSpec {
 	var specs []*kyverno.ResourceSpec
+	var list []*unstructured.UnstructuredList
 
-	nslist, err := lister.List(labels.NewSelector())
-	if err != nil {
-		log.Error(err, "failed to list namespaces")
+	for _, kind := range rule.MatchResources.Kinds {
+		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		if err != nil {
+			log.Error(err, "failed to list matched resource")
+		}
+		list = append(list, mlist)
 	}
 
-	triggers := genTrigger(nslist, rule.MatchResources.ResourceDescription)
+	for _, any := range rule.MatchResources.Any {
+		for _, kind := range any.Kinds {
+			anyList, err := client.ListResource("", kind, "", any.Selector)
+			if err != nil {
+				log.Error(err, "failed to list any matched resource")
+			}
+			list = append(list, anyList)
+		}
+	}
+
+	for _, all := range rule.MatchResources.All {
+		if isMatchResourcesAllValid(all.Kinds) {
+			for _, kind := range all.Kinds {
+				allList, err := client.ListResource("", kind, "", all.Selector)
+				if err != nil {
+					log.Error(err, "failed to list all matched resource")
+				}
+				list = append(list, allList)
+			}
+		}
+	}
+	// construct unique resource list
+	uniquelist := constructUniquelist(list)
+
+	triggers := genTrigger(uniquelist, rule.MatchResources.ResourceDescription)
 	specs = append(specs, triggers...)
 
 	for _, any := range rule.MatchResources.Any {
-		triggers = genTrigger(nslist, any.ResourceDescription)
+		triggers = genTrigger(uniquelist, any.ResourceDescription)
 		specs = append(specs, triggers...)
 	}
 
 	triggers = []*kyverno.ResourceSpec{}
 	for _, all := range rule.MatchResources.All {
-		triggers = genTrigger(nslist, all.ResourceDescription)
+		triggers = genTrigger(uniquelist, all.ResourceDescription)
 	}
 
 	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
@@ -602,47 +630,29 @@ func generateTriggers(lister listerv1.NamespaceLister, rule kyverno.Rule, log lo
 			specs = append(specs, k)
 		}
 	}
-	return fetchUnique(specs)
+	return fetchUniqueSpec(specs)
 }
 
-func fetchUnique(specs []*kyverno.ResourceSpec) []*kyverno.ResourceSpec {
-	inResult := make(map[*kyverno.ResourceSpec]bool)
-	var result []*kyverno.ResourceSpec
-	for _, spec := range specs {
-		if _, ok := inResult[spec]; !ok {
-			inResult[spec] = true
-			result = append(result, spec)
-		}
-	}
-	return result
-}
-
-func genTrigger(nslist []*v1.Namespace, rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
+func genTrigger(rlist []*unstructured.UnstructuredList, rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	var specs []*kyverno.ResourceSpec
-	//var spec *kyverno.ResourceSpec
 
-	if utils.SliceContains(rd.Kinds, "Namespace") {
-		for _, ns := range nslist {
+	for _, list := range rlist {
+		for _, resource := range list.Items {
 			for _, k := range rd.Kinds {
-				apiVersion, kind := kubeutils.GetKindFromGVK(k)
+				_, kind := kubeutils.GetKindFromGVK(k)
 				if kind == "" {
 					continue
 				}
-
 				spec := &kyverno.ResourceSpec{
-					APIVersion: apiVersion,
-					Kind:       kind,
-					Namespace:  "",
-					Name:       ns.Name,
+					APIVersion: resource.GetAPIVersion(),
+					Kind:       resource.GetKind(),
+					Namespace:  resource.GetNamespace(),
+					Name:       resource.GetName(),
 				}
 				specs = append(specs, spec)
 			}
 		}
 	}
-
-	// exact match triggers
-	trigger := getTrigger(rd)
-	specs = append(specs, trigger...)
 	return specs
 }
 

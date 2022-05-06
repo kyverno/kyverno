@@ -19,14 +19,14 @@ import (
 func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
 
-	// TODO: add check for genExisting
-	if !policy.GetSpec().MutateExistingOnPolicyUpdate {
-		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate)
-		return
+	if !policy.GetSpec().MutateExistingOnPolicyUpdate || !policy.GetSpec().IsGenerateExisting() {
+		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExisting())
+		return nil
 	}
 
 	logger.Info("update URs on policy event")
 
+	var errors []error
 	mutateURs := pc.listMutateURs(policyKey, nil)
 	generateURs := pc.listGenerateURs(policyKey, nil)
 	updateUR(pc.kyvernoClient, policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
@@ -37,7 +37,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 		if rule.IsMutateExisting() {
 			ruleType = urkyverno.Mutate
 
-			triggers := getTriggers(rule)
+			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
 				murs := pc.listMutateURs(policyKey, trigger)
 
@@ -49,21 +49,40 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-				err := pc.handleUpdateRequest(ur)
+
+				triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
 				if err != nil {
-					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+					pc.log.WithName(rule.Name).Error(err, "failed to get trigger resource")
+				}
+				policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
+				if err != nil {
+					pc.log.WithName(rule.Name).Error(err, "failed to build policy context for mutateExisting")
 					continue
-				} else {
-					pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+				}
+				engineResponse := engine.ApplyBackgroundChecks(policyContext)
+
+				for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
+					if ruleResponse.Status != response.RuleStatusPass {
+						pc.log.Error(err, "can not create new UR for mutateExisting rule on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+						errors = append(errors, err)
+						continue
+					}
+
+					err := pc.handleUpdateRequest(ur)
+					if err != nil {
+						pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+						continue
+					} else {
+						pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+							"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+					}
 				}
 			}
 		}
 		if rule.IsGenerateExisting() {
 			ruleType = urkyverno.Generate
-			var errors []error
-			triggers := generateTriggers(pc.nsLister, rule, pc.log)
+			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
 				gurs := pc.listGenerateURs(policyKey, trigger)
 
@@ -75,7 +94,6 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-				// here trigger is the namespace for matched kind policy
 				triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
 				if err != nil {
 					pc.log.WithName(rule.Name).Error(err, "failed to get trigger resource")

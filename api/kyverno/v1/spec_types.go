@@ -158,6 +158,16 @@ func (s *Spec) IsMutateExisting() bool {
 	return false
 }
 
+// IsGenerateExisting checks if the generate policy applies to existing resources
+func (s *Spec) IsGenerateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.IsGenerateExisting() {
+			return true
+		}
+	}
+	return false
+}
+
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
