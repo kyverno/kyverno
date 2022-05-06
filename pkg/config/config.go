@@ -70,19 +70,39 @@ const (
 )
 
 var (
-	// KyvernoNamespace is the Kyverno namespace
-	KyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
-	// KyvernoDeploymentName is the Kyverno deployment name
-	KyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
-	// KyvernoServiceName is the Kyverno service name
-	KyvernoServiceName = osutils.GetEnvWithFallback("KYVERNO_SVC", "kyverno-svc")
-	// KyvernoPodName is the Kyverno pod name
-	KyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
-	// KyvernoConfigMapName is the Kyverno configmap name
-	KyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
+	// kyvernoNamespace is the Kyverno namespace
+	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
+	// kyvernoDeploymentName is the Kyverno deployment name
+	kyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
+	// kyvernoServiceName is the Kyverno service name
+	kyvernoServiceName = osutils.GetEnvWithFallback("KYVERNO_SVC", "kyverno-svc")
+	// kyvernoPodName is the Kyverno pod name
+	kyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
+	// kyvernoConfigMapName is the Kyverno configmap name
+	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludeGroupRole ...
 	defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
 )
+
+func KyvernoNamespace() string {
+	return kyvernoNamespace
+}
+
+func KyvernoDeploymentName() string {
+	return kyvernoDeploymentName
+}
+
+func KyvernoServiceName() string {
+	return kyvernoServiceName
+}
+
+func KyvernoPodName() string {
+	return kyvernoPodName
+}
+
+func KyvernoConfigMapName() string {
+	return kyvernoConfigMapName
+}
 
 // Configuration to be used by consumer to check filters
 type Configuration interface {
@@ -125,7 +145,7 @@ func NewConfiguration(client kubernetes.Interface, reconcilePolicyReport, update
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 		excludeGroupRole:            defaultExcludeGroupRole,
 	}
-	if cm, err := client.CoreV1().ConfigMaps(KyvernoNamespace).Get(context.TODO(), KyvernoConfigMapName, metav1.GetOptions{}); err != nil {
+	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
 		}

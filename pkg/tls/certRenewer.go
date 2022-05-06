@@ -119,7 +119,7 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 	logger := c.log.WithName("CAcert")
 	name := GenerateRootCASecretName(props)
 
-	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
@@ -189,7 +189,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	name := GenerateTLSPairSecretName(props)
 
-	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
@@ -256,7 +256,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 // Kyverno pod will register webhook server with new cert
 func (c *CertRenewer) RollingUpdate() error {
 	update := func() error {
-		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
@@ -271,7 +271,7 @@ func (c *CertRenewer) RollingUpdate() error {
 
 		deploy.Spec.Template.Annotations[rollingUpdateAnnotation] = time.Now().String()
 
-		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace()).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
 			return errors.Wrap(err, "update Kyverno deployment")
 		}
 		return nil

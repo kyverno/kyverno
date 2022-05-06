@@ -129,7 +129,7 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		rbLister:          rbInformer.Lister(),
 		rLister:           rInformer.Lister(),
 		nsLister:          namespace.Lister(),

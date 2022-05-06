@@ -53,7 +53,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 			logger.Info("creating new UR")
 			ur := newUR(policy, trigger, ruleType)
-			new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+			new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 			if err != nil {
 				pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
@@ -64,7 +64,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			}
 
 			new.Status.State = urkyverno.Pending
-			if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				pc.log.Error(err, "failed to set UpdateRequest state to Pending")
 			}
 		}
@@ -110,7 +110,7 @@ func newUR(policy kyverno.PolicyInterface, trigger *kyverno.ResourceSpec, ruleTy
 	return &urkyverno.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
-			Namespace:    config.KyvernoNamespace,
+			Namespace:    config.KyvernoNamespace(),
 			Labels:       label,
 		},
 		Spec: urkyverno.UpdateRequestSpec{

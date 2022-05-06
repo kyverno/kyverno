@@ -56,7 +56,7 @@ type Monitor struct {
 // NewMonitor returns a new instance of webhook monitor
 func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, error) {
 	monitor := &Monitor{
-		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace),
+		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		lastSeenRequestTime: time.Now(),
 		log:                 log,
 	}

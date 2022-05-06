@@ -178,7 +178,7 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	defer close(cleanUp)
 
 	// delete Lease object to let init container do the cleanup
-	err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{})
+	err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{})
 	if err != nil && errorsapi.IsNotFound(err) {
 		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
 	}
@@ -247,7 +247,7 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 // cleanupKyvernoResource returns true if Kyverno is terminating
 func (wrc *Register) cleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 	if err != nil {
 		if errorsapi.IsNotFound(err) {
 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
@@ -612,23 +612,23 @@ func (wrc *Register) removeSecrets() {
 			tls.ManagedByLabel: "kyverno",
 		},
 	}
-	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
 		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
 		return
 	}
 }
 
 func (wrc *Register) checkEndpoint() error {
-	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoServiceName, metav1.GetOptions{})
+	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoServiceName(), metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace, config.KyvernoServiceName, err)
+		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
 	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/name": "kyverno",
 		},
 	}
-	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
@@ -645,13 +645,13 @@ func (wrc *Register) checkEndpoint() error {
 		}
 		for _, addr := range subset.Addresses {
 			if utils.ContainsString(ips, addr.IP) {
-				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
 				return nil
 			}
 		}
 	}
 	err = fmt.Errorf("endpoint not ready")
-	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace, "name", config.KyvernoServiceName)
+	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
 	return err
 }
 

@@ -48,7 +48,7 @@ func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernet
 
 func (m *controller) addSecretFunc(obj interface{}) {
 	secret := obj.(*v1.Secret)
-	if secret.GetNamespace() != config.KyvernoNamespace {
+	if secret.GetNamespace() != config.KyvernoNamespace() {
 		return
 	}
 	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
@@ -61,7 +61,7 @@ func (m *controller) addSecretFunc(obj interface{}) {
 func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	old := oldObj.(*v1.Secret)
 	new := newObj.(*v1.Secret)
-	if new.GetNamespace() != config.KyvernoNamespace {
+	if new.GetNamespace() != config.KyvernoNamespace() {
 		return
 	}
 	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]

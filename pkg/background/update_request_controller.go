@@ -102,7 +102,7 @@ func NewController(
 
 	c.policyLister = policyInformer.Lister()
 	c.npolicyLister = npolicyInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c.nsLister = namespaceInformer.Lister()
 
 	return &c, nil
