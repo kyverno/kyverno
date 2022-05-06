@@ -58,7 +58,7 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
-			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
+			log.V(4).Info("skipping resource with no name", "resource", er.PolicyResponse.Resource)
 			continue
 		}
 

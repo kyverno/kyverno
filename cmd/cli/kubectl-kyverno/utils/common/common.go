@@ -521,7 +521,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(policy, verifyImageResponse, resPath, rc, policyReport)
