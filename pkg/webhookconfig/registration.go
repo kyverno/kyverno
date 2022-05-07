@@ -239,29 +239,6 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-func (wrc *Register) shouldCleanupKyvernoResource() bool {
-	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
-	if err != nil {
-		if errorsapi.IsNotFound(err) {
-			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
-			return true
-		}
-		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
-		return false
-	}
-	if deploy.GetDeletionTimestamp() != nil {
-		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
-		return true
-	}
-	if deploy.Spec.Replicas != nil && *deploy.Spec.Replicas == 0 {
-		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
-		return true
-	}
-	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
-	return false
-}
-
 func (wrc *Register) createMutatingWebhookConfiguration(config *admregapi.MutatingWebhookConfiguration) error {
 	logger := wrc.log.WithValues("kind", kindMutating, "name", config.Name)
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{}); err != nil {
@@ -345,153 +322,6 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 	return wrc.createMutatingWebhookConfiguration(config)
 }
 
-func (wrc *Register) removeWebhookConfigurations() {
-	startTime := time.Now()
-	wrc.log.V(3).Info("deleting all webhook configurations")
-	defer func() {
-		wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
-	}()
-
-	var wg sync.WaitGroup
-	wg.Add(5)
-
-	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
-	go wrc.removeResourceValidatingWebhookConfiguration(&wg)
-	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
-	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
-	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
-
-	wg.Wait()
-}
-
-func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	configName := getResourceMutatingWebhookConfigName(wrc.serverIP)
-	logger := wrc.log.WithValues("kind", kindMutating, "name", configName)
-
-	if _, err := wrc.mwcLister.Get(configName); err != nil && errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook not found")
-		return
-	}
-
-	err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook configuration not found")
-		return
-	}
-
-	if err != nil {
-		logger.Error(err, "failed to delete the mutating webhook configuration")
-		return
-	}
-
-	logger.Info("webhook configuration deleted")
-}
-
-func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	configName := getResourceValidatingWebhookConfigName(wrc.serverIP)
-	logger := wrc.log.WithValues("kind", kindValidating, "name", configName)
-
-	if _, err := wrc.vwcLister.Get(configName); err != nil && errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook not found")
-		return
-	}
-
-	err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), configName, metav1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		logger.V(5).Info("webhook configuration not found")
-		return
-	}
-
-	if err != nil {
-		logger.Error(err, "failed to delete the validating webhook configuration")
-		return
-	}
-
-	logger.Info("webhook configuration deleted")
-}
-
-func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	mutatingConfig := getPolicyMutatingWebhookConfigName(wrc.serverIP)
-
-	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
-
-	if _, err := wrc.mwcLister.Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook not found")
-		return
-	}
-
-	err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), mutatingConfig, metav1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		logger.V(5).Info("policy mutating webhook configuration not found")
-		return
-	}
-
-	if err != nil {
-		logger.Error(err, "failed to delete policy mutating webhook configuration")
-		return
-	}
-
-	logger.Info("webhook configuration deleted")
-}
-
-func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	validatingConfig := getPolicyValidatingWebhookConfigName(wrc.serverIP)
-
-	logger := wrc.log.WithValues("kind", kindValidating, "name", validatingConfig)
-	if _, err := wrc.vwcLister.Get(validatingConfig); err != nil && errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook not found")
-		return
-	}
-
-	logger.V(4).Info("removing validating webhook configuration")
-	err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), validatingConfig, metav1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		logger.V(5).Info("policy validating webhook configuration not found")
-		return
-	}
-
-	if err != nil {
-		logger.Error(err, "failed to delete policy validating webhook configuration")
-		return
-	}
-
-	logger.Info("webhook configuration deleted")
-}
-
-func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
-	defer wg.Done()
-
-	var err error
-	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
-	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
-
-	if _, err := wrc.mwcLister.Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
-		logger.V(4).Info("webhook not found")
-		return
-	}
-
-	err = wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), mutatingConfig, metav1.DeleteOptions{})
-	if errorsapi.IsNotFound(err) {
-		logger.V(5).Info("verify webhook configuration not found")
-		return
-	}
-
-	if err != nil {
-		logger.Error(err, "failed to delete verify webhook configuration")
-		return
-	}
-
-	logger.Info("webhook configuration deleted")
-}
-
 func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
 	var mutatingConfig string
 	if wrc.serverIP != "" {
@@ -505,19 +335,6 @@ func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
 // GetWebhookTimeOut returns the value of webhook timeout
 func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
-}
-
-// removeSecrets removes Kyverno managed secrets
-func (wrc *Register) removeSecrets() {
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			tls.ManagedByLabel: "kyverno",
-		},
-	}
-	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
-		return
-	}
 }
 
 func (wrc *Register) checkEndpoint() error {
@@ -695,4 +512,95 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregap
 	}
 	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", targetConfig.Name)
 	return nil
+}
+
+func (wrc *Register) shouldCleanupKyvernoResource() bool {
+	logger := wrc.log.WithName("cleanupKyvernoResource")
+	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	if err != nil {
+		if errorsapi.IsNotFound(err) {
+			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
+			return true
+		}
+		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
+		return false
+	}
+	if deploy.GetDeletionTimestamp() != nil {
+		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
+		return true
+	}
+	if deploy.Spec.Replicas != nil && *deploy.Spec.Replicas == 0 {
+		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
+		return true
+	}
+	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
+	return false
+}
+
+func (wrc *Register) removeSecrets() {
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			tls.ManagedByLabel: "kyverno",
+		},
+	}
+	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
+	}
+}
+
+func (wrc *Register) removeWebhookConfigurations() {
+	startTime := time.Now()
+	wrc.log.V(3).Info("deleting all webhook configurations")
+	defer wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
+	var wg sync.WaitGroup
+	wg.Add(5)
+	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
+	go wrc.removeResourceValidatingWebhookConfiguration(&wg)
+	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
+	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
+	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
+	wg.Wait()
+}
+
+func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.removeMutatingWebhookConfiguration(getResourceMutatingWebhookConfigName(wrc.serverIP))
+}
+
+func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.removeValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(wrc.serverIP))
+}
+
+func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.removeMutatingWebhookConfiguration(getPolicyMutatingWebhookConfigName(wrc.serverIP))
+}
+
+func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.removeValidatingWebhookConfiguration(getPolicyValidatingWebhookConfigName(wrc.serverIP))
+}
+
+func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
+	defer wg.Done()
+	wrc.removeMutatingWebhookConfiguration(getVerifyMutatingWebhookConfigName(wrc.serverIP))
+}
+
+func (wrc *Register) removeMutatingWebhookConfiguration(name string) {
+	logger := wrc.log.WithValues("kind", kindMutating, "name", name)
+	if err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
+		logger.Error(err, "failed to delete the mutating webhook configuration")
+	} else {
+		logger.Info("webhook configuration deleted")
+	}
+}
+
+func (wrc *Register) removeValidatingWebhookConfiguration(name string) {
+	logger := wrc.log.WithValues("kind", kindValidating, "name", name)
+	if err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
+		logger.Error(err, "failed to delete the validating webhook configuration")
+	} else {
+		logger.Info("webhook configuration deleted")
+	}
 }
