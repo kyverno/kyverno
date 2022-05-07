@@ -868,18 +868,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 			return err
 		}
 	}
-
-	ruleBytes, _ := json.Marshal(rule)
-	for _, contextName := range contextNames {
-		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
-		if err != nil {
-			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
-		}
-		if !contextRegex.Match(ruleBytes) {
-			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
-		}
-	}
-
 	return nil
 }
 
