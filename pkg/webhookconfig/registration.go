@@ -150,7 +150,7 @@ func (wrc *Register) Register() error {
 
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
-	if _, err := wrc.mwcLister.Get(wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
+	if _, err := wrc.mwcLister.Get(getVerifyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
@@ -470,7 +470,7 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 	defer wg.Done()
 
 	var err error
-	mutatingConfig := wrc.getVerifyWebhookMutatingWebhookName()
+	mutatingConfig := getVerifyMutatingWebhookConfigName(wrc.serverIP)
 	logger := wrc.log.WithValues("kind", kindMutating, "name", mutatingConfig)
 
 	if _, err := wrc.mwcLister.Get(mutatingConfig); err != nil && errorsapi.IsNotFound(err) {
@@ -490,16 +490,6 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 	}
 
 	logger.Info("webhook configuration deleted")
-}
-
-func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
-	var mutatingConfig string
-	if wrc.serverIP != "" {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationDebugName
-	} else {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
-	}
-	return mutatingConfig
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout
