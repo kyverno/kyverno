@@ -73,7 +73,7 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name          string              `json:"name"`
-	Values        map[string]string   `json:"values"`
-	ForeachValues map[string][]string `json:"foreachValues"`
+	Name          string                   `json:"name"`
+	Values        map[string]interface{}   `json:"values"`
+	ForeachValues map[string][]interface{} `json:"foreachValues"`
 }
