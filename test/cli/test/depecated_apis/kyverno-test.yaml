@@ -13,4 +13,4 @@ results:
     rule: validate-v1-25-removal
     resource: hello-fail
     kind: CronJob
-    status: fail
+    status: warn
