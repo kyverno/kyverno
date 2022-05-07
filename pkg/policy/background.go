@@ -1,16 +1,11 @@
 package policy
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 //ContainsUserVariables returns error if variable that does not start from request.object
@@ -93,6 +88,7 @@ func userInfoDefined(ui kyverno.UserInfo) string {
 	return ""
 }
 
+/*
 func substituteVarsInJSON(ctx context.EvalInterface, document apiextensions.JSON) (apiextensions.JSON, error) {
 	jsonByte, err := json.Marshal(document)
 	if err != nil {
@@ -122,3 +118,4 @@ func substituteVarsInJSON(ctx context.EvalInterface, document apiextensions.JSON
 
 	return document, nil
 }
+*/
