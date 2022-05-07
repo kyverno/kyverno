@@ -13,7 +13,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	admregapi "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/rbac/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
@@ -84,22 +85,17 @@ func extractCA(config *rest.Config) (result []byte) {
 	return config.TLSClientConfig.CAData
 }
 
-func (wrc *Register) constructOwner() metav1.OwnerReference {
-	logger := wrc.log
-	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
-	if err != nil {
-		logger.Error(err, "failed to get cluster role")
-		return metav1.OwnerReference{}
+func getHealthyPodsIP(pods []corev1.Pod) (ips []string, errs []error) {
+	for _, pod := range pods {
+		if pod.Status.Phase != "Running" {
+			continue
+		}
+		ips = append(ips, pod.Status.PodIP)
 	}
-	return metav1.OwnerReference{
-		APIVersion: config.ClusterRoleAPIVersion,
-		Kind:       config.ClusterRoleKind,
-		Name:       kubeClusterRoleName.GetName(),
-		UID:        kubeClusterRoleName.GetUID(),
-	}
+	return
 }
 
-func (wrc *Register) GetKubePolicyClusterRoleName() (*corev1.ClusterRole, error) {
+func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/name": "kyverno",
@@ -125,6 +121,21 @@ func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
 		return nil, err
 	}
 	return deploy, nil
+}
+
+func (wrc *Register) constructOwner() metav1.OwnerReference {
+	logger := wrc.log
+	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
+	if err != nil {
+		logger.Error(err, "failed to get cluster role")
+		return metav1.OwnerReference{}
+	}
+	return metav1.OwnerReference{
+		APIVersion: config.ClusterRoleAPIVersion,
+		Kind:       config.ClusterRoleKind,
+		Name:       kubeClusterRoleName.GetName(),
+		UID:        kubeClusterRoleName.GetUID(),
+	}
 }
 
 // webhook utils
