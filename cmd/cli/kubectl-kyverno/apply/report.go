@@ -119,6 +119,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 	return results
 }
 
+/*
 func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[string][]*report.PolicyReportResult {
 	resultsNew := make(map[string][]*report.PolicyReportResult)
 
@@ -159,6 +160,7 @@ func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[
 	}
 	return resultsNew
 }
+*/
 
 func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
