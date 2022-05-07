@@ -703,8 +703,6 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-const scoredAnnotation = "policies.kyverno.io/scored"
-
 func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
 	var violatedRules []v1.ViolatedRule
 
@@ -731,7 +729,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 
 				case response.RuleStatusFail:
 					ann := policy.GetAnnotations()
-					if scored, ok := ann[scoredAnnotation]; ok && scored == "false" {
+					if scored, ok := ann[policyreport.ScoredLabel]; ok && scored == "false" {
 						rc.Warn++
 						vrule.Status = report.StatusWarn
 						break
