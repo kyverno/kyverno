@@ -337,8 +337,9 @@ func (m *webhookConfigManager) sync(key string) error {
 func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	logger := m.log.WithName("reconcileWebhook").WithValues("namespace", namespace, "policy", name)
 
-	policy, err := m.getPolicy(namespace, name)
-	if err != nil && !apierrors.IsNotFound(err) {
+	_, err := m.getPolicy(namespace, name)
+	isDeleted := apierrors.IsNotFound(err)
+	if err != nil && !isDeleted {
 		return errors.Wrapf(err, "unable to get policy object %s/%s", namespace, name)
 	}
 
@@ -356,7 +357,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		}
 
 		// DELETION of the policy
-		if policy == nil {
+		if isDeleted {
 			return nil
 		}
 	}
