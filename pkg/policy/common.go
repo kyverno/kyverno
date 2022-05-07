@@ -10,11 +10,9 @@ import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -60,6 +58,7 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
+/*
 // getNamespacesForRule gets the matched namespaces list for the given rule
 func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Logger) []string {
 	var matchedNS []string
@@ -118,6 +117,7 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 
 	return results
 }
+*/
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
