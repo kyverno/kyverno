@@ -200,6 +200,7 @@ func TestProcessPatches_RemovePathDoesntExist_NotEmptyResult(t *testing.T) {
 	assertEqStringAndData(t, `{"path":"/metadata/labels/label2","op":"add","value":"label2Value"}`, rr.Patches[0])
 }
 
+/*
 func assertEqDataImpl(t *testing.T, expected, actual []byte, formatModifier string) {
 	if len(expected) != len(actual) {
 		t.Errorf("len(expected) != len(actual): %d != %d\n1:"+formatModifier+"\n2:"+formatModifier, len(expected), len(actual), expected, actual)
@@ -212,6 +213,7 @@ func assertEqDataImpl(t *testing.T, expected, actual []byte, formatModifier stri
 		}
 	}
 }
+*/
 
 func assertEqStringAndData(t *testing.T, str string, data []byte) {
 	var p1 jsonPatch
