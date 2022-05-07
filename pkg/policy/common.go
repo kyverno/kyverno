@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -16,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+/*
 func buildPolicyLabel(policyName string) (labels.Selector, error) {
 	policyLabelmap := map[string]string{"policy": policyName}
 	//NOt using a field selector, as the match function will have to cast the runtime.object
@@ -30,6 +30,7 @@ func buildPolicyLabel(policyName string) (labels.Selector, error) {
 	}
 	return policySelector, nil
 }
+*/
 
 func transformResource(resource unstructured.Unstructured) []byte {
 	data, err := resource.MarshalJSON()
