@@ -1,5 +1,6 @@
 package mutate
 
+/*
 import (
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 )
@@ -18,3 +19,4 @@ func getAnchorAndElementsFromMap(anchorsMap map[string]interface{}) (map[string]
 
 	return anchors, elementsWithoutanchor
 }
+*/
