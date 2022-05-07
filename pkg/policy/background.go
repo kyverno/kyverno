@@ -87,35 +87,3 @@ func userInfoDefined(ui kyverno.UserInfo) string {
 	}
 	return ""
 }
-
-/*
-func substituteVarsInJSON(ctx context.EvalInterface, document apiextensions.JSON) (apiextensions.JSON, error) {
-	jsonByte, err := json.Marshal(document)
-	if err != nil {
-		return nil, err
-	}
-
-	var jsonInterface interface{}
-	err = json.Unmarshal(jsonByte, &jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonInterface, err = variables.SubstituteAll(log.Log, ctx, jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonByte, err = json.Marshal(jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonByte, &document)
-	if err != nil {
-		return nil, err
-	}
-
-	return document, nil
-}
-*/
