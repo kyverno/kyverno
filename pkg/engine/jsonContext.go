@@ -83,6 +83,7 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
 		}
 		path = jp.(string)
+		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 	var defaultValue interface{} = nil
 	if entry.Variable.Default != nil {
@@ -94,6 +95,7 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 		if err != nil {
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Default, err)
 		}
+		logger.V(4).Info("evaluated default value", "variable name", entry.Name, "jmespath", defaultValue)
 	}
 	var output interface{} = defaultValue
 	if entry.Variable.Value != nil {
@@ -106,6 +108,8 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 			variable, err := applyJMESPath(path, variable)
 			if err == nil {
 				output = variable
+			} else if defaultValue == nil {
+				return fmt.Errorf("failed to apply jmespath %s to variable %s: %v", path, entry.Variable.Value, err)
 			}
 		} else {
 			output = variable
@@ -114,9 +118,12 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 		if path != "" {
 			if variable, err := ctx.JSONContext.Query(path); err == nil {
 				output = variable
+			} else if defaultValue == nil {
+				return fmt.Errorf("failed to apply jmespath %s to variable %v", path, err)
 			}
 		}
 	}
+	logger.V(4).Info("evaluated output", "variable name", entry.Name, "output", output)
 	if output == nil {
 		return fmt.Errorf("unable to add context entry for variable %s since it evaluated to nil", entry.Name)
 	}

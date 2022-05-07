@@ -188,3 +188,30 @@ spec:
           - key: "{{ obj }}"
             operator: NotEqual
             value: "{{ expected }}"
+  - name: unused-var
+    context:
+    - name: obj
+      variable:
+        value:
+          a: 1
+          b: 2
+    - name: modifiedObj
+      variable:
+        jmesPath: items(obj, 'key', 'value')
+    - name: expected
+      variable:
+        value:
+          - key: a
+            value: 1
+          - key: b
+            value: 2
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      deny:
+        conditions:
+          - key: "{{ modifiedObj }}"
+            operator: NotEqual
+            value: "{{ expected }}"
