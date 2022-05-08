@@ -159,7 +159,7 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				continue
 			}
 
-			if hasImageVerifiedAnnotationChanged(iv.policyContext) {
+			if hasImageVerifiedAnnotationChanged(iv.policyContext, iv.logger) {
 				msg := imageVerifyAnnotationKey + " annotation cannot be changed"
 				iv.logger.Info("image verification error", "reason", msg)
 				ruleResp := ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
@@ -238,16 +238,21 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.Im
 	return patch, digest, nil
 }
 
-func hasImageVerifiedAnnotationChanged(ctx *PolicyContext) bool {
-	if reflect.DeepEqual(ctx.NewResource, &unstructured.Unstructured{}) ||
-		reflect.DeepEqual(ctx.OldResource, &unstructured.Unstructured{}) {
+func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool {
+	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) ||
+		reflect.DeepEqual(ctx.OldResource, unstructured.Unstructured{}) {
 		return false
 	}
 
 	key := imageVerifyAnnotationKey
 	newValue := ctx.NewResource.GetAnnotations()[key]
 	oldValue := ctx.OldResource.GetAnnotations()[key]
-	return newValue != oldValue
+	result := newValue != oldValue
+	if result {
+		log.V(2).Info("annotation mismatch", "oldValue", oldValue, "newValue", newValue, "key", key)
+	}
+
+	return result
 }
 
 func fetchImageDigest(ref string) (string, error) {
@@ -402,7 +407,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 	}
 
 	if attestor.Keys != nil {
-		path = path + ".staticKey"
+		path = path + ".keys"
 		opts.Key = attestor.Keys.PublicKeys
 		if attestor.Keys.Rekor != nil {
 			opts.RekorURL = attestor.Keys.Rekor.URL
