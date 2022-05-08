@@ -2,7 +2,6 @@ package common
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 	"time"
 
@@ -69,36 +68,6 @@ func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[stri
 		logger.Error(err, "failed to convert object resource to unstructured format")
 	}
 	return namespaceUnstructured.GetLabels()
-}
-
-func VariableToJSON(key, value string) []byte {
-	var subString string
-	splitBySlash := strings.Split(key, "\"")
-	if len(splitBySlash) > 1 {
-		subString = splitBySlash[1]
-	}
-
-	startString := ""
-	endString := ""
-	lenOfVariableString := 0
-	addedSlashString := false
-	for _, k := range strings.Split(splitBySlash[0], ".") {
-		if k != "" {
-			startString += fmt.Sprintf(`{"%s":`, k)
-			endString += `}`
-			lenOfVariableString = lenOfVariableString + len(k) + 1
-			if lenOfVariableString >= len(splitBySlash[0]) && len(splitBySlash) > 1 && !addedSlashString {
-				startString += fmt.Sprintf(`{"%s":`, subString)
-				endString += `}`
-				addedSlashString = true
-			}
-		}
-	}
-
-	midString := fmt.Sprintf(`"%s"`, strings.Replace(value, `"`, `\"`, -1))
-	finalString := startString + midString + endString
-	var jsonData = []byte(finalString)
-	return jsonData
 }
 
 // RetryFunc allows retrying a function on error within a given timeout

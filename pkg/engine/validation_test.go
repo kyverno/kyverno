@@ -2223,7 +2223,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "restrict-pod-count",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"podcounts": "12",
 						},
 					},
@@ -2738,7 +2738,7 @@ func Test_foreach_context_preconditions(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v2",
 						},
@@ -2833,7 +2833,7 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v1",
 						},
