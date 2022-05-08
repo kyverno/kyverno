@@ -150,7 +150,7 @@ func (wrc *Register) Register() error {
 
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
-	if _, err := wrc.mwcLister.Get(wrc.getVerifyWebhookMutatingWebhookName()); err != nil {
+	if _, err := wrc.mwcLister.Get(getVerifyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 
@@ -320,16 +320,6 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 		config = constructVerifyMutatingWebhookConfig(caData, wrc.timeoutSeconds, owner)
 	}
 	return wrc.createMutatingWebhookConfiguration(config)
-}
-
-func (wrc *Register) getVerifyWebhookMutatingWebhookName() string {
-	var mutatingConfig string
-	if wrc.serverIP != "" {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationDebugName
-	} else {
-		mutatingConfig = config.VerifyMutatingWebhookConfigurationName
-	}
-	return mutatingConfig
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout
