@@ -570,11 +570,12 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	return specs
 }
 
-func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*kyverno.ResourceSpec {
-	var specs []*kyverno.ResourceSpec
+func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
-	for _, kind := range rule.MatchResources.Kinds {
+	kinds := fetchUniqueKinds(rule)
+
+	for _, kind := range kinds {
 		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
@@ -583,7 +584,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 	}
 
 	for _, any := range rule.MatchResources.Any {
-		for _, kind := range any.Kinds {
+		for _, kind := range kinds {
 			anyList, err := client.ListResource("", kind, "", any.Selector)
 			if err != nil {
 				log.Error(err, "failed to list any matched resource")
@@ -599,8 +600,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 
 	if isMatchResourcesAllValid(kindlist) {
 		for _, all := range rule.MatchResources.All {
-
-			for _, kind := range all.Kinds {
+			for _, kind := range kinds {
 				allList, err := client.ListResource("", kind, "", all.Selector)
 				if err != nil {
 					log.Error(err, "failed to list all matched resource")
@@ -610,27 +610,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 		}
 	}
 	// construct unique resource list
-	uniquelist := constructUniquelist(list.Items)
-
-	triggers := genTrigger(uniquelist)
-	specs = append(specs, triggers...)
-
-	return fetchUniqueSpec(specs)
-}
-
-func genTrigger(rlist []unstructured.Unstructured) []*kyverno.ResourceSpec {
-	var specs []*kyverno.ResourceSpec
-
-	for _, resource := range rlist {
-		spec := &kyverno.ResourceSpec{
-			APIVersion: resource.GetAPIVersion(),
-			Kind:       resource.GetKind(),
-			Namespace:  resource.GetNamespace(),
-			Name:       resource.GetName(),
-		}
-		specs = append(specs, spec)
-	}
-	return specs
+	return constructUniquelist(list.Items)
 }
 
 func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {

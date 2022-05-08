@@ -14,6 +14,8 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInterface) error {
@@ -41,7 +43,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			for _, trigger := range triggers {
 				murs := pc.listMutateURs(policyKey, trigger)
 
-				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.Namespace+trigger.Name)
+				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
 
 				if murs != nil {
 					continue
@@ -49,14 +51,14 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-				err := pc.handleUpdateRequest(ur, rule, policy)
+				err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 					continue
 				} else {
 					pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 				}
 			}
 		}
@@ -67,7 +69,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			for _, trigger := range triggers {
 				gurs := pc.listGenerateURs(policyKey, trigger)
 
-				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.Namespace+"/"+trigger.Name)
+				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
 
 				if gurs != nil {
 					continue
@@ -75,15 +77,15 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 
 				logger.Info("creating new UR")
 				ur := newUR(policy, trigger, ruleType)
-				err := pc.handleUpdateRequest(ur, rule, policy)
+				err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
 					pc.log.Error(err, "failed to create new UR policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 					errors = append(errors, err)
 					continue
 				} else {
 					pc.log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
-						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.APIVersion, trigger.Kind, trigger.Namespace, trigger.Name))
+						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 				}
 			}
 			err := engineutils.CombineErrors(errors)
@@ -93,12 +95,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 	return nil
 }
 
-func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, rule kyverno.Rule, policy kyverno.PolicyInterface) error {
-	triggerResource, err := common.GetResource(pc.client, ur.Spec, pc.log)
-	if err != nil {
-		return err
-	}
-
+func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyverno.Rule, policy kyverno.PolicyInterface) error {
 	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
 	if err != nil {
 		pc.log.WithName(rule.Name).Error(err, "failed to build policy context for existing")
@@ -125,7 +122,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, rul
 	return err
 }
 
-func (pc *PolicyController) listMutateURs(policyKey string, trigger *kyverno.ResourceSpec) []*urkyverno.UpdateRequest {
+func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*urkyverno.UpdateRequest {
 	selector := createMutateLabels(policyKey, trigger)
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
 	if err != nil {
@@ -135,7 +132,7 @@ func (pc *PolicyController) listMutateURs(policyKey string, trigger *kyverno.Res
 	return mutateURs
 }
 
-func (pc *PolicyController) listGenerateURs(policyKey string, trigger *kyverno.ResourceSpec) []*urkyverno.UpdateRequest {
+func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*urkyverno.UpdateRequest {
 	selector := createGenerateLabels(policyKey, trigger)
 	generateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
 	if err != nil {
@@ -145,7 +142,7 @@ func (pc *PolicyController) listGenerateURs(policyKey string, trigger *kyverno.R
 	return generateURs
 }
 
-func newUR(policy kyverno.PolicyInterface, trigger *kyverno.ResourceSpec, ruleType urkyverno.RequestType) *urkyverno.UpdateRequest {
+func newUR(policy kyverno.PolicyInterface, trigger *unstructured.Unstructured, ruleType urkyverno.RequestType) *urkyverno.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -171,16 +168,16 @@ func newUR(policy kyverno.PolicyInterface, trigger *kyverno.ResourceSpec, ruleTy
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
 			Resource: kyverno.ResourceSpec{
-				Kind:       trigger.Kind,
-				Namespace:  trigger.Namespace,
-				Name:       trigger.Name,
-				APIVersion: trigger.APIVersion,
+				Kind:       trigger.GetKind(),
+				Namespace:  trigger.GetNamespace(),
+				Name:       trigger.GetName(),
+				APIVersion: trigger.GetAPIVersion(),
 			},
 		},
 	}
 }
 
-func createMutateLabels(policyKey string, trigger *kyverno.ResourceSpec) labels.Set {
+func createMutateLabels(policyKey string, trigger *unstructured.Unstructured) labels.Set {
 	var selector labels.Set
 	if trigger == nil {
 		selector = labels.Set(map[string]string{
@@ -189,20 +186,21 @@ func createMutateLabels(policyKey string, trigger *kyverno.ResourceSpec) labels.
 	} else {
 		selector = labels.Set(map[string]string{
 			urkyverno.URMutatePolicyLabel:      policyKey,
-			urkyverno.URMutateTriggerNameLabel: trigger.Name,
-			urkyverno.URMutateTriggerNSLabel:   trigger.Namespace,
-			urkyverno.URMutatetriggerKindLabel: trigger.Kind,
+			urkyverno.URMutateTriggerNameLabel: trigger.GetName(),
+			urkyverno.URMutateTriggerNSLabel:   trigger.GetNamespace(),
+			urkyverno.URMutatetriggerKindLabel: trigger.GetKind(),
 		})
 
-		if trigger.APIVersion != "" {
-			selector[urkyverno.URMutatetriggerAPIVersionLabel] = trigger.APIVersion
+		if trigger.GetAPIVersion() != "" {
+			selector[urkyverno.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
+
 		}
 	}
 
 	return selector
 }
 
-func createGenerateLabels(policyKey string, trigger *kyverno.ResourceSpec) labels.Set {
+func createGenerateLabels(policyKey string, trigger *unstructured.Unstructured) labels.Set {
 	var selector labels.Set
 	if trigger == nil {
 		selector = labels.Set(map[string]string{
@@ -211,9 +209,9 @@ func createGenerateLabels(policyKey string, trigger *kyverno.ResourceSpec) label
 	} else {
 		selector = labels.Set(map[string]string{
 			urkyverno.URGeneratePolicyLabel:          policyKey,
-			"generate.kyverno.io/resource-name":      trigger.Name,
-			"generate.kyverno.io/resource-kind":      trigger.Kind,
-			"generate.kyverno.io/resource-namespace": trigger.Namespace,
+			"generate.kyverno.io/resource-name":      trigger.GetName(),
+			"generate.kyverno.io/resource-kind":      trigger.GetKind(),
+			"generate.kyverno.io/resource-namespace": trigger.GetNamespace(),
 		})
 	}
 
