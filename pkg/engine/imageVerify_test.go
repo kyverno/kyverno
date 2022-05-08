@@ -506,18 +506,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, log.Log)
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
 	assert.Equal(t, hasChanged, true)
 }
 
