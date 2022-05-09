@@ -49,15 +49,16 @@ type Register struct {
 	vwcLister   admlisters.ValidatingWebhookConfigurationLister
 	kDeplLister listers.DeploymentLister
 
+	// channels
+	stopCh               <-chan struct{}
+	UpdateWebhookChan    chan bool
+	createDefaultWebhook chan string
+
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
 	log                logr.Logger
 	debug              bool
 	autoUpdateWebhooks bool
-	stopCh             <-chan struct{}
-
-	UpdateWebhookChan    chan bool
-	createDefaultWebhook chan string
 
 	// manage implements methods to manage webhook configurations
 	manage
@@ -86,14 +87,14 @@ func NewRegister(
 		mwcLister:            mwcInformer.Lister(),
 		vwcLister:            vwcInformer.Lister(),
 		kDeplLister:          kDeplInformer.Lister(),
+		UpdateWebhookChan:    make(chan bool),
+		createDefaultWebhook: make(chan string),
+		stopCh:               stopCh,
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
 		debug:                debug,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
-		UpdateWebhookChan:    make(chan bool),
-		createDefaultWebhook: make(chan string),
-		stopCh:               stopCh,
 	}
 
 	register.manage = newWebhookConfigManager(client.Discovery(), kubeClient, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
@@ -112,37 +113,29 @@ func (wrc *Register) Register() error {
 			return err
 		}
 	}
-
 	caData := wrc.readCaData()
 	if caData == nil {
 		return errors.New("Unable to extract CA data from configuration")
 	}
-
-	errors := make([]string, 0)
+	var errors []string
 	if err := wrc.createVerifyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-
 	if err := wrc.createPolicyValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-
 	if err := wrc.createPolicyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-
 	if err := wrc.createResourceValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-
 	if err := wrc.createResourceMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-
 	if len(errors) > 0 {
 		return fmt.Errorf("%s", strings.Join(errors, ","))
 	}
-
 	go wrc.manage.start()
 	return nil
 }
@@ -152,23 +145,18 @@ func (wrc *Register) Check() error {
 	if _, err := wrc.mwcLister.Get(getVerifyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
-
 	if _, err := wrc.mwcLister.Get(getResourceMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
-
 	if _, err := wrc.vwcLister.Get(getResourceValidatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
-
 	if _, err := wrc.mwcLister.Get(getPolicyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
-
 	if _, err := wrc.vwcLister.Get(getPolicyValidatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -183,6 +171,11 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 		wrc.removeWebhookConfigurations()
 		wrc.removeSecrets()
 	}
+}
+
+// GetWebhookTimeOut returns the value of webhook timeout
+func (wrc *Register) GetWebhookTimeOut() time.Duration {
+	return time.Duration(wrc.timeoutSeconds)
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
@@ -321,11 +314,6 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 	return wrc.createMutatingWebhookConfiguration(config)
 }
 
-// GetWebhookTimeOut returns the value of webhook timeout
-func (wrc *Register) GetWebhookTimeOut() time.Duration {
-	return time.Duration(wrc.timeoutSeconds)
-}
-
 func (wrc *Register) checkEndpoint() error {
 	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoServiceName, metav1.GetOptions{})
 	if err != nil {
@@ -340,10 +328,7 @@ func (wrc *Register) checkEndpoint() error {
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
-	ips, errs := getHealthyPodsIP(pods.Items)
-	if len(errs) != 0 {
-		return fmt.Errorf("error getting pod's IP: %v", errs)
-	}
+	ips := getHealthyPodsIP(pods.Items)
 	if len(ips) == 0 {
 		return fmt.Errorf("pod is not assigned to any node yet")
 	}
