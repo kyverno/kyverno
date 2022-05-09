@@ -349,8 +349,8 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			return nil, processExisting, err
 		}
 
-		if !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy.GetName(), ur)
+		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
+			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
@@ -358,6 +358,10 @@ func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext 
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
 			genResources = append(genResources, genResource)
+		}
+
+		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+			processExisting = false
 		}
 	}
 
@@ -384,7 +388,7 @@ func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiv
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy string, ur urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyverno.PolicyInterface, ur urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -420,7 +424,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, res
 	}
 
 	if len(genClone) != 0 {
-		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy, genClone, client)
+		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), genClone, client)
 	} else {
 		rdata, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, genData, client)
 	}
@@ -455,7 +459,13 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, res
 	common.ManageLabels(newResource, resource)
 	// Add Synchronize label
 	label := newResource.GetLabels()
-	label["policy.kyverno.io/policy-name"] = policy
+
+	// Add background gen-rule label if generate rule applied on existing resource
+	if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+		label["kyverno.io/background-gen-rule"] = rule.Name
+	}
+
+	label["policy.kyverno.io/policy-name"] = policy.GetName()
 	label["policy.kyverno.io/gr-name"] = ur.Name
 	if mode == Create {
 		if rule.Generation.Synchronize {

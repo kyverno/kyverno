@@ -53,7 +53,6 @@ const (
 	clusterPolicyReportKind        string = "ClusterPolicyReport"
 	reportChangeRequestKind        string = "ReportChangeRequest"
 	clusterReportChangeRequestKind string = "ClusterReportChangeRequest"
-	clusterPolicyViolation         string = "ClusterPolicyViolation"
 	convertGenerateRequest         string = "ConvertGenerateRequest"
 )
 
