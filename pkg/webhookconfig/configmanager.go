@@ -337,8 +337,9 @@ func (m *webhookConfigManager) sync(key string) error {
 func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	logger := m.log.WithName("reconcileWebhook").WithValues("namespace", namespace, "policy", name)
 
-	policy, err := m.getPolicy(namespace, name)
-	if err != nil && !apierrors.IsNotFound(err) {
+	_, err := m.getPolicy(namespace, name)
+	isDeleted := apierrors.IsNotFound(err)
+	if err != nil && !isDeleted {
 		return errors.Wrapf(err, "unable to get policy object %s/%s", namespace, name)
 	}
 
@@ -356,7 +357,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 		}
 
 		// DELETION of the policy
-		if policy == nil {
+		if isDeleted {
 			return nil
 		}
 	}
@@ -707,13 +708,18 @@ func (m *webhookConfigManager) compareAndUpdateWebhook(webhookKind, webhookName 
 }
 
 func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) error {
-	update := func(meta *metav1.ObjectMeta, spec *kyverno.Spec, status *kyverno.PolicyStatus) bool {
+	update := func(meta *metav1.ObjectMeta, p kyverno.PolicyInterface, status *kyverno.PolicyStatus) bool {
 		copy := status.DeepCopy()
-		requested, _, activated := autogen.GetControllers(meta, spec)
 		status.SetReady(ready)
-		status.Autogen.Requested = requested
-		status.Autogen.Activated = activated
-		status.Rules = spec.Rules
+		// TODO: finalize status content
+		// requested, _, activated := autogen.GetControllers(meta, p.GetSpec())
+		// status.Autogen.Requested = requested
+		// status.Autogen.Activated = activated
+		// if toggle.AutogenInternals() {
+		// 	status.Rules = autogen.ComputeRules(p)
+		// } else {
+		// 	status.Rules = nil
+		// }
 		return !reflect.DeepEqual(status, copy)
 	}
 	if namespace == "" {
@@ -721,7 +727,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 		if err != nil {
 			return err
 		}
-		if update(&p.ObjectMeta, &p.Spec, &p.Status) {
+		if update(&p.ObjectMeta, p, &p.Status) {
 			if _, err := m.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), p, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
@@ -731,7 +737,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 		if err != nil {
 			return err
 		}
-		if update(&p.ObjectMeta, &p.Spec, &p.Status) {
+		if update(&p.ObjectMeta, p, &p.Status) {
 			if _, err := m.kyvernoClient.KyvernoV1().Policies(namespace).UpdateStatus(context.TODO(), p, metav1.UpdateOptions{}); err != nil {
 				return err
 			}

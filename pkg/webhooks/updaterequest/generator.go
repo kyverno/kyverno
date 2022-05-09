@@ -139,7 +139,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 
 		urList, err := urLister.List(labels.SelectorFromSet(queryLabels))
 		if err != nil {
-			logger.Error(err, "failed to get update request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
+			log.Error(err, "failed to get update request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 			return err
 		}
 

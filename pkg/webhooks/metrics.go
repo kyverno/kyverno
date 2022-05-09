@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionRequests "github.com/kyverno/kyverno/pkg/metrics/admissionrequests"
@@ -77,7 +76,7 @@ func (ws *WebhookServer) registerPolicyResultsMetricMutation(logger logr.Logger,
 	})
 }
 
-func registerPolicyResultsMetricValidation(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+func registerPolicyResultsMetricValidation(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_results_total", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyResults.ProcessEngineResponse(promConfig, policy, engineResponse, metrics.AdmissionRequest, op)
 	})
@@ -97,7 +96,7 @@ func (ws *WebhookServer) registerPolicyExecutionDurationMetricMutate(logger logr
 	})
 }
 
-func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy v1.PolicyInterface, engineResponse response.EngineResponse) {
+func registerPolicyExecutionDurationMetricValidate(logger logr.Logger, promConfig *metrics.PromConfig, requestOperation string, policy kyverno.PolicyInterface, engineResponse response.EngineResponse) {
 	registerMetric(logger, "kyverno_policy_execution_duration_seconds", requestOperation, func(op metrics.ResourceRequestOperation) error {
 		return policyExecutionDuration.ProcessEngineResponse(promConfig, policy, engineResponse, metrics.AdmissionRequest, "", op)
 	})

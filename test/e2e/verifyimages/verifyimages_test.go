@@ -20,8 +20,6 @@ var (
 
 	crdGVR = e2e.GetGVR("apiextensions.k8s.io", "v1", "customresourcedefinitions")
 
-	// ClusterPolicy Namespace
-	policyNamespace = ""
 	// Namespace Name
 	// Hardcoded in YAML Definition
 	nspace  = "test-image-verify"
