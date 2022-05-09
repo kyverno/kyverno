@@ -12,7 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
+	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
@@ -30,6 +30,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	informers "k8s.io/client-go/informers/core/v1"
@@ -177,7 +178,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		pol, _ := common.MutatePolicy(p, logger)
+		pol, _ := utilscommon.MutatePolicy(p, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
@@ -203,7 +204,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		pol, _ := common.MutatePolicy(curP, logger)
+		pol, _ := utilscommon.MutatePolicy(curP, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
@@ -273,7 +274,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	spec := p.GetSpec()
 	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		nsPol, _ := common.MutatePolicy(p, logger)
+		nsPol, _ := utilscommon.MutatePolicy(p, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
@@ -297,7 +298,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		nsPol, _ := common.MutatePolicy(curP, logger)
+		nsPol, _ := utilscommon.MutatePolicy(curP, logger)
 		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
@@ -481,7 +482,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 		}
 		return err
 	} else {
-		pc.updateUR(key, policy)
+		err = pc.updateUR(key, policy)
+		if err != nil {
+			logger.Error(err, "failed to updateUR on Policy update")
+		}
 	}
 
 	pc.processExistingResources(policy)
@@ -564,6 +568,21 @@ func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
 	}
 
 	return specs
+}
+
+func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*unstructured.Unstructured {
+	list := &unstructured.UnstructuredList{}
+
+	kinds := fetchUniqueKinds(rule)
+
+	for _, kind := range kinds {
+		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		if err != nil {
+			log.Error(err, "failed to list matched resource")
+		}
+		list.Items = append(list.Items, mlist.Items...)
+	}
+	return convertlist(list.Items)
 }
 
 func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {

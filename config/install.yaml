@@ -85,6 +85,12 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              generateExistingOnPolicyUpdate:
+                description: GenerateExistingOnPolicyUpdate controls wether to trigger
+                  generate rule in existing resources If is set to "true" generate
+                  rule will be triggered and applied to existing matched resources.
+                  Defaults to "false" if not specified.
+                type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
                   policy is applied on policy events. Default value is "false".
@@ -3591,6 +3597,12 @@ spec:
                 - Ignore
                 - Fail
                 type: string
+              generateExistingOnPolicyUpdate:
+                description: GenerateExistingOnPolicyUpdate controls wether to trigger
+                  generate rule in existing resources If is set to "true" generate
+                  rule will be triggered and applied to existing matched resources.
+                  Defaults to "false" if not specified.
+                type: boolean
               mutateExistingOnPolicyUpdate:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
                   policy is applied on policy events. Default value is "false".
