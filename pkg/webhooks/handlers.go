@@ -146,6 +146,9 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 		return admissionutils.ResponseSuccess(true, "")
 	}
 
+	logger.V(4).Info("processing policies for mutate admission request", "kind", kind,
+		"mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
+
 	addRoles := containsRBACInfo(mutatePolicies)
 	policyContext, err := ws.buildPolicyContext(request, addRoles)
 	if err != nil {
@@ -192,15 +195,17 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	imageVerifyValidatePolicies := ws.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
-	if len(policies) == 0 {
+	if len(policies) == 0 && len(mutatePolicies) == 0 && len (generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request", "kind", kind)
-		return admissionutils.ResponseSuccess(true, "")
 	}
 
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
 		go ws.handleUpdatesForGenerateRules(request, []kyverno.PolicyInterface{})
 	}
+
+	logger.V(4).Info("processing policies for validate admission request",
+		"kind", kind,  "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	var roles, clusterRoles []string
 	if containsRBACInfo(policies, generatePolicies) {
