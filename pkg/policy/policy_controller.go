@@ -26,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -504,70 +503,6 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	}
 
 	return
-}
-
-func getTriggers(rule kyverno.Rule) []*kyverno.ResourceSpec {
-	var specs []*kyverno.ResourceSpec
-
-	triggers := getTrigger(rule.MatchResources.ResourceDescription)
-	specs = append(specs, triggers...)
-
-	for _, any := range rule.MatchResources.Any {
-		triggers := getTrigger(any.ResourceDescription)
-		specs = append(specs, triggers...)
-	}
-
-	triggers = []*kyverno.ResourceSpec{}
-	for _, all := range rule.MatchResources.All {
-		triggers = getTrigger(all.ResourceDescription)
-	}
-
-	subset := make(map[*kyverno.ResourceSpec]int, len(triggers))
-	for _, trigger := range triggers {
-		c := subset[trigger]
-		subset[trigger] = c + 1
-	}
-
-	for k, v := range subset {
-		if v == len(rule.MatchResources.All) {
-			specs = append(specs, k)
-		}
-	}
-	return specs
-}
-
-func getTrigger(rd kyverno.ResourceDescription) []*kyverno.ResourceSpec {
-	if len(rd.Names) == 0 && rd.Name == "" {
-		return nil
-	}
-
-	var specs []*kyverno.ResourceSpec
-
-	for _, k := range rd.Kinds {
-		apiVersion, kind := kubeutils.GetKindFromGVK(k)
-		if kind == "" {
-			continue
-		}
-
-		for _, name := range rd.Names {
-			if name == "" {
-				continue
-			}
-
-			spec := &kyverno.ResourceSpec{
-				APIVersion: apiVersion,
-				Kind:       kind,
-				Name:       name,
-			}
-
-			for _, ns := range rd.Namespaces {
-				spec.Namespace = ns
-				specs = append(specs, spec)
-			}
-		}
-	}
-
-	return specs
 }
 
 func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*unstructured.Unstructured {
