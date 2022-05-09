@@ -87,10 +87,9 @@ func extractCA(config *rest.Config) (result []byte) {
 
 func getHealthyPodsIP(pods []corev1.Pod) (ips []string, errs []error) {
 	for _, pod := range pods {
-		if pod.Status.Phase != "Running" {
-			continue
+		if pod.Status.Phase == "Running" {
+			ips = append(ips, pod.Status.PodIP)
 		}
-		ips = append(ips, pod.Status.PodIP)
 	}
 	return
 }
