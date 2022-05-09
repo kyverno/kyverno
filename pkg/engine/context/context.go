@@ -8,7 +8,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -36,7 +35,7 @@ type Interface interface {
 	AddRequest(request *admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
-	AddVariable(key, value string) error
+	AddVariable(key string, value interface{}) error
 
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
@@ -129,8 +128,8 @@ func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 
-func (ctx *context) AddVariable(key, value string) error {
-	return ctx.addJSON(pkgcommon.VariableToJSON(key, value))
+func (ctx *context) AddVariable(key string, value interface{}) error {
+	return addToContext(ctx, value, strings.Split(key, ".")...)
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
