@@ -83,7 +83,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
-			appname = fmt.Sprintf(clusterpolicyreport)
+			appname = clusterpolicyreport
 		}
 
 		for _, infoResult := range info.Results {
