@@ -232,7 +232,7 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "example-configmap-lookup",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"dictionary.data.env": "dev1",
 						},
 					},

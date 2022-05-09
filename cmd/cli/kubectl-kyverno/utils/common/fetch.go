@@ -154,9 +154,8 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, re
 				return nil, err
 			}
 
-			for _, resource := range getResources {
-				resources = append(resources, resource)
-			}
+			resources = append(resources, getResources...)
+
 		}
 	}
 	return resources, nil

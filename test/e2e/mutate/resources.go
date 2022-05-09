@@ -677,6 +677,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-create-trigger"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-create"
       match:
@@ -745,6 +746,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-delete-trigger"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-delete"
       match:
@@ -818,6 +820,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-create-policy"
 spec:
+  mutateExistingOnPolicyUpdate: true
   rules:
     - name: "mutate-deploy-on-policy-create"
       match:
@@ -886,6 +889,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-update"
       match:

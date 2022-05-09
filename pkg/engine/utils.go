@@ -88,7 +88,7 @@ func checkAnnotations(annotations map[string]string, resourceAnnotations map[str
 			}
 		}
 
-		if match == false {
+		if !match {
 			return false
 		}
 	}

@@ -76,6 +76,8 @@ var (
 	KyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
 	// KyvernoServiceName is the Kyverno service name
 	KyvernoServiceName = osutils.GetEnvWithFallback("KYVERNO_SVC", "kyverno-svc")
+	// KyvernoPodName is the Kyverno pod name
+	KyvernoPodName = osutils.GetEnvWithFallback("KYVERNO_POD_NAME", "kyverno")
 	// KyvernoConfigMapName is the Kyverno configmap name
 	KyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludeGroupRole ...

@@ -129,19 +129,11 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, c
 	dnsNames[2] = commonName
 
 	var ips []net.IP
-	apiServerIP := net.ParseIP(props.APIServerHost)
-	if apiServerIP != nil {
-		ips = append(ips, apiServerIP)
-	} else {
-		dnsNames = append(dnsNames, props.APIServerHost)
-	}
-
 	if serverIP != "" {
 		if strings.Contains(serverIP, ":") {
 			host, _, _ := net.SplitHostPort(serverIP)
 			serverIP = host
 		}
-
 		ip := net.ParseIP(serverIP)
 		ips = append(ips, ip)
 	}

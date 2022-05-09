@@ -82,3 +82,9 @@ results:
     patchedResource: patchedResource11.yaml
     kind: Pod
     result: skip
+  - policy: example
+    rule: object_from_lists
+    resource: example
+    patchedResource: patched-resource.yaml
+    kind: Pod
+    result: pass
