@@ -152,7 +152,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 		spec.SetRules(rules)
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
-		if resource == nil || len(resource) == 0 {
+		if len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
