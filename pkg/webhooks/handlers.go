@@ -43,7 +43,7 @@ func errorResponse(logger logr.Logger, err error, message string) *admissionv1.A
 }
 
 func setupLogger(logger logr.Logger, name string, request *admissionv1.AdmissionRequest) logr.Logger {
-	return logger.WithName("MutateWebhook").WithValues(
+	return logger.WithName(name).WithValues(
 		"uid", request.UID,
 		"kind", request.Kind,
 		"namespace", request.Namespace,
@@ -61,8 +61,7 @@ func (ws *WebhookServer) admissionHandler(filter bool, inner handlers.AdmissionH
 }
 
 func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "policy mutation", request)
-
+	logger := setupLogger(ws.log, "PolicyMutationWebhook", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
@@ -88,7 +87,7 @@ func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *
 
 //policyValidation performs the validation check on policy resource
 func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "policy validation", request)
+	logger := setupLogger(ws.log, "PolicyMutationWebhook", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
@@ -119,7 +118,7 @@ func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest)
 
 // resourceMutation mutates resource
 func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "resource mutation", request)
+	logger := setupLogger(ws.log, "ResourceMutationWebhook", request)
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess(true, "")
 	}
@@ -131,18 +130,19 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 		} else {
 			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
 		}
-		return admissionutils.ResponseSuccess(true, "")
 
+		return admissionutils.ResponseSuccess(true, "")
 	}
 
-	logger.V(4).Info("received an admission request in mutating webhook")
+	kind := request.Kind.Kind
+	logger.V(4).Info("received an admission request in mutating webhook", "kind", kind)
 
 	requestTime := time.Now().Unix()
-	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImagesMutate, request.Kind.Kind, request.Namespace)
+	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
+	verifyImagesPolicies := ws.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
-		logger.V(4).Info("no policies matched admission request")
+		logger.V(4).Info("no policies matched mutate admission request", "kind", kind)
 		return admissionutils.ResponseSuccess(true, "")
 	}
 
@@ -172,7 +172,7 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 }
 
 func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "resource validation", request)
+	logger := setupLogger(ws.log, "ResourceValidationWebhook", request)
 	if request.Operation == admissionv1.Delete {
 		ws.handleDelete(request)
 	}
@@ -181,16 +181,21 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 		return admissionutils.ResponseSuccess(true, "")
 	}
 
-	logger.V(6).Info("received an admission request in validating webhook")
+	kind := request.Kind.Kind
+	logger.V(4).Info("received an admission request in validating webhook", "kind", kind)
 
 	// timestamp at which this admission request got triggered
 	requestTime := time.Now().Unix()
-	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, request.Kind.Kind, request.Namespace)
-	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, request.Kind.Kind, request.Namespace)
-	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, request.Kind.Kind, request.Namespace)
-
-	imageVerifyValidatePolicies := ws.pCache.GetPolicies(policycache.VerifyImagesValidate, request.Kind.Kind, request.Namespace)
+	policies := ws.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
+	mutatePolicies := ws.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
+	generatePolicies := ws.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
+	imageVerifyValidatePolicies := ws.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)
 	policies = append(policies, imageVerifyValidatePolicies...)
+
+	if len(policies) == 0 {
+		logger.V(4).Info("no policies matched admission request", "kind", kind)
+		return admissionutils.ResponseSuccess(true, "")
+	}
 
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates

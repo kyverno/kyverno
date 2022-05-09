@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"strings"
 	"time"
@@ -34,19 +35,25 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-func checkKind(kinds []string, resource unstructured.Unstructured) bool {
-	for _, kind := range kinds {
-		SplitGVK := strings.Split(kind, "/")
-		if len(SplitGVK) == 1 {
-			if resource.GetKind() == strings.Title(kind) || kind == "*" {
+func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+	for _, k := range kinds {
+		parts := strings.Split(k, "/")
+		if len(parts) == 1 {
+			if k == "*" || resourceKind == strings.Title(k) {
 				return true
 			}
-		} else if len(SplitGVK) == 2 {
-			if resource.GroupVersionKind().Kind == strings.Title(SplitGVK[1]) && resource.GroupVersionKind().Version == SplitGVK[0] {
+		}
+
+		if len(parts) == 2 {
+			kindParts := strings.SplitN(parts[1], ".", 2)
+			if gvk.Kind == strings.Title(kindParts[0]) && gvk.Version == parts[0] {
 				return true
 			}
-		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || SplitGVK[1] == "*") {
+		}
+
+		if len(parts) == 3 || len(parts) == 4 {
+			kindParts := strings.SplitN(parts[2], ".", 2)
+			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == strings.Title(kindParts[0]) {
 				return true
 			}
 		}
@@ -130,7 +137,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource) {
+		if !checkKind(conditionBlock.Kinds, resource.GetKind(), resource.GroupVersionKind()) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -272,6 +279,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
 		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
+
 	if len(rule.MatchResources.Any) > 0 {
 		// include object if ANY of the criteria match
 		// so if one matches then break from loop

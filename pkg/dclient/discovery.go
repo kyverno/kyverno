@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"strings"
 	"time"
 
@@ -126,23 +127,22 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 		}
 	}
 
+	k, subresource := kubeutils.SplitSubresource(kind)
+	if subresource != "" {
+		kind = k
+	}
+
 	for _, serverResource := range serverResources {
 		if apiVersion != "" && serverResource.GroupVersion != apiVersion {
 			continue
 		}
 
 		for _, resource := range serverResource.APIResources {
-			if strings.Contains(resource.Name, "/") {
-				// skip the sub-resources like deployment/status
-				continue
-			}
-
-			// match kind or names (e.g. Namespace, namespaces, namespace)
-			// to allow matching API paths (e.g. /api/v1/namespaces).
-			if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
+			if resourceMatches(resource, kind, subresource) {
+				logger.V(4).Info("matched API resource to kind", "apiResource", resource, "kind", kind)
 				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
 				if err != nil {
-					logger.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
+					logger.Error(err, "failed to parse GV", "groupVersion", serverResource.GroupVersion)
 					return nil, schema.GroupVersionResource{}, err
 				}
 
@@ -152,4 +152,15 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 	}
 
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in apiVersion '%s'", kind, apiVersion)
+}
+
+// resourceMatches checks the resource Kind, Name, SingularName and a subresource if specified
+// e.g. &apiResource{Name: "taskruns/status", Kind: "TaskRun"} will match "kind=TaskRun, subresource=Status"
+func resourceMatches(resource metav1.APIResource, kind, subresource string) bool {
+	if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
+		_, s := kubeutils.SplitSubresource(resource.Name)
+		return strings.EqualFold(s, subresource)
+	}
+
+	return false
 }
