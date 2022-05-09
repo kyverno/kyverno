@@ -87,7 +87,7 @@ func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *
 
 //policyValidation performs the validation check on policy resource
 func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "PolicyMutationWebhook", request)
+	logger := setupLogger(ws.log, "PolicyValidationWebhook", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
