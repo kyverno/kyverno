@@ -43,9 +43,8 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			for _, trigger := range triggers {
 				murs := pc.listMutateURs(policyKey, trigger)
 
-				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
-
 				if murs != nil {
+					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
 					continue
 				}
 
@@ -65,13 +64,11 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 			ruleType = urkyverno.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
-			pc.log.Info("trigger are >>>>>", "trigger", triggers)
 			for _, trigger := range triggers {
 				gurs := pc.listGenerateURs(policyKey, trigger)
 
-				logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
-
 				if gurs != nil {
+					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
 					continue
 				}
 
