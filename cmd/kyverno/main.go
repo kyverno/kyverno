@@ -41,6 +41,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -70,6 +71,7 @@ var (
 	disableMetricsExport         bool
 	otel                         string
 	otelCollector                string
+	transportCreds               string
 	autoUpdateWebhooks           bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
@@ -97,7 +99,11 @@ func main() {
 =======
 	flag.StringVar(&otel, "otelConfig", "grpc", "Set this flag to 'prometheus', to enable exposing metrics directly to prometheus. Or else set to grpc to export metrics to an Opentelemetry collector")
 	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local:4317", "Set this flag to the OpenTelemetry Collector Receiver endpoint")
+<<<<<<< HEAD
 >>>>>>> 19e9d653b (remove current prometheus config)
+=======
+	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA certificate to be be used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
+>>>>>>> 19245bcc2 (use tls for connecting to otel collector, add tracing for cosign)
 	// deprecated
 	flag.StringVar(&metricsPort, "metrics-port", "8000", "Expose prometheus metrics at the given port, default to 8000. Deprecated and will be removed in 1.6.0. ")
 >>>>>>> 4d3fab5be (metrics in otel format, created struct for binding data)
@@ -284,7 +290,7 @@ func main() {
 		if otel == "grpc" {
 			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
 			setupLog.Info("enabling otel grpc metrics", "address", ":4317")
-			metricsConfig, err = metrics.NewOTLPGRPCConfig(otelCollector, metricsConfigData, log.Log.WithName("Opentelemetry-Metrics"))
+			metricsConfig, err = metrics.NewOTLPGRPCConfig(otelCollector, metricsConfigData, transportCreds, log.Log.WithName("OpentelemetryMetrics"))
 			if err != nil {
 				setupLog.Error(err, "failed to enable otel metrics")
 				os.Exit(1)
@@ -304,6 +310,12 @@ func main() {
 		}
 	}
 
+	// Tracing Configuration
+	err = tracing.NewTraceConfig(otelCollector, transportCreds, log.Log.WithName("OpentelemetryTracing"))
+	if err != nil {
+		setupLog.Error(err, "failed to enable tracing for Kyverno")
+		os.Exit(1)
+	}
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources

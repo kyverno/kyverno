@@ -62,6 +62,7 @@ require (
 require (
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	bitbucket.org/creachadair/shell v0.0.6 // indirect
 =======
 	go.opentelemetry.io/otel v1.6.1
@@ -71,12 +72,15 @@ require (
 >>>>>>> 697a65a6a (add description for meters)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.28.0
 =======
+=======
+	go.opentelemetry.io/otel v1.7.0
+>>>>>>> 19245bcc2 (use tls for connecting to otel collector, add tracing for cosign)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric v0.29.0
 >>>>>>> 4abea7b32 (fix conflicts)
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v0.28.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.28.0
 	go.opentelemetry.io/otel/metric v0.29.0
-	go.opentelemetry.io/otel/sdk v1.6.3
+	go.opentelemetry.io/otel/sdk v1.7.0
 	go.opentelemetry.io/otel/sdk/metric v0.29.0
 )
 
@@ -130,10 +134,14 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
 <<<<<<< HEAD
+<<<<<<< HEAD
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 =======
 	github.com/cenkalti/backoff/v4 v4.1.2 // indirect
 >>>>>>> 0ba206873 (initial config otel support)
+=======
+	github.com/cenkalti/backoff/v4 v4.1.3 // indirect
+>>>>>>> 19245bcc2 (use tls for connecting to otel collector, add tracing for cosign)
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4 // indirect
 	github.com/cncf/xds/go v0.0.0-20211130200136-a8f946100490 // indirect
@@ -326,6 +334,7 @@ require (
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 	go.opentelemetry.io/contrib v1.3.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.20.0 // indirect
 	go.opentelemetry.io/otel v0.20.0 // indirect
@@ -350,6 +359,13 @@ require (
 	go.opentelemetry.io/otel/trace v1.6.3 // indirect
 	go.opentelemetry.io/proto/otlp v0.15.0 // indirect
 >>>>>>> 697a65a6a (add description for meters)
+=======
+	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.7.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.7.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.7.0 // indirect
+	go.opentelemetry.io/otel/trace v1.7.0 // indirect
+	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
+>>>>>>> 19245bcc2 (use tls for connecting to otel collector, add tracing for cosign)
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
@@ -367,7 +383,11 @@ require (
 	golang.org/x/xerrors v0.0.0-20220411194840-2f41105eb62f // indirect
 	google.golang.org/api v0.75.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
+<<<<<<< HEAD
 	google.golang.org/genproto v0.0.0-20220414192740-2d67ff6cf2b4 // indirect
+=======
+	google.golang.org/genproto v0.0.0-20220405205423-9d709892a2bf // indirect
+>>>>>>> 19245bcc2 (use tls for connecting to otel collector, add tracing for cosign)
 	google.golang.org/grpc v1.46.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/cheggaaa/pb.v1 v1.0.28 // indirect
