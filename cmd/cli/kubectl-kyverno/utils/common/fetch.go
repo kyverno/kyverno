@@ -275,9 +275,12 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 }
 
 // GetPatchedResource converts raw bytes to unstructured object
-func GetPatchedResource(patchResourceBytes []byte) (patchedResource unstructured.Unstructured, err error) {
-	getPatchedResource, _ := GetResource(patchResourceBytes)
-	patchedResource = *getPatchedResource[0]
+func GetPatchedResource(patchResourceBytes []byte) (unstructured.Unstructured, error) {
+	getPatchedResource, err := GetResource(patchResourceBytes)
+	if err != nil {
+		return unstructured.Unstructured{}, err
+	}
+	patchedResource := *getPatchedResource[0]
 	return patchedResource, nil
 }
 
