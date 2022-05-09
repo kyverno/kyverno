@@ -68,6 +68,12 @@ type Spec struct {
 	// Default value is "false".
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
+	// GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
+	// Defaults to "false" if not specified.
+	// +optional
+	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -161,6 +167,11 @@ func (s *Spec) IsMutateExisting() bool {
 // GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
 func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
+}
+
+// IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
+func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
+	return s.GenerateExistingOnPolicyUpdate
 }
 
 // GetFailurePolicy returns the failure policy to be applied
