@@ -85,13 +85,14 @@ func extractCA(config *rest.Config) (result []byte) {
 	return config.TLSClientConfig.CAData
 }
 
-func getHealthyPodsIP(pods []corev1.Pod) (ips []string, errs []error) {
+func getHealthyPodsIP(pods []corev1.Pod) []string {
+	var ips []string
 	for _, pod := range pods {
 		if pod.Status.Phase == "Running" {
 			ips = append(ips, pod.Status.PodIP)
 		}
 	}
-	return
+	return ips
 }
 
 func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
