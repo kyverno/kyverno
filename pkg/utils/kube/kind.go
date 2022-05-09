@@ -29,10 +29,10 @@ func formatSubresource(s string) string {
 	return strings.Replace(s, ".", "/", 1)
 }
 
-func SplitSubresource(s string) (kind string, subresource string){
+func SplitSubresource(s string) (kind string, subresource string) {
 	normalized := strings.Replace(s, ".", "/", 1)
 	parts := strings.Split(normalized, "/")
-	if len(parts) == 2{
+	if len(parts) == 2 {
 		return parts[0], parts[1]
 	}
 
@@ -53,4 +53,3 @@ func SkipSubResources(kind string) bool {
 	s := []string{"PodExecOptions", "PodAttachOptions", "PodProxyOptions", "ServiceProxyOptions", "NodeProxyOptions"}
 	return ContainsKind(s, kind)
 }
-

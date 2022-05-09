@@ -2,8 +2,9 @@ package engine
 
 import (
 	"encoding/json"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"

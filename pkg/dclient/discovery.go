@@ -2,9 +2,10 @@ package client
 
 import (
 	"fmt"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"strings"
 	"time"
+
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

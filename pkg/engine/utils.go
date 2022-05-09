@@ -2,10 +2,11 @@ package engine
 
 import (
 	"fmt"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"reflect"
 	"strings"
 	"time"
+
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"

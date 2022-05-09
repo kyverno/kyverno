@@ -1,9 +1,10 @@
 package client
 
 import (
+	"testing"
+
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func Test_resourceMatches(t *testing.T) {
