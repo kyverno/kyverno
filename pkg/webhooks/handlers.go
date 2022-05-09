@@ -195,7 +195,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	imageVerifyValidatePolicies := ws.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
-	if len(policies) == 0 && len(mutatePolicies) == 0 && len (generatePolicies) == 0 {
+	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
 		logger.V(4).Info("no policies matched admission request", "kind", kind)
 	}
 
@@ -205,7 +205,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	}
 
 	logger.V(4).Info("processing policies for validate admission request",
-		"kind", kind,  "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
+		"kind", kind, "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	var roles, clusterRoles []string
 	if containsRBACInfo(policies, generatePolicies) {
