@@ -582,35 +582,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 		}
 		list.Items = append(list.Items, mlist.Items...)
 	}
-
-	for _, any := range rule.MatchResources.Any {
-		for _, kind := range kinds {
-			anyList, err := client.ListResource("", kind, "", any.Selector)
-			if err != nil {
-				log.Error(err, "failed to list any matched resource")
-			}
-			list.Items = append(list.Items, anyList.Items...)
-		}
-	}
-
-	var kindlist []string
-	for _, all := range rule.MatchResources.All {
-		kindlist = append(kindlist, all.Kinds...)
-	}
-
-	if isMatchResourcesAllValid(kindlist) {
-		for _, all := range rule.MatchResources.All {
-			for _, kind := range kinds {
-				allList, err := client.ListResource("", kind, "", all.Selector)
-				if err != nil {
-					log.Error(err, "failed to list all matched resource")
-				}
-				list.Items = append(list.Items, allList.Items...)
-			}
-		}
-	}
-	// construct unique resource list
-	return constructUniquelist(list.Items)
+	return convertlist(list.Items)
 }
 
 func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {

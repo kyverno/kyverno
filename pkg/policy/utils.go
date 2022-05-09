@@ -16,12 +16,18 @@ func isRunningPod(obj unstructured.Unstructured) bool {
 }
 
 // check if all slice elements are same
-func isMatchResourcesAllValid(slice []string) bool {
-	if len(slice) == 0 {
+func isMatchResourcesAllValid(rule kyverno.Rule) bool {
+	var kindlist []string
+	for _, all := range rule.MatchResources.All {
+		kindlist = append(kindlist, all.Kinds...)
+	}
+
+	if len(kindlist) == 0 {
 		return false
 	}
-	for i := 1; i < len(slice); i++ {
-		if slice[i] != slice[0] {
+
+	for i := 1; i < len(kindlist); i++ {
+		if kindlist[i] != kindlist[0] {
 			return false
 		}
 	}
@@ -37,8 +43,10 @@ func fetchUniqueKinds(rule kyverno.Rule) []string {
 		kindlist = append(kindlist, all.Kinds...)
 	}
 
-	for _, all := range rule.MatchResources.All {
-		kindlist = append(kindlist, all.Kinds...)
+	if isMatchResourcesAllValid(rule) {
+		for _, all := range rule.MatchResources.All {
+			kindlist = append(kindlist, all.Kinds...)
+		}
 	}
 
 	inResult := make(map[string]bool)
@@ -52,15 +60,10 @@ func fetchUniqueKinds(rule kyverno.Rule) []string {
 	return result
 }
 
-func constructUniquelist(ulists []unstructured.Unstructured) []*unstructured.Unstructured {
-	inResult := make(map[*unstructured.Unstructured]bool)
+func convertlist(ulists []unstructured.Unstructured) []*unstructured.Unstructured {
 	var result []*unstructured.Unstructured
 	for _, list := range ulists {
-		list := list
-		if _, ok := inResult[&list]; !ok {
-			inResult[&list] = true
-			result = append(result, &list)
-		}
+		result = append(result, list.DeepCopy())
 	}
 	return result
 }
