@@ -18,6 +18,8 @@ RUN go env
 
 RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
+RUN apk add --no-cache ca-certificates
+
 # Packaging stage
 FROM scratch
 
