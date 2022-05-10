@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -1452,4 +1454,24 @@ func TestManagedPodResource(t *testing.T) {
 		res := ManagedPodResource(&policy, *resource)
 		assert.Equal(t, res, tc.expectedResult, "test %d/%s failed, expect %v, got %v", i+1, tc.name, tc.expectedResult, res)
 	}
+}
+
+func Test_checkKind(t *testing.T) {
+	match := checkKind([]string{"*"}, "Deployment", schema.GroupVersionKind{Kind: "Deployment", Group: "", Version: "v1"})
+	assert.Equal(t, match, true)
+
+	match = checkKind([]string{"Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	assert.Equal(t, match, true)
+
+	match = checkKind([]string{"v1/Pod"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	assert.Equal(t, match, true)
+
+	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
+	assert.Equal(t, match, true)
+
+	match = checkKind([]string{"tekton.dev/v1beta1/TaskRun/status"}, "TaskRun", schema.GroupVersionKind{Kind: "TaskRun", Group: "tekton.dev", Version: "v1beta1"})
+	assert.Equal(t, match, true)
+
+	match = checkKind([]string{"v1/pod.status"}, "Pod", schema.GroupVersionKind{Kind: "Pod", Group: "", Version: "v1"})
+	assert.Equal(t, match, true)
 }
