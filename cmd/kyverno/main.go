@@ -343,7 +343,7 @@ func main() {
 
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
-		certManager.InitTLSPemPair()
+		certRenewer.InitTLSPemPair()
 		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
