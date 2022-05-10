@@ -21,7 +21,7 @@ func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment, logger logr.Logger) boo
 }
 
 func CanAddAnnotationToSecret(deplHash string, secret *v1.Secret) bool {
-	var deplHashSec string = "default"
+	var deplHashSec string
 	var ok, managedByKyverno bool
 
 	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
