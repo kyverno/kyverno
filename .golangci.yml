@@ -6,6 +6,7 @@ linters:
     - deadcode
     - durationcheck
     - errcheck
+    - exportloopref
     - gosec
     - gosimple
     - govet
