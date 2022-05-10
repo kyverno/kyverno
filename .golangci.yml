@@ -12,6 +12,7 @@ linters:
     - structcheck
 
 run:
+  timeout: 5m
   skip-files:
     - ".+_test.go"
     - ".+_test_.+.go"
