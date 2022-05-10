@@ -202,7 +202,6 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 }
 
 func lastRequestTimeFromAnnotation(leaseClient coordinationv1.LeaseInterface, logger logr.Logger) *time.Time {
-
 	lease, err := leaseClient.Get(context.TODO(), "kyverno", metav1.GetOptions{})
 	if err != nil {
 		logger.Info("Lease 'kyverno' not found. Starting clean-up...")

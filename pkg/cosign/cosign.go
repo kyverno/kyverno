@@ -245,22 +245,6 @@ func FetchAttestations(imageRef string, imageVerify v1.ImageVerification) ([]map
 		return nil, errors.Wrap(err, "loading credentials")
 	}
 
-	var opts []remote.Option
-	ro := options.RegistryOptions{}
-
-	opts, err = ro.ClientOpts(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "constructing client options")
-	}
-	opts = append(opts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
-	if imageVerify.Repository != "" {
-		signatureRepo, err := name.NewRepository(imageVerify.Repository)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse signature repository %s", imageVerify.Repository)
-		}
-		opts = append(opts, remote.WithTargetRepository(signatureRepo))
-	}
-
 	ref, err := name.ParseReference(imageRef)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse image")

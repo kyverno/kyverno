@@ -317,7 +317,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			pvInfos = append(pvInfos, info)
-
 		}
 	}
 
@@ -427,14 +426,12 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				if err != nil {
 					return sanitizederror.NewWithError("failed to close file", err)
 				}
-
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0750)
 				if errDir != nil {
 					return sanitizederror.NewWithError("failed to create directory", err)
 				}
 			}
-
 		} else {
 			return sanitizederror.NewWithError("failed to describe file", err)
 		}

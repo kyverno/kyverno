@@ -60,7 +60,6 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
 			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
@@ -125,7 +124,6 @@ func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value 
 // notIn argument if set to true will check for NotIn
 func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {

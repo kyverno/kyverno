@@ -124,7 +124,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 	// Evaluate anchors
 	for key, patternElement := range anchors {
-
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence

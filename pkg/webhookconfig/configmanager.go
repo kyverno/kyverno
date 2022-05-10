@@ -88,8 +88,8 @@ func newWebhookConfigManager(
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
-	log logr.Logger) manage {
-
+	log logr.Logger,
+) manage {
 	m := &webhookConfigManager{
 		discoveryClient:      discoveryClient,
 		kyvernoClient:        kyvernoClient,
@@ -638,6 +638,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyverno.PolicyI
 				if strings.Contains(gvk, "*") {
 					gvrList = append(gvrList, schema.GroupVersionResource{Group: gvr.Group, Version: "*", Resource: gvr.Resource})
 				} else {
+					m.log.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
 					gvrList = append(gvrList, gvr)
 				}
 			}

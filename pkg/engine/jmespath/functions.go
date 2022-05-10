@@ -395,7 +395,6 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "converts a pair of lists containing keys and values to an object",
 		},
 	}
-
 }
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {

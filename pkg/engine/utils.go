@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -34,19 +36,25 @@ type EngineStats struct {
 	RulesAppliedCount int
 }
 
-func checkKind(kinds []string, resource unstructured.Unstructured) bool {
-	for _, kind := range kinds {
-		SplitGVK := strings.Split(kind, "/")
-		if len(SplitGVK) == 1 {
-			if resource.GetKind() == strings.Title(kind) || kind == "*" {
+func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+	for _, k := range kinds {
+		parts := strings.Split(k, "/")
+		if len(parts) == 1 {
+			if k == "*" || resourceKind == strings.Title(k) {
 				return true
 			}
-		} else if len(SplitGVK) == 2 {
-			if resource.GroupVersionKind().Kind == strings.Title(SplitGVK[1]) && resource.GroupVersionKind().Version == SplitGVK[0] {
+		}
+
+		if len(parts) == 2 {
+			kindParts := strings.SplitN(parts[1], ".", 2)
+			if gvk.Kind == strings.Title(kindParts[0]) && gvk.Version == parts[0] {
 				return true
 			}
-		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || SplitGVK[1] == "*") {
+		}
+
+		if len(parts) == 3 || len(parts) == 4 {
+			kindParts := strings.SplitN(parts[2], ".", 2)
+			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == strings.Title(kindParts[0]) {
 				return true
 			}
 		}
@@ -130,7 +138,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
-		if !checkKind(conditionBlock.Kinds, resource) {
+		if !checkKind(conditionBlock.Kinds, resource.GetKind(), resource.GroupVersionKind()) {
 			errs = append(errs, fmt.Errorf("kind does not match %v", conditionBlock.Kinds))
 		}
 	}
@@ -263,7 +271,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef urkyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
-
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -272,6 +279,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {
 		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
+
 	if len(rule.MatchResources.Any) > 0 {
 		// include object if ANY of the criteria match
 		// so if one matches then break from loop
@@ -366,43 +374,6 @@ func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissi
 	}
 	// len(errs) != 0 if the filter excluded the resource
 	return errs
-}
-
-func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
-	if reflect.DeepEqual(original, kyverno.AnyAllConditions{}) {
-		return kyverno.AnyAllConditions{}
-	}
-	return *original.DeepCopy()
-}
-
-// backwards compatibility
-func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if len(original) == 0 {
-		return []kyverno.Condition{}
-	}
-
-	var copies []kyverno.Condition
-	for _, condition := range original {
-		copies = append(copies, *condition.DeepCopy())
-	}
-
-	return copies
-}
-
-func transformConditions(original apiextensions.JSON) (interface{}, error) {
-	// conditions are currently in the form of []interface{}
-	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
-	if err != nil {
-		return nil, err
-	}
-	switch typedValue := kyvernoOriginalConditions.(type) {
-	case kyverno.AnyAllConditions:
-		return copyAnyAllConditions(typedValue), nil
-	case []kyverno.Condition: // backwards compatibility
-		return copyOldConditions(typedValue), nil
-	}
-
-	return nil, fmt.Errorf("invalid preconditions")
 }
 
 // excludeResource checks if the resource has ownerRef set

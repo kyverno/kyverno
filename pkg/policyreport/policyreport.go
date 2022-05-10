@@ -144,7 +144,6 @@ func getResultsFromHash(resHash *hashmap.HashMap) []interface{} {
 		}
 
 		results = append(results, result.Value.(map[string]interface{}))
-
 	}
 	return results
 }
@@ -166,7 +165,6 @@ func generateHashKey(result map[string]interface{}, dr deletedResource) (string,
 				return "", false
 			}
 		}
-
 	}
 
 	return fmt.Sprintf(

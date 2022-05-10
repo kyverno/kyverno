@@ -96,7 +96,6 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 }
 
 func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
-
 	lease, err := vc.leaseClient.Get(context.TODO(), leaseName, metav1.GetOptions{})
 	if err != nil {
 		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")

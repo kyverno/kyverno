@@ -33,7 +33,6 @@ func NewAPIPath(path string) (*APIPath, error) {
 	}
 
 	if paths[0] == "api" {
-
 		// /api/v1/namespaces
 		if len(paths) == 3 {
 			return &APIPath{

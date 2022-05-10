@@ -223,7 +223,6 @@ func mergePvInfos(infos []policyreport.Info) []policyreport.Info {
 			tmpInfo.Results = append(tmpInfo.Results, info.Results...)
 			aggregatedInfoPerNamespace[info.Namespace] = tmpInfo
 		}
-
 	}
 
 	for _, i := range aggregatedInfoPerNamespace {

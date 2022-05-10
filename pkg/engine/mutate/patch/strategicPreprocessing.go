@@ -321,7 +321,6 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
 	} else if kind == yaml.ScalarNode {
 		v := ynode.Value
 		return anchor.ContainsCondition(v)
-
 	} else if kind == yaml.SequenceNode {
 		elements, _ := pattern.Elements()
 		for _, e := range elements {

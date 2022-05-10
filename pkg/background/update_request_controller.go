@@ -82,7 +82,6 @@ func NewController(
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 ) (*Controller, error) {
-
 	c := Controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
