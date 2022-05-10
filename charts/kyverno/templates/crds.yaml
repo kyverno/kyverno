@@ -63,6 +63,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               generateExistingOnPolicyUpdate:
                 description: GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources If is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.
@@ -2411,6 +2413,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               generateExistingOnPolicyUpdate:
                 description: GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources If is set to "true" generate rule will be triggered and applied to existing matched resources. Defaults to "false" if not specified.

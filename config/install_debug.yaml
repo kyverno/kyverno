@@ -82,6 +82,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               generateExistingOnPolicyUpdate:
                 description: GenerateExistingOnPolicyUpdate controls wether to trigger
@@ -3590,6 +3592,8 @@ spec:
                 enum:
                 - Ignore
                 - Fail
+                - ignore
+                - fail
                 type: string
               generateExistingOnPolicyUpdate:
                 description: GenerateExistingOnPolicyUpdate controls wether to trigger
