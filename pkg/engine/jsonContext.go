@@ -273,7 +273,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
 	}
 
-	logger.Info("added APICall context entry", "data", contextData)
+	logger.V(4).Info("added APICall context entry", "len", len(contextData))
 	return nil
 }
 
