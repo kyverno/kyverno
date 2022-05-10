@@ -46,10 +46,3 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	}
 	return resource, nil
 }
-
-func envOr(name, def string) string {
-	if v, ok := os.LookupEnv(name); ok {
-		return v
-	}
-	return def
-}
