@@ -29,7 +29,7 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) (res
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	var deplHashSec string = "default"
+	var deplHashSec string
 	var ok, managedByKyverno bool
 
 	sname := GenerateRootCASecretName(certProps)
@@ -68,7 +68,7 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	var deplHashSec string = "default"
+	var deplHashSec string
 	var ok, managedByKyverno bool
 
 	sname := GenerateTLSPairSecretName(certProps)
