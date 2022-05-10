@@ -82,8 +82,8 @@ func NewReportGenerator(
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
-	log logr.Logger) (*ReportGenerator, error) {
-
+	log logr.Logger,
+) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
 		dclient:                  dclient,
@@ -508,8 +508,10 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 
 // aggregateReports aggregates cluster / report change requests to a policy report
 func (g *ReportGenerator) aggregateReports(namespace string) (
-	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
-
+	report *unstructured.Unstructured,
+	aggregatedRequests interface{},
+	err error,
+) {
 	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
 	if err != nil {
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
@@ -704,7 +706,6 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
 		}
-
 	}
 
 	g.log.V(3).Info("successfully updated policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())

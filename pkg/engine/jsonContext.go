@@ -317,7 +317,6 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
-
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {

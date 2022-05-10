@@ -111,7 +111,6 @@ func NewPolicyController(
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
 ) (*PolicyController, error) {
-
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(log.V(5).Info)

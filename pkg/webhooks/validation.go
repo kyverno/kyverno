@@ -32,8 +32,8 @@ func (v *validationHandler) handleValidation(
 	policies []v1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
-	admissionRequestTimestamp int64) (bool, string) {
-
+	admissionRequestTimestamp int64,
+) (bool, string) {
 	if len(policies) == 0 {
 		return true, ""
 	}

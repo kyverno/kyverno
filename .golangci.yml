@@ -1,15 +1,18 @@
 linters:
   enable:
+    - bodyclose
     - deadcode
     - errcheck
     - gosec
     - gosimple
-    - bodyclose
-    - staticcheck
-    - unused
-  disable:
+    - govet
     - ineffassign
+    - staticcheck
     - structcheck
+    - typecheck
+    - unused
+    - varcheck
+    - whitespace
 
 run:
   timeout: 5m

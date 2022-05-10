@@ -66,7 +66,6 @@ func getIndexToBeReversed(patches []jsonpatch.JsonPatchOperation) [][]int {
 		}
 	}
 	return getRemoveInterval(removePaths)
-
 }
 
 func getRemoveInterval(removePaths []string) [][]int {
