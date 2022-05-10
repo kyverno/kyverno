@@ -59,6 +59,8 @@ jobs:
 
       - name: golangci-lint
         uses: reviewdog/action-golangci-lint@02bcf8c1a9febe8620f1ca523b18dd64f82296db # v1.25.0
+        with:
+          fail_on_error: true
 
       - name: Checking unused pkgs using go mod tidy
         run: |
