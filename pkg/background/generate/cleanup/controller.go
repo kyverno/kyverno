@@ -277,7 +277,6 @@ func (c *Controller) syncUpdateRequest(key string) error {
 
 	if pNamespace == "" {
 		_, err = c.pLister.Get(pName)
-
 	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
 	}

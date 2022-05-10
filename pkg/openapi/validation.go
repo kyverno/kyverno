@@ -300,7 +300,6 @@ func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResou
 	for key, value := range tempKindToAPIVersions {
 		c.kindToAPIVersions.Set(key, value)
 	}
-
 }
 
 func getSchemaDocument() (*openapiv2.Document, error) {
@@ -336,7 +335,6 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 }
 
 func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
-
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
