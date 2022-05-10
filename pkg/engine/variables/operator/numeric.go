@@ -87,7 +87,7 @@ func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value i
 	case string:
 		durationKey, durationValue, err := parseDuration(key, value)
 		if err == nil {
-			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
+			return compareByCondition(durationKey.Seconds(), durationValue.Seconds(), noh.condition, noh.log)
 		}
 		// extract float64 and (if that fails) then, int64 from the string
 		float64val, err := strconv.ParseFloat(typedValue, 64)
@@ -117,7 +117,7 @@ func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, val
 	case string:
 		durationKey, durationValue, err := parseDuration(key, value)
 		if err == nil {
-			return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
+			return compareByCondition(durationKey.Seconds(), durationValue.Seconds(), noh.condition, noh.log)
 		}
 		float64val, err := strconv.ParseFloat(typedValue, 64)
 		if err == nil {
@@ -154,7 +154,7 @@ func (noh NumericOperatorHandler) validateValueWithStringPattern(key string, val
 	// We need to check duration first as it's the only type that can be compared to a different type
 	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
-		return compareByCondition(float64(durationKey.Seconds()), float64(durationValue.Seconds()), noh.condition, noh.log)
+		return compareByCondition(durationKey.Seconds(), durationValue.Seconds(), noh.condition, noh.log)
 	}
 	// attempt to extract resource quantity from string before parsing floats/ints as resources can also be ints/floats represented as string type
 	resourceKey, resourceValue, err := parseQuantity(key, value)

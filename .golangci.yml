@@ -12,6 +12,7 @@ linters:
     - staticcheck
     - structcheck
     - typecheck
+    - unconvert
     - unused
     - varcheck
     - whitespace
