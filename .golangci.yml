@@ -1,14 +1,14 @@
 linters:
   enable:
-    - gosec
+    - deadcode
     - errcheck
+    - gosec
     - gosimple
     - bodyclose
     - staticcheck
+    - unused
   disable:
     - ineffassign
-    - deadcode
-    - unused
     - structcheck
 
 run:
