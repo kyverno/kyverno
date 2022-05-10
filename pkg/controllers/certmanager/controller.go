@@ -19,7 +19,7 @@ type Controller interface {
 	Run(stopCh <-chan struct{})
 
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() (*tls.PemPair, error)
+	GetTLSPemPair() ([]byte, []byte, error)
 }
 
 type controller struct {
@@ -59,15 +59,12 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	}
 }
 
-func (m *controller) GetTLSPemPair() (*tls.PemPair, error) {
+func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 	secret, err := m.secretLister.Secrets(config.KyvernoNamespace).Get(m.renewer.GenerateTLSPairSecretName())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &tls.PemPair{
-		Certificate: secret.Data[v1.TLSCertKey],
-		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
-	}, nil
+	return secret.Data[v1.TLSCertKey], secret.Data[v1.TLSPrivateKeyKey], nil
 }
 
 func (m *controller) validateCerts() error {

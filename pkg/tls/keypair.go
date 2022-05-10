@@ -60,7 +60,7 @@ func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, cer
 	dnsNames := []string{
 		props.Service,
 		fmt.Sprintf("%s.%s", props.Service, props.Namespace),
-		generateInClusterServiceName(props),
+		props.inClusterServiceName(),
 	}
 	var ips []net.IP
 	if serverIP != "" {

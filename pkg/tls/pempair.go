@@ -6,12 +6,6 @@ import (
 	"encoding/pem"
 )
 
-// PemPair The pair of TLS certificate corresponding private key, both in PEM format
-type PemPair struct {
-	Certificate []byte
-	PrivateKey  []byte
-}
-
 // PrivateKeyToPem Creates PEM block from private key object
 func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	privateKey := &pem.Block{
@@ -21,11 +15,11 @@ func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(privateKey)
 }
 
-// CertificateToPem ...
-func CertificateToPem(certificateDER []byte) []byte {
+// CertificateToPem Creates PEM block from certificate object
+func CertificateToPem(cert *x509.Certificate) []byte {
 	certificate := &pem.Block{
 		Type:  "CERTIFICATE",
-		Bytes: certificateDER,
+		Bytes: cert.Raw,
 	}
 	return pem.EncodeToMemory(certificate)
 }
