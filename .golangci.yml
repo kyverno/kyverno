@@ -13,6 +13,9 @@ linters:
     - ineffassign
     - staticcheck
     - structcheck
+    - tenv
+    - thelper
+    - tparallel
     - typecheck
     - unconvert
     - unused
