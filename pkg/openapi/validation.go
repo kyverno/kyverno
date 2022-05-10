@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -141,7 +140,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kubeutils.GetFormatedKind(kind)], rule)
+				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
 		}
 	}

@@ -989,7 +989,7 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 			if fileErr != nil {
 				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, fileErr)
 			}
-			patchedResourceBytes, _ = ioutil.ReadAll(filep)
+			patchedResourceBytes, err = ioutil.ReadAll(filep)
 		}
 	} else {
 		patchedResourceBytes, err = getFileBytes(path)

@@ -1,7 +1,6 @@
 package policycache
 
 import (
-	"strings"
 	"sync"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -116,7 +115,7 @@ func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) 
 func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pName string, enforcePolicy bool) {
 	for _, gvk := range rmr.Kinds {
 		_, k := kubeutils.GetKindFromGVK(gvk)
-		kind := strings.Title(k)
+		kind, _ := kubeutils.SplitSubresource(k)
 		_, ok := m.kindDataMap[kind]
 		if !ok {
 			m.kindDataMap[kind] = make(map[PolicyType][]string)
