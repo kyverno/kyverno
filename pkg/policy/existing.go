@@ -202,7 +202,6 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 }
 
 func (pc *PolicyController) processExistingKinds(kinds []string, policy kyverno.PolicyInterface, rule kyverno.Rule, logger logr.Logger) {
-
 	for _, kind := range kinds {
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
 		_, err := pc.rm.GetScope(kind)

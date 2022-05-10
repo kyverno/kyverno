@@ -139,7 +139,6 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 		if !ok {
 			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
-
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}

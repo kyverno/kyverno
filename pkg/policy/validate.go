@@ -72,7 +72,6 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 		if !val {
 			return fmt.Errorf("%s", path)
 		}
-
 	}
 	return nil
 }
@@ -195,13 +194,11 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-
 			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 				return nil, fmt.Errorf("wildcard policy does not support rule type")
 			}
 
 			if rule.HasValidate() {
-
 				if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
 						return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
@@ -992,7 +989,6 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources s
 				}
 			}
 		}
-
 	}
 	return nil
 }

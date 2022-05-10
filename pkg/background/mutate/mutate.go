@@ -62,7 +62,6 @@ func NewMutateExistingController(
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 ) (*MutateExistingController, error) {
-
 	c := MutateExistingController{
 		client:        client,
 		kyvernoClient: kyvernoClient,

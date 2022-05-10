@@ -89,9 +89,13 @@ func (g *Generator) generate(i info) error {
 	return nil
 }
 
-func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateRequestSpec,
-	log logr.Logger, action admissionv1.Operation, urLister urkyvernolister.UpdateRequestNamespaceLister) error {
-
+func retryApplyResource(
+	client kyvernoclient.Interface,
+	urSpec urkyverno.UpdateRequestSpec,
+	log logr.Logger,
+	action admissionv1.Operation,
+	urLister urkyvernolister.UpdateRequestNamespaceLister,
+) error {
 	if action == admissionv1.Delete && urSpec.Type == urkyverno.Generate {
 		return nil
 	}
