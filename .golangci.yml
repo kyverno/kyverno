@@ -3,6 +3,7 @@ linters:
     - bodyclose
     - deadcode
     - errcheck
+    - exportloopref
     - gosec
     - gosimple
     - govet
