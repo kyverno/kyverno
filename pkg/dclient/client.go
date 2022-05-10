@@ -161,7 +161,6 @@ func (c *client) DeleteResource(apiVersion string, kind string, namespace string
 		options = metav1.DeleteOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	return c.getResourceInterface(apiVersion, kind, namespace).Delete(context.TODO(), name, options)
-
 }
 
 // CreateResource creates object for the specified resource/namespace

@@ -115,7 +115,6 @@ func appendError(resp *response.EngineResponse, rule *v1.Rule, msg string, statu
 }
 
 func substituteVariables(rule *v1.Rule, ctx context.EvalInterface, logger logr.Logger) (*v1.Rule, error) {
-
 	// remove attestations as variables are not substituted in them
 	ruleCopy := *rule.DeepCopy()
 	for i := range ruleCopy.VerifyImages {
@@ -412,7 +411,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		if attestor.Keys.Rekor != nil {
 			opts.RekorURL = attestor.Keys.Rekor.URL
 		}
-
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
 		opts.Cert = attestor.Certificates.Certificate
@@ -420,7 +418,6 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		if attestor.Certificates.Rekor != nil {
 			opts.RekorURL = attestor.Certificates.Rekor.URL
 		}
-
 	} else if attestor.Keyless != nil {
 		path = path + ".keyless"
 		if attestor.Keyless.Rekor != nil {

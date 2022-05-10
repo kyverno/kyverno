@@ -201,7 +201,6 @@ func createMutateLabels(policyKey string, trigger *unstructured.Unstructured) la
 
 		if trigger.GetAPIVersion() != "" {
 			selector[urkyverno.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
-
 		}
 	}
 

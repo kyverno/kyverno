@@ -88,8 +88,8 @@ func newWebhookConfigManager(
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
 	stopCh <-chan struct{},
-	log logr.Logger) manage {
-
+	log logr.Logger,
+) manage {
 	m := &webhookConfigManager{
 		discoveryClient:      discoveryClient,
 		kyvernoClient:        kyvernoClient,

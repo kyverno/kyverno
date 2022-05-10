@@ -77,10 +77,8 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 // return true directly if found a match
 // subject.kind can only be ServiceAccount, User and Group
 func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
-
 	if strings.Contains(userInfo.Username, saPrefix) {
 		return matchServiceAccount(subject, userInfo, namespace)
-
 	}
 	return matchUserOrGroup(subject, userInfo)
 }

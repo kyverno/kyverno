@@ -55,7 +55,6 @@ func (allin AllInHandler) validateValueWithStringPattern(key string, value inter
 
 func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
 			if wildcard.Match(key, fmt.Sprint(val)) {
@@ -112,7 +111,6 @@ func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value 
 // allnotIn argument if set to true will check for allNotIn
 func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {
@@ -202,7 +200,6 @@ func isAllNotIn(key []string, value []string) bool {
 		}
 	}
 	return found != len(key)
-
 }
 
 func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {
