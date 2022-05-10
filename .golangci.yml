@@ -4,6 +4,7 @@ linters:
     - bidichk
     - bodyclose
     - deadcode
+    - durationcheck
     - errcheck
     - exportloopref
     - gosec
