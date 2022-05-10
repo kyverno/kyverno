@@ -12,7 +12,7 @@ func convertNumberToString(value interface{}) (string, error) {
 	}
 	switch typed := value.(type) {
 	case string:
-		return string(typed), nil
+		return typed, nil
 	case float64:
 		return fmt.Sprintf("%f", typed), nil
 	case int64:

@@ -118,7 +118,7 @@ func Command() *cobra.Command {
 func printFunctionList() {
 	functions := []string{}
 	for _, function := range jmespath.GetFunctions() {
-		functions = append(functions, string(function.String()))
+		functions = append(functions, function.String())
 	}
 	sort.Strings(functions)
 	fmt.Println(strings.Join(functions, "\n"))
