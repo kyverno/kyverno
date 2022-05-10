@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
 	informerv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -33,7 +32,7 @@ type controller struct {
 	secretQueue  chan bool
 }
 
-func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer) (Controller, error) {
 	manager := &controller{
 		renewer:      certRenewer,
 		secretLister: secretInformer.Lister(),

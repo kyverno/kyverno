@@ -335,7 +335,7 @@ func main() {
 		setupLog.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), kubeClient, certRenewer)
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
