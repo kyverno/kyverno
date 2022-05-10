@@ -48,31 +48,20 @@ func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernet
 
 func (m *controller) addSecretFunc(obj interface{}) {
 	secret := obj.(*v1.Secret)
-	if secret.GetNamespace() != config.KyvernoNamespace {
-		return
+	if secret.GetNamespace() == config.KyvernoNamespace && secret.GetName() == m.renewer.GenerateTLSPairSecretName() {
+		m.secretQueue <- true
 	}
-	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
-	if !ok || val != "true" {
-		return
-	}
-	m.secretQueue <- true
 }
 
 func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	old := oldObj.(*v1.Secret)
 	new := newObj.(*v1.Secret)
-	if new.GetNamespace() != config.KyvernoNamespace {
-		return
+	if new.GetNamespace() == config.KyvernoNamespace && new.GetName() == m.renewer.GenerateTLSPairSecretName() {
+		if !reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
+			m.secretQueue <- true
+			logger.V(4).Info("secret updated, reconciling webhook configurations")
+		}
 	}
-	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]
-	if !ok || val != "true" {
-		return
-	}
-	if reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
-		return
-	}
-	m.secretQueue <- true
-	logger.V(4).Info("secret updated, reconciling webhook configurations")
 }
 
 func (m *controller) InitTLSPemPair() {
