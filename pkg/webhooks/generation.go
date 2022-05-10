@@ -302,9 +302,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		newRes["metadata"] = requiredMetadataInNewRes
 	}
 
-	if _, found := obj["status"]; found {
-		delete(obj, "status")
-	}
+	delete(obj, "status")
 
 	if _, found := obj["spec"]; found {
 		delete(obj["spec"].(map[string]interface{}), "tolerations")
@@ -312,9 +310,9 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 	if dataMap, found := obj["data"]; found {
 		keyInData := make([]string, 0)
-		switch dataMap.(type) {
+		switch dataMap := dataMap.(type) {
 		case map[string]interface{}:
-			for k := range dataMap.(map[string]interface{}) {
+			for k := range dataMap {
 				keyInData = append(keyInData, k)
 			}
 		}

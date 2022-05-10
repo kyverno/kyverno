@@ -187,7 +187,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	parsedSchema, err := openapiv2.NewSchema(&schema, compiler.NewContext("schema", &schema, nil))
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
-		if v3valueFound == false {
+		if !v3valueFound {
 			log.Log.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return
