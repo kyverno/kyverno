@@ -151,7 +151,6 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, re
 			}
 
 			resources = append(resources, getResources...)
-
 		}
 	}
 	return resources, nil
@@ -210,7 +209,6 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient client.Interf
 }
 
 func getFileBytes(path string) ([]byte, error) {
-
 	var (
 		file []byte
 		err  error

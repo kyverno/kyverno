@@ -12,6 +12,7 @@ linters:
     - typecheck
     - unused
     - varcheck
+    - whitespace
 
 run:
   timeout: 5m

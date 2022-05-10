@@ -492,7 +492,6 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 
 //Parse value to string
 func valFromReferenceToString(value interface{}, operator string) (string, error) {
-
 	switch typed := value.(type) {
 	case string:
 		return typed, nil

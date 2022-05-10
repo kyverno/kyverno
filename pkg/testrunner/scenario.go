@@ -426,7 +426,6 @@ func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
 		resources = append(resources, obj)
 	}
 	return resources
-
 }
 
 func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
@@ -464,7 +463,6 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-
 	// flag.Set("logtostderr", "true")
 	// flag.Set("v", "8")
 
