@@ -1040,7 +1040,7 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
-				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", kinds, err)
 			}
 		}
 	}
