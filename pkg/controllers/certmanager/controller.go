@@ -18,10 +18,6 @@ type Controller interface {
 	// Run starts the certManager
 	Run(stopCh <-chan struct{})
 
-	// InitTLSPemPair initializes the TLSPemPair
-	// it should be invoked by the leader
-	InitTLSPemPair()
-
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
 	GetTLSPemPair() (*tls.PemPair, error)
 }
@@ -60,14 +56,6 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 			m.secretQueue <- true
 			logger.V(4).Info("secret updated, reconciling webhook configurations")
 		}
-	}
-}
-
-func (m *controller) InitTLSPemPair() {
-	_, err := m.renewer.InitTLSPemPair()
-	if err != nil {
-		logger.Error(err, "initialization error")
-		os.Exit(1)
 	}
 }
 
