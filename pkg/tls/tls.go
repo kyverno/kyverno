@@ -28,43 +28,6 @@ type CertificateProps struct {
 	ServerIP      string
 }
 
-// PemPair The pair of TLS certificate corresponding private key, both in PEM format
-type PemPair struct {
-	Certificate []byte
-	PrivateKey  []byte
-}
-
-// KeyPair ...
-type KeyPair struct {
-	Cert *x509.Certificate
-	Key  *rsa.PrivateKey
-}
-
-// GeneratePrivateKey Generates RSA private key
-func GeneratePrivateKey() (*rsa.PrivateKey, error) {
-	return rsa.GenerateKey(rand.Reader, 2048)
-}
-
-// PrivateKeyToPem Creates PEM block from private key object
-func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
-	privateKey := &pem.Block{
-		Type:  "PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(rsaKey),
-	}
-
-	return pem.EncodeToMemory(privateKey)
-}
-
-// CertificateToPem ...
-func CertificateToPem(certificateDER []byte) []byte {
-	certificate := &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certificateDER,
-	}
-
-	return pem.EncodeToMemory(certificate)
-}
-
 // GenerateCACert creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
 func GenerateCACert(certValidityDuration time.Duration) (*KeyPair, *PemPair, error) {

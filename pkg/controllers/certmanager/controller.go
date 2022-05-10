@@ -70,6 +70,21 @@ func (m *controller) GetTLSPemPair() (*tls.PemPair, error) {
 	}, nil
 }
 
+func (m *controller) validateCerts() error {
+	valid, err := m.renewer.ValidCert()
+	if err != nil {
+		logger.Error(err, "failed to validate cert")
+		if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+			return nil
+		}
+	}
+	if !valid {
+		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
+		return m.renewer.RollingUpdate()
+	}
+	return nil
+}
+
 func (m *controller) Run(stopCh <-chan struct{}) {
 	logger.Info("start managing certificate")
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
@@ -77,35 +92,13 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			valid, err := m.renewer.ValidCert()
-			if err != nil {
-				logger.Error(err, "failed to validate cert")
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
-					continue
-				}
-			}
-			if valid {
-				continue
-			}
-			logger.Info("rootCA is about to expire, trigger a rolling update to renew the cert")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to renew rootCA, force restarting")
+			if err := m.validateCerts(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update, force restarting")
 				os.Exit(1)
 			}
 		case <-m.secretQueue:
-			valid, err := m.renewer.ValidCert()
-			if err != nil {
-				logger.Error(err, "failed to validate cert")
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
-					continue
-				}
-			}
-			if valid {
-				continue
-			}
-			logger.Info("rootCA has changed, updating webhook configurations")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
+			if err := m.validateCerts(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update, force restarting")
 				os.Exit(1)
 			}
 		case <-stopCh:
