@@ -114,7 +114,7 @@ func GenerateCACert(certValidityDuration time.Duration) (*KeyPair, *PemPair, err
 
 // GenerateCertPem takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, certValidityDuration time.Duration) (*PemPair, error) {
+func GenerateCertPem(caCert *KeyPair, props *CertificateProps, serverIP string, certValidityDuration time.Duration) (*PemPair, error) {
 	now := time.Now()
 	begin := now.Add(-1 * time.Hour)
 	end := now.Add(certValidityDuration)
@@ -170,7 +170,7 @@ func GenerateCertPem(caCert *KeyPair, props CertificateProps, serverIP string, c
 }
 
 //GenerateInClusterServiceName The generated service name should be the common name for TLS certificate
-func generateInClusterServiceName(props CertificateProps) string {
+func generateInClusterServiceName(props *CertificateProps) string {
 	return props.Service + "." + props.Namespace + ".svc"
 }
 

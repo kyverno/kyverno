@@ -86,8 +86,7 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 
 	// If secret contains annotation 'self-signed-cert', then it's created using helper scripts to setup self-signed certificates.
 	// As the root CA used to sign the certificate is required for webhook configuration, check if the corresponding secret is created
-	annotations := secret.GetAnnotations()
-	if _, ok := annotations[SelfSignedAnnotation]; ok {
+	{
 		sname := GenerateRootCASecretName(certProps)
 		_, err := client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), sname, metav1.GetOptions{})
 		if err != nil {
@@ -111,16 +110,14 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) (*PemPair
 }
 
 //GetTLSCertProps provides the TLS Certificate Properties
-func GetTLSCertProps(configuration *rest.Config) (certProps CertificateProps, err error) {
+func GetTLSCertProps(configuration *rest.Config) (*CertificateProps, error) {
 	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
-		return certProps, err
+		return nil, err
 	}
-
-	certProps = CertificateProps{
+	return &CertificateProps{
 		Service:       config.KyvernoServiceName,
 		Namespace:     config.KyvernoNamespace,
 		APIServerHost: apiServerURL.Hostname(),
-	}
-	return certProps, nil
+	}, nil
 }
