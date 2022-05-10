@@ -343,7 +343,10 @@ func main() {
 
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
-		certRenewer.InitTLSPemPair()
+		if _, err := certRenewer.InitTLSPemPair(); err != nil {
+			setupLog.Error(err, "tls initialization error")
+			os.Exit(1)
+		}
 		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
