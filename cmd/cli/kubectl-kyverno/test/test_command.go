@@ -303,7 +303,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	}
 
 	if len(dirPath) == 0 {
-		return rc, sanitizederror.NewWithError(fmt.Sprintf("a directory is required"), err)
+		return rc, sanitizederror.NewWithError("a directory is required", err)
 	}
 
 	if len(testCase) != 0 {

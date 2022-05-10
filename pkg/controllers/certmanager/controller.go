@@ -6,12 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
 	informerv1 "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
+	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -19,25 +18,21 @@ type Controller interface {
 	// Run starts the certManager
 	Run(stopCh <-chan struct{})
 
-	// InitTLSPemPair initializes the TLSPemPair
-	// it should be invoked by the leader
-	InitTLSPemPair()
-
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
 	GetTLSPemPair() (*tls.PemPair, error)
 }
 
 type controller struct {
-	renewer        *tls.CertRenewer
-	secretInformer informerv1.SecretInformer
-	secretQueue    chan bool
+	renewer      *tls.CertRenewer
+	secretLister listersv1.SecretLister
+	secretQueue  chan bool
 }
 
-func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer) (Controller, error) {
 	manager := &controller{
-		renewer:        certRenewer,
-		secretInformer: secretInformer,
-		secretQueue:    make(chan bool, 1),
+		renewer:      certRenewer,
+		secretLister: secretInformer.Lister(),
+		secretQueue:  make(chan bool, 1),
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
@@ -48,55 +43,31 @@ func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernet
 
 func (m *controller) addSecretFunc(obj interface{}) {
 	secret := obj.(*v1.Secret)
-	if secret.GetNamespace() != config.KyvernoNamespace {
-		return
+	if secret.GetNamespace() == config.KyvernoNamespace && secret.GetName() == m.renewer.GenerateTLSPairSecretName() {
+		m.secretQueue <- true
 	}
-	val, ok := secret.GetAnnotations()[tls.SelfSignedAnnotation]
-	if !ok || val != "true" {
-		return
-	}
-	m.secretQueue <- true
 }
 
 func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	old := oldObj.(*v1.Secret)
 	new := newObj.(*v1.Secret)
-	if new.GetNamespace() != config.KyvernoNamespace {
-		return
-	}
-	val, ok := new.GetAnnotations()[tls.SelfSignedAnnotation]
-	if !ok || val != "true" {
-		return
-	}
-	if reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
-		return
-	}
-	m.secretQueue <- true
-	logger.V(4).Info("secret updated, reconciling webhook configurations")
-}
-
-func (m *controller) InitTLSPemPair() {
-	_, err := m.renewer.InitTLSPemPair()
-	if err != nil {
-		logger.Error(err, "initialization error")
-		os.Exit(1)
+	if new.GetNamespace() == config.KyvernoNamespace && new.GetName() == m.renewer.GenerateTLSPairSecretName() {
+		if !reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
+			m.secretQueue <- true
+			logger.V(4).Info("secret updated, reconciling webhook configurations")
+		}
 	}
 }
 
 func (m *controller) GetTLSPemPair() (*tls.PemPair, error) {
-	var keyPair *tls.PemPair
-	var err error
-	retryReadTLS := func() error {
-		keyPair, err = tls.ReadTLSPair(m.renewer.ClientConfig(), m.renewer.Client())
-		if err != nil {
-			return err
-		}
-		logger.Info("read TLS pem pair from the secret")
-		return nil
+	secret, err := m.secretLister.Secrets(config.KyvernoNamespace).Get(m.renewer.GenerateTLSPairSecretName())
+	if err != nil {
+		return nil, err
 	}
-	msg := "failed to read TLS pair"
-	f := common.RetryFunc(time.Second, time.Minute, retryReadTLS, msg, logger.WithName("GetTLSPemPair/Retry"))
-	return keyPair, f()
+	return &tls.PemPair{
+		Certificate: secret.Data[v1.TLSCertKey],
+		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
+	}, nil
 }
 
 func (m *controller) Run(stopCh <-chan struct{}) {

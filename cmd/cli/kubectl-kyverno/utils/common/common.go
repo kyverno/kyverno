@@ -588,7 +588,6 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 
 // GetPoliciesFromPaths - get policies according to the resource path
 func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []v1.PolicyInterface, err error) {
-	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
@@ -608,8 +607,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 			}
 			policiesFromFile, errFromFile := utils.GetPolicy(policyBytes)
 			if errFromFile != nil {
-				err := fmt.Errorf("failed to process : %v", errFromFile.Error())
-				errors = append(errors, err)
+				fmt.Printf("failed to process : %v", errFromFile.Error())
 				continue
 			}
 			policies = append(policies, policiesFromFile...)
@@ -987,9 +985,9 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 
 	if isGit {
 		if len(path) > 0 {
-			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
-			if err != nil {
-				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, err)
+			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
+			if fileErr != nil {
+				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, fileErr)
 			}
 			patchedResourceBytes, err = ioutil.ReadAll(filep)
 		}
