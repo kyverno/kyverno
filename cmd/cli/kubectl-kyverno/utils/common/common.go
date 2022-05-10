@@ -49,9 +49,9 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name          string              `json:"name"`
-	Values        map[string]string   `json:"values"`
-	ForeachValues map[string][]string `json:"foreachValues"`
+	Name          string                   `json:"name"`
+	Values        map[string]interface{}   `json:"values"`
+	ForeachValues map[string][]interface{} `json:"foreachValues"`
 }
 
 type Values struct {
@@ -61,8 +61,8 @@ type Values struct {
 }
 
 type Resource struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
+	Name   string                 `json:"name"`
+	Values map[string]interface{} `json:"values"`
 }
 
 type NamespaceSelector struct {
@@ -297,7 +297,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 					}
 				} else {
 					if r.Values == nil {
-						r.Values = make(map[string]string)
+						r.Values = make(map[string]interface{})
 					}
 					r.Values["request.operation"] = "CREATE"
 					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
@@ -376,7 +376,7 @@ func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error)
 
 // ApplyPolicyOnResource - function to apply policy on resource
 func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]string, userInfo v1beta1.RequestInfo, policyReport bool,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo v1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool) ([]*response.EngineResponse, policyreport.Info, error) {
 
@@ -521,7 +521,7 @@ OuterLoop:
 		engineResponses = append(engineResponses, validateResponse)
 	}
 
-	verifyImageResponse := engine.VerifyAndPatchImages(policyContext)
+	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
 		info = ProcessValidateEngineResponse(policy, verifyImageResponse, resPath, rc, policyReport)
@@ -588,7 +588,6 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 
 // GetPoliciesFromPaths - get policies according to the resource path
 func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []v1.PolicyInterface, err error) {
-	var errors []error
 	if isGit {
 		for _, pp := range dirPath {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
@@ -608,8 +607,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 			}
 			policiesFromFile, errFromFile := utils.GetPolicy(policyBytes)
 			if errFromFile != nil {
-				err := fmt.Errorf("failed to process : %v", errFromFile.Error())
-				errors = append(errors, err)
+				fmt.Printf("failed to process : %v", errFromFile.Error())
 				continue
 			}
 			policies = append(policies, policiesFromFile...)
@@ -728,8 +726,16 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 					vrule.Status = report.StatusPass
 
 				case response.RuleStatusFail:
-					rc.Fail++
-					vrule.Status = report.StatusFail
+					ann := policy.GetAnnotations()
+					if scored, ok := ann[policyreport.ScoredLabel]; ok && scored == "false" {
+						rc.Warn++
+						vrule.Status = report.StatusWarn
+						break
+					} else {
+						rc.Fail++
+						vrule.Status = report.StatusFail
+					}
+
 					if !policyReport {
 						if printCount < 1 {
 							fmt.Printf("\npolicy %s -> resource %s failed: \n", policy.GetName(), resPath)
@@ -819,7 +825,7 @@ func SetInStoreContext(mutatedPolicies []v1.PolicyInterface, variables map[strin
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
 		for _, rule := range autogen.ComputeRules(policy) {
-			contextVal := make(map[string]string)
+			contextVal := make(map[string]interface{})
 			if len(rule.Context) != 0 {
 				for _, contextVar := range rule.Context {
 					for k, v := range variables {
@@ -928,9 +934,9 @@ func PrintMutatedPolicy(mutatedPolicies []v1.PolicyInterface) error {
 	return nil
 }
 
-func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]string, error) {
+func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValMap map[string]string, policyName string, resourceName string, resourceKind string, variables map[string]string, kindOnwhichPolicyIsApplied map[string]struct{}, variable string) (map[string]interface{}, error) {
 	// get values from file for this policy resource combination
-	thisPolicyResourceValues := make(map[string]string)
+	thisPolicyResourceValues := make(map[string]interface{})
 	if len(valuesMap[policyName]) != 0 && !reflect.DeepEqual(valuesMap[policyName][resourceName], Resource{}) {
 		thisPolicyResourceValues = valuesMap[policyName][resourceName].Values
 	}
@@ -940,7 +946,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 	}
 
 	if thisPolicyResourceValues == nil && len(globalValMap) > 0 {
-		thisPolicyResourceValues = make(map[string]string)
+		thisPolicyResourceValues = make(map[string]interface{})
 	}
 
 	for k, v := range globalValMap {
@@ -979,9 +985,9 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 
 	if isGit {
 		if len(path) > 0 {
-			filep, err := fs.Open(filepath.Join(policyResourcePath, path))
-			if err != nil {
-				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, err)
+			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
+			if fileErr != nil {
+				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, fileErr)
 			}
 			patchedResourceBytes, err = ioutil.ReadAll(filep)
 		}

@@ -58,7 +58,7 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
-			log.V(4).Info("resource does no have a name assigned yet, not creating a policy violation", "resource", er.PolicyResponse.Resource)
+			log.V(4).Info("skipping resource with no name", "resource", er.PolicyResponse.Resource)
 			continue
 		}
 
@@ -313,7 +313,7 @@ func toPolicyResult(status response.RuleStatus) string {
 
 const categoryLabel string = "policies.kyverno.io/category"
 const severityLabel string = "policies.kyverno.io/severity"
-const scoredLabel string = "policies.kyverno.io/scored"
+const ScoredLabel string = "policies.kyverno.io/scored"
 
 type annotationValues struct {
 	category string
@@ -342,7 +342,7 @@ func (builder *requestBuilder) fetchAnnotationValues(policy, ns string) annotati
 	if severity, ok := ann[severityLabel]; ok {
 		av.setSeverityFromString(severity)
 	}
-	if scored, ok := ann[scoredLabel]; ok {
+	if scored, ok := ann[ScoredLabel]; ok {
 		if scored == "false" {
 			av.scored = false
 		} else {

@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -141,7 +140,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kubeutils.GetFormatedKind(kind)], rule)
+				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
 		}
 	}
@@ -152,7 +151,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 		spec.SetRules(rules)
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
-		if resource == nil || len(resource) == 0 {
+		if len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}

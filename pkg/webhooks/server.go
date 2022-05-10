@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -95,7 +97,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
-	tlsPair *tlsutils.PemPair,
+	tlsPair func() (*tlsutils.PemPair, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -119,10 +121,6 @@ func NewWebhookServer(
 ) (*WebhookServer, error) {
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
-	}
-	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
-	if err != nil {
-		return nil, err
 	}
 	ws := &WebhookServer{
 		client:            client,
@@ -156,8 +154,21 @@ func NewWebhookServer(
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
-		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
+		Addr: ":9443", // Listen on port for HTTPS requests
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				tlsPair, err := tlsPair()
+				if err != nil {
+					return nil, err
+				}
+				pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
+				if err != nil {
+					return nil, err
+				}
+				return &pair, nil
+			},
+			MinVersion: tls.VersionTLS12,
+		},
 		Handler:      mux,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -183,21 +194,13 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		return nil, errors.Wrap(err, "failed to create policy rule context")
 	}
 
-	// convert RAW to unstructured
-	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := convertResource(request, request.Object.Raw)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+		return nil, err
 	}
 
 	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
-	}
-
-	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
-		resource, err = utils.NormalizeSecret(&resource)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
-		}
 	}
 
 	policyContext := &engine.PolicyContext{
@@ -211,10 +214,30 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 	}
 
 	if request.Operation == admissionv1.Update {
-		policyContext.OldResource = resource
+		policyContext.OldResource, err = convertResource(request, request.OldObject.Raw)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return policyContext, nil
+}
+
+// convertResource converts RAW to unstructured
+func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) (unstructured.Unstructured, error) {
+	resource, err := utils.ConvertResource(resourceRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+	}
+
+	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
+	}
+
+	return resource, nil
 }
 
 // RunAsync TLS server in separate thread and returns control immediately

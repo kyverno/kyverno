@@ -1,6 +1,7 @@
 package cosign
 
 import (
+	"bytes"
 	"context"
 	"crypto"
 	"crypto/x509"
@@ -36,8 +37,9 @@ var ImageSignatureRepository string
 type Options struct {
 	ImageRef             string
 	Key                  string
-	Roots                []byte
-	Intermediates        []byte
+	Cert                 string
+	CertChain            string
+	Roots                string
 	Subject              string
 	Issuer               string
 	AdditionalExtensions map[string]string
@@ -62,36 +64,63 @@ func VerifySignature(opts Options) (digest string, err error) {
 		ClaimVerifier:      cosign.SimpleClaimVerifier,
 	}
 
-	if opts.Roots != nil {
-		cp, err := loadCertPool(opts.Roots)
+	if opts.Roots != "" {
+		cp, err := loadCertPool([]byte(opts.Roots))
 		if err != nil {
 			return "", errors.Wrapf(err, "failed to load Root certificates")
 		}
 		cosignOpts.RootCerts = cp
 	}
 
-	if opts.Intermediates != nil {
-		cp, err := loadCertPool(opts.Intermediates)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to load intermediate certificates")
-		}
-
-		cosignOpts.IntermediateCerts = cp
-	}
-
 	if opts.Key != "" {
 		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
 			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
+			if err != nil {
+				return "", errors.Wrap(err, "failed to load public key from PEM")
+			}
 		} else {
+			// this supports Kubernetes secrets and KMS
 			cosignOpts.SigVerifier, err = sigs.PublicKeyFromKeyRef(ctx, opts.Key)
-		}
-
-		if err != nil {
-			return "", errors.Wrap(err, "loading credentials")
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to load public key from %s", opts.Key)
+			}
 		}
 	} else {
-		if cosignOpts.RootCerts == nil {
-			cosignOpts.RootCerts = fulcio.GetRoots()
+		if opts.Cert != "" {
+			// load cert and optionally a cert chain as a verifier
+			cert, err := loadCert([]byte(opts.Cert))
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+			}
+
+			if opts.CertChain == "" {
+				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, crypto.SHA256)
+				if err != nil {
+					return "", errors.Wrapf(err, "failed to load signature from certificate")
+				}
+			} else {
+				// Verify certificate with chain
+				chain, err := loadCertChain([]byte(opts.CertChain))
+				if err != nil {
+					return "", err
+				}
+				cosignOpts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, cosignOpts)
+				if err != nil {
+					return "", err
+				}
+			}
+		} else if opts.CertChain != "" {
+			// load cert chain as roots
+			cp, err := loadCertPool([]byte(opts.CertChain))
+			if err != nil {
+				return "", errors.Wrapf(err, "failed to load cert chain")
+			}
+			cosignOpts.RootCerts = cp
+		} else {
+			// if key, cert, and roots are not provided, default to Fulcio roots
+			if cosignOpts.RootCerts == nil {
+				cosignOpts.RootCerts = fulcio.GetRoots()
+			}
 		}
 	}
 
@@ -118,14 +147,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 
 	signatures, bundleVerified, err := client.VerifyImageSignatures(ctx, ref, cosignOpts)
 	if err != nil {
-		msg := err.Error()
-		logger.Info("image verification failed", "error", msg)
-		if strings.Contains(msg, "failed to verify signature") {
-			return "", fmt.Errorf("signature mismatch")
-		} else if strings.Contains(msg, "no matching signatures") {
-			return "", fmt.Errorf("signature not found")
-		}
-
+		logger.Info("image verification failed", "error", err.Error())
 		return "", err
 	}
 
@@ -173,6 +195,28 @@ func loadCertPool(roots []byte) (*x509.CertPool, error) {
 	return cp, nil
 }
 
+func loadCert(pem []byte) (*x509.Certificate, error) {
+	var out []byte
+	out, err := base64.StdEncoding.DecodeString(string(pem))
+	if err != nil {
+		// not a base64
+		out = pem
+	}
+
+	certs, err := cryptoutils.UnmarshalCertificatesFromPEM(out)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal certificate from PEM format")
+	}
+	if len(certs) == 0 {
+		return nil, errors.New("no certs found in pem file")
+	}
+	return certs[0], nil
+}
+
+func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
+	return cryptoutils.LoadCertificatesFromPEM(bytes.NewReader(pem))
+}
+
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
 func FetchAttestations(imageRef string, imageVerify v1.ImageVerification) ([]map[string]interface{}, error) {
@@ -199,22 +243,6 @@ func FetchAttestations(imageRef string, imageVerify v1.ImageVerification) ([]map
 
 	if err != nil {
 		return nil, errors.Wrap(err, "loading credentials")
-	}
-
-	var opts []remote.Option
-	ro := options.RegistryOptions{}
-
-	opts, err = ro.ClientOpts(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "constructing client options")
-	}
-	opts = append(opts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
-	if imageVerify.Repository != "" {
-		signatureRepo, err := name.NewRepository(imageVerify.Repository)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse signature repository %s", imageVerify.Repository)
-		}
-		opts = append(opts, remote.WithTargetRepository(signatureRepo))
 	}
 
 	ref, err := name.ParseReference(imageRef)

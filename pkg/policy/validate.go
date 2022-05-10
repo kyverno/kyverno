@@ -82,6 +82,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
+	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -89,6 +90,13 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	err := ValidateVariables(policy, background)
 	if err != nil {
 		return nil, err
+	}
+
+	if onPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var res []*metav1.APIResourceList
@@ -393,6 +401,23 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 	return nil
 }
 
+func ValidateOnPolicyUpdate(p kyverno.PolicyInterface, onPolicyUpdate bool) error {
+	vars := hasVariables(p)
+	if len(vars) == 0 {
+		return nil
+	}
+
+	if err := hasInvalidVariables(p, onPolicyUpdate); err != nil {
+		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+	}
+
+	if err := containsUserVariables(p, vars); err != nil {
+		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
+	}
+
+	return nil
+}
+
 // for now forbidden sections are match, exclude and
 func ruleForbiddenSectionsHaveVariables(rule *kyverno.Rule) error {
 	var err error
@@ -590,7 +615,7 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 			patternMap, ok := pattern.(map[string]interface{})
 			if ok {
 				ret := checkMetadata(patternMap)
-				if ret == false {
+				if !ret {
 					return ret
 				}
 			}
@@ -709,13 +734,13 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		"conditions":    true,
 	}
 	if !allowedSchemaKeys[schemaKey] {
-		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
+		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
 	// conditions are currently in the form of []interface{}
 	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
 	if err != nil {
-		return fmt.Sprintf("%s", schemaKey), err
+		return schemaKey, err
 	}
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyverno.AnyAllConditions:
@@ -813,8 +838,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 		return nil
 	}
 
-	contextNames := make([]string, 0)
-
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
@@ -824,7 +847,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 				return fmt.Errorf("entry name %s is invalid as it conflicts with a pre-defined variable %s", entry.Name, v)
 			}
 		}
-		contextNames = append(contextNames, entry.Name)
 
 		var err error
 		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
@@ -843,18 +865,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 			return err
 		}
 	}
-
-	ruleBytes, _ := json.Marshal(rule)
-	for _, contextName := range contextNames {
-		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
-		if err != nil {
-			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
-		}
-		if !contextRegex.Match(ruleBytes) {
-			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
-		}
-	}
-
 	return nil
 }
 
@@ -1009,7 +1019,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
+	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false
@@ -1027,7 +1037,7 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
-				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", kinds, err)
 			}
 		}
 	}

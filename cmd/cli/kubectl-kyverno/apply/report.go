@@ -83,7 +83,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 		if ns != "" {
 			appname = fmt.Sprintf("policyreport-ns-%s", ns)
 		} else {
-			appname = fmt.Sprintf(clusterpolicyreport)
+			appname = clusterpolicyreport
 		}
 
 		for _, infoResult := range info.Results {
@@ -117,47 +117,6 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 	}
 
 	return results
-}
-
-func mergeSucceededResults(results map[string][]*report.PolicyReportResult) map[string][]*report.PolicyReportResult {
-	resultsNew := make(map[string][]*report.PolicyReportResult)
-
-	for scope, scopedResults := range results {
-
-		resourcesMap := make(map[string]*report.PolicyReportResult)
-		for _, result := range scopedResults {
-			if result.Result != report.PolicyResult("pass") {
-				resultsNew[scope] = append(resultsNew[scope], result)
-				continue
-			}
-
-			key := fmt.Sprintf("%s/%s", result.Policy, result.Rule)
-			if r, ok := resourcesMap[key]; !ok {
-				resourcesMap[key] = &report.PolicyReportResult{}
-				resourcesMap[key] = result
-			} else {
-				r.Resources = append(r.Resources, result.Resources...)
-				resourcesMap[key] = r
-			}
-		}
-
-		for k, v := range resourcesMap {
-			names := strings.Split(k, "/")
-			if len(names) != 2 {
-				continue
-			}
-
-			r := &report.PolicyReportResult{
-				Policy:    names[0],
-				Rule:      names[1],
-				Resources: v.Resources,
-				Result:    report.PolicyResult(v.Result),
-			}
-
-			resultsNew[scope] = append(resultsNew[scope], r)
-		}
-	}
-	return resultsNew
 }
 
 func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {

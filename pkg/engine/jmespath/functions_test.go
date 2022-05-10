@@ -1334,3 +1334,50 @@ func Test_Items(t *testing.T) {
 	}
 
 }
+
+func Test_ObjectFromLists(t *testing.T) {
+
+	testCases := []struct {
+		keys           string
+		values         string
+		expectedResult map[string]interface{}
+	}{
+		{
+			keys:   `["key1", "key2"]`,
+			values: `["1", "2"]`,
+			expectedResult: map[string]interface{}{
+				"key1": "1",
+				"key2": "2",
+			},
+		},
+		{
+			keys:   `["key1", "key2"]`,
+			values: `[1, "2"]`,
+			expectedResult: map[string]interface{}{
+				"key1": 1.0,
+				"key2": "2",
+			},
+		},
+		{
+			keys:   `["key1", "key2"]`,
+			values: `[1]`,
+			expectedResult: map[string]interface{}{
+				"key1": 1.0,
+				"key2": nil,
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
+			query, err := New("object_from_lists(`" + tc.keys + "`,`" + tc.values + "`)")
+			assert.NilError(t, err)
+			res, err := query.Search("")
+			assert.NilError(t, err)
+			result, ok := res.(map[string]interface{})
+			assert.Assert(t, ok)
+			assert.DeepEqual(t, result, tc.expectedResult)
+		})
+	}
+
+}

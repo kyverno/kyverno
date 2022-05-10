@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
-	"path"
 	ospath "path"
 	"path/filepath"
 	"reflect"
@@ -74,7 +73,7 @@ type Generation struct {
 // it may not work as expected.
 func RootDir() string {
 	_, b, _, _ := runtime.Caller(0)
-	d := path.Join(path.Dir(b))
+	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
 }

@@ -330,8 +330,12 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer := tls.NewCertRenewer(kubeClient, clientConfig, tls.CertRenewalInterval, tls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), kubeClient, certRenewer)
+	certRenewer, err := tls.NewCertRenewer(kubeClient, clientConfig, tls.CertRenewalInterval, tls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	if err != nil {
+		setupLog.Error(err, "failed to initialize CertRenewer")
+		os.Exit(1)
+	}
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
@@ -339,7 +343,10 @@ func main() {
 
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
-		certManager.InitTLSPemPair()
+		if _, err := certRenewer.InitTLSPemPair(); err != nil {
+			setupLog.Error(err, "tls initialization error")
+			os.Exit(1)
+		}
 		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
@@ -379,13 +386,6 @@ func main() {
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
 
-	var tlsPair *tls.PemPair
-	tlsPair, err = certManager.GetTLSPemPair()
-	if err != nil {
-		setupLog.Error(err, "Failed to get TLS key/certificate pair")
-		os.Exit(1)
-	}
-
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
@@ -395,7 +395,7 @@ func main() {
 	server, err := webhooks.NewWebhookServer(
 		kyvernoClient,
 		dynamicClient,
-		tlsPair,
+		certManager.GetTLSPemPair,
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -429,7 +429,6 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		go urc.Run(genWorkers, stopCh)
 		go grcc.Run(1, stopCh)
 	}
 
@@ -460,6 +459,7 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
+	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
 	go configurationController.Run(stopCh)
