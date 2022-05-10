@@ -107,13 +107,13 @@ func main() {
 	}
 
 	requests := []request{
-		{policyReportKind, ""},
-		{clusterPolicyReportKind, ""},
+		{policyReportKind},
+		{clusterPolicyReportKind},
 
-		{reportChangeRequestKind, ""},
-		{clusterReportChangeRequestKind, ""},
+		{reportChangeRequestKind},
+		{clusterReportChangeRequestKind},
 
-		{convertGenerateRequest, ""},
+		{convertGenerateRequest},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -253,7 +253,6 @@ func executeRequest(client client.Interface, kyvernoclient kyvernoclient.Interfa
 
 type request struct {
 	kind string
-	name string
 }
 
 /* Processing Pipeline
