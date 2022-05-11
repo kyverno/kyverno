@@ -1026,7 +1026,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			fmt.Printf("failed to decode yaml: %v", err)
 		}
-
 	} else {
 		var errors []error
 		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
