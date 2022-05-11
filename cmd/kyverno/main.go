@@ -330,7 +330,15 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer, err := tls.NewCertRenewer(kubeClient, clientConfig, tls.CertRenewalInterval, tls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer, err := tls.NewCertRenewer(
+		kubeClient,
+		clientConfig,
+		tls.CertRenewalInterval,
+		tls.CAValidityDuration,
+		tls.TLSValidityDuration,
+		serverIP,
+		log.Log.WithName("CertRenewer"),
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)

@@ -25,7 +25,8 @@ const (
 	CertRenewalInterval time.Duration = 2 * time.Minute
 	// CertValidityDuration is the valid duration for a new cert
 	// CertValidityDuration time.Duration = 365 * 24 * time.Hour
-	CertValidityDuration time.Duration = 6 * time.Minute
+	CAValidityDuration  time.Duration = 15 * time.Minute
+	TLSValidityDuration time.Duration = 6 * time.Minute
 	// ManagedByLabel is added to Kyverno managed secrets
 	ManagedByLabel          string = "cert.kyverno.io/managed-by"
 	RootCAKey               string = "rootCA.crt"
@@ -36,10 +37,11 @@ const (
 // webhook configurations and webhook server
 // renews RootCA at the given interval
 type CertRenewer struct {
-	client               kubernetes.Interface
-	certRenewalInterval  time.Duration
-	certValidityDuration time.Duration
-	certProps            *certificateProps
+	client              kubernetes.Interface
+	certRenewalInterval time.Duration
+	caValidityDuration  time.Duration
+	tlsValidityDuration time.Duration
+	certProps           *certificateProps
 
 	// IP address where Kyverno controller runs. Only required if out-of-cluster.
 	serverIP string
@@ -48,18 +50,19 @@ type CertRenewer struct {
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client kubernetes.Interface, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) (*CertRenewer, error) {
+func NewCertRenewer(client kubernetes.Interface, clientConfig *rest.Config, certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, serverIP string, log logr.Logger) (*CertRenewer, error) {
 	certProps, err := newCertificateProps(clientConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &CertRenewer{
-		client:               client,
-		certRenewalInterval:  certRenewalInterval,
-		certValidityDuration: certValidityDuration,
-		certProps:            certProps,
-		serverIP:             serverIP,
-		log:                  log,
+		client:              client,
+		certRenewalInterval: certRenewalInterval,
+		caValidityDuration:  caValidityDuration,
+		tlsValidityDuration: tlsValidityDuration,
+		certProps:           certProps,
+		serverIP:            serverIP,
+		log:                 log,
 	}, nil
 }
 
@@ -102,7 +105,7 @@ func (c *CertRenewer) RenewCA() error {
 	if !IsSecretManagedByKyverno(ca) {
 		return fmt.Errorf("tls is not valid but certificates are not managed by kyverno, we can't renew them")
 	}
-	caCert, err := generateCA(c.certValidityDuration)
+	caCert, err := generateCA(c.caValidityDuration)
 	if err != nil {
 		return err
 	}
@@ -116,11 +119,11 @@ func (c *CertRenewer) RenewCA() error {
 // buildTLSPemPairAndWriteToSecrets Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
 func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(serverIP string) error {
-	caCert, err := generateCA(c.certValidityDuration)
+	caCert, err := generateCA(c.caValidityDuration)
 	if err != nil {
 		return err
 	}
-	tlsPair, err := generateCert(caCert, c.certProps, serverIP, c.certValidityDuration)
+	tlsPair, err := generateCert(caCert, c.certProps, serverIP, c.tlsValidityDuration)
 	if err != nil {
 		return err
 	}
