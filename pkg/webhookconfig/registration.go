@@ -176,6 +176,42 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
 }
 
+func (wrc *Register) UpdateWebhooksCaBundle() error {
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			managedByLabel: kyvernoValue,
+		},
+	}
+	caData := wrc.readCaData()
+	m := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	v := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	if list, err := m.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		return err
+	} else {
+		for _, item := range list.Items {
+			for r := range item.Webhooks {
+				item.Webhooks[r].ClientConfig.CABundle = caData
+			}
+			if _, err := m.Update(context.TODO(), &item, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	if list, err := v.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		return err
+	} else {
+		for _, item := range list.Items {
+			for r := range item.Webhooks {
+				item.Webhooks[r].ClientConfig.CABundle = caData
+			}
+			if _, err := v.Update(context.TODO(), &item, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
 //
