@@ -24,7 +24,7 @@ const (
 	// ManagedByLabel is added to Kyverno managed secrets
 	ManagedByLabel          string = "cert.kyverno.io/managed-by"
 	MasterDeploymentUID     string = "cert.kyverno.io/master-deployment-uid"
-	RootCAKey               string = "rootCA.crt"
+	rootCAKey               string = "rootCA.crt"
 	rollingUpdateAnnotation string = "update.kyverno.io/force-rolling-update"
 )
 
@@ -145,9 +145,10 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair) error {
 					},
 				},
 				Data: map[string][]byte{
-					RootCAKey: caPEM.Certificate,
+					v1.TLSCertKey:       caPEM.Certificate,
+					v1.TLSPrivateKeyKey: caPEM.PrivateKey,
 				},
-				Type: v1.SecretTypeOpaque,
+				Type: v1.SecretTypeTLS,
 			}
 			_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
@@ -164,9 +165,11 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair) error {
 	}
 
 	dataMap := map[string][]byte{
-		RootCAKey: caPEM.Certificate,
+		v1.TLSCertKey:       caPEM.Certificate,
+		v1.TLSPrivateKeyKey: caPEM.PrivateKey,
 	}
 
+	secret.Type = v1.SecretTypeTLS
 	secret.Data = dataMap
 	_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
