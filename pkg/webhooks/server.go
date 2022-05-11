@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -97,7 +96,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
-	tlsPair func() (*tlsutils.PemPair, error),
+	tlsPair func() ([]byte, []byte, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -157,11 +156,11 @@ func NewWebhookServer(
 		Addr: ":9443", // Listen on port for HTTPS requests
 		TLSConfig: &tls.Config{
 			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-				tlsPair, err := tlsPair()
+				certPem, keyPem, err := tlsPair()
 				if err != nil {
 					return nil, err
 				}
-				pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
+				pair, err := tls.X509KeyPair(certPem, keyPem)
 				if err != nil {
 					return nil, err
 				}
