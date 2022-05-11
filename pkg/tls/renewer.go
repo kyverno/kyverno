@@ -21,9 +21,11 @@ import (
 
 const (
 	// CertRenewalInterval is the renewal interval for rootCA
-	CertRenewalInterval time.Duration = 12 * time.Hour
+	// CertRenewalInterval time.Duration = 12 * time.Hour
+	CertRenewalInterval time.Duration = 2 * time.Minute
 	// CertValidityDuration is the valid duration for a new cert
-	CertValidityDuration time.Duration = 365 * 24 * time.Hour
+	// CertValidityDuration time.Duration = 365 * 24 * time.Hour
+	CertValidityDuration time.Duration = 6 * time.Minute
 	// ManagedByLabel is added to Kyverno managed secrets
 	ManagedByLabel          string = "cert.kyverno.io/managed-by"
 	RootCAKey               string = "rootCA.crt"
