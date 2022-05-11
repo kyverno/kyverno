@@ -4,15 +4,14 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
 
-// PrivateKeyToPem Creates PEM block from private key object
-func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
+func privateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	privateKey := &pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(rsaKey),
@@ -20,17 +19,72 @@ func PrivateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
 	return pem.EncodeToMemory(privateKey)
 }
 
-// CertificateToPem Creates PEM block from certificate object
-func CertificateToPem(cert *x509.Certificate) []byte {
-	certificate := &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: cert.Raw,
+func certificateToPem(certs ...*x509.Certificate) []byte {
+	var raw []byte
+	for _, cert := range certs {
+		certificate := &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: cert.Raw,
+		}
+		raw = append(raw, pem.EncodeToMemory(certificate)...)
 	}
-	return pem.EncodeToMemory(certificate)
+	return raw
+}
+
+func pemToPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(raw))
+	return x509.ParsePKCS1PrivateKey(block.Bytes)
+}
+
+func pemToCertificates(raw []byte) []*x509.Certificate {
+	var certs []*x509.Certificate
+	for {
+		certPemBlock, next := pem.Decode(raw)
+		if certPemBlock == nil {
+			return certs
+		}
+		raw = next
+		cert, err := x509.ParseCertificate(certPemBlock.Bytes)
+		if err == nil {
+			certs = append(certs, cert)
+		} else {
+			logger.Error(err, "failed to parse cert")
+		}
+	}
+}
+
+func removeExpiredCertificates(now time.Time, certs ...*x509.Certificate) []*x509.Certificate {
+	var result []*x509.Certificate
+	for _, cert := range certs {
+		if !now.After(cert.NotAfter) {
+			result = append(result, cert)
+		}
+	}
+	return result
+}
+
+func allCertificatesExpired(now time.Time, certs ...*x509.Certificate) bool {
+	for _, cert := range certs {
+		if !now.After(cert.NotAfter) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateCert(now time.Time, cert *x509.Certificate, caCerts ...*x509.Certificate) bool {
+	pool := x509.NewCertPool()
+	for _, cert := range caCerts {
+		pool.AddCert(cert)
+	}
+	if _, err := cert.Verify(x509.VerifyOptions{Roots: pool, CurrentTime: now}); err != nil {
+		return false
+	}
+	return true
 }
 
 // IsKyvernoInRollingUpdate returns true if Kyverno is in rolling update
-func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment, logger logr.Logger) bool {
+func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment) bool {
 	var replicas int32 = 1
 	if deploy.Spec.Replicas != nil {
 		replicas = *deploy.Spec.Replicas

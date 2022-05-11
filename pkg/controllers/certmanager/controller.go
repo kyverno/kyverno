@@ -97,6 +97,10 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 					os.Exit(1)
 				}
 			}
+			if err := m.renewer.RenewTLS(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
+				os.Exit(1)
+			}
 		case <-m.secretQueue:
 			if err := m.renewer.RenewCA(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
@@ -107,6 +111,10 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 					logger.Error(err, "unable to update webhooks, force restarting")
 					os.Exit(1)
 				}
+			}
+			if err := m.renewer.RenewTLS(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
+				os.Exit(1)
 			}
 		case <-stopCh:
 			logger.V(2).Info("stopping cert renewer")
