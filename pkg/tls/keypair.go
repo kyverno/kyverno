@@ -10,6 +10,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/kyverno/kyverno/pkg/config"
 )
 
 // KeyPair ...
@@ -58,9 +60,9 @@ func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, cer
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
-		props.Service,
-		fmt.Sprintf("%s.%s", props.Service, props.Namespace),
-		props.inClusterServiceName(),
+		config.KyvernoServiceName(),
+		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
+		InClusterServiceName(),
 	}
 	var ips []net.IP
 	if serverIP != "" {
@@ -74,7 +76,7 @@ func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, cer
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName: props.Service,
+			CommonName: config.KyvernoServiceName(),
 		},
 		DNSNames:              dnsNames,
 		IPAddresses:           ips,

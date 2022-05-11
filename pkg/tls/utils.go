@@ -2,6 +2,7 @@ package tls
 
 import (
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 )
@@ -29,4 +30,17 @@ func IsSecretManagedByKyverno(secret *v1.Secret) bool {
 		return false
 	}
 	return true
+}
+
+// InClusterServiceName The generated service name should be the common name for TLS certificate
+func InClusterServiceName() string {
+	return config.KyvernoServiceName() + "." + config.KyvernoNamespace() + ".svc"
+}
+
+func GenerateTLSPairSecretName() string {
+	return InClusterServiceName() + ".kyverno-tls-pair"
+}
+
+func GenerateRootCASecretName() string {
+	return InClusterServiceName() + ".kyverno-tls-ca"
 }
