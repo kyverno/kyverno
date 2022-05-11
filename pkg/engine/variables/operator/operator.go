@@ -28,7 +28,6 @@ type VariableSubstitutionHandler = func(log logr.Logger, ctx context.EvalInterfa
 func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
 	str := strings.ToLower(string(op))
 	switch str {
-
 	case strings.ToLower(string(kyverno.ConditionOperators["Equal"])),
 		strings.ToLower(string(kyverno.ConditionOperators["Equals"])):
 		return NewEqualHandler(log, ctx)

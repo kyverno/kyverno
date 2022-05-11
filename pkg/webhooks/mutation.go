@@ -37,8 +37,8 @@ func (ws *WebhookServer) applyMutatePolicies(request *admissionv1.AdmissionReque
 func (ws *WebhookServer) handleMutation(
 	request *admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
-	policies []kyverno.PolicyInterface) ([]byte, []*response.EngineResponse) {
-
+	policies []kyverno.PolicyInterface,
+) ([]byte, []*response.EngineResponse) {
 	if len(policies) == 0 {
 		return nil, nil
 	}
