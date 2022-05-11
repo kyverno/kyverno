@@ -2,6 +2,7 @@ package cosign
 
 import (
 	"fmt"
+
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 )
 
