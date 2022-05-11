@@ -3,6 +3,7 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - containedctx
     - deadcode
     - durationcheck
     - errcheck

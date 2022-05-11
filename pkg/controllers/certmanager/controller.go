@@ -19,7 +19,7 @@ type Controller interface {
 	Run(stopCh <-chan struct{})
 
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() (*tls.PemPair, error)
+	GetTLSPemPair() ([]byte, []byte, error)
 }
 
 type controller struct {
@@ -59,15 +59,27 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	}
 }
 
-func (m *controller) GetTLSPemPair() (*tls.PemPair, error) {
+func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(m.renewer.GenerateTLSPairSecretName())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &tls.PemPair{
-		Certificate: secret.Data[v1.TLSCertKey],
-		PrivateKey:  secret.Data[v1.TLSPrivateKeyKey],
-	}, nil
+	return secret.Data[v1.TLSCertKey], secret.Data[v1.TLSPrivateKeyKey], nil
+}
+
+func (m *controller) validateCerts() error {
+	valid, err := m.renewer.ValidCert()
+	if err != nil {
+		logger.Error(err, "failed to validate cert")
+		if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+			return nil
+		}
+	}
+	if !valid {
+		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
+		return m.renewer.RollingUpdate()
+	}
+	return nil
 }
 
 func (m *controller) Run(stopCh <-chan struct{}) {
@@ -77,35 +89,13 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			valid, err := m.renewer.ValidCert()
-			if err != nil {
-				logger.Error(err, "failed to validate cert")
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
-					continue
-				}
-			}
-			if valid {
-				continue
-			}
-			logger.Info("rootCA is about to expire, trigger a rolling update to renew the cert")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to renew rootCA, force restarting")
+			if err := m.validateCerts(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update, force restarting")
 				os.Exit(1)
 			}
 		case <-m.secretQueue:
-			valid, err := m.renewer.ValidCert()
-			if err != nil {
-				logger.Error(err, "failed to validate cert")
-				if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
-					continue
-				}
-			}
-			if valid {
-				continue
-			}
-			logger.Info("rootCA has changed, updating webhook configurations")
-			if err := m.renewer.RollingUpdate(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update to re-register webhook server, force restarting")
+			if err := m.validateCerts(); err != nil {
+				logger.Error(err, "unable to trigger a rolling update, force restarting")
 				os.Exit(1)
 			}
 		case <-stopCh:
