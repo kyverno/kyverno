@@ -13,6 +13,7 @@ linters:
     - gosimple
     - govet
     - ineffassign
+    - noctx
     - staticcheck
     - structcheck
     - tenv
