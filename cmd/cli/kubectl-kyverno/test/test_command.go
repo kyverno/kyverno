@@ -749,17 +749,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	var subjectInfo store.Subject
 
 	if userInfoFile != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
+		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
-		subjectInfo, err = common.GetSubjectInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
-		if err != nil {
-			fmt.Printf("Error: failed to load request subjects \nCause: %s\n", err)
-			os.Exit(1)
-		}
-
 		store.SetSubjects(subjectInfo)
 	}
 
