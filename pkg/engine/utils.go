@@ -199,14 +199,12 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
 	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
 		}
 	}
 
 	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-
 		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
 		}
