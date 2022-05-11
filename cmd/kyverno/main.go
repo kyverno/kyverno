@@ -343,7 +343,7 @@ func main() {
 
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
-		if _, err := certRenewer.InitTLSPemPair(); err != nil {
+		if err := certRenewer.InitTLSPemPair(); err != nil {
 			setupLog.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
