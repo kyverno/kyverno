@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -22,7 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -124,7 +125,13 @@ func GetPolicies(paths []string) (policies []v1.PolicyInterface, errors []error)
 			var fileBytes []byte
 			if isHTTPPath {
 				// We accept here that a random URL might be called based on user provided input.
-				resp, err := http.Get(path) // #nosec
+				req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+				if err != nil {
+					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
+					errors = append(errors, err)
+					continue
+				}
+				resp, err := http.DefaultClient.Do(req)
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -441,12 +448,12 @@ OuterLoop:
 	if err != nil {
 		log.Log.Error(err, "unable to convert raw resource to unstructured")
 	}
-	ctx := context.NewContext()
+	ctx := engineContext.NewContext()
 
 	if operationIsDelete {
-		err = context.AddOldResource(ctx, resourceRaw)
+		err = engineContext.AddOldResource(ctx, resourceRaw)
 	} else {
-		err = context.AddResource(ctx, resourceRaw)
+		err = engineContext.AddResource(ctx, resourceRaw)
 	}
 
 	if err != nil {
@@ -466,7 +473,7 @@ OuterLoop:
 		}
 	}
 
-	if err := context.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
+	if err := engineContext.MutateResourceWithImageInfo(resourceRaw, ctx); err != nil {
 		log.Log.Error(err, "failed to add image variables to context")
 	}
 
@@ -541,7 +548,7 @@ OuterLoop:
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
 			},
-			JSONContext:     context.NewContext(),
+			JSONContext:     engineContext.NewContext(),
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
