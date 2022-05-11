@@ -12,6 +12,7 @@ import (
 	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -222,32 +223,50 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
 	const SaPrefix = "system:serviceaccount:"
 
-	userGroups := append(userInfo.Groups, userInfo.Username)
-	// TODO: see issue https://github.com/kyverno/kyverno/issues/861
-	for _, e := range dynamicConfig {
-		ruleSubjects = append(ruleSubjects,
-			rbacv1.Subject{Kind: "Group", Name: e},
-		)
-	}
-
-	for _, subject := range ruleSubjects {
-		switch subject.Kind {
-		case "ServiceAccount":
-			if len(userInfo.Username) <= len(SaPrefix) {
-				continue
-			}
-			subjectServiceAccount := subject.Namespace + ":" + subject.Name
-			if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
-				return true
-			}
-		case "User", "Group":
-			if utils.ContainsString(userGroups, subject.Name) {
-				return true
+	if store.GetMock() {
+		mockSubject := store.GetSubjects().Subject
+		for _, subject := range ruleSubjects {
+			switch subject.Kind {
+			case "ServiceAccount":
+				if subject.Name == mockSubject.Name && subject.Namespace == mockSubject.Namespace {
+					return true
+				}
+			case "User", "Group":
+				if mockSubject.Name == subject.Name {
+					return true
+				}
 			}
 		}
-	}
 
-	return false
+		return false
+	} else {
+		userGroups := append(userInfo.Groups, userInfo.Username)
+		// TODO: see issue https://github.com/kyverno/kyverno/issues/861
+		for _, e := range dynamicConfig {
+			ruleSubjects = append(ruleSubjects,
+				rbacv1.Subject{Kind: "Group", Name: e},
+			)
+		}
+
+		for _, subject := range ruleSubjects {
+			switch subject.Kind {
+			case "ServiceAccount":
+				if len(userInfo.Username) <= len(SaPrefix) {
+					continue
+				}
+				subjectServiceAccount := subject.Namespace + ":" + subject.Name
+				if userInfo.Username[len(SaPrefix):] == subjectServiceAccount {
+					return true
+				}
+			case "User", "Group":
+				if utils.ContainsString(userGroups, subject.Name) {
+					return true
+				}
+			}
+		}
+
+		return false
+	}
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
