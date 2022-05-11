@@ -21,8 +21,8 @@ func NewCertificateProps(configuration *rest.Config) (*CertificateProps, error) 
 		return nil, err
 	}
 	return &CertificateProps{
-		Service:       config.KyvernoServiceName,
-		Namespace:     config.KyvernoNamespace,
+		Service:       config.KyvernoServiceName(),
+		Namespace:     config.KyvernoNamespace(),
 		APIServerHost: apiServerURL.Hostname(),
 	}, nil
 }

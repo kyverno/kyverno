@@ -46,7 +46,7 @@ func newStatusControl(leaseClient coordinationv1.LeaseInterface, eventGen event.
 }
 
 func (vc statusControl) setStatus(status string) error {
-	logger := vc.log.WithValues("name", leaseName, "namespace", config.KyvernoNamespace)
+	logger := vc.log.WithValues("name", leaseName, "namespace", config.KyvernoNamespace())
 	var ann map[string]string
 	var err error
 
@@ -88,7 +88,7 @@ func (vc statusControl) setStatus(status string) error {
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
 	e.Kind = "Lease"
-	e.Namespace = config.KyvernoNamespace
+	e.Namespace = config.KyvernoNamespace()
 	e.Name = leaseName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)

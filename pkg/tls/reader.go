@@ -21,7 +21,7 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) ([]b
 		return nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
@@ -59,7 +59,7 @@ func ReadTLSPair(restConfig *rest.Config, client kubernetes.Interface) ([]byte, 
 		return nil, nil, errors.Wrap(err, "failed to get TLS Cert Properties")
 	}
 
-	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := client.AppsV1().Deployments(certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {

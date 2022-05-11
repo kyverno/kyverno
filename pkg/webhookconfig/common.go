@@ -87,7 +87,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error)
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
-	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +155,8 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSec
 		Name:               name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,
@@ -174,8 +174,8 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, timeoutS
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,

@@ -220,7 +220,7 @@ func CallAPI(request APIRequest) (*http.Response, error) {
 		}
 		response = resp
 	case "POST", "PUT", "DELETE", "PATCH":
-		req, err := http.NewRequest(string(request.Type), request.URL, request.Body)
+		req, err := http.NewRequest(request.Type, request.URL, request.Body)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
 		}

@@ -123,7 +123,7 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 	logger := c.log.WithName("CAcert")
 	name := c.certProps.GenerateRootCASecretName()
 	caBytes := CertificateToPem(ca.Cert)
-	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 	deplHash := ""
 	if err == nil {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
@@ -183,7 +183,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 	name := c.certProps.GenerateTLSPairSecretName()
 	certBytes := CertificateToPem(tls.Cert)
 	keyBytes := PrivateKeyToPem(tls.Key)
-	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 	deplHash := ""
 	if err == nil {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
@@ -326,7 +326,7 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 // Kyverno pod will register webhook server with new cert
 func (c *CertRenewer) RollingUpdate() error {
 	update := func() error {
-		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
@@ -337,7 +337,7 @@ func (c *CertRenewer) RollingUpdate() error {
 			deploy.Spec.Template.Annotations = map[string]string{}
 		}
 		deploy.Spec.Template.Annotations[rollingUpdateAnnotation] = time.Now().String()
-		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace()).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
 			return errors.Wrap(err, "update Kyverno deployment")
 		}
 		return nil

@@ -522,7 +522,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
-			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				logger.Error(err, "failed to delete ur", "name", v.GetName())
 			}
@@ -545,14 +545,14 @@ func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []
 			urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
 			ur.SetLabels(urLabels)
 
-			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), ur, metav1.UpdateOptions{})
+			new, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update gr", "name", ur.GetName())
 				continue
 			}
 
 			new.Status.State = urkyverno.Pending
-			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set UpdateRequest state to Pending")
 			}
 		}

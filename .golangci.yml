@@ -1,15 +1,23 @@
 linters:
   enable:
+    - asciicheck
+    - bidichk
     - bodyclose
     - deadcode
+    - durationcheck
     - errcheck
+    - exportloopref
     - gosec
     - gosimple
     - govet
     - ineffassign
     - staticcheck
     - structcheck
+    - tenv
+    - thelper
+    - tparallel
     - typecheck
+    - unconvert
     - unused
     - varcheck
     - whitespace
