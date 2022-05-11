@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -216,7 +217,11 @@ func getFileBytes(path string) ([]byte, error) {
 
 	if IsHTTPRegex.MatchString(path) {
 		// We accept here that a random URL might be called based on user provided input.
-		resp, err := http.Get(path) // #nosec
+		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
 		}

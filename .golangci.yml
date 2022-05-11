@@ -3,14 +3,18 @@ linters:
     - asciicheck
     - bidichk
     - bodyclose
+    - containedctx
     - deadcode
     - durationcheck
     - errcheck
     - exportloopref
+    - gochecknoinits
     - gosec
     - gosimple
     - govet
+    - importas
     - ineffassign
+    - noctx
     - staticcheck
     - structcheck
     - tenv
