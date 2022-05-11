@@ -3,7 +3,6 @@ package certmanager
 import (
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
@@ -67,19 +66,16 @@ func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 	return secret.Data[v1.TLSCertKey], secret.Data[v1.TLSPrivateKeyKey], nil
 }
 
-func (m *controller) validateCerts() error {
-	valid, err := m.renewer.ValidCert()
+func (m *controller) GetCAPem() ([]byte, error) {
+	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateRootCASecretName())
 	if err != nil {
-		logger.Error(err, "failed to validate cert")
-		if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
-			return nil
-		}
+		return nil, err
 	}
-	if !valid {
-		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
-		return m.renewer.RollingUpdate()
+	result := secret.Data[v1.TLSCertKey]
+	if len(result) == 0 {
+		result = secret.Data[tls.RootCAKey]
 	}
-	return nil
+	return result, nil
 }
 
 func (m *controller) Run(stopCh <-chan struct{}) {
@@ -89,13 +85,13 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			if err := m.validateCerts(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update, force restarting")
+			if err := m.renewer.RenewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
 		case <-m.secretQueue:
-			if err := m.validateCerts(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update, force restarting")
+			if err := m.renewer.RenewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
 		case <-stopCh:
