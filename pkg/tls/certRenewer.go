@@ -123,6 +123,7 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 	logger := c.log.WithName("CAcert")
 	name := c.certProps.GenerateRootCASecretName()
 	caBytes := CertificateToPem(ca.Cert)
+	keyBytes := PrivateKeyToPem(ca.Key)
 	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 	deplHash := ""
 	if err == nil {
@@ -147,8 +148,8 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 					},
 				},
 				Data: map[string][]byte{
-					v1.TLSCertKey:       caPEM.Certificate,
-					v1.TLSPrivateKeyKey: caPEM.PrivateKey,
+					v1.TLSCertKey:       caBytes,
+					v1.TLSPrivateKeyKey: keyBytes,
 				},
 				Type: v1.SecretTypeTLS,
 			}
@@ -165,12 +166,11 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 		}
 		return err
 	}
-	dataMap := map[string][]byte{
-		v1.TLSCertKey:       caPEM.Certificate,
-		v1.TLSPrivateKeyKey: caPEM.PrivateKey,
-	}
 	secret.Type = v1.SecretTypeTLS
-	secret.Data = dataMap
+	secret.Data = map[string][]byte{
+		v1.TLSCertKey:       caBytes,
+		v1.TLSPrivateKeyKey: keyBytes,
+	}
 	_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
@@ -228,11 +228,10 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 		}
 		return err
 	}
-	dataMap := map[string][]byte{
+	secret.Data = map[string][]byte{
 		v1.TLSCertKey:       certBytes,
 		v1.TLSPrivateKeyKey: keyBytes,
 	}
-	secret.Data = dataMap
 	_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err

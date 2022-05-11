@@ -45,7 +45,7 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) ([]b
 		return nil, fmt.Errorf("outdated secret")
 	}
 	// try "tls.crt"
-	result = stlsca.Data[v1.TLSCertKey]
+	result := stlsca.Data[v1.TLSCertKey]
 	// if not there, try old "rootCA.crt"
 	if len(result) == 0 {
 		result = stlsca.Data[rootCAKey]
