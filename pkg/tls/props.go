@@ -6,18 +6,18 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-// CertificateProps Properties of TLS certificate which should be issued for webhook server
-type CertificateProps struct {
-	APIServerHost string
+// certificateProps Properties of TLS certificate which should be issued for webhook server
+type certificateProps struct {
+	apiServerHost string
 }
 
-// NewCertificateProps creates CertificateProps from a  *rest.Config
-func NewCertificateProps(configuration *rest.Config) (*CertificateProps, error) {
+// newCertificateProps creates CertificateProps from a  *rest.Config
+func newCertificateProps(configuration *rest.Config) (*certificateProps, error) {
 	apiServerURL, err := url.Parse(configuration.Host)
 	if err != nil {
 		return nil, err
 	}
-	return &CertificateProps{
-		APIServerHost: apiServerURL.Hostname(),
+	return &certificateProps{
+		apiServerHost: apiServerURL.Hostname(),
 	}, nil
 }

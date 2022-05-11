@@ -14,15 +14,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-// KeyPair ...
-type KeyPair struct {
-	Cert *x509.Certificate
-	Key  *rsa.PrivateKey
+// keyPair ...
+type keyPair struct {
+	cert *x509.Certificate
+	key  *rsa.PrivateKey
 }
 
-// GenerateCA creates the self-signed CA cert and private key
+// generateCA creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
-func GenerateCA(certValidityDuration time.Duration) (*KeyPair, error) {
+func generateCA(certValidityDuration time.Duration) (*keyPair, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -48,15 +48,15 @@ func GenerateCA(certValidityDuration time.Duration) (*KeyPair, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error parsing certificate %v", err)
 	}
-	return &KeyPair{
-		Cert: cert,
-		Key:  key,
+	return &keyPair{
+		cert: cert,
+		key:  key,
 	}, nil
 }
 
-// GenerateCert takes the results of GenerateCACert and uses it to create the
+// generateCert takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, certValidityDuration time.Duration) (*KeyPair, error) {
+func generateCert(caCert *keyPair, props *certificateProps, serverIP string, certValidityDuration time.Duration) (*keyPair, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
@@ -90,7 +90,7 @@ func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, cer
 	if err != nil {
 		return nil, fmt.Errorf("error generating key for webhook %v", err)
 	}
-	der, err := x509.CreateCertificate(rand.Reader, templ, caCert.Cert, key.Public(), caCert.Key)
+	der, err := x509.CreateCertificate(rand.Reader, templ, caCert.cert, key.Public(), caCert.key)
 	if err != nil {
 		return nil, fmt.Errorf("error creating certificate for webhook %v", err)
 	}
@@ -98,8 +98,8 @@ func GenerateCert(caCert *KeyPair, props *CertificateProps, serverIP string, cer
 	if err != nil {
 		return nil, fmt.Errorf("error parsing webhook certificate %v", err)
 	}
-	return &KeyPair{
-		Cert: cert,
-		Key:  key,
+	return &keyPair{
+		cert: cert,
+		key:  key,
 	}, nil
 }

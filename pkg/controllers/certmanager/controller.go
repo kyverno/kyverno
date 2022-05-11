@@ -3,12 +3,12 @@ package certmanager
 import (
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	informerv1 "k8s.io/client-go/informers/core/v1"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -70,10 +70,10 @@ func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 func (m *controller) validateCerts() error {
 	valid, err := m.renewer.ValidCert()
 	if err != nil {
-		logger.Error(err, "failed to validate cert")
-		if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+		if apierrors.IsNotFound(err) {
 			return nil
 		}
+		logger.Error(err, "failed to validate cert")
 	}
 	if !valid {
 		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
