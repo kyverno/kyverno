@@ -20,14 +20,13 @@ func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment, logger logr.Logger) boo
 	return false
 }
 
-func CanAddAnnotationToSecret(deplHash string, secret *v1.Secret) bool {
-	var deplHashSec string
-	var ok, managedByKyverno bool
-
-	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
-		managedByKyverno = label == "kyverno"
+func IsSecretManagedByKyverno(secret *v1.Secret) bool {
+	labels := secret.GetLabels()
+	if labels == nil {
+		return false
 	}
-	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
-
-	return managedByKyverno && (!ok || deplHashSec != deplHash)
+	if labels[ManagedByLabel] != "kyverno" {
+		return false
+	}
+	return true
 }

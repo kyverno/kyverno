@@ -26,7 +26,6 @@ const (
 	CertValidityDuration time.Duration = 365 * 24 * time.Hour
 	// ManagedByLabel is added to Kyverno managed secrets
 	ManagedByLabel          string = "cert.kyverno.io/managed-by"
-	MasterDeploymentUID     string = "cert.kyverno.io/master-deployment-uid"
 	rootCAKey               string = "rootCA.crt"
 	rollingUpdateAnnotation string = "update.kyverno.io/force-rolling-update"
 )
@@ -124,11 +123,6 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 	name := c.certProps.GenerateRootCASecretName()
 	caBytes := CertificateToPem(ca.Cert)
 	keyBytes := PrivateKeyToPem(ca.Key)
-	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
 	secret, err := c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if k8errors.IsNotFound(err) {
@@ -140,9 +134,6 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: c.certProps.Namespace,
-					Annotations: map[string]string{
-						MasterDeploymentUID: deplHash,
-					},
 					Labels: map[string]string{
 						ManagedByLabel: "kyverno",
 					},
@@ -159,12 +150,9 @@ func (c *CertRenewer) WriteCACertToSecret(ca *KeyPair) error {
 			}
 		}
 		return err
-	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
-		}
-		return err
+	}
+	if !IsSecretManagedByKyverno(secret) {
+		return fmt.Errorf("secret %s is not managed by kyverno and cannot be updated", secret.GetName())
 	}
 	secret.Type = v1.SecretTypeTLS
 	secret.Data = map[string][]byte{
@@ -186,11 +174,6 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 	name := c.certProps.GenerateTLSPairSecretName()
 	certBytes := CertificateToPem(tls.Cert)
 	keyBytes := PrivateKeyToPem(tls.Key)
-	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
-	deplHash := ""
-	if err == nil {
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-	}
 	secret, err := c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		if k8errors.IsNotFound(err) {
@@ -202,9 +185,6 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
 					Namespace: c.certProps.Namespace,
-					Annotations: map[string]string{
-						MasterDeploymentUID: deplHash,
-					},
 					Labels: map[string]string{
 						ManagedByLabel: "kyverno",
 					},
@@ -221,12 +201,9 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 			}
 		}
 		return err
-	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
-		}
-		return err
+	}
+	if !IsSecretManagedByKyverno(secret) {
+		return fmt.Errorf("secret %s is not managed by kyverno and cannot be updated", secret.GetName())
 	}
 	secret.Data = map[string][]byte{
 		v1.TLSCertKey:       certBytes,
@@ -243,75 +220,37 @@ func (c *CertRenewer) WriteTLSPairToSecret(tls *KeyPair) error {
 // ValidCert validates the CA Cert
 func (c *CertRenewer) ValidCert() (bool, error) {
 	logger := c.log.WithName("ValidCert")
-	var managedByKyverno bool
-	snameTLS := c.certProps.GenerateTLSPairSecretName()
-	snameCA := c.certProps.GenerateRootCASecretName()
-	secret, err := c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), snameTLS, metav1.GetOptions{})
-	if err != nil {
-		return false, nil
-	}
-
-	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
-		managedByKyverno = label == "kyverno"
-	}
-
-	_, ok := secret.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && !ok {
-		return false, nil
-	}
-
-	secret, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), snameCA, metav1.GetOptions{})
-	if err != nil {
-		return false, nil
-	}
-
-	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
-		managedByKyverno = label == "kyverno"
-	}
-
-	_, ok = secret.GetAnnotations()[MasterDeploymentUID]
-	if managedByKyverno && !ok {
-		return false, nil
-	}
-
 	rootCA, err := ReadRootCASecret(c.clientConfig, c.client)
 	if err != nil {
 		return false, errors.Wrap(err, "unable to read CA from secret")
 	}
-
 	certPem, keyPem, err := ReadTLSPair(c.clientConfig, c.client)
 	if err != nil {
 		// wait till next reconcile
 		logger.Info("unable to read TLS PEM Pair from secret", "reason", err.Error())
 		return false, errors.Wrap(err, "unable to read TLS PEM Pair from secret")
 	}
-
 	// build cert pool
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(rootCA) {
 		logger.Error(err, "bad certificate")
 		return false, nil
-	}
-
-	// valid PEM pair
+	} // valid PEM pair
 	_, err = tls.X509KeyPair(certPem, keyPem)
 	if err != nil {
 		logger.Error(err, "invalid PEM pair")
 		return false, nil
 	}
-
 	certPemBlock, _ := pem.Decode(certPem)
 	if certPem == nil {
 		logger.Error(err, "bad private key")
 		return false, nil
 	}
-
 	cert, err := x509.ParseCertificate(certPemBlock.Bytes)
 	if err != nil {
 		logger.Error(err, "failed to parse cert")
 		return false, nil
 	}
-
 	if _, err = cert.Verify(x509.VerifyOptions{
 		Roots:       pool,
 		CurrentTime: time.Now().Add(c.certRenewalInterval),
@@ -319,7 +258,6 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 		logger.Error(err, "invalid cert")
 		return false, nil
 	}
-
 	return true, nil
 }
 
