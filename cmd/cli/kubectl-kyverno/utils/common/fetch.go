@@ -119,16 +119,12 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var resourceTypesMap = make(map[string]bool)
-	var resourceTypes []string
 	for _, policy := range policies {
 		for _, rule := range autogen.ComputeRules(policy) {
 			for _, kind := range rule.MatchResources.Kinds {
 				resourceTypesMap[kind] = true
 			}
 		}
-	}
-	for kind := range resourceTypesMap {
-		resourceTypes = append(resourceTypes, kind)
 	}
 	if len(resourcePaths) > 0 {
 		for _, resourcePath := range resourcePaths {
@@ -140,7 +136,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, re
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
-				resourceBytes, err = ioutil.ReadAll(filep)
+				resourceBytes, _ = ioutil.ReadAll(filep)
 			} else {
 				resourceBytes, err = getFileBytes(resourcePath)
 			}
@@ -155,7 +151,6 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, re
 			}
 
 			resources = append(resources, getResources...)
-
 		}
 	}
 	return resources, nil
@@ -214,7 +209,6 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient client.Interf
 }
 
 func getFileBytes(path string) ([]byte, error) {
-
 	var (
 		file []byte
 		err  error
@@ -279,10 +273,12 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 }
 
 // GetPatchedResource converts raw bytes to unstructured object
-func GetPatchedResource(patchResourceBytes []byte) (patchedResource unstructured.Unstructured, err error) {
+func GetPatchedResource(patchResourceBytes []byte) (unstructured.Unstructured, error) {
 	getPatchedResource, err := GetResource(patchResourceBytes)
-	patchedResource = *getPatchedResource[0]
-
+	if err != nil {
+		return unstructured.Unstructured{}, err
+	}
+	patchedResource := *getPatchedResource[0]
 	return patchedResource, nil
 }
 

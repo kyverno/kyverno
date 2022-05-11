@@ -13,39 +13,43 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	utils "github.com/kyverno/kyverno/pkg/utils"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func NewBackgroundContext(dclient dclient.Interface, ur *urkyverno.UpdateRequest,
-	policy kyverno.PolicyInterface, trigger *unstructured.Unstructured,
-	cfg config.Configuration, namespaceLabels map[string]string, logger logr.Logger) (*engine.PolicyContext, bool, error) {
-
+	policy kyverno.PolicyInterface,
+	trigger *unstructured.Unstructured,
+	cfg config.Configuration,
+	namespaceLabels map[string]string,
+	logger logr.Logger,
+) (*engine.PolicyContext, bool, error) {
 	ctx := context.NewContext()
 	requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
 	var request admissionv1.AdmissionRequest
+	var new, old unstructured.Unstructured
 
-	err := json.Unmarshal([]byte(requestString), &request)
-	if err != nil {
-		logger.Error(err, "error parsing the request string")
-	}
+	if requestString != "" {
+		err := json.Unmarshal([]byte(requestString), &request)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "error parsing the request string")
+		}
 
-	if err := ctx.AddRequest(&request); err != nil {
-		logger.Error(err, "failed to load request in context")
-		return nil, false, err
-	}
+		if err := ctx.AddRequest(&request); err != nil {
+			return nil, false, errors.Wrap(err, "failed to load request in context")
+		}
 
-	new, old, err := utils.ExtractResources(nil, &request)
-	if err != nil {
-		logger.Error(err, "failed to load request in context")
-		return nil, false, err
-	}
+		new, old, err = utils.ExtractResources(nil, &request)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "failed to load request in context")
+		}
 
-	if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
-		if !check(&new, trigger) {
-			err := fmt.Errorf("resources don't match")
-			logger.Error(err, "", "resource", ur.Spec.Resource)
-			return nil, false, err
+		if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
+			if !check(&new, trigger) {
+				err := fmt.Errorf("resources don't match")
+				return nil, false, errors.Wrapf(err, "resource %v", ur.Spec.Resource)
+			}
 		}
 	}
 
@@ -53,28 +57,28 @@ func NewBackgroundContext(dclient dclient.Interface, ur *urkyverno.UpdateRequest
 		trigger = &old
 	}
 
-	err = ctx.AddResource(trigger.Object)
+	if trigger == nil {
+		return nil, false, errors.New("trigger resource does not exist")
+	}
+
+	err := ctx.AddResource(trigger.Object)
 	if err != nil {
-		logger.Error(err, "failed to load resource in context")
-		return nil, false, err
+		return nil, false, errors.Wrap(err, "failed to load resource in context")
 	}
 
 	err = ctx.AddOldResource(old.Object)
 	if err != nil {
-		logger.Error(err, "failed to load resource in context")
-		return nil, false, err
+		return nil, false, errors.Wrap(err, "failed to load resource in context")
 	}
 
 	err = ctx.AddUserInfo(ur.Spec.Context.UserRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load SA in context")
-		return nil, false, err
+		return nil, false, errors.Wrapf(err, "failed to load SA in context")
 	}
 
 	err = ctx.AddServiceAccount(ur.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		logger.Error(err, "failed to load UserInfo in context")
-		return nil, false, err
+		return nil, false, errors.Wrapf(err, "failed to load UserInfo in context")
 	}
 
 	if err := ctx.AddImageInfos(trigger); err != nil {

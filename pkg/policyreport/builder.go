@@ -201,7 +201,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	} else {
 		obj.SetGenerateName("rcr-")
 		obj.SetKind("ReportChangeRequest")
-		obj.SetNamespace(config.KyvernoNamespace)
+		obj.SetNamespace(config.KyvernoNamespace())
 	}
 
 	obj.SetLabels(map[string]string{

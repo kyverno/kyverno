@@ -28,7 +28,6 @@ func (ws *WebhookServer) createUpdateRequests(request *admissionv1.AdmissionRequ
 }
 
 func (ws *WebhookServer) handleMutateExisting(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
-
 	logger := ws.log.WithValues("action", "mutateExisting", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(4).Info("update request")
 

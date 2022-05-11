@@ -22,10 +22,8 @@ import (
 
 const (
 	// ManagedByLabel is added to Kyverno managed secrets
-	ManagedByLabel      string = "cert.kyverno.io/managed-by"
-	MasterDeploymentUID string = "cert.kyverno.io/master-deployment-uid"
-
-	SelfSignedAnnotation    string = "self-signed-cert"
+	ManagedByLabel          string = "cert.kyverno.io/managed-by"
+	MasterDeploymentUID     string = "cert.kyverno.io/master-deployment-uid"
 	rootCAKey               string = "rootCA.crt"
 	rollingUpdateAnnotation string = "update.kyverno.io/force-rolling-update"
 )
@@ -38,6 +36,7 @@ type CertRenewer struct {
 	clientConfig         *rest.Config
 	certRenewalInterval  time.Duration
 	certValidityDuration time.Duration
+	certProps            *CertificateProps
 
 	// IP address where Kyverno controller runs. Only required if out-of-cluster.
 	serverIP string
@@ -46,15 +45,20 @@ type CertRenewer struct {
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client kubernetes.Interface, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) *CertRenewer {
+func NewCertRenewer(client kubernetes.Interface, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) (*CertRenewer, error) {
+	certProps, err := GetTLSCertProps(clientConfig)
+	if err != nil {
+		return nil, err
+	}
 	return &CertRenewer{
 		client:               client,
 		clientConfig:         clientConfig,
 		certRenewalInterval:  certRenewalInterval,
 		certValidityDuration: certValidityDuration,
+		certProps:            certProps,
 		serverIP:             serverIP,
 		log:                  log,
-	}
+	}, nil
 }
 
 func (c *CertRenewer) Client() kubernetes.Interface {
@@ -70,11 +74,6 @@ func (c *CertRenewer) ClientConfig() *rest.Config {
 // Returns struct with key/certificate pair.
 func (c *CertRenewer) InitTLSPemPair() (*PemPair, error) {
 	logger := c.log.WithName("InitTLSPemPair")
-	certProps, err := GetTLSCertProps(c.clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	if valid, err := c.ValidCert(); err == nil && valid {
 		if tlsPair, err := ReadTLSPair(c.clientConfig, c.client); err == nil {
 			logger.Info("using existing TLS key/certificate pair")
@@ -85,27 +84,27 @@ func (c *CertRenewer) InitTLSPemPair() (*PemPair, error) {
 	}
 
 	logger.Info("building key/certificate pair for TLS")
-	return c.buildTLSPemPairAndWriteToSecrets(certProps, c.serverIP)
+	return c.buildTLSPemPairAndWriteToSecrets(c.serverIP)
 }
 
 // buildTLSPemPairAndWriteToSecrets Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
-func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(props CertificateProps, serverIP string) (*PemPair, error) {
+func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(serverIP string) (*PemPair, error) {
 	caCert, caPEM, err := GenerateCACert(c.certValidityDuration)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := c.WriteCACertToSecret(caPEM, props); err != nil {
+	if err := c.WriteCACertToSecret(caPEM); err != nil {
 		return nil, fmt.Errorf("failed to write CA cert to secret: %v", err)
 	}
 
-	tlsPair, err := GenerateCertPem(caCert, props, serverIP, c.certValidityDuration)
+	tlsPair, err := GenerateCertPem(caCert, c.certProps, serverIP, c.certValidityDuration)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = c.WriteTLSPairToSecret(props, tlsPair); err != nil {
+	if err = c.WriteTLSPairToSecret(tlsPair); err != nil {
 		return nil, fmt.Errorf("unable to save TLS pair to the cluster: %v", err)
 	}
 
@@ -115,18 +114,18 @@ func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(props CertificateProps, s
 // ReadTLSPair Reads the pair of TLS certificate and key from the specified secret.
 
 // WriteCACertToSecret stores the CA cert in secret
-func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps) error {
+func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair) error {
 	logger := c.log.WithName("CAcert")
-	name := GenerateRootCASecretName(props)
+	name := c.GenerateRootCASecretName()
 
-	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	secret, err := c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
 	if err != nil {
 		if k8errors.IsNotFound(err) {
@@ -137,10 +136,9 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: props.Namespace,
+					Namespace: c.certProps.Namespace,
 					Annotations: map[string]string{
-						SelfSignedAnnotation: "true",
-						MasterDeploymentUID:  deplHash,
+						MasterDeploymentUID: deplHash,
 					},
 					Labels: map[string]string{
 						ManagedByLabel: "kyverno",
@@ -152,22 +150,18 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 				},
 				Type: v1.SecretTypeTLS,
 			}
-			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
-				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+				logger.Info("secret created", "name", name, "namespace", c.certProps.Namespace)
 			}
 		}
 		return err
 	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+			logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
 		}
 		return err
-	}
-
-	if _, ok := secret.GetAnnotations()[SelfSignedAnnotation]; !ok {
-		secret.SetAnnotations(map[string]string{SelfSignedAnnotation: "true"})
 	}
 
 	dataMap := map[string][]byte{
@@ -177,29 +171,29 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 
 	secret.Type = v1.SecretTypeTLS
 	secret.Data = dataMap
-	_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
-	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
 	return nil
 }
 
 // WriteTLSPairToSecret Writes the pair of TLS certificate and key to the specified secret.
 // Updates existing secret or creates new one.
-func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemPair) error {
+func (c *CertRenewer) WriteTLSPairToSecret(pemPair *PemPair) error {
 	logger := c.log.WithName("WriteTLSPair")
 
-	name := GenerateTLSPairSecretName(props)
+	name := c.GenerateTLSPairSecretName()
 
-	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+	depl, err := c.client.AppsV1().Deployments(c.certProps.Namespace).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 
 	deplHash := ""
 	if err == nil {
 		deplHash = fmt.Sprintf("%v", depl.GetUID())
 	}
 
-	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	secret, err := c.client.CoreV1().Secrets(c.certProps.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
 
 	if err != nil {
 		if k8errors.IsNotFound(err) {
@@ -210,7 +204,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      name,
-					Namespace: props.Namespace,
+					Namespace: c.certProps.Namespace,
 					Annotations: map[string]string{
 						MasterDeploymentUID: deplHash,
 					},
@@ -224,16 +218,16 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 				},
 				Type: v1.SecretTypeTLS,
 			}
-			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err == nil {
-				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+				logger.Info("secret created", "name", name, "namespace", c.certProps.Namespace)
 			}
 		}
 		return err
 	} else if CanAddAnnotationToSecret(deplHash, secret) {
-		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
-			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+			logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
 		}
 		return err
 	}
@@ -245,12 +239,12 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 
 	secret.Data = dataMap
 
-	_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	_, err = c.client.CoreV1().Secrets(c.certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
 
-	logger.Info("secret updated", "name", name, "namespace", props.Namespace)
+	logger.Info("secret updated", "name", name, "namespace", c.certProps.Namespace)
 	return nil
 }
 
@@ -259,7 +253,7 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 // Kyverno pod will register webhook server with new cert
 func (c *CertRenewer) RollingUpdate() error {
 	update := func() error {
-		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
@@ -274,7 +268,7 @@ func (c *CertRenewer) RollingUpdate() error {
 
 		deploy.Spec.Template.Annotations[rollingUpdateAnnotation] = time.Now().String()
 
-		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
+		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace()).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
 			return errors.Wrap(err, "update Kyverno deployment")
 		}
 		return nil
@@ -397,16 +391,24 @@ func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment, logger logr.Logger) boo
 	return false
 }
 
-func GenerateTLSPairSecretName(props CertificateProps) string {
+func (c *CertRenewer) GenerateTLSPairSecretName() string {
+	return GenerateTLSPairSecretName(c.certProps)
+}
+
+func (c *CertRenewer) GenerateRootCASecretName() string {
+	return GenerateRootCASecretName(c.certProps)
+}
+
+func GenerateTLSPairSecretName(props *CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-pair"
 }
 
-func GenerateRootCASecretName(props CertificateProps) string {
+func GenerateRootCASecretName(props *CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-ca"
 }
 
 func CanAddAnnotationToSecret(deplHash string, secret *v1.Secret) bool {
-	var deplHashSec string = "default"
+	var deplHashSec string
 	var ok, managedByKyverno bool
 
 	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {

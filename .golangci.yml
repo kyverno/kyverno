@@ -1,17 +1,29 @@
 linters:
   enable:
-    - gosec
-    - errcheck
-    - gosimple
+    - asciicheck
+    - bidichk
     - bodyclose
-    - staticcheck
-  disable:
-    - ineffassign
     - deadcode
-    - unused
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
     - structcheck
+    - tenv
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unused
+    - varcheck
+    - whitespace
 
 run:
+  timeout: 5m
   skip-files:
     - ".+_test.go"
     - ".+_test_.+.go"

@@ -17,7 +17,7 @@ func PatchUpdateRequest(ur *urkyverno.UpdateRequest, patch jsonutils.Patch, clie
 	if nil != err {
 		return ur, err
 	}
-	newUR, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Patch(context.TODO(), ur.Name, types.JSONPatchType, data, metav1.PatchOptions{}, subresources...)
+	newUR, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Patch(context.TODO(), ur.Name, types.JSONPatchType, data, metav1.PatchOptions{}, subresources...)
 	if err != nil {
 		return ur, err
 	}

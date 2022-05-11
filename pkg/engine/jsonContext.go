@@ -273,7 +273,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
 	}
 
-	logger.Info("added APICall context entry", "data", contextData)
+	logger.V(4).Info("added APICall context entry", "len", len(contextData))
 	return nil
 }
 
@@ -317,7 +317,6 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
-
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {

@@ -82,8 +82,8 @@ func NewReportGenerator(
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
-	log logr.Logger) (*ReportGenerator, error) {
-
+	log logr.Logger,
+) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
 		dclient:                  dclient,
@@ -427,7 +427,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			deletedLabelRule:   ruleName,
 		})
 	}
-	aggregatedRequests, err = g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
+	aggregatedRequests, err = g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(labels.SelectorFromSet(labelset))
 	if err != nil {
 		return aggregatedRequests, err
 	}
@@ -508,9 +508,11 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 
 // aggregateReports aggregates cluster / report change requests to a policy report
 func (g *ReportGenerator) aggregateReports(namespace string) (
-	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
-
-	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
+	report *unstructured.Unstructured,
+	aggregatedRequests interface{},
+	err error,
+) {
+	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace())
 	if err != nil {
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
@@ -539,7 +541,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, resourceLabelNamespace: namespace}))
-		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
+		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
@@ -704,7 +706,6 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
 		}
-
 	}
 
 	g.log.V(3).Info("successfully updated policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
@@ -715,7 +716,7 @@ func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
+			if err := g.pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}

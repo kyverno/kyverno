@@ -48,7 +48,6 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-
 }
 
 //ConvertToUnstructured converts the resource to unstructured format
