@@ -43,7 +43,7 @@ func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.Ce
 
 func (m *controller) addSecretFunc(obj interface{}) {
 	secret := obj.(*v1.Secret)
-	if secret.GetNamespace() == config.KyvernoNamespace() && secret.GetName() == m.renewer.GenerateTLSPairSecretName() {
+	if secret.GetNamespace() == config.KyvernoNamespace() && secret.GetName() == tls.GenerateTLSPairSecretName() {
 		m.secretQueue <- true
 	}
 }
@@ -51,7 +51,7 @@ func (m *controller) addSecretFunc(obj interface{}) {
 func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	old := oldObj.(*v1.Secret)
 	new := newObj.(*v1.Secret)
-	if new.GetNamespace() == config.KyvernoNamespace() && new.GetName() == m.renewer.GenerateTLSPairSecretName() {
+	if new.GetNamespace() == config.KyvernoNamespace() && new.GetName() == tls.GenerateTLSPairSecretName() {
 		if !reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
 			m.secretQueue <- true
 			logger.V(4).Info("secret updated, reconciling webhook configurations")
@@ -60,7 +60,7 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 }
 
 func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(m.renewer.GenerateTLSPairSecretName())
+	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 	if err != nil {
 		return nil, nil, err
 	}

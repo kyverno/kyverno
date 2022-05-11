@@ -130,13 +130,7 @@ func main() {
 	failure := false
 
 	run := func() {
-		certProps, err := tls.NewCertificateProps(clientConfig)
-		if err != nil {
-			log.Log.Info("failed to get cert properties: %v", err.Error())
-			os.Exit(1)
-		}
-
-		name := certProps.GenerateRootCASecretName()
+		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
@@ -145,7 +139,7 @@ func main() {
 			}
 		}
 
-		name = certProps.GenerateTLSPairSecretName()
+		name = tls.GenerateTLSPairSecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
