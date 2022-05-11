@@ -44,12 +44,16 @@ func ReadRootCASecret(restConfig *rest.Config, client kubernetes.Interface) ([]b
 	if managedByKyverno && (ok && deplHashSec != deplHash) {
 		return nil, fmt.Errorf("outdated secret")
 	}
-
-	if len(stlsca.Data[RootCAKey]) == 0 {
+	// try "tls.crt"
+	result = stlsca.Data[v1.TLSCertKey]
+	// if not there, try old "rootCA.crt"
+	if len(result) == 0 {
+		result = stlsca.Data[rootCAKey]
+	}
+	if len(result) == 0 {
 		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, certProps.Namespace, stlsca.Name)
 	}
-
-	return stlsca.Data[RootCAKey], nil
+	return result, nil
 }
 
 // ReadTLSPair returns the pem pair from the pre-defined secret
