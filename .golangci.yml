@@ -12,6 +12,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - importas
     - ineffassign
     - noctx
     - staticcheck
