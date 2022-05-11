@@ -340,7 +340,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
-	if strings.Contains(string(dirPath[0]), "https://") {
+	if strings.Contains(dirPath[0], "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to parse URL", err)

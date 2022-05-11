@@ -171,7 +171,7 @@ func (ws *WebhookServer) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logge
 		return
 	}
 	new.Status.State = urkyverno.Pending
-	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }
@@ -371,7 +371,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 
 	for _, v := range urList {
-		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update ur")
 		}

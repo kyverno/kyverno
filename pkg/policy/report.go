@@ -89,7 +89,7 @@ func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister chan
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
