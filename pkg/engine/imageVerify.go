@@ -459,7 +459,7 @@ func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, im
 		return ruleError(iv.rule, response.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
 	}
 
-	iv.logger.V(4).Info("received attestations", "statements", statements)
+	iv.logger.V(4).Info("received attestations", "count", len(statements))
 	statementsByPredicate := buildStatementMap(statements)
 
 	for _, ac := range imageVerify.Attestations {
