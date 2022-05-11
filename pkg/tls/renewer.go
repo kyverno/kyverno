@@ -94,6 +94,25 @@ func (c *CertRenewer) RenewCertificates() error {
 	return c.InitTLSPemPair()
 }
 
+func (c *CertRenewer) RenewCA() error {
+	ca, err := c.getCASecret()
+	if err != nil {
+		return err
+	}
+	if !IsSecretManagedByKyverno(ca) {
+		return fmt.Errorf("tls is not valid but certificates are not managed by kyverno, we can't renew them")
+	}
+	caCert, err := generateCA(c.certValidityDuration)
+	if err != nil {
+		return err
+	}
+	// TODO: should combine old and new
+	if err := c.writeCASecret(caCert); err != nil {
+		return err
+	}
+	return nil
+}
+
 // buildTLSPemPairAndWriteToSecrets Issues TLS certificate for webhook server using self-signed CA cert
 // Returns signed and approved TLS certificate in PEM format
 func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(serverIP string) error {
@@ -137,7 +156,7 @@ func (c *CertRenewer) writeSecret(secret *corev1.Secret, logger logr.Logger) err
 			logger.Error(err, "failed to update secret")
 			return err
 		} else {
-			logger.Error(err, "failed to create secret")
+			logger.Info("secret created")
 		}
 	} else {
 		if _, err := c.client.CoreV1().Secrets(config.KyvernoNamespace()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {

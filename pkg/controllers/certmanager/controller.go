@@ -87,7 +87,7 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			if err := m.renewer.RenewCertificates(); err != nil {
+			if err := m.renewer.RenewCA(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
@@ -98,7 +98,7 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 				}
 			}
 		case <-m.secretQueue:
-			if err := m.renewer.RenewCertificates(); err != nil {
+			if err := m.renewer.RenewCA(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
