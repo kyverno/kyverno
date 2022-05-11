@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.23.3]
+        k8s-version: [v1.23.6]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
