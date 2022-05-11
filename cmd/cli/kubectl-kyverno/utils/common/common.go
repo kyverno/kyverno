@@ -1026,6 +1026,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			fmt.Printf("failed to decode yaml: %v", err)
 		}
+
 	} else {
 		var errors []error
 		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
@@ -1036,7 +1037,6 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 		}
-
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
@@ -1052,4 +1052,52 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	}
 	return *userInfo, nil
+}
+
+func GetSubjectInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (store.Subject, error) {
+	subject := &store.Subject{}
+
+	if isGit {
+		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
+		if err != nil {
+			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)
+		}
+		bytes, err := ioutil.ReadAll(filep)
+		if err != nil {
+			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
+		}
+		subjectBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			fmt.Printf("failed to convert to JSON: %v", err)
+		}
+
+		if err := json.Unmarshal(subjectBytes, subject); err != nil {
+			fmt.Printf("failed to decode yaml: %v", err)
+		}
+	} else {
+		var errors []error
+		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
+
+		if err != nil {
+			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
+		}
+		subjectBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
+		}
+		if err := json.Unmarshal(subjectBytes, subject); err != nil {
+			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
+		}
+		if len(errors) > 0 {
+			return *subject, sanitizederror.NewWithErrors("failed to read file", errors)
+		}
+
+		if len(errors) > 0 && log.Log.V(1).Enabled() {
+			fmt.Printf("ignoring errors: \n")
+			for _, e := range errors {
+				fmt.Printf("    %v \n", e.Error())
+			}
+		}
+	}
+	return *subject, nil
 }
