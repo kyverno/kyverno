@@ -22,16 +22,18 @@ type Controller interface {
 }
 
 type controller struct {
-	renewer      *tls.CertRenewer
-	secretLister listersv1.SecretLister
-	secretQueue  chan bool
+	renewer         *tls.CertRenewer
+	secretLister    listersv1.SecretLister
+	secretQueue     chan bool
+	onSecretChanged func() error
 }
 
-func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
 	manager := &controller{
-		renewer:      certRenewer,
-		secretLister: secretInformer.Lister(),
-		secretQueue:  make(chan bool, 1),
+		renewer:         certRenewer,
+		secretLister:    secretInformer.Lister(),
+		secretQueue:     make(chan bool, 1),
+		onSecretChanged: onSecretChanged,
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
@@ -89,10 +91,22 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
+			if m.onSecretChanged != nil {
+				if err := m.onSecretChanged(); err != nil {
+					logger.Error(err, "unable to update webhooks, force restarting")
+					os.Exit(1)
+				}
+			}
 		case <-m.secretQueue:
 			if err := m.renewer.RenewCertificates(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
+			}
+			if m.onSecretChanged != nil {
+				if err := m.onSecretChanged(); err != nil {
+					logger.Error(err, "unable to update webhooks, force restarting")
+					os.Exit(1)
+				}
 			}
 		case <-stopCh:
 			logger.V(2).Info("stopping cert renewer")

@@ -132,23 +132,22 @@ func (c *CertRenewer) getTLSSecret() (*corev1.Secret, error) {
 
 func (c *CertRenewer) writeSecret(secret *corev1.Secret, logger logr.Logger) error {
 	logger = logger.WithValues("name", secret.GetName(), "namespace", secret.GetNamespace())
-	if _, err := c.client.CoreV1().Secrets(config.KyvernoNamespace()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			if _, err := c.client.CoreV1().Secrets(config.KyvernoNamespace()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
-				logger.Error(err, "failed to update secret")
-				return err
-			} else {
-				logger.Info("secret updated")
-				return nil
-			}
+	if secret.ResourceVersion == "" {
+		if _, err := c.client.CoreV1().Secrets(config.KyvernoNamespace()).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+			logger.Error(err, "failed to update secret")
+			return err
 		} else {
 			logger.Error(err, "failed to create secret")
-			return err
 		}
 	} else {
-		logger.Info("secret created")
-		return nil
+		if _, err := c.client.CoreV1().Secrets(config.KyvernoNamespace()).Update(context.TODO(), secret, metav1.UpdateOptions{}); err != nil {
+			logger.Error(err, "failed to update secret")
+			return err
+		} else {
+			logger.Info("secret updated")
+		}
 	}
+	return nil
 }
 
 // writeCASecret stores the CA cert in secret
