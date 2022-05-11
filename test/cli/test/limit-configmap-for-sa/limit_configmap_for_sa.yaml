@@ -12,17 +12,21 @@ metadata:
     policies.kyverno.io/description: This policy shows how to restrict certain operations on specific ConfigMaps by ServiceAccounts.
 spec:
   background: false
-  validationFailureAction: enforce
+  validationFailureAction: audit
   rules:
   - name: limit-configmap-for-sa-developer
     match:
       any:
       - resources:
           kinds:
-          - "ConfigMap"
+          - ConfigMap
+        subjects:
+        - kind: ServiceAccount
+          name: developer
+          namespace: kube-system
       - resources:
           kinds:
-          - "ConfigMap"
+          - ConfigMap
         subjects:
         - kind: ServiceAccount
           name: another-developer
