@@ -189,10 +189,11 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 		return err
 	} else {
 		for _, item := range list.Items {
-			for r := range item.Webhooks {
-				item.Webhooks[r].ClientConfig.CABundle = caData
+			copy := item
+			for r := range copy.Webhooks {
+				copy.Webhooks[r].ClientConfig.CABundle = caData
 			}
-			if _, err := m.Update(context.TODO(), &item, metav1.UpdateOptions{}); err != nil {
+			if _, err := m.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
 		}
@@ -201,10 +202,11 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 		return err
 	} else {
 		for _, item := range list.Items {
-			for r := range item.Webhooks {
-				item.Webhooks[r].ClientConfig.CABundle = caData
+			copy := item
+			for r := range copy.Webhooks {
+				copy.Webhooks[r].ClientConfig.CABundle = caData
 			}
-			if _, err := v.Update(context.TODO(), &item, metav1.UpdateOptions{}); err != nil {
+			if _, err := v.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
 				return err
 			}
 		}

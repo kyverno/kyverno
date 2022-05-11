@@ -32,7 +32,7 @@ func certificateToPem(certs ...*x509.Certificate) []byte {
 }
 
 func pemToPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
-	block, _ := pem.Decode([]byte(raw))
+	block, _ := pem.Decode(raw)
 	return x509.ParsePKCS1PrivateKey(block.Bytes)
 }
 

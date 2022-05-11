@@ -25,9 +25,8 @@ const (
 	CAValidityDuration  time.Duration = 2 * time.Minute
 	TLSValidityDuration time.Duration = 1 * time.Minute
 	// ManagedByLabel is added to Kyverno managed secrets
-	ManagedByLabel          string = "cert.kyverno.io/managed-by"
-	RootCAKey               string = "rootCA.crt"
-	rollingUpdateAnnotation string = "update.kyverno.io/force-rolling-update"
+	ManagedByLabel string = "cert.kyverno.io/managed-by"
+	RootCAKey      string = "rootCA.crt"
 )
 
 // CertRenewer creates rootCA and pem pair to register

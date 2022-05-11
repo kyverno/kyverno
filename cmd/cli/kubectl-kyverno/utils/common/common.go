@@ -1013,9 +1013,9 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 }
 
 //GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, error) {
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, store.Subject, error) {
 	userInfo := &v1beta1.RequestInfo{}
-
+	subjectInfo := &store.Subject{}
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
 		if err != nil {
@@ -1033,6 +1033,14 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			fmt.Printf("failed to decode yaml: %v", err)
 		}
+		subjectBytes, err := yaml.ToJSON(bytes)
+		if err != nil {
+			fmt.Printf("failed to convert to JSON: %v", err)
+		}
+
+		if err := json.Unmarshal(subjectBytes, subjectInfo); err != nil {
+			fmt.Printf("failed to decode yaml: %v", err)
+		}
 	} else {
 		var errors []error
 		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
@@ -1043,12 +1051,14 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 		}
-
 		if err := json.Unmarshal(userInfoBytes, userInfo); err != nil {
 			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
 		}
+		if err := json.Unmarshal(userInfoBytes, subjectInfo); err != nil {
+			errors = append(errors, sanitizederror.NewWithError("failed to decode yaml", err))
+		}
 		if len(errors) > 0 {
-			return *userInfo, sanitizederror.NewWithErrors("failed to read file", errors)
+			return *userInfo, *subjectInfo, sanitizederror.NewWithErrors("failed to read file", errors)
 		}
 
 		if len(errors) > 0 && log.Log.V(1).Enabled() {
@@ -1058,5 +1068,5 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 			}
 		}
 	}
-	return *userInfo, nil
+	return *userInfo, *subjectInfo, nil
 }

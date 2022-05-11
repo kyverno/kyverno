@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
@@ -68,6 +69,21 @@ func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 	return secret.Data[v1.TLSCertKey], secret.Data[v1.TLSPrivateKeyKey], nil
 }
 
+func (m *controller) renewCertificates() error {
+	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
+		return err
+	}
+	if m.onSecretChanged != nil {
+		if err := common.RetryFunc(time.Second, 5*time.Second, m.onSecretChanged, "failed to renew CA", logger)(); err != nil {
+			return err
+		}
+	}
+	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (m *controller) GetCAPem() ([]byte, error) {
 	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateRootCASecretName())
 	if err != nil {
@@ -87,32 +103,12 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			if err := m.renewer.RenewCA(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
-			}
-			if m.onSecretChanged != nil {
-				if err := m.onSecretChanged(); err != nil {
-					logger.Error(err, "unable to update webhooks, force restarting")
-					os.Exit(1)
-				}
-			}
-			if err := m.renewer.RenewTLS(); err != nil {
+			if err := m.renewCertificates(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
 		case <-m.secretQueue:
-			if err := m.renewer.RenewCA(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
-			}
-			if m.onSecretChanged != nil {
-				if err := m.onSecretChanged(); err != nil {
-					logger.Error(err, "unable to update webhooks, force restarting")
-					os.Exit(1)
-				}
-			}
-			if err := m.renewer.RenewTLS(); err != nil {
+			if err := m.renewCertificates(); err != nil {
 				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
