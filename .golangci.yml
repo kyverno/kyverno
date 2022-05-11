@@ -11,6 +11,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - importas
     - ineffassign
     - staticcheck
     - structcheck
