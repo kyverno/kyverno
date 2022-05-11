@@ -127,6 +127,8 @@ spec:
                 fieldPath: metadata.name
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          - name: TUF_ROOT
+            value: {{ .Values.tufRootMountPath }}
           {{- with .Values.envVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
@@ -138,3 +140,9 @@ spec:
         {{- with .Values.readinessProbe }}
           readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
+        volumeMounts:
+          - mountPath: {{ .Values.tufRootMountPath }}
+            name: sigstore
+      volumes:
+        - name: sigstore
+          emptyDir: {}
