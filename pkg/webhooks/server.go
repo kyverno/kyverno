@@ -11,9 +11,15 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 )
+
+type Server interface {
+	// Run TLS server in separate thread and returns control immediately
+	Run(<-chan struct{})
+	// Stop TLS server and returns control after the server is shut down
+	Stop(context.Context)
+}
 
 type Handlers interface {
 	// Mutate performs the mutation of policy resources
@@ -22,99 +28,87 @@ type Handlers interface {
 	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
 }
 
-// WebhookServer contains configured TLS server with MutationWebhook.
-type WebhookServer struct {
+type server struct {
 	server          *http.Server
-	configuration   config.Configuration
 	webhookRegister *webhookconfig.Register
-	webhookMonitor  *webhookconfig.Monitor
 	cleanUp         chan<- struct{}
 }
 
-// NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
-// Policy Controller and Kubernetes Client should be initialized in configuration
-func NewWebhookServer(
+type TlsProvider func() ([]byte, []byte, error)
+
+// NewServer creates new instance of server accordingly to given configuration
+func NewServer(
 	policyHandlers Handlers,
 	resourceHandlers Handlers,
-	tlsPair func() ([]byte, []byte, error),
+	tlsProvider TlsProvider,
 	configuration config.Configuration,
-	webhookRegistrationClient *webhookconfig.Register,
-	webhookMonitor *webhookconfig.Monitor,
+	register *webhookconfig.Register,
+	monitor *webhookconfig.Monitor,
 	cleanUp chan<- struct{},
-) (*WebhookServer, error) {
-	if tlsPair == nil {
-		return nil, errors.New("NewWebhookServer is not initialized properly")
-	}
-	ws := &WebhookServer{
-		configuration:   configuration,
-		webhookRegister: webhookRegistrationClient,
-		webhookMonitor:  webhookMonitor,
-		cleanUp:         cleanUp,
-	}
+) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("mutate"), true, resourceHandlers.Mutate))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("validate"), true, resourceHandlers.Validate))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, policyHandlers.Mutate))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, policyHandlers.Validate))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(verifyLogger.WithName("mutate"), false, handlers.Verify(ws.webhookMonitor)))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, admission(resourceLogger.WithName("mutate"), monitor, filter(configuration, resourceHandlers.Mutate)))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, admission(resourceLogger.WithName("validate"), monitor, filter(configuration, resourceHandlers.Validate)))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
-	ws.server = &http.Server{
-		Addr: ":9443", // Listen on port for HTTPS requests
-		TLSConfig: &tls.Config{
-			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-				certPem, keyPem, err := tlsPair()
-				if err != nil {
-					return nil, err
-				}
-				pair, err := tls.X509KeyPair(certPem, keyPem)
-				if err != nil {
-					return nil, err
-				}
-				return &pair, nil
+	return &server{
+		server: &http.Server{
+			Addr: ":9443",
+			TLSConfig: &tls.Config{
+				GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+					certPem, keyPem, err := tlsProvider()
+					if err != nil {
+						return nil, err
+					}
+					pair, err := tls.X509KeyPair(certPem, keyPem)
+					if err != nil {
+						return nil, err
+					}
+					return &pair, nil
+				},
+				MinVersion: tls.VersionTLS12,
 			},
-			MinVersion: tls.VersionTLS12,
+			Handler:      mux,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
 		},
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		webhookRegister: register,
+		cleanUp:         cleanUp,
 	}
-	return ws, nil
 }
 
-// RunAsync TLS server in separate thread and returns control immediately
-func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
+func (s *server) Run(stopCh <-chan struct{}) {
 	go func() {
-		logger.V(3).Info("started serving requests", "addr", ws.server.Addr)
-		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
+		logger.V(3).Info("started serving requests", "addr", s.server.Addr)
+		if err := s.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {
 			logger.Error(err, "failed to listen to requests")
 		}
 	}()
 	logger.Info("starting service")
 }
 
-// Stop TLS server and returns control after the server is shut down
-func (ws *WebhookServer) Stop(ctx context.Context) {
-	// remove the static webhook configurations
-	go ws.webhookRegister.Remove(ws.cleanUp)
-	// shutdown http.Server with context timeout
-	err := ws.server.Shutdown(ctx)
+func (s *server) Stop(ctx context.Context) {
+	go s.webhookRegister.Remove(s.cleanUp)
+	err := s.server.Shutdown(ctx)
 	if err != nil {
-		// Error from closing listeners, or context timeout:
 		logger.Error(err, "shutting down server")
-		err = ws.server.Close()
+		err = s.server.Close()
 		if err != nil {
 			logger.Error(err, "server shut down failed")
 		}
 	}
 }
 
-func (ws *WebhookServer) admissionHandler(logger logr.Logger, filter bool, inner handlers.AdmissionHandler) http.HandlerFunc {
-	if filter {
-		inner = handlers.Filter(ws.configuration, inner)
-	}
-	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(logger, inner))
+func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+	return handlers.Filter(configuration, inner)
+}
+
+func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
+	return handlers.Monitor(monitor, handlers.Admission(logger, inner))
 }

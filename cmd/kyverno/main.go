@@ -332,12 +332,20 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer, err := tls.NewCertRenewer(kubeClient, clientConfig, tls.CertRenewalInterval, tls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer, err := tls.NewCertRenewer(
+		kubeClient,
+		clientConfig,
+		tls.CertRenewalInterval,
+		tls.CAValidityDuration,
+		tls.TLSValidityDuration,
+		serverIP,
+		log.Log.WithName("CertRenewer"),
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer, webhookCfg.UpdateWebhooksCaBundle)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
@@ -417,7 +425,7 @@ func main() {
 		openAPIController,
 	)
 
-	server, err := webhooks.NewWebhookServer(
+	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
 		certManager.GetTLSPemPair,
@@ -426,11 +434,6 @@ func main() {
 		webhookMonitor,
 		cleanUp,
 	)
-
-	if err != nil {
-		setupLog.Error(err, "Failed to create webhook server")
-		os.Exit(1)
-	}
 
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
@@ -479,7 +482,7 @@ func main() {
 	}
 
 	// verifies if the admission control is enabled and active
-	server.RunAsync(stopCh)
+	server.Run(stopCh)
 
 	<-stopCh
 

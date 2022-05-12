@@ -14,7 +14,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admregapi "k8s.io/api/admissionregistration/v1"
@@ -169,13 +168,50 @@ func (wrc *Register) Remove(cleanUp chan<- struct{}) {
 	}
 	if wrc.shouldCleanupKyvernoResource() {
 		wrc.removeWebhookConfigurations()
-		wrc.removeSecrets()
 	}
 }
 
 // GetWebhookTimeOut returns the value of webhook timeout
 func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
+}
+
+func (wrc *Register) UpdateWebhooksCaBundle() error {
+	selector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			managedByLabel: kyvernoValue,
+		},
+	}
+	caData := wrc.readCaData()
+	m := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
+	v := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+	if list, err := m.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		return err
+	} else {
+		for _, item := range list.Items {
+			copy := item
+			for r := range copy.Webhooks {
+				copy.Webhooks[r].ClientConfig.CABundle = caData
+			}
+			if _, err := m.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	if list, err := v.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		return err
+	} else {
+		for _, item := range list.Items {
+			copy := item
+			for r := range copy.Webhooks {
+				copy.Webhooks[r].ClientConfig.CABundle = caData
+			}
+			if _, err := v.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
@@ -499,17 +535,6 @@ func (wrc *Register) shouldCleanupKyvernoResource() bool {
 	}
 	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
 	return false
-}
-
-func (wrc *Register) removeSecrets() {
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			tls.ManagedByLabel: "kyverno",
-		},
-	}
-	if err := wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		wrc.log.Error(err, "failed to clean up Kyverno managed secrets")
-	}
 }
 
 func (wrc *Register) removeWebhookConfigurations() {

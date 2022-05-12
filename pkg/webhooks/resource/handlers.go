@@ -28,6 +28,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -36,13 +37,6 @@ import (
 	corelister "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 )
-
-type Handlers interface {
-	// Mutate performs the mutation of policy resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
-	// Validate performs the validation check on policy resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
-}
 
 type handlers struct {
 	// clients
@@ -85,7 +79,7 @@ func NewHandlers(
 	eventGen event.Interface,
 	auditHandler AuditHandler,
 	openAPIController *openapi.Controller,
-) Handlers {
+) webhooks.Handlers {
 	return &handlers{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
