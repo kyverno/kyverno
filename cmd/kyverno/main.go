@@ -37,6 +37,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
@@ -397,7 +398,10 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
+	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+
 	server, err := webhooks.NewWebhookServer(
+		policyHandlers,
 		kyvernoClient,
 		dynamicClient,
 		certManager.GetTLSPemPair,
