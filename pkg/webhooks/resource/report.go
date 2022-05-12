@@ -1,4 +1,4 @@
-package webhooks
+package resource
 
 import (
 	"github.com/go-logr/logr"

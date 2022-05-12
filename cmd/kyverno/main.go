@@ -38,6 +38,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
+	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
@@ -318,7 +319,7 @@ func main() {
 
 	pCacheController := policycache.NewPolicyCacheController(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
-	auditHandler := webhooks.NewValidateAuditHandler(
+	auditHandler := webhooksresource.NewValidateAuditHandler(
 		pCacheController.Cache,
 		eventGenerator,
 		reportReqGen,
@@ -399,32 +400,31 @@ func main() {
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
 	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+	resourceHandlers := webhooksresource.NewHandlers(
+		dynamicClient,
+		kyvernoClient,
+		configuration,
+		promConfig,
+		pCacheController.Cache,
+		kubeInformer.Core().V1().Namespaces().Lister(),
+		kubeInformer.Rbac().V1().RoleBindings().Lister(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		reportReqGen,
+		urgen,
+		eventGenerator,
+		auditHandler,
+		openAPIController,
+	)
 
 	server, err := webhooks.NewWebhookServer(
 		policyHandlers,
-		kyvernoClient,
-		dynamicClient,
+		resourceHandlers,
 		certManager.GetTLSPemPair,
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kyvernoV1.ClusterPolicies(),
-		kubeInformer.Rbac().V1().RoleBindings(),
-		kubeInformer.Rbac().V1().ClusterRoleBindings(),
-		kubeInformer.Rbac().V1().Roles(),
-		kubeInformer.Rbac().V1().ClusterRoles(),
-		kubeInformer.Core().V1().Namespaces(),
-		eventGenerator,
-		pCacheController.Cache,
+		configuration,
 		webhookCfg,
 		webhookMonitor,
-		configuration,
-		reportReqGen,
-		urgen,
-		auditHandler,
 		cleanUp,
-		log.Log.WithName("WebhookServer"),
-		openAPIController,
-		urc,
-		promConfig,
 	)
 
 	if err != nil {
