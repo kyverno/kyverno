@@ -14,20 +14,17 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 )
 
-// keyPair ...
-type keyPair struct {
-	cert *x509.Certificate
-	key  *rsa.PrivateKey
-}
-
 // generateCA creates the self-signed CA cert and private key
 // it will be used to sign the webhook server certificate
-func generateCA(certValidityDuration time.Duration) (*keyPair, error) {
+func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, fmt.Errorf("error generating key: %v", err)
+	if key == nil {
+		newKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			return nil, nil, err
+		}
+		key = newKey
 	}
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(0),
@@ -42,21 +39,18 @@ func generateCA(certValidityDuration time.Duration) (*keyPair, error) {
 	}
 	der, err := x509.CreateCertificate(rand.Reader, templ, templ, key.Public(), key)
 	if err != nil {
-		return nil, fmt.Errorf("error creating certificate: %v", err)
+		return nil, nil, err
 	}
 	cert, err := x509.ParseCertificate(der)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing certificate %v", err)
+		return nil, nil, err
 	}
-	return &keyPair{
-		cert: cert,
-		key:  key,
-	}, nil
+	return key, cert, nil
 }
 
-// generateCert takes the results of GenerateCACert and uses it to create the
+// generateTLS takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func generateCert(caCert *keyPair, props *certificateProps, serverIP string, certValidityDuration time.Duration) (*keyPair, error) {
+func generateTLS(props *certificateProps, serverIP string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
@@ -88,18 +82,17 @@ func generateCert(caCert *keyPair, props *certificateProps, serverIP string, cer
 	}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return nil, fmt.Errorf("error generating key for webhook %v", err)
+		return nil, nil, err
 	}
-	der, err := x509.CreateCertificate(rand.Reader, templ, caCert.cert, key.Public(), caCert.key)
+	der, err := x509.CreateCertificate(rand.Reader, templ, caCert, key.Public(), caKey)
 	if err != nil {
-		return nil, fmt.Errorf("error creating certificate for webhook %v", err)
+		logger.Error(err, "create certificate failed")
+		return nil, nil, err
 	}
 	cert, err := x509.ParseCertificate(der)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing webhook certificate %v", err)
+		logger.Error(err, "parse certificate failed")
+		return nil, nil, err
 	}
-	return &keyPair{
-		cert: cert,
-		key:  key,
-	}, nil
+	return key, cert, nil
 }
