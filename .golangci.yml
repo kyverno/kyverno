@@ -9,11 +9,13 @@ linters:
     - errcheck
     - exportloopref
     - gochecknoinits
+    - goprintffuncname
     - gosec
     - gosimple
     - govet
     - importas
     - ineffassign
+    - noctx
     - staticcheck
     - structcheck
     - tenv

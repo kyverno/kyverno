@@ -3,12 +3,12 @@ package certmanager
 import (
 	"os"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	informerv1 "k8s.io/client-go/informers/core/v1"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -43,7 +43,7 @@ func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.Ce
 
 func (m *controller) addSecretFunc(obj interface{}) {
 	secret := obj.(*v1.Secret)
-	if secret.GetNamespace() == config.KyvernoNamespace() && secret.GetName() == m.renewer.GenerateTLSPairSecretName() {
+	if secret.GetNamespace() == config.KyvernoNamespace() && secret.GetName() == tls.GenerateTLSPairSecretName() {
 		m.secretQueue <- true
 	}
 }
@@ -51,7 +51,7 @@ func (m *controller) addSecretFunc(obj interface{}) {
 func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	old := oldObj.(*v1.Secret)
 	new := newObj.(*v1.Secret)
-	if new.GetNamespace() == config.KyvernoNamespace() && new.GetName() == m.renewer.GenerateTLSPairSecretName() {
+	if new.GetNamespace() == config.KyvernoNamespace() && new.GetName() == tls.GenerateTLSPairSecretName() {
 		if !reflect.DeepEqual(old.DeepCopy().Data, new.DeepCopy().Data) {
 			m.secretQueue <- true
 			logger.V(4).Info("secret updated, reconciling webhook configurations")
@@ -60,7 +60,7 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 }
 
 func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(m.renewer.GenerateTLSPairSecretName())
+	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -70,10 +70,10 @@ func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 func (m *controller) validateCerts() error {
 	valid, err := m.renewer.ValidCert()
 	if err != nil {
-		logger.Error(err, "failed to validate cert")
-		if !strings.Contains(err.Error(), tls.ErrorsNotFound) {
+		if apierrors.IsNotFound(err) {
 			return nil
 		}
+		logger.Error(err, "failed to validate cert")
 	}
 	if !valid {
 		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
