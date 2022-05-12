@@ -25,6 +25,7 @@ linters:
     - unconvert
     - unused
     - varcheck
+    - wastedassign
     - whitespace
 
 run:
