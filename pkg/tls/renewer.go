@@ -18,12 +18,11 @@ import (
 
 const (
 	// CertRenewalInterval is the renewal interval for rootCA
-	// CertRenewalInterval time.Duration = 12 * time.Hour
-	CertRenewalInterval time.Duration = 20 * time.Second
-	// CertValidityDuration is the valid duration for a new cert
-	// CertValidityDuration time.Duration = 365 * 24 * time.Hour
-	CAValidityDuration  time.Duration = 2 * time.Minute
-	TLSValidityDuration time.Duration = 1 * time.Minute
+	CertRenewalInterval time.Duration = 12 * time.Hour
+	// CAValidityDuration is the valid duration for CA certificates
+	CAValidityDuration time.Duration = 365 * 24 * time.Hour
+	// TLSValidityDuration is the valid duration for TLS certificates
+	TLSValidityDuration time.Duration = 150 * 24 * time.Hour
 	// ManagedByLabel is added to Kyverno managed secrets
 	ManagedByLabel string = "cert.kyverno.io/managed-by"
 	RootCAKey      string = "rootCA.crt"
@@ -80,8 +79,7 @@ func (c *CertRenewer) RenewCA() error {
 	}
 	now := time.Now()
 	certs = removeExpiredCertificates(now, certs...)
-	// TODO: adjust time shift
-	if !allCertificatesExpired(now.Add(2*c.certRenewalInterval), certs...) {
+	if !allCertificatesExpired(now.Add(5*c.certRenewalInterval), certs...) {
 		logger.V(4).Info("CA certificate does not need to be renewed")
 		return nil
 	}
@@ -117,8 +115,7 @@ func (c *CertRenewer) RenewTLS() error {
 		return err
 	}
 	now := time.Now()
-	// TODO: adjust time shift
-	if cert != nil && !allCertificatesExpired(now.Add(2*c.certRenewalInterval), cert) {
+	if cert != nil && !allCertificatesExpired(now.Add(5*c.certRenewalInterval), cert) {
 		logger.V(4).Info("TLS certificate does not need to be renewed")
 		return nil
 	}
