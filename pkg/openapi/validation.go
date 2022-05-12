@@ -151,7 +151,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 		spec.SetRules(rules)
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
-		if resource == nil || len(resource) == 0 {
+		if len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
@@ -300,7 +300,6 @@ func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResou
 	for key, value := range tempKindToAPIVersions {
 		c.kindToAPIVersions.Set(key, value)
 	}
-
 }
 
 func getSchemaDocument() (*openapiv2.Document, error) {
@@ -336,7 +335,6 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 }
 
 func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
-
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {

@@ -87,7 +87,7 @@ func NewController(
 
 	c.pLister = pInformer.Lister()
 	c.npLister = npInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c.nsLister = namespaceInformer.Lister()
 
 	return &c, nil
@@ -277,7 +277,6 @@ func (c *Controller) syncUpdateRequest(key string) error {
 
 	if pNamespace == "" {
 		_, err = c.pLister.Get(pName)
-
 	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
 	}

@@ -89,7 +89,7 @@ func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister chan
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -223,7 +223,6 @@ func mergePvInfos(infos []policyreport.Info) []policyreport.Info {
 			tmpInfo.Results = append(tmpInfo.Results, info.Results...)
 			aggregatedInfoPerNamespace[info.Namespace] = tmpInfo
 		}
-
 	}
 
 	for _, i := range aggregatedInfoPerNamespace {

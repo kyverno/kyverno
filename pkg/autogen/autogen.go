@@ -199,7 +199,6 @@ func GenerateRulePatches(spec *kyverno.Spec, controllers string) (rulePatches []
 				rulePatches = append(rulePatches, pbytes)
 			}
 			insertIdx++
-			patchPostion = insertIdx
 		}
 	}
 	return

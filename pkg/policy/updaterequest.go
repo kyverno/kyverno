@@ -116,13 +116,13 @@ func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, tri
 			continue
 		}
 
-		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
 
 		new.Status.State = urkyverno.Pending
-		if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+		if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 			pc.log.Error(err, "failed to set UpdateRequest state to Pending")
 			return false, err
 		}
@@ -169,7 +169,7 @@ func newUR(policy kyverno.PolicyInterface, trigger *unstructured.Unstructured, r
 	return &urkyverno.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
-			Namespace:    config.KyvernoNamespace,
+			Namespace:    config.KyvernoNamespace(),
 			Labels:       label,
 		},
 		Spec: urkyverno.UpdateRequestSpec{
@@ -201,7 +201,6 @@ func createMutateLabels(policyKey string, trigger *unstructured.Unstructured) la
 
 		if trigger.GetAPIVersion() != "" {
 			selector[urkyverno.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
-
 		}
 	}
 

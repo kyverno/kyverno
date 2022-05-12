@@ -49,7 +49,7 @@ func newFixture(t *testing.T) *fixture {
 		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-bar"),
 		kubeutils.NewUnstructured("group/version", "TheKind", "ns-foo", "name-baz"),
 		kubeutils.NewUnstructured("group2/version", "TheKind", "ns-foo", "name2-baz"),
-		kubeutils.NewUnstructured("apps/v1", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName),
+		kubeutils.NewUnstructured("apps/v1", "Deployment", config.KyvernoNamespace(), config.KyvernoDeploymentName()),
 	}
 
 	scheme := runtime.NewScheme()

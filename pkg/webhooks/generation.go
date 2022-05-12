@@ -41,7 +41,6 @@ func (ws *WebhookServer) handleGenerate(
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric *chan []*response.EngineResponse,
 ) {
-
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	logger.V(6).Info("update request")
 
@@ -122,7 +121,6 @@ func (ws *WebhookServer) handleUpdatesForGenerateRules(request *admissionv1.Admi
 func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
-
 		// check if the policy exists
 		_, err := ws.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
@@ -146,7 +144,6 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 				ws.updateAnnotationInUR(ur, logger)
 			}
 		}
-
 	}
 }
 
@@ -174,7 +171,7 @@ func (ws *WebhookServer) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logge
 		return
 	}
 	new.Status.State = urkyverno.Pending
-	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }
@@ -275,7 +272,6 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 
 //stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
-
 	if metadata, found := obj["metadata"]; found {
 		requiredMetadataInObj := make(map[string]interface{})
 		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
@@ -302,9 +298,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 		newRes["metadata"] = requiredMetadataInNewRes
 	}
 
-	if _, found := obj["status"]; found {
-		delete(obj, "status")
-	}
+	delete(obj, "status")
 
 	if _, found := obj["spec"]; found {
 		delete(obj["spec"].(map[string]interface{}), "tolerations")
@@ -312,9 +306,9 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 
 	if dataMap, found := obj["data"]; found {
 		keyInData := make([]string, 0)
-		switch dataMap.(type) {
+		switch dataMap := dataMap.(type) {
 		case map[string]interface{}:
-			for k := range dataMap.(map[string]interface{}) {
+			for k := range dataMap {
 				keyInData = append(keyInData, k)
 			}
 		}
@@ -377,7 +371,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 
 	for _, v := range urList {
-		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update ur")
 		}
@@ -386,7 +380,6 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 
 func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType urkyverno.RequestType, grGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
-
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")

@@ -199,41 +199,23 @@ func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription,
 
 	keys := append(admissionInfo.AdmissionUserInfo.Groups, admissionInfo.AdmissionUserInfo.Username)
 	var userInfoErrors []error
-	var checkedItem int
 	if len(userInfo.Roles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		checkedItem++
-
 		if !utils.SliceContains(userInfo.Roles, admissionInfo.Roles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match roles for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
 
 	if len(userInfo.ClusterRoles) > 0 && !utils.SliceContains(keys, dynamicConfig...) {
-		checkedItem++
-
 		if !utils.SliceContains(userInfo.ClusterRoles, admissionInfo.ClusterRoles...) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match clustersRoles for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
 
 	if len(userInfo.Subjects) > 0 {
-		checkedItem++
-
 		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
 			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
-		} else {
-			return errs
 		}
 	}
-
-	if checkedItem != len(userInfoErrors) {
-		return errs
-	}
-
 	return append(errs, userInfoErrors...)
 }
 
@@ -289,7 +271,6 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef urkyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
-
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -393,43 +374,6 @@ func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissi
 	}
 	// len(errs) != 0 if the filter excluded the resource
 	return errs
-}
-
-func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllConditions {
-	if reflect.DeepEqual(original, kyverno.AnyAllConditions{}) {
-		return kyverno.AnyAllConditions{}
-	}
-	return *original.DeepCopy()
-}
-
-// backwards compatibility
-func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if len(original) == 0 {
-		return []kyverno.Condition{}
-	}
-
-	var copies []kyverno.Condition
-	for _, condition := range original {
-		copies = append(copies, *condition.DeepCopy())
-	}
-
-	return copies
-}
-
-func transformConditions(original apiextensions.JSON) (interface{}, error) {
-	// conditions are currently in the form of []interface{}
-	kyvernoOriginalConditions, err := utils.ApiextensionsJsonToKyvernoConditions(original)
-	if err != nil {
-		return nil, err
-	}
-	switch typedValue := kyvernoOriginalConditions.(type) {
-	case kyverno.AnyAllConditions:
-		return copyAnyAllConditions(typedValue), nil
-	case []kyverno.Condition: // backwards compatibility
-		return copyOldConditions(typedValue), nil
-	}
-
-	return nil, fmt.Errorf("invalid preconditions")
 }
 
 // excludeResource checks if the resource has ownerRef set

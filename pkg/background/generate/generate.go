@@ -78,7 +78,6 @@ func NewGenerateController(
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 ) (*GenerateController, error) {
-
 	c := GenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -133,7 +132,6 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 					incrementedCountString := strconv.Itoa(sleepCountInt)
 					urAnnotations["generate.kyverno.io/retry-count"] = incrementedCountString
 				}
-
 			} else {
 				time.Sleep(time.Second * 1)
 				urAnnotations["generate.kyverno.io/retry-count"] = "1"
@@ -142,7 +140,7 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 
 		if updateAnnotation {
 			ur.SetAnnotations(urAnnotations)
-			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), ur, metav1.UpdateOptions{})
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(contextdefault.TODO(), ur, metav1.UpdateOptions{})
 			if err != nil {
 				logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion())
 				return err
@@ -228,7 +226,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 			}
 
 			for _, v := range urList {
-				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+				err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 				if err != nil {
 					logger.Error(err, "failed to delete update request")
 				}
@@ -484,9 +482,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, res
 		}
 
 		logger.V(2).Info("created generate target resource")
-
 	} else if mode == Update {
-
 		generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
@@ -607,7 +603,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
-
 }
 
 // ResourceMode defines the mode for generated resource

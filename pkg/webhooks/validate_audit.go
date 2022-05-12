@@ -67,8 +67,8 @@ func NewValidateAuditHandler(pCache policycache.Interface,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 	client client.Interface,
-	promConfig *metrics.PromConfig) AuditHandler {
-
+	promConfig *metrics.PromConfig,
+) AuditHandler {
 	return &auditHandler{
 		pCache:        pCache,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
