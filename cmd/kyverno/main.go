@@ -385,7 +385,7 @@ func main() {
 	// webhookconfigurations are registered by the leader only
 	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
@@ -393,6 +393,11 @@ func main() {
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
+
+	if err := cosign.Init(); err != nil {
+		setupLog.Error(err, "initialization failed")
+		os.Exit(1)
+	}
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
