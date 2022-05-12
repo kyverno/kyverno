@@ -370,7 +370,7 @@ func main() {
 	// webhookconfigurations are registered by the leader only
 	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
@@ -383,6 +383,11 @@ func main() {
 	tlsPair, err = certManager.GetTLSPemPair()
 	if err != nil {
 		setupLog.Error(err, "Failed to get TLS key/certificate pair")
+		os.Exit(1)
+	}
+
+	if err := cosign.Init(); err != nil {
+		setupLog.Error(err, "initialization failed")
 		os.Exit(1)
 	}
 

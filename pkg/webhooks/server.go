@@ -161,8 +161,8 @@ func NewWebhookServer(
 		Addr:         ":9443", // Listen on port for HTTPS requests
 		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 	return ws, nil
 }
