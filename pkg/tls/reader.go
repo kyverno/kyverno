@@ -23,7 +23,7 @@ func ReadRootCASecret(client kubernetes.Interface) ([]byte, error) {
 	result := stlsca.Data[v1.TLSCertKey]
 	// if not there, try old "rootCA.crt"
 	if len(result) == 0 {
-		result = stlsca.Data[rootCAKey]
+		result = stlsca.Data[RootCAKey]
 	}
 	if len(result) == 0 {
 		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, config.KyvernoNamespace(), stlsca.Name)

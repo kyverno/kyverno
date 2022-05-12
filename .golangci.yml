@@ -9,6 +9,7 @@ linters:
     - errcheck
     - exportloopref
     - gochecknoinits
+    - goprintffuncname
     - gosec
     - gosimple
     - govet
@@ -24,6 +25,7 @@ linters:
     - unconvert
     - unused
     - varcheck
+    - wastedassign
     - whitespace
 
 run:

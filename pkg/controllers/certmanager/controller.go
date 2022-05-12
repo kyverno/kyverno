@@ -5,10 +5,10 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	v1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	informerv1 "k8s.io/client-go/informers/core/v1"
 	listersv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -23,16 +23,18 @@ type Controller interface {
 }
 
 type controller struct {
-	renewer      *tls.CertRenewer
-	secretLister listersv1.SecretLister
-	secretQueue  chan bool
+	renewer         *tls.CertRenewer
+	secretLister    listersv1.SecretLister
+	secretQueue     chan bool
+	onSecretChanged func() error
 }
 
-func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer) (Controller, error) {
+func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
 	manager := &controller{
-		renewer:      certRenewer,
-		secretLister: secretInformer.Lister(),
-		secretQueue:  make(chan bool, 1),
+		renewer:         certRenewer,
+		secretLister:    secretInformer.Lister(),
+		secretQueue:     make(chan bool, 1),
+		onSecretChanged: onSecretChanged,
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
@@ -67,19 +69,31 @@ func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
 	return secret.Data[v1.TLSCertKey], secret.Data[v1.TLSPrivateKeyKey], nil
 }
 
-func (m *controller) validateCerts() error {
-	valid, err := m.renewer.ValidCert()
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		logger.Error(err, "failed to validate cert")
+func (m *controller) renewCertificates() error {
+	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
+		return err
 	}
-	if !valid {
-		logger.Info("rootCA has changed or is about to expire, trigger a rolling update to renew the cert")
-		return m.renewer.RollingUpdate()
+	if m.onSecretChanged != nil {
+		if err := common.RetryFunc(time.Second, 5*time.Second, m.onSecretChanged, "failed to renew CA", logger)(); err != nil {
+			return err
+		}
+	}
+	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
+		return err
 	}
 	return nil
+}
+
+func (m *controller) GetCAPem() ([]byte, error) {
+	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateRootCASecretName())
+	if err != nil {
+		return nil, err
+	}
+	result := secret.Data[v1.TLSCertKey]
+	if len(result) == 0 {
+		result = secret.Data[tls.RootCAKey]
+	}
+	return result, nil
 }
 
 func (m *controller) Run(stopCh <-chan struct{}) {
@@ -89,13 +103,13 @@ func (m *controller) Run(stopCh <-chan struct{}) {
 	for {
 		select {
 		case <-certsRenewalTicker.C:
-			if err := m.validateCerts(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update, force restarting")
+			if err := m.renewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
 		case <-m.secretQueue:
-			if err := m.validateCerts(); err != nil {
-				logger.Error(err, "unable to trigger a rolling update, force restarting")
+			if err := m.renewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
 				os.Exit(1)
 			}
 		case <-stopCh:
