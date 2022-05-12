@@ -90,7 +90,7 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyverno.PolicyInterface, cli
 		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
 		generatePolicyWithClone = true
 
-		retryCount := 0
+		var retryCount int
 		for retryCount < 5 {
 			err := updateSourceResource(policy.GetName(), rule, client, logger)
 			if err != nil {
@@ -114,7 +114,7 @@ func updateSourceResource(pName string, rule kyverno.Rule, client dclient.Interf
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	}
 
-	update := false
+	var update bool
 	labels := obj.GetLabels()
 	update, labels = removePolicyFromLabels(pName, labels)
 	if !update {
