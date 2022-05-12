@@ -14,8 +14,6 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/informers"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -25,22 +23,6 @@ const (
 	PolicyViolation = "POLICYVIOLATION"
 	PolicyReport    = "POLICYREPORT"
 )
-
-// GetNamespaceSelectorsFromGenericInformer - extracting the namespacelabels when generic informer is passed
-func GetNamespaceSelectorsFromGenericInformer(kind, namespaceOfResource string, nsInformer informers.GenericInformer, logger logr.Logger) map[string]string {
-	namespaceLabels := make(map[string]string)
-	if kind != "Namespace" {
-		runtimeNamespaceObj, err := nsInformer.Lister().Get(namespaceOfResource)
-		if err != nil {
-			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
-			return namespaceLabels
-		}
-
-		unstructuredObj := runtimeNamespaceObj.(*unstructured.Unstructured)
-		return unstructuredObj.GetLabels()
-	}
-	return namespaceLabels
-}
 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
 func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
