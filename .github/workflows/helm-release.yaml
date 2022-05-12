@@ -5,11 +5,6 @@ on:
       - 'kyverno-chart-v*'
       - 'kyverno-policies-chart-v*'
 
-permissions: 
-  contents: read
-  packages: write
-  id-token: write 
-
 jobs:
   helm-tests:
     runs-on: ubuntu-latest
