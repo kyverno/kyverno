@@ -114,7 +114,7 @@ func (c *controller) reconcile(key string) error {
 	if err != nil {
 		return err
 	}
-	if namespace != config.KyvernoNamespace || name != config.KyvernoConfigMapName {
+	if namespace != config.KyvernoNamespace() || name != config.KyvernoConfigMapName() {
 		return nil
 	}
 	configMap, err := c.configmapLister.ConfigMaps(namespace).Get(name)

@@ -340,7 +340,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
-	if strings.Contains(string(dirPath[0]), "https://") {
+	if strings.Contains(dirPath[0], "https://") {
 		gitURL, err := url.Parse(dirPath[0])
 		if err != nil {
 			return rc, sanitizederror.NewWithError("failed to parse URL", err)
@@ -422,7 +422,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if testYamlCount == 0 {
 			fmt.Printf("\n No test yamls available \n")
 		}
-
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
@@ -528,7 +527,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 				var resultsKey string
 				resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
 				if !util.ContainsString(rules, test.Rule) {
-
 					if !util.ContainsString(rules, "autogen-"+test.Rule) {
 						if !util.ContainsString(rules, "autogen-cronjob-"+test.Rule) {
 							result.Result = report.StatusSkip
@@ -554,7 +552,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 					results[resultsKey] = result
 				}
 			}
-
 		}
 
 		for _, rule := range resp.PolicyResponse.Rules {
@@ -576,10 +573,8 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 				if rule.Status == response.RuleStatusSkip {
 					result.Result = report.StatusSkip
-
 				} else if rule.Status == response.RuleStatusError {
 					result.Result = report.StatusError
-
 				} else {
 					var x string
 					for _, path := range patchedResourcePath {
@@ -711,7 +706,6 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 }
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter) (err error) {
-
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient client.Interface
 	values := &Test{}
@@ -752,12 +746,15 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	// get the user info as request info from a different file
 	var userInfo v1beta1.RequestInfo
+	var subjectInfo store.Subject
+
 	if userInfoFile != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
+		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
+		store.SetSubjects(subjectInfo)
 	}
 
 	policyFullPath := getFullPath(values.Policies, policyResourcePath, isGit)

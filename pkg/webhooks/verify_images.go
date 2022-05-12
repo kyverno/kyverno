@@ -23,10 +23,11 @@ func (ws *WebhookServer) applyImageVerifyPolicies(request *admissionv1.Admission
 	return imagePatches, nil
 }
 
-func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionRequest,
+func (ws *WebhookServer) handleVerifyImages(
+	request *admissionv1.AdmissionRequest,
 	policyContext *engine.PolicyContext,
-	policies []v1.PolicyInterface) (bool, string, []byte) {
-
+	policies []v1.PolicyInterface,
+) (bool, string, []byte) {
 	if len(policies) == 0 {
 		return true, "", nil
 	}

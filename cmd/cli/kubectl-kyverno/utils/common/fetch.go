@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -151,7 +152,6 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, re
 			}
 
 			resources = append(resources, getResources...)
-
 		}
 	}
 	return resources, nil
@@ -210,7 +210,6 @@ func getResourcesOfTypeFromCluster(resourceTypes []string, dClient client.Interf
 }
 
 func getFileBytes(path string) ([]byte, error) {
-
 	var (
 		file []byte
 		err  error
@@ -218,7 +217,11 @@ func getFileBytes(path string) ([]byte, error) {
 
 	if IsHTTPRegex.MatchString(path) {
 		// We accept here that a random URL might be called based on user provided input.
-		resp, err := http.Get(path) // #nosec
+		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, path, nil)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, err
 		}

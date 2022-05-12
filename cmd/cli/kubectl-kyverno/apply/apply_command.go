@@ -247,12 +247,14 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 
 	// get the user info as request info from a different file
 	var userInfo v1beta1.RequestInfo
+	var subjectInfo store.Subject
 	if userInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
+		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
+		store.SetSubjects(subjectInfo)
 	}
 
 	if variablesString != "" {
@@ -317,7 +319,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			pvInfos = append(pvInfos, info)
-
 		}
 	}
 
@@ -427,14 +428,12 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				if err != nil {
 					return sanitizederror.NewWithError("failed to close file", err)
 				}
-
 			} else {
 				errDir := os.MkdirAll(mutateLogPath, 0750)
 				if errDir != nil {
 					return sanitizederror.NewWithError("failed to create directory", err)
 				}
 			}
-
 		} else {
 			return sanitizederror.NewWithError("failed to describe file", err)
 		}

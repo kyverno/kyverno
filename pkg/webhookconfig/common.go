@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -16,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 )
 
 var (
@@ -50,39 +47,13 @@ func (wrc *Register) readCaData() []byte {
 
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.clientConfig, wrc.kubeClient); err == nil {
+	if caData, err = tls.ReadRootCASecret(wrc.kubeClient); err == nil {
 		logger.V(4).Info("read CA from secret")
-		return caData
-	}
-
-	logger.V(4).Info("failed to read CA from secret, reading from kubeconfig", "reason", err.Error())
-	// load the CA from kubeconfig
-	if caData = extractCA(wrc.clientConfig); len(caData) != 0 {
-		logger.V(4).Info("read CA from kubeconfig")
 		return caData
 	}
 
 	logger.V(4).Info("failed to read CA from kubeconfig")
 	return nil
-}
-
-// ExtractCA used for extraction CA from config
-func extractCA(config *rest.Config) (result []byte) {
-	fileName := config.TLSClientConfig.CAFile
-
-	if fileName != "" {
-		fileName = filepath.Clean(fileName)
-		// We accept the risk of including a user provided file here.
-		result, err := ioutil.ReadFile(fileName) // #nosec G304
-
-		if err != nil {
-			return nil
-		}
-
-		return result
-	}
-
-	return config.TLSClientConfig.CAData
 }
 
 func getHealthyPodsIP(pods []corev1.Pod) []string {
@@ -116,7 +87,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error)
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
-	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +155,8 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSec
 		Name:               name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,
@@ -203,8 +174,8 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, timeoutS
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,

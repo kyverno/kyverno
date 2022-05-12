@@ -29,15 +29,15 @@ func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
 func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateRequest, bool, error) {
 	handler := ur.Status.Handler
 	if handler != "" {
-		if handler != config.KyvernoPodName {
+		if handler != config.KyvernoPodName() {
 			return nil, false, nil
 		}
 		return ur, true, nil
 	}
 
-	handler = config.KyvernoPodName
+	handler = config.KyvernoPodName()
 	ur.Status.Handler = handler
-	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+	new, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 	return new, true, err
 }
 
@@ -48,6 +48,6 @@ func (c *Controller) UnmarkUR(ur *urkyverno.UpdateRequest) error {
 	}
 
 	newUR.Status.Handler = ""
-	_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), newUR, metav1.UpdateOptions{})
+	_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), newUR, metav1.UpdateOptions{})
 	return err
 }

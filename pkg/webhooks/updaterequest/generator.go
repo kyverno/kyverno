@@ -45,7 +45,7 @@ func NewGenerator(client kyvernoclient.Interface, urInformer urkyvernoinformer.U
 		client:   client,
 		stopCh:   stopCh,
 		log:      log,
-		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 	}
 	return gen
 }
@@ -89,9 +89,13 @@ func (g *Generator) generate(i info) error {
 	return nil
 }
 
-func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateRequestSpec,
-	log logr.Logger, action admissionv1.Operation, urLister urkyvernolister.UpdateRequestNamespaceLister) error {
-
+func retryApplyResource(
+	client kyvernoclient.Interface,
+	urSpec urkyverno.UpdateRequestSpec,
+	log logr.Logger,
+	action admissionv1.Operation,
+	urLister urkyvernolister.UpdateRequestNamespaceLister,
+) error {
 	if action == admissionv1.Delete && urSpec.Type == urkyverno.Generate {
 		return nil
 	}
@@ -133,7 +137,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 			})
 		}
 
-		ur.SetNamespace(config.KyvernoNamespace)
+		ur.SetNamespace(config.KyvernoNamespace())
 		isExist := false
 		log.V(4).Info("apply UpdateRequest", "ruleType", ur.Spec.Type)
 
@@ -151,7 +155,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 			v.Spec.Resource = ur.Spec.Resource
 			v.Status.Message = ""
 
-			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Update(context.TODO(), v, metav1.UpdateOptions{})
+			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
 			if err != nil {
 				log.V(4).Info("failed to update UpdateRequest, retrying", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
@@ -161,7 +165,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 			}
 
 			new.Status.State = urkyverno.Pending
-			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				log.Error(err, "failed to set UpdateRequest state to Pending")
 				return err
 			}
@@ -175,7 +179,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 			ur.SetGenerateName("ur-")
 			ur.SetLabels(queryLabels)
 
-			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), &ur, metav1.CreateOptions{})
+			new, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{})
 			if err != nil {
 				log.V(4).Info("failed to create UpdateRequest, retrying", "retryCount", i, "name", ur.GetGenerateName(), "namespace", ur.GetNamespace(), "err", err.Error())
 				i++
@@ -185,7 +189,7 @@ func retryApplyResource(client kyvernoclient.Interface, urSpec urkyverno.UpdateR
 			}
 
 			new.Status.State = urkyverno.Pending
-			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				log.Error(err, "failed to set UpdateRequest state to Pending")
 				return err
 			}

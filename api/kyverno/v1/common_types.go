@@ -468,7 +468,6 @@ type ResourceSpec struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	// Name specifies the resource name.
-	// +kubebuilder:validation:MaxLength=63
 	// +optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }

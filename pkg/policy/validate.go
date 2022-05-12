@@ -72,7 +72,6 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 		if !val {
 			return fmt.Errorf("%s", path)
 		}
-
 	}
 	return nil
 }
@@ -195,13 +194,11 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-
 			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 				return nil, fmt.Errorf("wildcard policy does not support rule type")
 			}
 
 			if rule.HasValidate() {
-
 				if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
 						return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
@@ -386,9 +383,9 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 		}
 
 		// skip variable checks on verifyImages.attestations, as variables in attestations are dynamic
-		for _, vi := range ruleCopy.VerifyImages {
-			for _, a := range vi.Attestations {
-				a.Conditions = nil
+		for i, vi := range ruleCopy.VerifyImages {
+			for j := range vi.Attestations {
+				ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 			}
 		}
 
@@ -615,7 +612,7 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 			patternMap, ok := pattern.(map[string]interface{})
 			if ok {
 				ret := checkMetadata(patternMap)
-				if ret == false {
+				if !ret {
 					return ret
 				}
 			}
@@ -734,13 +731,13 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		"conditions":    true,
 	}
 	if !allowedSchemaKeys[schemaKey] {
-		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
+		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
 	// conditions are currently in the form of []interface{}
 	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
 	if err != nil {
-		return fmt.Sprintf("%s", schemaKey), err
+		return schemaKey, err
 	}
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyverno.AnyAllConditions:
@@ -838,8 +835,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 		return nil
 	}
 
-	contextNames := make([]string, 0)
-
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
@@ -849,7 +844,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 				return fmt.Errorf("entry name %s is invalid as it conflicts with a pre-defined variable %s", entry.Name, v)
 			}
 		}
-		contextNames = append(contextNames, entry.Name)
 
 		var err error
 		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
@@ -995,7 +989,6 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources s
 				}
 			}
 		}
-
 	}
 	return nil
 }
@@ -1022,7 +1015,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
+	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false

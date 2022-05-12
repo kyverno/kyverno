@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -97,7 +96,7 @@ type WebhookServer struct {
 func NewWebhookServer(
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
-	tlsPair *tlsutils.PemPair,
+	tlsPair func() ([]byte, []byte, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -122,14 +121,10 @@ func NewWebhookServer(
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
-	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		rbLister:          rbInformer.Lister(),
 		rLister:           rInformer.Lister(),
 		nsLister:          namespace.Lister(),
@@ -158,11 +153,24 @@ func NewWebhookServer(
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
-		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
+		Addr: ":9443", // Listen on port for HTTPS requests
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				certPem, keyPem, err := tlsPair()
+				if err != nil {
+					return nil, err
+				}
+				pair, err := tls.X509KeyPair(certPem, keyPem)
+				if err != nil {
+					return nil, err
+				}
+				return &pair, nil
+			},
+			MinVersion: tls.VersionTLS12,
+		},
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 	return ws, nil
 }
