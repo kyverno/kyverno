@@ -7647,6 +7647,7 @@ spec:
       - args:
         - -v=2
         - --autogenInternals=false
+        - --otelConfig="prometheus"
         env:
         - name: INIT_CONFIG
           value: kyverno
