@@ -16,6 +16,8 @@ RUN export GOOS=$(echo ${TARGETPLATFORM} | cut -d / -f1) && \
 
 RUN go env
 
+RUN apk add --no-cache ca-certificates
+
 RUN CGO_ENABLED=0 go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
 # Packaging stage

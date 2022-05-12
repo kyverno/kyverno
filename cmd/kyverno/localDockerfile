@@ -1,5 +1,5 @@
-FROM scratch
+FROM golang:alpine
 ADD kyverno /kyverno
-ADD ca-certificates.crt /etc/ssl/certs/
+RUN apk add --no-cache ca-certificates
 USER 10001
 ENTRYPOINT ["/kyverno"]
