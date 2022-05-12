@@ -64,7 +64,7 @@ type WebhookServer struct {
 	webhookRegister *webhookconfig.Register
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Configuration
+	configuration config.Configuration
 
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
@@ -133,7 +133,7 @@ func NewWebhookServer(
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
-		configHandler:     configHandler,
+		configuration:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
 		prGenerator:       prGenerator,
@@ -145,11 +145,14 @@ func NewWebhookServer(
 		promConfig:        promConfig,
 	}
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(true, ws.resourceMutation))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(true, ws.resourceValidation))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(true, ws.policyMutation))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(true, ws.policyValidation))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
+	resourceLogger := ws.log.WithName("resource")
+	policyLogger := ws.log.WithName("policy")
+	verifyLogger := ws.log.WithName("verify")
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("mutate"), true, ws.resourceMutation))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("validate"), true, ws.resourceValidation))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, ws.policyMutation))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, ws.policyValidation))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(verifyLogger.WithName("mutate"), false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
@@ -182,7 +185,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 	if addRoles {
 		var err error
-		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configuration)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
 		}
@@ -205,8 +208,8 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
+		ExcludeGroupRole:    ws.configuration.GetExcludeGroupRole(),
+		ExcludeResourceFunc: ws.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
 		AdmissionOperation:  true,

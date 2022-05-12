@@ -42,26 +42,14 @@ func errorResponse(logger logr.Logger, err error, message string) *admissionv1.A
 	return admissionutils.ResponseFailure(false, message+": "+err.Error())
 }
 
-func setupLogger(logger logr.Logger, name string, request *admissionv1.AdmissionRequest) logr.Logger {
-	return logger.WithName(name).WithValues(
-		"uid", request.UID,
-		"kind", request.Kind,
-		"namespace", request.Namespace,
-		"name", request.Name,
-		"operation", request.Operation,
-		"gvk", request.Kind.String(),
-	)
-}
-
-func (ws *WebhookServer) admissionHandler(filter bool, inner handlers.AdmissionHandler) http.HandlerFunc {
+func (ws *WebhookServer) admissionHandler(logger logr.Logger, filter bool, inner handlers.AdmissionHandler) http.HandlerFunc {
 	if filter {
-		inner = handlers.Filter(ws.configHandler, inner)
+		inner = handlers.Filter(ws.configuration, inner)
 	}
-	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(ws.log.WithName("handlerFunc"), inner))
+	return handlers.Monitor(ws.webhookMonitor, handlers.Admission(logger, inner))
 }
 
-func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "PolicyMutationWebhook", request)
+func (ws *WebhookServer) policyMutation(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
@@ -86,8 +74,7 @@ func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *
 }
 
 //policyValidation performs the validation check on policy resource
-func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "PolicyValidationWebhook", request)
+func (ws *WebhookServer) policyValidation(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {
 		logger.Error(err, "failed to unmarshal policies from admission request")
@@ -117,8 +104,7 @@ func (ws *WebhookServer) policyValidation(request *admissionv1.AdmissionRequest)
 }
 
 // resourceMutation mutates resource
-func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "ResourceMutationWebhook", request)
+func (ws *WebhookServer) resourceMutation(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess(true, "")
 	}
@@ -174,8 +160,7 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 	return admissionutils.ResponseSuccessWithPatch(true, "", patches)
 }
 
-func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	logger := setupLogger(ws.log, "ResourceValidationWebhook", request)
+func (ws *WebhookServer) resourceValidation(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	if request.Operation == admissionv1.Delete {
 		ws.handleDelete(request)
 	}
@@ -210,7 +195,7 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 	var roles, clusterRoles []string
 	if containsRBACInfo(policies, generatePolicies) {
 		var err error
-		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		roles, clusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configuration)
 		if err != nil {
 			return errorResponse(logger, err, "failed to fetch RBAC data")
 		}
@@ -245,8 +230,8 @@ func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionReques
 		NewResource:         newResource,
 		OldResource:         oldResource,
 		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
+		ExcludeGroupRole:    ws.configuration.GetExcludeGroupRole(),
+		ExcludeResourceFunc: ws.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
 		AdmissionOperation:  true,
