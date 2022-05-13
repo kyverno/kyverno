@@ -295,7 +295,15 @@ func main() {
 		if otel == "grpc" {
 			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
 			setupLog.Info("enabling otel grpc metrics", "address", ":4317")
-			metricsConfig, err = metrics.NewOTLPGRPCConfig(otelCollector, metricsConfigData, transportCreds, log.Log.WithName("OpentelemetryMetrics"))
+
+			metricsConfig, err = metrics.NewOTLPGRPCConfig(
+				otelCollector,
+				metricsConfigData,
+				transportCreds,
+				kubeClient,
+				log.Log.WithName("OpentelemetryMetrics"),
+			)
+
 			if err != nil {
 				setupLog.Error(err, "failed to enable otel metrics")
 				os.Exit(1)
@@ -317,7 +325,7 @@ func main() {
 
 	// Tracing Configuration
 	if !disableTracing {
-		err = tracing.NewTraceConfig(otelCollector, transportCreds, log.Log.WithName("OpentelemetryTracing"))
+		err = tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("OpentelemetryTracing"))
 		if err != nil {
 			setupLog.Error(err, "failed to enable tracing for Kyverno")
 			os.Exit(1)

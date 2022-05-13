@@ -13,35 +13,22 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc/credentials"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 // NewTraceConfig generates the initial tracing configuration with 'endpoint' as the endpoint to connect to the Opentelemetry Collector
-func NewTraceConfig(endpoint string, certs string, log logr.Logger) error {
+func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger) error {
 	log.Info("Enabling tracing for Kyverno...")
 	ctx := context.Background()
 
 	var client otlptrace.Client
 
 	if certs != "" {
-		// creates the in-cluster config
-		config, err := rest.InClusterConfig()
-		if err != nil {
-			log.Error(err, "Error fetching in cluster config")
-			return err
-		}
-		// creates the clientset
-		clientset, err := kubernetes.NewForConfig(config)
-		if err != nil {
-			log.Error(err, "Error creating clientset")
-			return err
-		}
-
 		// here the certificates are stored as configmaps
-		configmap, err := clientset.CoreV1().ConfigMaps("kyverno").Get(ctx, certs, v1.GetOptions{})
+		configmap, err := kubeClient.CoreV1().ConfigMaps("kyverno").Get(ctx, certs, v1.GetOptions{})
 		if err != nil {
 			log.Error(err, "Error fetching certificate from configmap")
 		}
@@ -100,4 +87,9 @@ func DoInSpan(ctx context.Context, tracerName string, operationName string, doFn
 	newCtx, span := otel.Tracer(tracerName).Start(ctx, operationName)
 	defer span.End()
 	doFn(newCtx)
+}
+
+func StartSpan(ctx context.Context, tracerName string, operationName string) trace.Span {
+	_, span := otel.Tracer(tracerName).Start(ctx, operationName)
+	return span
 }
