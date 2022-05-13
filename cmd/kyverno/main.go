@@ -316,7 +316,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	pCacheController := policycache.NewPolicyCacheController(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	pCacheController := policycache.NewCache(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	auditHandler := webhooks.NewValidateAuditHandler(
 		pCacheController.Cache,

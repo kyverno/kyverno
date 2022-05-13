@@ -65,7 +65,7 @@ type WebhookServer struct {
 	eventGen event.Interface
 
 	// policy cache
-	pCache policycache.Interface
+	pCache policycache.Cache
 
 	// webhook registration client
 	webhookRegister *webhookconfig.Register
@@ -113,7 +113,7 @@ func NewWebhookServer(
 	crInformer rbacinformer.ClusterRoleInformer,
 	namespace informers.NamespaceInformer,
 	eventGen event.Interface,
-	pCache policycache.Interface,
+	pCache policycache.Cache,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Configuration,
