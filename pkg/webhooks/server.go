@@ -38,6 +38,13 @@ import (
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 )
 
+type Handlers interface {
+	// Mutate performs the mutation of policy resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on policy resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+}
+
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
 	server *http.Server
@@ -94,6 +101,7 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	policyHandlers Handlers,
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
 	tlsPair func() ([]byte, []byte, error),
@@ -150,8 +158,8 @@ func NewWebhookServer(
 	verifyLogger := ws.log.WithName("verify")
 	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("mutate"), true, ws.resourceMutation))
 	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("validate"), true, ws.resourceValidation))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, ws.policyMutation))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, ws.policyValidation))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, policyHandlers.Mutate))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, policyHandlers.Validate))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(verifyLogger.WithName("mutate"), false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
