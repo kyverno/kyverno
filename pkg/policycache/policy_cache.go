@@ -5,6 +5,7 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // Interface ...
@@ -39,19 +40,9 @@ type policyCache struct {
 
 // newPolicyCache ...
 func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
-	namesCache := map[PolicyType]map[string]bool{
-		Mutate:               make(map[string]bool),
-		ValidateEnforce:      make(map[string]bool),
-		ValidateAudit:        make(map[string]bool),
-		Generate:             make(map[string]bool),
-		VerifyImagesMutate:   make(map[string]bool),
-		VerifyImagesValidate: make(map[string]bool),
-	}
-
 	return &policyCache{
 		pMap{
-			nameCacheMap: namesCache,
-			kindDataMap:  make(map[string]map[PolicyType][]string),
+			kindDataMap: map[string]map[PolicyType]sets.String{},
 		},
 		pLister,
 		npLister,

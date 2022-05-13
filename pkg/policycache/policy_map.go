@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type pMap struct {
@@ -16,11 +17,7 @@ type pMap struct {
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
 	// "namespace". namespace policy get stored with policy namespace with policy name"
 	// kindDataMap {"kind": {{"policytype" : {"policyName","nsname/policyName}}},"kind2": {{"policytype" : {"nsname/policyName" }}}}
-	kindDataMap map[string]map[PolicyType][]string
-
-	// nameCacheMap stores the names of all existing policies in dataMap
-	// Policy names are stored as <namespace>/<name>
-	nameCacheMap map[PolicyType]map[string]bool
+	kindDataMap map[string]map[PolicyType]sets.String
 }
 
 func (m *pMap) add(policy kyverno.PolicyInterface) {
@@ -28,6 +25,7 @@ func (m *pMap) add(policy kyverno.PolicyInterface) {
 	defer m.lock.Unlock()
 	m.addPolicyToCache(policy)
 }
+
 func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 	spec := policy.GetSpec()
 	enforcePolicy := spec.GetValidationFailureAction() == kyverno.Enforce
@@ -37,26 +35,13 @@ func (m *pMap) addPolicyToCache(policy kyverno.PolicyInterface) {
 			break
 		}
 	}
-
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
 		pName = pSpace + "/" + pName
 	}
-
 	for _, rule := range autogen.ComputeRules(policy) {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				addCacheHelper(rmr, m, rule, pName, enforcePolicy)
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				addCacheHelper(rmr, m, rule, pName, enforcePolicy)
-			}
-		} else {
-			r := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-			addCacheHelper(r, m, rule, pName, enforcePolicy)
-		}
+		addCacheHelper(rule.MatchResources, m, rule, pName, enforcePolicy)
 	}
 }
 
@@ -64,7 +49,7 @@ func (m *pMap) get(key PolicyType, gvk, namespace string) (names []string) {
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 	_, kind := kubeutils.GetKindFromGVK(gvk)
-	for _, policyName := range m.kindDataMap[kind][key] {
+	for policyName := range m.kindDataMap[kind][key] {
 		ns, key, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
 		if !isNamespacedPolicy && namespace == "" {
 			names = append(names, key)
@@ -82,26 +67,15 @@ func (m *pMap) remove(policy kyverno.PolicyInterface) {
 	defer m.lock.Unlock()
 	m.removePolicyFromCache(policy)
 }
+
 func (m *pMap) removePolicyFromCache(policy kyverno.PolicyInterface) {
 	var pName = policy.GetName()
 	pSpace := policy.GetNamespace()
 	if pSpace != "" {
 		pName = pSpace + "/" + pName
 	}
-
 	for _, rule := range autogen.ComputeRules(policy) {
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				removeCacheHelper(rmr, m, pName)
-			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				removeCacheHelper(rmr, m, pName)
-			}
-		} else {
-			r := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
-			removeCacheHelper(r, m, pName)
-		}
+		removeCacheHelper(rule.MatchResources, m, pName)
 	}
 }
 
@@ -112,91 +86,56 @@ func (m *pMap) update(old kyverno.PolicyInterface, new kyverno.PolicyInterface) 
 	m.addPolicyToCache(new)
 }
 
-func addCacheHelper(rmr kyverno.ResourceFilter, m *pMap, rule kyverno.Rule, pName string, enforcePolicy bool) {
-	for _, gvk := range rmr.Kinds {
-		_, k := kubeutils.GetKindFromGVK(gvk)
-		kind, _ := kubeutils.SplitSubresource(k)
-		_, ok := m.kindDataMap[kind]
-		if !ok {
-			m.kindDataMap[kind] = make(map[PolicyType][]string)
-		}
+func getKind(gvk string) string {
+	_, k := kubeutils.GetKindFromGVK(gvk)
+	kind, _ := kubeutils.SplitSubresource(k)
+	return kind
+}
 
-		if rule.HasMutate() {
-			if !m.nameCacheMap[Mutate][kind+"/"+pName] {
-				m.nameCacheMap[Mutate][kind+"/"+pName] = true
-				mutatePolicy := m.kindDataMap[kind][Mutate]
-				m.kindDataMap[kind][Mutate] = append(mutatePolicy, pName)
+func addCacheHelper(match kyverno.MatchResources, m *pMap, rule kyverno.Rule, pName string, enforcePolicy bool) {
+	for _, gvk := range match.GetKinds() {
+		kind := getKind(gvk)
+		if m.kindDataMap[kind] == nil {
+			m.kindDataMap[kind] = map[PolicyType]sets.String{
+				Mutate:               sets.NewString(),
+				ValidateEnforce:      sets.NewString(),
+				ValidateAudit:        sets.NewString(),
+				Generate:             sets.NewString(),
+				VerifyImagesMutate:   sets.NewString(),
+				VerifyImagesValidate: sets.NewString(),
 			}
-
+		}
+		if rule.HasMutate() {
+			m.kindDataMap[kind][Mutate] = m.kindDataMap[kind][Mutate].Insert(pName)
 			continue
 		}
-
 		if rule.HasValidate() {
 			if enforcePolicy {
-				if !m.nameCacheMap[ValidateEnforce][kind+"/"+pName] {
-					m.nameCacheMap[ValidateEnforce][kind+"/"+pName] = true
-					validatePolicy := m.kindDataMap[kind][ValidateEnforce]
-					m.kindDataMap[kind][ValidateEnforce] = append(validatePolicy, pName)
-				}
-
-				continue
+				m.kindDataMap[kind][ValidateEnforce] = m.kindDataMap[kind][ValidateEnforce].Insert(pName)
+			} else {
+				m.kindDataMap[kind][ValidateAudit] = m.kindDataMap[kind][ValidateAudit].Insert(pName)
 			}
-
-			if !m.nameCacheMap[ValidateAudit][kind+"/"+pName] {
-				m.nameCacheMap[ValidateAudit][kind+"/"+pName] = true
-				validatePolicy := m.kindDataMap[kind][ValidateAudit]
-				m.kindDataMap[kind][ValidateAudit] = append(validatePolicy, pName)
-			}
-
 			continue
 		}
-
 		if rule.HasGenerate() {
-			if !m.nameCacheMap[Generate][kind+"/"+pName] {
-				m.nameCacheMap[Generate][kind+"/"+pName] = true
-				generatePolicy := m.kindDataMap[kind][Generate]
-				m.kindDataMap[kind][Generate] = append(generatePolicy, pName)
-			}
-
+			m.kindDataMap[kind][Generate] = m.kindDataMap[kind][Generate].Insert(pName)
 			continue
 		}
-
 		if rule.HasVerifyImages() {
-			if !m.nameCacheMap[VerifyImagesMutate][kind+"/"+pName] {
-				m.nameCacheMap[VerifyImagesMutate][kind+"/"+pName] = true
-				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImagesMutate]
-				m.kindDataMap[kind][VerifyImagesMutate] = append(imageVerifyMapPolicy, pName)
-			}
-
+			m.kindDataMap[kind][VerifyImagesMutate] = m.kindDataMap[kind][VerifyImagesMutate].Insert(pName)
 			if rule.HasImagesValidationChecks() {
-				m.nameCacheMap[VerifyImagesValidate][kind+"/"+pName] = true
-				imageVerifyMapPolicy := m.kindDataMap[kind][VerifyImagesValidate]
-				m.kindDataMap[kind][VerifyImagesValidate] = append(imageVerifyMapPolicy, pName)
+				m.kindDataMap[kind][VerifyImagesValidate] = m.kindDataMap[kind][VerifyImagesValidate].Insert(pName)
 			}
-
 			continue
 		}
 	}
 }
 
-func removeCacheHelper(rmr kyverno.ResourceFilter, m *pMap, pName string) {
-	for _, gvk := range rmr.Kinds {
-		_, kind := kubeutils.GetKindFromGVK(gvk)
-		dataMap := m.kindDataMap[kind]
-		for policyType, policies := range dataMap {
-			var newPolicies []string
-			for _, p := range policies {
-				if p == pName {
-					continue
-				}
-				newPolicies = append(newPolicies, p)
-			}
-			m.kindDataMap[kind][policyType] = newPolicies
-		}
-		for _, nameCache := range m.nameCacheMap {
-			if ok := nameCache[kind+"/"+pName]; ok {
-				delete(nameCache, kind+"/"+pName)
-			}
+func removeCacheHelper(match kyverno.MatchResources, m *pMap, pName string) {
+	for _, gvk := range match.GetKinds() {
+		kind := getKind(gvk)
+		for policyType, policies := range m.kindDataMap[kind] {
+			m.kindDataMap[kind][policyType] = policies.Delete(pName)
 		}
 	}
 }
