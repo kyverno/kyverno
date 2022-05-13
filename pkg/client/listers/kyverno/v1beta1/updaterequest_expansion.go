@@ -24,6 +24,7 @@ type UpdateRequestListerExpansion interface{}
 
 type UpdateRequestNamespaceListerExpansion interface {
 	GetUpdateRequestsForClusterPolicy(policy string) ([]*v1beta1.UpdateRequest, error)
+	GetUpdateRequestsForResource(kind, namespace, name string) ([]*v1beta1.UpdateRequest, error)
 }
 
 func (s updateRequestNamespaceLister) GetUpdateRequestsForClusterPolicy(policy string) ([]*v1beta1.UpdateRequest, error) {
@@ -35,6 +36,23 @@ func (s updateRequestNamespaceLister) GetUpdateRequestsForClusterPolicy(policy s
 	for idx, ur := range urs {
 		if ur.Spec.Policy == policy {
 			list = append(list, urs[idx])
+		}
+	}
+	return list, err
+}
+
+func (s updateRequestNamespaceLister) GetUpdateRequestsForResource(kind, namespace, name string) ([]*v1beta1.UpdateRequest, error) {
+	var list []*v1beta1.UpdateRequest
+	grs, err := s.List(labels.NewSelector())
+	if err != nil {
+		return nil, err
+	}
+	for idx, gr := range grs {
+		if gr.Spec.Resource.Kind == kind &&
+			gr.Spec.Resource.Namespace == namespace &&
+			gr.Spec.Resource.Name == name {
+			list = append(list, grs[idx])
+
 		}
 	}
 	return list, err

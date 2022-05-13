@@ -14,6 +14,7 @@ import (
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -59,6 +60,9 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
+	// namespaceInformer for re-evaluation on namespace updates
+	namespaceInformer coreinformers.NamespaceInformer
+
 	// logger
 	log logr.Logger
 }
@@ -75,12 +79,13 @@ func NewController(
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{
-		kyvernoClient: kyvernoclient,
-		client:        client,
-		pInformer:     pInformer,
-		urInformer:    urInformer,
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		log:           log,
+		kyvernoClient:     kyvernoclient,
+		client:            client,
+		pInformer:         pInformer,
+		urInformer:        urInformer,
+		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
+		namespaceInformer: namespaceInformer,
+		log:               log,
 	}
 
 	c.control = Control{client: kyvernoclient}
@@ -91,6 +96,20 @@ func NewController(
 	c.nsLister = namespaceInformer.Lister()
 
 	return &c, nil
+}
+
+func (c *Controller) deleteGenericResource(obj interface{}) {
+	logger := c.log
+	r := obj.(*corev1.Namespace)
+	grs, err := c.urLister.GetUpdateRequestsForResource(r.Kind, r.Namespace, r.Name)
+	if err != nil {
+		logger.Error(err, "failed to get generate request CR for resource", "kind", r.Kind, "namespace", r.Namespace, "name", r.Name)
+		return
+	}
+	// re-evaluate the GR as the resource was deleted
+	for _, gr := range grs {
+		c.enqueue(gr)
+	}
 }
 
 func (c *Controller) deletePolicy(obj interface{}) {
@@ -180,7 +199,7 @@ func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
 		return
 	}
 
-	logger.V(5).Info("enqueue update request", "name", ur.Name)
+	logger.V(4).Info("enqueue update request", "name", ur.Name)
 	c.queue.Add(key)
 }
 
@@ -198,6 +217,10 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 
 	c.urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deleteUR,
+	})
+
+	c.namespaceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deleteGenericResource,
 	})
 
 	for i := 0; i < workers; i++ {
