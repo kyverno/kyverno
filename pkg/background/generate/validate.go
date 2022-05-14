@@ -87,7 +87,7 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 // If validateResourceElement detects array element inside resource and pattern trees, it goes to validateArray
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
-	if 0 == len(patternArray) {
+	if len(patternArray) == 0 {
 		return path, fmt.Errorf("pattern Array empty")
 	}
 
