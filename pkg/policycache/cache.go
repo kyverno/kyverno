@@ -5,10 +5,9 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/policy"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1informer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1lister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,7 +18,7 @@ import (
 type Cache interface {
 	// GetPolicies returns all policies that apply to a namespace, including cluster-wide policies
 	// If the namespace is empty, only cluster-wide policies are returned
-	GetPolicies(PolicyType, string, string) []kyverno.PolicyInterface
+	GetPolicies(PolicyType, string, string) []kyvernov1.PolicyInterface
 	// CheckPolicySync wait until the internal policy cache is fully loaded
 	CheckPolicySync(<-chan struct{})
 }
@@ -31,13 +30,13 @@ type Cache interface {
 // policies based on types (Mutate/ValidateEnforce/Generate/imageVerify).
 type controller struct {
 	store
-	cpolLister kyvernolister.ClusterPolicyLister
-	polLister  kyvernolister.PolicyLister
+	cpolLister kyvernov1lister.ClusterPolicyLister
+	polLister  kyvernov1lister.PolicyLister
 	pCounter   int64
 }
 
 // NewCache create a new Cache
-func NewCache(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyvernoinformer.PolicyInformer) Cache {
+func NewCache(pInformer kyvernov1informer.ClusterPolicyInformer, nspInformer kyvernov1informer.PolicyInformer) Cache {
 	pc := controller{
 		store:      newPolicyCache(),
 		cpolLister: pInformer.Lister(),
@@ -57,35 +56,20 @@ func NewCache(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyver
 	return &pc
 }
 
-func (c *controller) GetPolicies(pkey PolicyType, kind, nspace string) []kyverno.PolicyInterface {
-	var names []string
-	names = append(names, c.store.get(pkey, kind, "")...)
-	names = append(names, c.store.get(pkey, "*", "")...)
+func (c *controller) GetPolicies(pkey PolicyType, kind, nspace string) []kyvernov1.PolicyInterface {
+	var result []kyvernov1.PolicyInterface
+	result = append(result, c.store.get(pkey, kind, "")...)
+	result = append(result, c.store.get(pkey, "*", "")...)
 	if nspace != "" {
-		names = append(names, c.store.get(pkey, kind, nspace)...)
-		names = append(names, c.store.get(pkey, "*", nspace)...)
+		result = append(result, c.store.get(pkey, kind, nspace)...)
+		result = append(result, c.store.get(pkey, "*", nspace)...)
 	}
-	var policies []kyverno.PolicyInterface
-	for _, name := range names {
-		ns, key, isNamespacedPolicy := policy.ParseNamespacedPolicy(name)
-		if !isNamespacedPolicy {
-			if p, err := c.cpolLister.Get(key); err == nil {
-				policies = append(policies, p)
-			}
-		} else {
-			if ns == nspace {
-				if p, err := c.polLister.Policies(ns).Get(key); err == nil {
-					policies = append(policies, p)
-				}
-			}
-		}
-	}
-	return policies
+	return result
 }
 
 func (c *controller) CheckPolicySync(stopCh <-chan struct{}) {
 	logger.Info("starting")
-	policies := []kyverno.PolicyInterface{}
+	policies := []kyvernov1.PolicyInterface{}
 	polList, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		logger.Error(err, "failed to list Policy")
@@ -104,7 +88,7 @@ func (c *controller) CheckPolicySync(stopCh <-chan struct{}) {
 	}
 	atomic.StoreInt64(&c.pCounter, int64(len(policies)))
 	for _, policy := range policies {
-		c.store.add(policy)
+		c.store.set(policy)
 		atomic.AddInt64(&c.pCounter, ^int64(0))
 	}
 	if !c.hasPolicySynced() {
@@ -114,46 +98,46 @@ func (c *controller) CheckPolicySync(stopCh <-chan struct{}) {
 }
 
 func (c *controller) addPolicy(obj interface{}) {
-	p := obj.(*kyverno.ClusterPolicy)
-	c.store.add(p)
+	p := obj.(*kyvernov1.ClusterPolicy)
+	c.store.set(p)
 }
 
 func (c *controller) updatePolicy(old, cur interface{}) {
-	pOld := old.(*kyverno.ClusterPolicy)
-	pNew := cur.(*kyverno.ClusterPolicy)
+	pOld := old.(*kyvernov1.ClusterPolicy)
+	pNew := cur.(*kyvernov1.ClusterPolicy)
 	if reflect.DeepEqual(pOld.Spec, pNew.Spec) {
 		return
 	}
-	c.store.update(pOld, pNew)
+	c.store.set(pNew)
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
-	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyverno.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if ok {
-		c.store.remove(p)
+		c.store.unset(p)
 	} else {
 		logger.Info("Failed to get deleted object, the deleted policy cannot be removed from the cache", "obj", obj)
 	}
 }
 
 func (c *controller) addNsPolicy(obj interface{}) {
-	p := obj.(*kyverno.Policy)
-	c.store.add(p)
+	p := obj.(*kyvernov1.Policy)
+	c.store.set(p)
 }
 
 func (c *controller) updateNsPolicy(old, cur interface{}) {
-	npOld := old.(*kyverno.Policy)
-	npNew := cur.(*kyverno.Policy)
+	npOld := old.(*kyvernov1.Policy)
+	npNew := cur.(*kyvernov1.Policy)
 	if reflect.DeepEqual(npOld.Spec, npNew.Spec) {
 		return
 	}
-	c.store.update(npOld, npNew)
+	c.store.set(npNew)
 }
 
 func (c *controller) deleteNsPolicy(obj interface{}) {
-	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyverno.Policy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if ok {
-		c.store.remove(p)
+		c.store.unset(p)
 	} else {
 		logger.Info("Failed to get deleted object, the deleted cluster policy cannot be removed from the cache", "obj", obj)
 	}
