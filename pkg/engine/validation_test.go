@@ -434,7 +434,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -523,7 +523,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -980,7 +980,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1003,7 +1003,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1055,7 +1055,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1078,7 +1078,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1125,7 +1125,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1148,7 +1148,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1195,7 +1195,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1218,7 +1218,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1271,7 +1271,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1359,7 +1359,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -2009,9 +2009,8 @@ func Test_denyFeatureIssue744_BlockUpdate(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2026,9 +2025,8 @@ func Test_denyFeatureIssue744_DenyAll(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2050,9 +2048,8 @@ func Test_denyFeatureIssue744_BlockFields(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2067,9 +2064,8 @@ func Test_BlockLabelRemove(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2091,15 +2087,14 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
-func executeTest(t *testing.T, err error, test testCase) {
+func executeTest(t *testing.T, test testCase) {
 	var policy kyverno.ClusterPolicy
-	err = json.Unmarshal(test.policy, &policy)
+	var err error = json.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -3096,8 +3091,7 @@ func Test_block_bypass(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
