@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
-	"path"
 	ospath "path"
 	"path/filepath"
 	"reflect"
@@ -74,7 +73,7 @@ type Generation struct {
 // it may not work as expected.
 func RootDir() string {
 	_, b, _, _ := runtime.Caller(0)
-	d := path.Join(path.Dir(b))
+	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
 }
@@ -86,6 +85,7 @@ func getRelativePath(path string) string {
 }
 
 func loadScenario(t *testing.T, path string) (*Scenario, error) {
+	t.Helper()
 	fileBytes, err := loadFile(t, path)
 	assert.Nil(t, err)
 
@@ -112,6 +112,7 @@ func loadScenario(t *testing.T, path string) (*Scenario, error) {
 
 // loadFile loads file in byte buffer
 func loadFile(t *testing.T, path string) ([]byte, error) {
+	t.Helper()
 	path = getRelativePath(path)
 	t.Logf("reading file %s", path)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -123,6 +124,7 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {
+	t.Helper()
 	for _, tc := range s.TestCases {
 		runTestCase(t, tc)
 	}
@@ -130,6 +132,7 @@ func runScenario(t *testing.T, s *Scenario) bool {
 }
 
 func runTestCase(t *testing.T, tc TestCase) bool {
+	t.Helper()
 	policy := loadPolicy(t, tc.Input.Policy)
 	if policy == nil {
 		t.Error("Policy not loaded")
@@ -201,11 +204,13 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	return true
 }
 
-func createNamespace(client *client.Client, ns *unstructured.Unstructured) error {
+func createNamespace(client client.Interface, ns *unstructured.Unstructured) error {
 	_, err := client.CreateResource("", "Namespace", "", ns, false)
 	return err
 }
-func validateGeneratedResources(t *testing.T, client *client.Client, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
+
+func validateGeneratedResources(t *testing.T, client client.Interface, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
+	t.Helper()
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
 	for _, resource := range expected {
@@ -216,6 +221,7 @@ func validateGeneratedResources(t *testing.T, client *client.Client, policy kyve
 }
 
 func validateResource(t *testing.T, responseResource unstructured.Unstructured, expectedResourceFile string) {
+	t.Helper()
 	resourcePrint := func(obj unstructured.Unstructured, msg string) {
 		t.Logf("-----%s----", msg)
 		if data, err := obj.MarshalJSON(); err == nil {
@@ -244,6 +250,7 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 }
 
 func validateResponse(t *testing.T, er response.PolicyResponse, expected response.PolicyResponse) {
+	t.Helper()
 	if reflect.DeepEqual(expected, response.PolicyResponse{}) {
 		t.Log("no response expected")
 		return
@@ -271,6 +278,7 @@ func validateResponse(t *testing.T, er response.PolicyResponse, expected respons
 }
 
 func comparePolicySpec(t *testing.T, policy response.PolicySpec, expectedPolicy response.PolicySpec) {
+	t.Helper()
 	// namespace
 	if policy.Namespace != expectedPolicy.Namespace {
 		t.Errorf("namespace: expected %s, received %s", expectedPolicy.Namespace, policy.Namespace)
@@ -282,6 +290,7 @@ func comparePolicySpec(t *testing.T, policy response.PolicySpec, expectedPolicy 
 }
 
 func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedResource response.ResourceSpec) {
+	t.Helper()
 	// kind
 	if resource.Kind != expectedResource.Kind {
 		t.Errorf("kind: expected %s, received %s", expectedResource.Kind, resource.Kind)
@@ -302,6 +311,7 @@ func compareResourceSpec(t *testing.T, resource response.ResourceSpec, expectedR
 }
 
 func compareRules(t *testing.T, rule response.RuleResponse, expectedRule response.RuleResponse) {
+	t.Helper()
 	// name
 	if rule.Name != expectedRule.Name {
 		t.Errorf("rule name: expected %s, received %+v", expectedRule.Name, rule.Name)
@@ -328,6 +338,7 @@ func compareRules(t *testing.T, rule response.RuleResponse, expectedRule respons
 }
 
 func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
+	t.Helper()
 	// expect only one resource to be specified in the YAML
 	resources := loadResource(t, file)
 	if resources == nil {
@@ -347,13 +358,11 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 	return resources[0]
 }
 
-func getClient(t *testing.T, files []string) *client.Client {
+func getClient(t *testing.T, files []string) client.Interface {
+	t.Helper()
 	var objects []k8sRuntime.Object
-	if files != nil {
-
-		for _, file := range files {
-			objects = loadObjects(t, file)
-		}
+	for _, file := range files {
+		objects = loadObjects(t, file)
 	}
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
@@ -383,6 +392,7 @@ func getGVRForResources(objects []k8sRuntime.Object) []schema.GroupVersionResour
 }
 
 func loadResource(t *testing.T, path string) []*unstructured.Unstructured {
+	t.Helper()
 	var unstrResources []*unstructured.Unstructured
 	t.Logf("loading resource from %s", path)
 	data, err := loadFile(t, path)
@@ -411,6 +421,7 @@ func loadResource(t *testing.T, path string) []*unstructured.Unstructured {
 }
 
 func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
+	t.Helper()
 	var resources []k8sRuntime.Object
 	t.Logf("loading objects from %s", path)
 	data, err := loadFile(t, path)
@@ -430,10 +441,10 @@ func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
 		resources = append(resources, obj)
 	}
 	return resources
-
 }
 
 func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
+	t.Helper()
 	t.Logf("loading policy from %s", path)
 	data, err := loadFile(t, path)
 	if err != nil {
@@ -468,7 +479,7 @@ func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
 }
 
 func testScenario(t *testing.T, path string) {
-
+	t.Helper()
 	// flag.Set("logtostderr", "true")
 	// flag.Set("v", "8")
 

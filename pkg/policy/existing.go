@@ -202,14 +202,13 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 }
 
 func (pc *PolicyController) processExistingKinds(kinds []string, policy kyverno.PolicyInterface, rule kyverno.Rule, logger logr.Logger) {
-
 	for _, kind := range kinds {
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
 		_, err := pc.rm.GetScope(kind)
 		if err != nil {
 			gv, k := kubeutils.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
-				resourceSchema, _, err := pc.client.DiscoveryClient.FindResource(gv, k)
+				resourceSchema, _, err := pc.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					logger.Error(err, "failed to find resource", "kind", k)
 					continue

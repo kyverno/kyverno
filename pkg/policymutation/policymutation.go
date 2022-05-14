@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // GenerateJSONPatchesForDefaults generates default JSON patches for
@@ -48,91 +47,8 @@ func GenerateJSONPatchesForDefaults(policy kyverno.PolicyInterface, log logr.Log
 		}
 		patches = append(patches, patch...)
 	}
-	formatedGVK, errs := checkForGVKFormatPatch(policy, log)
-	if len(errs) > 0 {
-		var errMsgs []string
-		for _, err := range errs {
-			errMsgs = append(errMsgs, err.Error())
-			log.Error(err, "failed to format the kind")
-		}
-		updateMsgs = append(updateMsgs, strings.Join(errMsgs, ";"))
-	}
-	patches = append(patches, formatedGVK...)
+
 	return jsonutils.JoinPatches(patches...), updateMsgs
-}
-
-func checkForGVKFormatPatch(policy kyverno.PolicyInterface, log logr.Logger) (patches [][]byte, errs []error) {
-	patches = make([][]byte, 0)
-	for i, rule := range autogen.ComputeRules(policy) {
-		patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/resources/kinds", strconv.Itoa(i)), rule.MatchResources.Kinds, log)
-		if err == nil && patchByte != nil {
-			patches = append(patches, patchByte)
-		} else if err != nil {
-			errs = append(errs, fmt.Errorf("failed to GVK for rule '%s/%s/%d/match': %v", policy.GetName(), rule.Name, i, err))
-		}
-
-		for j, matchAll := range rule.MatchResources.All {
-			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/all/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(j)), matchAll.ResourceDescription.Kinds, log)
-			if err == nil && patchByte != nil {
-				patches = append(patches, patchByte)
-			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/all/%d': %v", policy.GetName(), rule.Name, i, j, err))
-			}
-		}
-
-		for k, matchAny := range rule.MatchResources.Any {
-			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/match/any/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(k)), matchAny.ResourceDescription.Kinds, log)
-			if err == nil && patchByte != nil {
-				patches = append(patches, patchByte)
-			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/match/any/%d': %v", policy.GetName(), rule.Name, i, k, err))
-			}
-		}
-
-		patchByte, err = convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/resources/kinds", strconv.Itoa(i)), rule.ExcludeResources.Kinds, log)
-		if err == nil && patchByte != nil {
-			patches = append(patches, patchByte)
-		} else if err != nil {
-			errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude': %v", policy.GetName(), rule.Name, i, err))
-		}
-
-		for j, excludeAll := range rule.ExcludeResources.All {
-			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/all/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(j)), excludeAll.ResourceDescription.Kinds, log)
-			if err == nil && patchByte != nil {
-				patches = append(patches, patchByte)
-			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/all/%d': %v", policy.GetName(), rule.Name, i, j, err))
-			}
-		}
-
-		for k, excludeAny := range rule.ExcludeResources.Any {
-			patchByte, err := convertGVKForKinds(fmt.Sprintf("/spec/rules/%s/exclude/any/%s/resources/kinds", strconv.Itoa(i), strconv.Itoa(k)), excludeAny.ResourceDescription.Kinds, log)
-			if err == nil && patchByte != nil {
-				patches = append(patches, patchByte)
-			} else if err != nil {
-				errs = append(errs, fmt.Errorf("failed to convert GVK for rule '%s/%s/%d/exclude/any/%d': %v", policy.GetName(), rule.Name, i, k, err))
-			}
-		}
-	}
-
-	return patches, errs
-}
-
-func convertGVKForKinds(path string, kinds []string, log logr.Logger) ([]byte, error) {
-	kindList := []string{}
-	for _, k := range kinds {
-		gvk := kubeutils.GetFormatedKind(k)
-		if gvk == k {
-			continue
-		}
-		kindList = append(kindList, gvk)
-	}
-	if len(kindList) == 0 {
-		return nil, nil
-	}
-	p, err := jsonutils.MarshalPatch(path, "replace", kindList)
-	log.V(4).WithName("convertGVKForKinds").Info("generated patch", "patch", string(p))
-	return p, err
 }
 
 func defaultBackgroundFlag(spec *kyverno.Spec, log logr.Logger) ([]byte, string) {

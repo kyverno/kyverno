@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -82,6 +83,7 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
 		}
 		path = jp.(string)
+		logger.V(4).Info("evaluated jmespath", "variable name", entry.Name, "jmespath", path)
 	}
 	var defaultValue interface{} = nil
 	if entry.Variable.Default != nil {
@@ -93,6 +95,7 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 		if err != nil {
 			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Default, err)
 		}
+		logger.V(4).Info("evaluated default value", "variable name", entry.Name, "jmespath", defaultValue)
 	}
 	var output interface{} = defaultValue
 	if entry.Variable.Value != nil {
@@ -105,6 +108,8 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 			variable, err := applyJMESPath(path, variable)
 			if err == nil {
 				output = variable
+			} else if defaultValue == nil {
+				return fmt.Errorf("failed to apply jmespath %s to variable %s: %v", path, entry.Variable.Value, err)
 			}
 		} else {
 			output = variable
@@ -113,9 +118,12 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 		if path != "" {
 			if variable, err := ctx.JSONContext.Query(path); err == nil {
 				output = variable
+			} else if defaultValue == nil {
+				return fmt.Errorf("failed to apply jmespath %s to variable %v", path, err)
 			}
 		}
 	}
+	logger.V(4).Info("evaluated output", "variable name", entry.Name, "output", output)
 	if output == nil {
 		return fmt.Errorf("unable to add context entry for variable %s since it evaluated to nil", entry.Name)
 	}
@@ -186,13 +194,23 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
 	}
-	manifest, err := image.Manifest()
+	// We need to use the raw config and manifest to avoid dropping unknown keys
+	// which are not defined in GGCR structs.
+	rawManifest, err := image.RawManifest()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
 	}
-	config, err := image.ConfigFile()
+	var manifest interface{}
+	if err := json.Unmarshal(rawManifest, &manifest); err != nil {
+		return nil, fmt.Errorf("failed to decode manifest for image reference: %s, error: %v", ref, err)
+	}
+	rawConfig, err := image.RawConfigFile()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
+	}
+	var configData interface{}
+	if err := json.Unmarshal(rawConfig, &configData); err != nil {
+		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
 	data := map[string]interface{}{
 		"image":         ref,
@@ -201,7 +219,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 		"repository":    parsedRef.Context().RepositoryStr(),
 		"identifier":    parsedRef.Identifier(),
 		"manifest":      manifest,
-		"configData":    config,
+		"configData":    configData,
 	}
 	// we need to do the conversion from struct types to an interface type so that jmespath
 	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum
@@ -255,7 +273,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
 	}
 
-	logger.Info("added APICall context entry", "data", contextData)
+	logger.V(4).Info("added APICall context entry", "len", len(contextData))
 	return nil
 }
 
@@ -299,7 +317,6 @@ func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContex
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
-
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {

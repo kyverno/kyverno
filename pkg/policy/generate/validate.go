@@ -24,7 +24,7 @@ type Generate struct {
 }
 
 //NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule kyverno.Generation, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
 		authCheck: NewAuth(client, log),
@@ -139,7 +139,6 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 		if !ok {
 			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
-
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
 	}

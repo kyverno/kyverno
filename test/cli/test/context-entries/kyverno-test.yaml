@@ -49,3 +49,13 @@ results:
     resource: example
     kind: Pod
     result: pass
+  - policy: example
+    rule:  items
+    resource: example
+    kind: Pod
+    result: pass
+  - policy: example
+    rule:  unused-var
+    resource: example
+    kind: Pod
+    result: pass

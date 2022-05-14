@@ -10,6 +10,15 @@ import (
 	"github.com/go-logr/logr"
 	changerequest "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
+	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
+	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/config"
+	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,15 +32,6 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/version"
 )
 
 const (
@@ -50,28 +50,19 @@ var LabelSelector = &metav1.LabelSelector{
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
-	pclient *kyvernoclient.Clientset
-	dclient *dclient.Client
+	pclient kyvernoclient.Interface
+	dclient dclient.Interface
 
 	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
 	reportInformer           policyreportinformer.PolicyReportInformer
 	reportReqInformer        requestinformer.ReportChangeRequestInformer
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer
 
-	reportLister policyreport.PolicyReportLister
-	reportSynced cache.InformerSynced
-
-	clusterReportLister policyreport.ClusterPolicyReportLister
-	clusterReportSynced cache.InformerSynced
-
-	reportChangeRequestLister requestlister.ReportChangeRequestLister
-	reportReqSynced           cache.InformerSynced
-
+	reportLister                     policyreport.PolicyReportLister
+	clusterReportLister              policyreport.ClusterPolicyReportLister
+	reportChangeRequestLister        requestlister.ReportChangeRequestLister
 	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
-	clusterReportReqSynced           cache.InformerSynced
-
-	nsLister       listerv1.NamespaceLister
-	nsListerSynced cache.InformerSynced
+	nsLister                         listerv1.NamespaceLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -84,15 +75,15 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	pclient *kyvernoclient.Clientset,
-	dclient *dclient.Client,
+	pclient kyvernoclient.Interface,
+	dclient dclient.Interface,
 	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
 	reportInformer policyreportinformer.PolicyReportInformer,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	namespace informers.NamespaceInformer,
-	log logr.Logger) (*ReportGenerator, error) {
-
+	log logr.Logger,
+) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
 		dclient:                  dclient,
@@ -106,15 +97,10 @@ func NewReportGenerator(
 	}
 
 	gen.clusterReportLister = clusterReportInformer.Lister()
-	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
 	gen.reportLister = reportInformer.Lister()
-	gen.reportSynced = reportInformer.Informer().HasSynced
 	gen.clusterReportChangeRequestLister = clusterReportReqInformer.Lister()
-	gen.clusterReportReqSynced = clusterReportReqInformer.Informer().HasSynced
 	gen.reportChangeRequestLister = reportReqInformer.Lister()
-	gen.reportReqSynced = reportReqInformer.Informer().HasSynced
 	gen.nsLister = namespace.Lister()
-	gen.nsListerSynced = namespace.Informer().HasSynced
 
 	return gen, nil
 }
@@ -222,8 +208,12 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 }
 
 func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
-	report := obj.(*report.PolicyReport)
-	g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
+	report, ok := kubeutils.GetObjectWithTombstone(obj).(*report.PolicyReport)
+	if ok {
+		g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
+	} else {
+		g.log.Info("Failed to get deleted object", "obj", obj)
+	}
 	g.ReconcileCh <- false
 }
 
@@ -240,10 +230,6 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, g.reportReqSynced, g.clusterReportReqSynced, g.reportSynced, g.clusterReportSynced, g.nsListerSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	g.reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
@@ -441,7 +427,7 @@ func (g *ReportGenerator) removePolicyEntryFromReport(policyName, ruleName strin
 			deletedLabelRule:   ruleName,
 		})
 	}
-	aggregatedRequests, err = g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(labels.SelectorFromSet(labelset))
+	aggregatedRequests, err = g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(labels.SelectorFromSet(labelset))
 	if err != nil {
 		return aggregatedRequests, err
 	}
@@ -522,9 +508,11 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 
 // aggregateReports aggregates cluster / report change requests to a policy report
 func (g *ReportGenerator) aggregateReports(namespace string) (
-	report *unstructured.Unstructured, aggregatedRequests interface{}, err error) {
-
-	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
+	report *unstructured.Unstructured,
+	aggregatedRequests interface{},
+	err error,
+) {
+	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace())
 	if err != nil {
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
@@ -553,7 +541,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		}
 
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, resourceLabelNamespace: namespace}))
-		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
+		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
@@ -718,7 +706,6 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
 		}
-
 	}
 
 	g.log.V(3).Info("successfully updated policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
@@ -729,7 +716,7 @@ func (g *ReportGenerator) cleanupReportRequests(requestsGeneral interface{}) {
 	defer g.log.V(5).Info("successfully cleaned up report requests")
 	if requests, ok := requestsGeneral.([]*changerequest.ReportChangeRequest); ok {
 		for _, request := range requests {
-			if err := g.pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
+			if err := g.pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).Delete(context.TODO(), request.Name, metav1.DeleteOptions{}); err != nil {
 				if !apierrors.IsNotFound(err) {
 					g.log.Error(err, "failed to delete report request")
 				}

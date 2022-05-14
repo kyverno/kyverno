@@ -172,7 +172,10 @@ func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
 			}
 			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
-		Expect(err).NotTo(HaveOccurred())
+		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
+		if err != nil {
+			By(err.Error())
+		}
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
@@ -309,7 +312,10 @@ func Test_Role_RoleBinding_Sets(t *testing.T) {
 			}
 			return fmt.Errorf("failed to delete namespace: %v", err)
 		})
-		Expect(err).NotTo(HaveOccurred())
+		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
+		if err != nil {
+			By(err.Error())
+		}
 
 		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
@@ -1116,6 +1122,7 @@ func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 			}
 			return nil
 		})
+
 		Expect(err).NotTo(HaveOccurred())
 
 		// ===========================================

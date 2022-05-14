@@ -22,7 +22,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyverno.Rule, client *dclient.Client, mock bool) error {
+func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock bool) error {
 	if rule == nil {
 		return nil
 	}

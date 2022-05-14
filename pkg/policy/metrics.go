@@ -68,10 +68,3 @@ func (pc *PolicyController) registerPolicyChangesMetricDeletePolicy(logger logr.
 		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's deletion", "name", p.GetName())
 	}
 }
-
-func (pc *PolicyController) registerPolicyRuleInfoMetricDeleteNsPolicy(logger logr.Logger, p *kyverno.Policy) {
-	err := policyRuleInfoMetric.RemovePolicy(pc.promConfig, p)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_rule_info_total metrics for the above policy's deletion", "name", p.Name)
-	}
-}

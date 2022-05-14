@@ -4,6 +4,7 @@ policies:
 resources:
   - resource.yaml
 variables: variables.yaml
+userinfo: user_info.yaml
 results:
   - policy: limit-configmap-for-sa
     rule: limit-configmap-for-sa-developer

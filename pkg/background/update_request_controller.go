@@ -1,6 +1,7 @@
 package background
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -35,10 +36,10 @@ const (
 // Controller manages the life-cycle for Generate-Requests and applies generate rule
 type Controller struct {
 	// dynamic client implementation
-	client *dclient.Client
+	client dclient.Interface
 
 	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
+	kyvernoClient kyvernoclient.Interface
 
 	policyInformer kyvernoinformer.ClusterPolicyInformer
 
@@ -63,36 +64,24 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
-	// policySynced returns true if the Cluster policy store has been synced at least once
-	policySynced cache.InformerSynced
-
-	// policySynced returns true if the Namespace policy store has been synced at least once
-	npolicySynced cache.InformerSynced
-
-	// urSynced returns true if the Update Request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	nsSynced cache.InformerSynced
-
 	log logr.Logger
 
-	Config config.Interface
+	Config config.Configuration
 }
 
 //NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kubeClient kubernetes.Interface,
-	kyvernoClient *kyvernoclient.Clientset,
-	client *dclient.Client,
+	kyvernoClient kyvernoclient.Interface,
+	client dclient.Interface,
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
 	eventGen event.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
-	dynamicConfig config.Interface,
+	dynamicConfig config.Configuration,
 ) (*Controller, error) {
-
 	c := Controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
@@ -104,12 +93,6 @@ func NewController(
 	}
 
 	c.statusControl = common.StatusControl{Client: kyvernoClient}
-
-	c.policySynced = policyInformer.Informer().HasSynced
-
-	c.npolicySynced = npolicyInformer.Informer().HasSynced
-
-	c.urSynced = urInformer.Informer().HasSynced
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
@@ -118,24 +101,20 @@ func NewController(
 
 	c.policyLister = policyInformer.Lister()
 	c.npolicyLister = npolicyInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
-
+	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c.nsLister = namespaceInformer.Lister()
-	c.nsSynced = namespaceInformer.Informer().HasSynced
 
 	return &c, nil
 }
 
 // Run starts workers
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
+	logger := c.log
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
-	defer c.log.Info("shutting down")
 
-	if !cache.WaitForCacheSync(stopCh, c.policySynced, c.urSynced, c.npolicySynced, c.nsSynced) {
-		c.log.Info("failed to sync informer cache")
-		return
-	}
+	logger.Info("starting")
+	defer logger.Info("shutting down")
 
 	c.policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
@@ -211,11 +190,28 @@ func (c *Controller) syncUpdateRequest(key string) error {
 			return nil
 		}
 
-		logger.Error(err, "failed to fetch update request", "key", key)
-		return err
+		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
 
-	return c.ProcessUR(ur)
+	ur, ok, err := c.MarkUR(ur)
+	if !ok {
+		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
+	}
+
+	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
+	if err := c.ProcessUR(ur); err != nil {
+		return fmt.Errorf("failed to process UR %s: %v", key, err)
+	}
+
+	if err = c.UnmarkUR(ur); err != nil {
+		return fmt.Errorf("failed to un-mark UR %s: %v", key, err)
+	}
+
+	return nil
 }
 
 func (c *Controller) enqueueUpdateRequest(obj interface{}) {
@@ -271,6 +267,9 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 
 func (c *Controller) addUR(obj interface{}) {
 	ur := obj.(*urkyverno.UpdateRequest)
+	if ur.Status.Handler != "" {
+		return
+	}
 	c.enqueueUpdateRequest(ur)
 }
 
@@ -285,6 +284,10 @@ func (c *Controller) updateUR(old, cur interface{}) {
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the UPDATE Request fails due to incorrect policy, it will be requeued during policy update
 	if curUr.Status.State != urkyverno.Pending {
+		return
+	}
+
+	if curUr.Status.Handler != "" {
 		return
 	}
 	c.enqueueUpdateRequest(curUr)
@@ -306,22 +309,8 @@ func (c *Controller) deleteUR(obj interface{}) {
 		}
 	}
 
-	if ur.Spec.GetRequestType() == urkyverno.Generate {
-		for _, resource := range ur.Status.GeneratedResources {
-			r, err := c.client.GetResource(resource.APIVersion, resource.Kind, resource.Namespace, resource.Name)
-			if err != nil && !apierrors.IsNotFound(err) {
-				logger.Error(err, "Generated resource is not deleted", "Resource", resource.Name)
-				continue
-			}
-
-			if r != nil && r.GetLabels()["policy.kyverno.io/synchronize"] == "enable" {
-				if err := c.client.DeleteResource(r.GetAPIVersion(), r.GetKind(), r.GetNamespace(), r.GetName(), false); err != nil && !apierrors.IsNotFound(err) {
-					logger.Error(err, "Generated resource is not deleted", "Resource", r.GetName())
-				}
-			}
-		}
-
-		logger.V(3).Info("deleting update request", "name", ur.Name)
+	if ur.Status.Handler != "" {
+		return
 	}
 
 	// sync Handler will remove it from the queue

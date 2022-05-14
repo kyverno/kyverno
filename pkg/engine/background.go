@@ -82,7 +82,6 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
 	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {
-
 		if ruleType == response.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
 			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err == nil {

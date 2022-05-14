@@ -6,9 +6,9 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +35,7 @@ type Interface interface {
 	AddRequest(request *admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
-	AddVariable(key, value string) error
+	AddVariable(key string, value interface{}) error
 
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
@@ -50,7 +50,7 @@ type Interface interface {
 	AddOldResource(data map[string]interface{}) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
-	AddUserInfo(userInfo urkyverno.RequestInfo) error
+	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
 
 	// AddServiceAccount merges ServiceAccount types
 	AddServiceAccount(userName string) error
@@ -59,20 +59,20 @@ type Interface interface {
 	AddNamespace(namespace string) error
 
 	// AddElement adds element info to the context
-	AddElement(data map[string]interface{}, index int) error
+	AddElement(data interface{}, index int) error
 
 	// AddImageInfo adds image info to the context
-	AddImageInfo(info kubeutils.ImageInfo) error
+	AddImageInfo(info apiutils.ImageInfo) error
 
 	// AddImageInfos adds image infos to the context
 	AddImageInfos(resource *unstructured.Unstructured) error
 
 	// ImageInfo returns image infos present in the context
-	ImageInfo() map[string]map[string]kubeutils.ImageInfo
+	ImageInfo() map[string]map[string]apiutils.ImageInfo
 
 	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
 	// and updates the context
-	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error)
+	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error)
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
@@ -94,7 +94,7 @@ type context struct {
 	mutex              sync.RWMutex
 	jsonRaw            []byte
 	jsonRawCheckpoints [][]byte
-	images             map[string]map[string]kubeutils.ImageInfo
+	images             map[string]map[string]apiutils.ImageInfo
 }
 
 // NewContext returns a new context
@@ -128,8 +128,8 @@ func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 
-func (ctx *context) AddVariable(key, value string) error {
-	return ctx.addJSON(pkgcommon.VariableToJSON(key, value))
+func (ctx *context) AddVariable(key string, value interface{}) error {
+	return addToContext(ctx, value, strings.Split(key, ".")...)
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
@@ -166,7 +166,7 @@ func (ctx *context) AddOldResource(data map[string]interface{}) error {
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
-func (ctx *context) AddUserInfo(userRequestInfo urkyverno.RequestInfo) error {
+func (ctx *context) AddUserInfo(userRequestInfo kyvernov1beta1.RequestInfo) error {
 	return addToContext(ctx, userRequestInfo, "request")
 }
 
@@ -223,7 +223,7 @@ func (ctx *context) AddNamespace(namespace string) error {
 	return addToContext(ctx, namespace, "request", "namespace")
 }
 
-func (ctx *context) AddElement(data map[string]interface{}, index int) error {
+func (ctx *context) AddElement(data interface{}, index int) error {
 	data = map[string]interface{}{
 		"element":      data,
 		"elementIndex": index,
@@ -231,7 +231,7 @@ func (ctx *context) AddElement(data map[string]interface{}, index int) error {
 	return addToContext(ctx, data)
 }
 
-func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
+func (ctx *context) AddImageInfo(info apiutils.ImageInfo) error {
 	data := map[string]interface{}{
 		"image":    info.String(),
 		"registry": info.Registry,
@@ -244,10 +244,7 @@ func (ctx *context) AddImageInfo(info kubeutils.ImageInfo) error {
 }
 
 func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
-
-	log.Log.Info("extracting image info", "obj", resource.UnstructuredContent())
-
-	images, err := kubeutils.ExtractImagesFromResource(*resource, nil)
+	images, err := apiutils.ExtractImagesFromResource(*resource, nil)
 	if err != nil {
 		return err
 	}
@@ -256,26 +253,25 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	}
 	ctx.images = images
 
-	log.Log.Info("updated image info", "images", images)
-
+	log.Log.V(4).Info("updated image info", "images", images)
 	return addToContext(ctx, images, "images")
 }
 
-func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kubeutils.ImageExtractorConfigs) (map[string]map[string]kubeutils.ImageInfo, error) {
-	images, err := kubeutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
+func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error) {
+	images, err := apiutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to extract images")
 	}
 
 	if len(images) == 0 {
-		logger.Info("no images found", "extractor", imageExtractorConfigs)
+		logger.V(4).Info("no images found", "extractor", imageExtractorConfigs)
 		return nil, nil
 	}
 
 	return images, addToContext(ctx, images, "images")
 }
 
-func (ctx *context) ImageInfo() map[string]map[string]kubeutils.ImageInfo {
+func (ctx *context) ImageInfo() map[string]map[string]apiutils.ImageInfo {
 	return ctx.images
 }
 

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -62,6 +63,8 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
+	items                  = "items"
+	objectFromLists        = "object_from_lists"
 )
 
 const errorPrefix = "JMESPath function '%s': "
@@ -368,8 +371,30 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpAny},
 			Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
 		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: items,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpObject}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpItems,
+			},
+			ReturnType: []JpType{JpArray},
+			Note:       "converts a map to an array of objects where each key:value is an item in the array",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: objectFromLists,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpArray}},
+					{Types: []JpType{JpArray}},
+				},
+				Handler: jpObjectFromLists,
+			},
+			ReturnType: []JpType{JpObject},
+			Note:       "converts a pair of lists containing keys and values to an object",
+		},
 	}
-
 }
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {
@@ -793,6 +818,68 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	var output interface{}
 	err = json.Unmarshal(jsonData, &output)
 	return output, err
+}
+
+func jpItems(arguments []interface{}) (interface{}, error) {
+	input, ok := arguments[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
+	}
+	keyName, ok := arguments[1].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "String")
+	}
+	valName, ok := arguments[2].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 2, "String")
+	}
+
+	arrayOfObj := make([]map[string]interface{}, 0)
+
+	keys := []string{}
+
+	// Sort the keys so that the output is deterministic
+	for key := range input {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		m := make(map[string]interface{})
+		m[keyName] = key
+		m[valName] = input[key]
+		arrayOfObj = append(arrayOfObj, m)
+	}
+
+	return arrayOfObj, nil
+}
+
+func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
+	keys, ok := arguments[0].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Array")
+	}
+	values, ok := arguments[1].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "Array")
+	}
+
+	output := map[string]interface{}{}
+
+	for i, ikey := range keys {
+		key, err := ifaceToString(ikey)
+		if err != nil {
+			return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "StringArray")
+		}
+		if i < len(values) {
+			output[key] = values[i]
+		} else {
+			output[key] = nil
+		}
+	}
+
+	return output, nil
 }
 
 // InterfaceToString casts an interface to a string type

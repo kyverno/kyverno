@@ -274,12 +274,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			continue
 		}
 
-		elementScope := true
-		if foreach.ElementScope != nil {
-			elementScope = *foreach.ElementScope
-		}
-
-		resp, count := v.validateElements(foreach, elements, elementScope)
+		resp, count := v.validateElements(foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
 		}
@@ -294,7 +289,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
-func (v *validator) validateElements(foreach kyverno.ForEachValidation, elements []interface{}, elementScope bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(foreach kyverno.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 	applyCount := 0
@@ -328,17 +323,34 @@ func (v *validator) validateElements(foreach kyverno.ForEachValidation, elements
 	return ruleResponse(*v.rule, response.Validation, "", response.RuleStatusPass, nil), applyCount
 }
 
-func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope bool) error {
-	data, err := utils.ToMap(e)
+func addElementToContext(ctx *PolicyContext, e interface{}, elementIndex int, elementScope *bool) error {
+	data, err := variables.DocumentToUntyped(e)
 	if err != nil {
 		return err
 	}
 	if err := ctx.JSONContext.AddElement(data, elementIndex); err != nil {
 		return errors.Wrapf(err, "failed to add element (%v) to JSON context", e)
 	}
-	if elementScope {
+	dataMap, ok := data.(map[string]interface{})
+	// We set scoped to true by default if the data is a map
+	// otherwise we do not do element scoped foreach unless the user
+	// has explicitly set it to true
+	scoped := ok
+
+	// If the user has explicitly provided an element scope
+	// we check if data is a map or not. In case it is not a map and the user
+	// has set elementscoped to true, we throw an error.
+	// Otherwise we set the value to what is specified by the user.
+	if elementScope != nil {
+		if *elementScope && !ok {
+			return fmt.Errorf("cannot use elementScope=true foreach rules for elements that are not maps, expected type=map got type=%T", data)
+		}
+		scoped = *elementScope
+	}
+
+	if scoped {
 		u := unstructured.Unstructured{}
-		u.SetUnstructuredContent(data)
+		u.SetUnstructuredContent(dataMap)
 		ctx.Element = u
 	}
 	return nil
@@ -450,7 +462,7 @@ func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
 		}
 	}
 
-	logger.V(4).Info("resource does not match rule", "reason", err.Error())
+	logger.V(5).Info("resource does not match rule", "reason", err.Error())
 	return false
 }
 

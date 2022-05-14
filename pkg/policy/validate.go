@@ -31,9 +31,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
-var allowedVariablesBackground = regexp.MustCompile(`request\.|element\.|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
+var allowedVariablesBackground = regexp.MustCompile(`request\.|element|elementIndex|@|images\.|([a-z_0-9]+\()[^{}]`)
 
 // wildCardAllowedVariables represents regex for the allowed fields in wildcards
 var wildCardAllowedVariables = regexp.MustCompile(`\{\{\s*(request\.|serviceAccountName|serviceAccountNamespace)[^{}]*\}\}`)
@@ -72,16 +72,16 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 		if !val {
 			return fmt.Errorf("%s", path)
 		}
-
 	}
 	return nil
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
+	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -91,11 +91,18 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		return nil, err
 	}
 
+	if onPolicyUpdate {
+		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var res []*metav1.APIResourceList
 	clusterResources := sets.NewString()
 	if !mock && namespaced {
 		// Get all the cluster type kind supported by cluster
-		res, err := client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+		res, err := client.Discovery().DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return nil, err
 		}
@@ -187,13 +194,11 @@ func Validate(policy kyverno.PolicyInterface, client *dclient.Client, mock bool,
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
-
 			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 				return nil, fmt.Errorf("wildcard policy does not support rule type")
 			}
 
 			if rule.HasValidate() {
-
 				if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
 						return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
@@ -378,9 +383,9 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 		}
 
 		// skip variable checks on verifyImages.attestations, as variables in attestations are dynamic
-		for _, vi := range ruleCopy.VerifyImages {
-			for _, a := range vi.Attestations {
-				a.Conditions = nil
+		for i, vi := range ruleCopy.VerifyImages {
+			for j := range vi.Attestations {
+				ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 			}
 		}
 
@@ -388,6 +393,23 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 		if _, err := variables.SubstituteAllInRule(log.Log, ctx, *ruleCopy); !checkNotFoundErr(err) {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
+	}
+
+	return nil
+}
+
+func ValidateOnPolicyUpdate(p kyverno.PolicyInterface, onPolicyUpdate bool) error {
+	vars := hasVariables(p)
+	if len(vars) == 0 {
+		return nil
+	}
+
+	if err := hasInvalidVariables(p, onPolicyUpdate); err != nil {
+		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+	}
+
+	if err := containsUserVariables(p, vars); err != nil {
+		return fmt.Errorf("only select variables are allowed in on policy update. Set spec.mutateExistingOnPolicyUpdate=false to disable update policy mode for this policy rule: %s ", err)
 	}
 
 	return nil
@@ -590,7 +612,7 @@ func isLabelAndAnnotationsString(rule kyverno.Rule) bool {
 			patternMap, ok := pattern.(map[string]interface{})
 			if ok {
 				ret := checkMetadata(patternMap)
-				if ret == false {
+				if !ret {
 					return ret
 				}
 			}
@@ -709,13 +731,13 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		"conditions":    true,
 	}
 	if !allowedSchemaKeys[schemaKey] {
-		return fmt.Sprintf(schemaKey), fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
+		return schemaKey, fmt.Errorf("wrong schema key found for validating the conditions. Conditions can only occur under one of ['preconditions', 'conditions'] keys in the policy schema")
 	}
 
 	// conditions are currently in the form of []interface{}
 	kyvernoConditions, err := utils.ApiextensionsJsonToKyvernoConditions(conditions)
 	if err != nil {
-		return fmt.Sprintf("%s", schemaKey), err
+		return schemaKey, err
 	}
 	switch typedConditions := kyvernoConditions.(type) {
 	case kyverno.AnyAllConditions:
@@ -813,8 +835,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 		return nil
 	}
 
-	contextNames := make([]string, 0)
-
 	for _, entry := range rule.Context {
 		if entry.Name == "" {
 			return fmt.Errorf("a name is required for context entries")
@@ -824,7 +844,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 				return fmt.Errorf("entry name %s is invalid as it conflicts with a pre-defined variable %s", entry.Name, v)
 			}
 		}
-		contextNames = append(contextNames, entry.Name)
 
 		var err error
 		if entry.ConfigMap != nil && entry.APICall == nil && entry.ImageRegistry == nil && entry.Variable == nil {
@@ -843,18 +862,6 @@ func validateRuleContext(rule kyverno.Rule) error {
 			return err
 		}
 	}
-
-	ruleBytes, _ := json.Marshal(rule)
-	for _, contextName := range contextNames {
-		contextRegex, err := regexp.Compile(fmt.Sprintf(`{{.*\b%s\b.*}}`, contextName))
-		if err != nil {
-			return fmt.Errorf("unable to validate context variable `%s`, %w", contextName, err)
-		}
-		if !contextRegex.Match(ruleBytes) {
-			return fmt.Errorf("context variable `%s` is not used in the policy", contextName)
-		}
-	}
-
 	return nil
 }
 
@@ -982,7 +989,6 @@ func checkClusterResourceInMatchAndExclude(rule kyverno.Rule, clusterResources s
 				}
 			}
 		}
-
 	}
 	return nil
 }
@@ -1009,7 +1015,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 
 	reorderVal := strings.Split(strings.ToLower(val), ",")
 	sort.Slice(reorderVal, func(i, j int) bool { return reorderVal[i] < reorderVal[j] })
-	if ok && reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) == false {
+	if ok && !reflect.DeepEqual(reorderVal, []string{"cronjob", "daemonset", "deployment", "job", "statefulset"}) {
 		return true
 	}
 	return false
@@ -1017,7 +1023,7 @@ func podControllerAutoGenExclusion(policy kyverno.PolicyInterface) bool {
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found
-func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.PolicyInterface) error {
+func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyverno.PolicyInterface) error {
 	for _, kind := range kinds {
 		gv, k := kubeutils.GetKindFromGVK(kind)
 		if k == p.GetKind() {
@@ -1025,9 +1031,9 @@ func validateKinds(kinds []string, mock bool, client *dclient.Client, p kyverno.
 		}
 
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
-			_, _, err := client.DiscoveryClient.FindResource(gv, k)
+			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
-				return fmt.Errorf("unable to convert GVK to GVR, %s, err: %s", kinds, err)
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", kinds, err)
 			}
 		}
 	}

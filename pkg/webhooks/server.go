@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -23,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -35,47 +36,30 @@ import (
 	rbacinformer "k8s.io/client-go/informers/rbac/v1"
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-	"k8s.io/client-go/tools/cache"
 )
+
+type Handlers interface {
+	// Mutate performs the mutation of policy resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on policy resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+}
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
-	server        *http.Server
-	client        *client.Client
-	kyvernoClient *kyvernoclient.Clientset
+	server *http.Server
 
-	// urLister can list/get update requests from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
+	// clients
+	client        client.Interface
+	kyvernoClient kyvernoclient.Interface
 
-	// urSynced returns true if the Update Request store has been synced at least once
-	urSynced cache.InformerSynced
-
-	// returns true if the cluster policy store has synced atleast
-	pSynced cache.InformerSynced
-
-	// list/get role binding resource
-	rbLister rbaclister.RoleBindingLister
-
-	// list/get role binding resource
-	rLister rbaclister.RoleLister
-
-	// list/get role binding resource
-	crLister rbaclister.ClusterRoleLister
-
-	// return true if role bining store has synced atleast once
-	rbSynced cache.InformerSynced
-
-	// return true if role store has synced atleast once
-	rSynced cache.InformerSynced
-
-	// list/get cluster role binding resource
+	// listers
+	urLister  urlister.UpdateRequestNamespaceLister
+	rbLister  rbaclister.RoleBindingLister
+	rLister   rbaclister.RoleLister
+	crLister  rbaclister.ClusterRoleLister
 	crbLister rbaclister.ClusterRoleBindingLister
-
-	// return true if cluster role binding store has synced atleast once
-	crbSynced cache.InformerSynced
-
-	// return true if cluster role  store has synced atleast once
-	crSynced cache.InformerSynced
+	nsLister  listerv1.NamespaceLister
 
 	// generate events
 	eventGen event.Interface
@@ -87,7 +71,7 @@ type WebhookServer struct {
 	webhookRegister *webhookconfig.Register
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Interface
+	configuration config.Configuration
 
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
@@ -100,11 +84,6 @@ type WebhookServer struct {
 
 	// update request generator
 	urGenerator webhookgenerate.Interface
-
-	nsLister listerv1.NamespaceLister
-
-	// nsListerSynced returns true if the namespace store has been synced at least once
-	nsListerSynced cache.InformerSynced
 
 	auditHandler AuditHandler
 
@@ -122,9 +101,10 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *client.Client,
-	tlsPair *tlsutils.PemPair,
+	policyHandlers Handlers,
+	kyvernoClient kyvernoclient.Interface,
+	client client.Interface,
+	tlsPair func() ([]byte, []byte, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -136,7 +116,7 @@ func NewWebhookServer(
 	pCache policycache.Interface,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
-	configHandler config.Interface,
+	configHandler config.Configuration,
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Interface,
 	auditHandler AuditHandler,
@@ -149,30 +129,19 @@ func NewWebhookServer(
 	if tlsPair == nil {
 		return nil, errors.New("NewWebhookServer is not initialized properly")
 	}
-	pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
-	if err != nil {
-		return nil, err
-	}
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
-		urSynced:          urInformer.Informer().HasSynced,
-		pSynced:           pInformer.Informer().HasSynced,
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		rbLister:          rbInformer.Lister(),
-		rbSynced:          rbInformer.Informer().HasSynced,
 		rLister:           rInformer.Lister(),
-		rSynced:           rInformer.Informer().HasSynced,
 		nsLister:          namespace.Lister(),
-		nsListerSynced:    namespace.Informer().HasSynced,
 		crbLister:         crbInformer.Lister(),
 		crLister:          crInformer.Lister(),
-		crbSynced:         crbInformer.Informer().HasSynced,
-		crSynced:          crInformer.Informer().HasSynced,
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
-		configHandler:     configHandler,
+		configuration:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
 		prGenerator:       prGenerator,
@@ -184,19 +153,35 @@ func NewWebhookServer(
 		promConfig:        promConfig,
 	}
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(true, ws.resourceMutation))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(true, ws.resourceValidation))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(true, ws.policyMutation))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(true, ws.policyValidation))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
+	resourceLogger := ws.log.WithName("resource")
+	policyLogger := ws.log.WithName("policy")
+	verifyLogger := ws.log.WithName("verify")
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("mutate"), true, ws.resourceMutation))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("validate"), true, ws.resourceValidation))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, policyHandlers.Mutate))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, policyHandlers.Validate))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(verifyLogger.WithName("mutate"), false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
-		Addr:         ":9443", // Listen on port for HTTPS requests
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{pair}, MinVersion: tls.VersionTLS12},
+		Addr: ":9443", // Listen on port for HTTPS requests
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				certPem, keyPem, err := tlsPair()
+				if err != nil {
+					return nil, err
+				}
+				pair, err := tls.X509KeyPair(certPem, keyPem)
+				if err != nil {
+					return nil, err
+				}
+				return &pair, nil
+			},
+			MinVersion: tls.VersionTLS12,
+		},
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 	return ws, nil
 }
@@ -208,7 +193,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 	if addRoles {
 		var err error
-		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configuration)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
 		}
@@ -219,45 +204,54 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 		return nil, errors.Wrap(err, "failed to create policy rule context")
 	}
 
-	// convert RAW to unstructured
-	resource, err := utils.ConvertResource(request.Object.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	resource, err := convertResource(request, request.Object.Raw)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+		return nil, err
 	}
 
 	if err := ctx.AddImageInfos(&resource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
 
-	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
-		resource, err = utils.NormalizeSecret(&resource)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to convert secret to unstructured format")
-		}
-	}
-
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
+		ExcludeGroupRole:    ws.configuration.GetExcludeGroupRole(),
+		ExcludeResourceFunc: ws.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
 		AdmissionOperation:  true,
 	}
 
 	if request.Operation == admissionv1.Update {
-		policyContext.OldResource = resource
+		policyContext.OldResource, err = convertResource(request, request.OldObject.Raw)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return policyContext, nil
 }
 
+// convertResource converts RAW to unstructured
+func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) (unstructured.Unstructured, error) {
+	resource, err := utils.ConvertResource(resourceRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
+	if err != nil {
+		return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert raw resource to unstructured format")
+	}
+
+	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
+		resource, err = utils.NormalizeSecret(&resource)
+		if err != nil {
+			return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert secret to unstructured format")
+		}
+	}
+
+	return resource, nil
+}
+
 // RunAsync TLS server in separate thread and returns control immediately
 func (ws *WebhookServer) RunAsync(stopCh <-chan struct{}) {
-	if !cache.WaitForCacheSync(stopCh, ws.urSynced, ws.pSynced, ws.rbSynced, ws.crbSynced, ws.rSynced, ws.crSynced) {
-		ws.log.Info("failed to sync informer cache")
-	}
 	go func() {
 		ws.log.V(3).Info("started serving requests", "addr", ws.server.Addr)
 		if err := ws.server.ListenAndServeTLS("", ""); err != http.ErrServerClosed {

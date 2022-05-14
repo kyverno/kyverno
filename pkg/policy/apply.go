@@ -20,8 +20,8 @@ import (
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
-	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
-
+	client client.Interface, namespaceLabels map[string]string,
+) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -73,7 +73,6 @@ func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructu
 }
 
 func mutation(policy kyverno.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
-
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,
 		NewResource:     resource,

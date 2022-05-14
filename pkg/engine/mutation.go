@@ -81,7 +81,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		ruleCopy := rule.DeepCopy()
 		var patchedResources []unstructured.Unstructured
 		if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
-			targets, err := loadTargets(logger, ruleCopy.Mutation.Targets, policyContext)
+			targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 			if err != nil {
 				rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
@@ -215,7 +215,8 @@ func mutateElements(name string, foreach kyverno.ForEachMutation, ctx *PolicyCon
 		ctx.JSONContext.Reset()
 		ctx := ctx.Copy()
 		store.SetForeachElement(i)
-		if err := addElementToContext(ctx, e, i, false); err != nil {
+		falseVar := false
+		if err := addElementToContext(ctx, e, i, &falseVar); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 

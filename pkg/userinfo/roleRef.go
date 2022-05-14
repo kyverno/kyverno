@@ -23,7 +23,7 @@ const (
 )
 
 //GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Interface) ([]string, []string, error) {
+func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Configuration) ([]string, []string, error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
 	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
 		return nil, nil, nil
@@ -77,10 +77,8 @@ func getRoleRefByClusterRoleBindings(clusterroleBindings []*rbacv1.ClusterRoleBi
 // return true directly if found a match
 // subject.kind can only be ServiceAccount, User and Group
 func matchSubjectsMap(subject rbacv1.Subject, userInfo authenticationv1.UserInfo, namespace string) bool {
-
 	if strings.Contains(userInfo.Username, saPrefix) {
 		return matchServiceAccount(subject, userInfo, namespace)
-
 	}
 	return matchUserOrGroup(subject, userInfo)
 }

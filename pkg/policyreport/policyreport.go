@@ -20,8 +20,8 @@ type PolicyReportEraser interface {
 	EraseResultsEntries(erase EraseResultsEntries) error
 }
 
-type CleanupReportChangeRequests = func(pclient *kyvernoclient.Clientset, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
-type EraseResultsEntries = func(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+type CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
+type EraseResultsEntries = func(pclient kyvernoclient.Interface, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
 
 func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error {
 	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister)
@@ -144,7 +144,6 @@ func getResultsFromHash(resHash *hashmap.HashMap) []interface{} {
 		}
 
 		results = append(results, result.Value.(map[string]interface{}))
-
 	}
 	return results
 }
@@ -166,7 +165,6 @@ func generateHashKey(result map[string]interface{}, dr deletedResource) (string,
 				return "", false
 			}
 		}
-
 	}
 
 	return fmt.Sprintf(

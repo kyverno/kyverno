@@ -12,6 +12,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 )
 
 // Command returns jp command
@@ -57,18 +58,20 @@ func Command() *cobra.Command {
 				return nil
 			}
 			var input interface{}
-			var jsonParser *json.Decoder
 			if filename != "" {
 				f, err := ioutil.ReadFile(filename)
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
-				if err := json.Unmarshal(f, &input); err != nil {
+				if err := yaml.Unmarshal(f, &input); err != nil {
 					return fmt.Errorf("error parsing input json: %w", err)
 				}
 			} else {
-				jsonParser = json.NewDecoder(os.Stdin)
-				if err := jsonParser.Decode(&input); err != nil {
+				f, err := ioutil.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("error opening input file: %w", err)
+				}
+				if err := yaml.Unmarshal(f, &input); err != nil {
 					return fmt.Errorf("error parsing input json: %w", err)
 				}
 			}
@@ -115,7 +118,7 @@ func Command() *cobra.Command {
 func printFunctionList() {
 	functions := []string{}
 	for _, function := range jmespath.GetFunctions() {
-		functions = append(functions, string(function.String()))
+		functions = append(functions, function.String())
 	}
 	sort.Strings(functions)
 	fmt.Println(strings.Join(functions, "\n"))

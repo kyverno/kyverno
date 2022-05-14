@@ -1,104 +1,27 @@
 package client
 
 import (
-	"fmt"
 	"strings"
 
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/fake"
-	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 )
 
-//NewMockClient ---testing utilities
-func NewMockClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (*Client, error) {
-	client := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
-	// the typed and dynamic client are initialized with similar resources
-	kclient := kubernetesfake.NewSimpleClientset(objects...)
-	return &Client{
-		client:  client,
-		kclient: kclient,
-	}, nil
-
-}
-
-// NewFakeDiscoveryClient returns a fakediscovery client
-func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *fakeDiscoveryClient {
-	// Load some-preregistered resources
-	res := []schema.GroupVersionResource{
-		{Version: "v1", Resource: "configmaps"},
-		{Version: "v1", Resource: "endpoints"},
-		{Version: "v1", Resource: "namespaces"},
-		{Version: "v1", Resource: "resourcequotas"},
-		{Version: "v1", Resource: "secrets"},
-		{Version: "v1", Resource: "serviceaccounts"},
-		{Group: "apps", Version: "v1", Resource: "daemonsets"},
-		{Group: "apps", Version: "v1", Resource: "deployments"},
-		{Group: "apps", Version: "v1", Resource: "statefulsets"},
-	}
-	registeredResources = append(registeredResources, res...)
-	return &fakeDiscoveryClient{registeredResources: registeredResources}
-}
-
-type fakeDiscoveryClient struct {
-	registeredResources []schema.GroupVersionResource
-}
-
-func (c *fakeDiscoveryClient) getGVR(resource string) schema.GroupVersionResource {
-	for _, gvr := range c.registeredResources {
-		if gvr.Resource == resource {
-			return gvr
+func logDiscoveryErrors(err error, c serverPreferredResources) {
+	discoveryError := err.(*discovery.ErrGroupDiscoveryFailed)
+	for gv, e := range discoveryError.Groups {
+		if gv.Group == "custom.metrics.k8s.io" || gv.Group == "metrics.k8s.io" || gv.Group == "external.metrics.k8s.io" {
+			// These errors occur when Prometheus is installed as an external metrics server
+			// See: https://github.com/kyverno/kyverno/issues/1490
+			logger.V(3).Info("failed to retrieve metrics API group", "gv", gv)
+			continue
 		}
-	}
-	return schema.GroupVersionResource{}
-}
-
-func (c *fakeDiscoveryClient) GetServerVersion() (*version.Info, error) {
-	return nil, nil
-}
-
-func (c *fakeDiscoveryClient) GetGVRFromKind(kind string) (schema.GroupVersionResource, error) {
-	resource := strings.ToLower(kind) + "s"
-	return c.getGVR(resource), nil
-}
-
-func (c *fakeDiscoveryClient) GetGVRFromAPIVersionKind(apiVersion string, kind string) schema.GroupVersionResource {
-	resource := strings.ToLower(kind) + "s"
-	return c.getGVR(resource)
-}
-
-func (c *fakeDiscoveryClient) FindResource(apiVersion string, kind string) (*meta.APIResource, schema.GroupVersionResource, error) {
-	return nil, schema.GroupVersionResource{}, fmt.Errorf("not implemented")
-}
-
-func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
-	return nil, nil
-}
-
-func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
-	return nil
-}
-
-func newUnstructured(apiVersion, kind, namespace, name string) *unstructured.Unstructured {
-	return &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": apiVersion,
-			"kind":       kind,
-			"metadata": map[string]interface{}{
-				"namespace": namespace,
-				"name":      name,
-			},
-		},
+		logger.Error(e, "failed to retrieve API group", "gv", gv)
 	}
 }
 
-func newUnstructuredWithSpec(apiVersion, kind, namespace, name string, spec map[string]interface{}) *unstructured.Unstructured {
-	u := newUnstructured(apiVersion, kind, namespace, name)
-	u.Object["spec"] = spec
-	return u
+func isMetricsServerUnavailable(kind string, err error) bool {
+	// error message is defined at:
+	// https://github.com/kubernetes/apimachinery/blob/2456ebdaba229616fab2161a615148884b46644b/pkg/api/errors/errors.go#L432
+	return strings.HasPrefix(kind, "metrics.k8s.io/") &&
+		strings.Contains(err.Error(), "the server is currently unable to handle the request")
 }
