@@ -591,10 +591,8 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 					if rule.Status == response.RuleStatusSkip {
 						result.Result = report.StatusSkip
-
 					} else if rule.Status == response.RuleStatusError {
 						result.Result = report.StatusError
-
 					} else {
 						var x string
 						result.Result = report.StatusFail
