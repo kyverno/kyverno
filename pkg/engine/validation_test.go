@@ -2094,7 +2094,7 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 
 func executeTest(t *testing.T, test testCase) {
 	var policy kyverno.ClusterPolicy
-	var err error = json.Unmarshal(test.policy, &policy)
+	err := json.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
