@@ -596,10 +596,10 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 
 	if path != "" {
-		return fmt.Sprintf("validation error: %s Rule %s failed at path %s", msg, v.rule.Name, path)
+		return fmt.Sprintf("validation error: %s rule %s failed at path %s", msg, v.rule.Name, path)
 	}
 
-	return fmt.Sprintf("validation error: %s Rule %s execution error: %s", msg, v.rule.Name, err.Error())
+	return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 }
 
 func buildAnyPatternErrorMessage(rule *kyverno.Rule, errors []string) string {
