@@ -533,10 +533,10 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 			if pe, ok := err.(*validate.PatternError); ok {
 				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
 				if pe.Path == "" {
-					patternErr := fmt.Errorf("Rule %s[%d] failed: %s.", v.rule.Name, idx, err.Error())
+					patternErr := fmt.Errorf("rule %s[%d] failed: %s", v.rule.Name, idx, err.Error())
 					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 				} else {
-					patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, pe.Path)
+					patternErr := fmt.Errorf("rule %s[%d] failed at path %s", v.rule.Name, idx, pe.Path)
 					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 				}
 			}
