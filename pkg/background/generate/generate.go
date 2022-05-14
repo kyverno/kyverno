@@ -640,7 +640,7 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 }
 
 // NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
-func NewGenerateControllerWithOnlyClient(client *dclient.Client) *GenerateController {
+func NewGenerateControllerWithOnlyClient(client dclient.Interface) *GenerateController {
 	c := GenerateController{
 		client: client,
 	}

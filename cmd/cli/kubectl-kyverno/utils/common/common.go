@@ -550,7 +550,7 @@ OuterLoop:
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
 			},
-			JSONContext:     engineContext.NewContext(),
+			JSONContext:     ctx,
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
@@ -1082,7 +1082,6 @@ func handleGeneratePolicy(generateResponse *response.EngineResponse, policyConte
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		genResource, _, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
 		if err != nil {
-			fmt.Println("error at apply generate")
 			rule.Status = response.RuleStatusError
 			return nil, err
 		}
