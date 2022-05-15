@@ -533,10 +533,10 @@ func (v *validator) validatePatterns(resource unstructured.Unstructured) *respon
 			if pe, ok := err.(*validate.PatternError); ok {
 				v.log.V(3).Info("validation rule failed", "anyPattern[%d]", idx, "path", pe.Path)
 				if pe.Path == "" {
-					patternErr := fmt.Errorf("Rule %s[%d] failed: %s.", v.rule.Name, idx, err.Error())
+					patternErr := fmt.Errorf("rule %s[%d] failed: %s", v.rule.Name, idx, err.Error())
 					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 				} else {
-					patternErr := fmt.Errorf("Rule %s[%d] failed at path %s.", v.rule.Name, idx, pe.Path)
+					patternErr := fmt.Errorf("rule %s[%d] failed at path %s", v.rule.Name, idx, pe.Path)
 					failedAnyPatternsErrors = append(failedAnyPatternsErrors, patternErr)
 				}
 			}
@@ -596,10 +596,10 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	}
 
 	if path != "" {
-		return fmt.Sprintf("validation error: %s Rule %s failed at path %s", msg, v.rule.Name, path)
+		return fmt.Sprintf("validation error: %s rule %s failed at path %s", msg, v.rule.Name, path)
 	}
 
-	return fmt.Sprintf("validation error: %s Rule %s execution error: %s", msg, v.rule.Name, err.Error())
+	return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 }
 
 func buildAnyPatternErrorMessage(rule *kyverno.Rule, errors []string) string {
