@@ -73,13 +73,13 @@ func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
 	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping update request from the queue", "key", key, "error", err.Error())
+		logger.V(4).Info("Dropping request from the queue", "key", key, "error", err.Error())
 		c.queue.Forget(key)
 	} else if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
+		logger.V(3).Info("Retrying request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 	} else {
-		logger.Error(err, "failed to process update request", "key", key)
+		logger.Error(err, "Failed to process request", "key", key)
 		c.queue.Forget(key)
 	}
 }

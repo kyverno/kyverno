@@ -77,13 +77,13 @@ func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
 	} else if errors.IsNotFound(err) {
-		logger.Info("Dropping update request from the queue", "key", key, "error", err.Error())
+		logger.V(4).Info("Dropping request from the queue", "key", key, "error", err.Error())
 		c.queue.Forget(key)
 	} else if c.queue.NumRequeues(key) < maxRetries {
-		logger.Info("retrying update request", "key", key, "error", err.Error())
+		logger.V(3).Info("Retrying request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 	} else {
-		logger.Error(err, "failed to process update request", "key", key)
+		logger.Error(err, "Failed to process request", "key", key)
 		c.queue.Forget(key)
 	}
 }
@@ -160,16 +160,8 @@ func (c *controller) reconcile(key string) error {
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
 	if namespace == "" {
-		p, err := c.cpolLister.Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return p.DeepCopy(), nil
+		return c.cpolLister.Get(name)
 	} else {
-		p, err := c.polLister.Policies(namespace).Get(name)
-		if err != nil {
-			return nil, err
-		}
-		return p.DeepCopy(), nil
+		return c.polLister.Policies(namespace).Get(name)
 	}
 }
