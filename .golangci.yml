@@ -18,6 +18,7 @@ linters:
     - govet
     - importas
     - ineffassign
+    - misspell
     - noctx
     - staticcheck
     - structcheck
