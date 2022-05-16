@@ -409,7 +409,7 @@ func jpfCompare(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	return a.String()==b.String(), nil
+	return a.String() == b.String(), nil
 }
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
