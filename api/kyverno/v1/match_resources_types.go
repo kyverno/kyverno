@@ -32,7 +32,8 @@ type MatchResources struct {
 
 // GetKinds returns all kinds
 func (m *MatchResources) GetKinds() []string {
-	kinds := m.ResourceDescription.Kinds
+	var kinds []string
+	kinds = append(kinds, m.ResourceDescription.Kinds...)
 	for _, value := range m.All {
 		kinds = append(kinds, value.ResourceDescription.Kinds...)
 	}

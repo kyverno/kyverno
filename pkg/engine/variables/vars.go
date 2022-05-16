@@ -250,13 +250,13 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 	})
 }
 
-// NotResolvedReferenceErr is returned when it is impossible to resolve the variable
-type NotResolvedReferenceErr struct {
+// NotResolvedReferenceError is returned when it is impossible to resolve the variable
+type NotResolvedReferenceError struct {
 	reference string
 	path      string
 }
 
-func (n NotResolvedReferenceErr) Error() string {
+func (n NotResolvedReferenceError) Error() string {
 	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
@@ -278,7 +278,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
-				case context.InvalidVariableErr:
+				case context.InvalidVariableError:
 					return nil, err
 				default:
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
@@ -304,7 +304,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				continue
 			}
 
-			return data.Element, NotResolvedReferenceErr{
+			return data.Element, NotResolvedReferenceError{
 				reference: v,
 				path:      data.Path,
 			}
@@ -368,7 +368,7 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableErr, gojmespath.NotFoundError:
+					case context.InvalidVariableError, gojmespath.NotFoundError:
 						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)

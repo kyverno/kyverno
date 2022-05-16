@@ -1,4 +1,4 @@
-package webhooks
+package resource
 
 import (
 	"strings"
@@ -44,7 +44,7 @@ type AuditHandler interface {
 type auditHandler struct {
 	client      client.Interface
 	queue       workqueue.RateLimitingInterface
-	pCache      policycache.Interface
+	pCache      policycache.Cache
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
 
@@ -58,7 +58,7 @@ type auditHandler struct {
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
-func NewValidateAuditHandler(pCache policycache.Interface,
+func NewValidateAuditHandler(pCache policycache.Cache,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	rbInformer rbacinformer.RoleBindingInformer,
