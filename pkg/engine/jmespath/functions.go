@@ -110,7 +110,7 @@ func GetFunctions() []*FunctionEntry {
 				},
 				Handler: jpfCompare,
 			},
-			ReturnType: []JpType{JpBool},
+			ReturnType: []JpType{JpNumber},
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{Name: equalFold,
@@ -409,7 +409,7 @@ func jpfCompare(arguments []interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	return a.String() == b.String(), nil
+	return strings.Compare(a.String(), b.String()), nil
 }
 
 func jpfEqualFold(arguments []interface{}) (interface{}, error) {
