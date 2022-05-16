@@ -30,7 +30,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(configmapInformer corev1informers.ConfigMapInformer, configuration config.Configuration) *controller {
+func NewController(configuration config.Configuration, configmapInformer corev1informers.ConfigMapInformer) *controller {
 	c := controller{
 		configuration:   configuration,
 		configmapLister: configmapInformer.Lister(),
@@ -73,13 +73,13 @@ func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
 	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping update request from the queue", "key", key, "error", err.Error())
+		logger.V(4).Info("Dropping request from the queue", "key", key, "error", err.Error())
 		c.queue.Forget(key)
 	} else if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("retrying update request", "key", key, "error", err.Error())
+		logger.V(3).Info("Retrying request", "key", key, "error", err.Error())
 		c.queue.AddRateLimited(key)
 	} else {
-		logger.Error(err, "failed to process update request", "key", key)
+		logger.Error(err, "Failed to process request", "key", key)
 		c.queue.Forget(key)
 	}
 }
@@ -100,7 +100,7 @@ func (c *controller) worker() {
 
 func (c *controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
-	logger.Info("start")
+	logger.Info("starting ...")
 	defer logger.Info("shutting down")
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
