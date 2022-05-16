@@ -13,7 +13,7 @@ import (
 type StatusControlInterface interface {
 	Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error
 	Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
-	Skip(gr urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
+	Skip(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
 }
 
 // StatusControl is default implementaation of GRStatusControlInterface

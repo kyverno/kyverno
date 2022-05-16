@@ -48,7 +48,7 @@ type handlers struct {
 	promConfig    *metrics.PromConfig
 
 	// cache
-	pCache policycache.Interface
+	pCache policycache.Cache
 
 	// listers
 	nsLister  corelister.NamespaceLister
@@ -69,7 +69,7 @@ func NewHandlers(
 	kyvernoClient kyvernoclient.Interface,
 	configuration config.Configuration,
 	promConfig *metrics.PromConfig,
-	pCache policycache.Interface,
+	pCache policycache.Cache,
 	nsLister corelister.NamespaceLister,
 	rbLister rbaclister.RoleBindingLister,
 	crbLister rbaclister.ClusterRoleBindingLister,

@@ -526,7 +526,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
 			assert.NilError(t, err)
 			msgs := []string{
-				"validation error: The label 'app' is required. Rule check-label-app failed at path /metadata/labels/",
+				"validation error: The label 'app' is required. rule check-label-app failed at path /metadata/labels/",
 			}
 
 			er := engine.Validate(&engine.PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})

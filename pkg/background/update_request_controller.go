@@ -208,7 +208,7 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	}
 
 	if err = c.UnmarkUR(ur); err != nil {
-		return fmt.Errorf("failed to un-mark UR %s: %v", key, err)
+		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
 	}
 
 	return nil

@@ -63,7 +63,7 @@ func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, rule.Generation.Kind) {
-			return fmt.Errorf("generation kind and match resource kind should not be the same.")
+			return fmt.Errorf("generation kind and match resource kind should not be the same")
 		}
 	}
 
