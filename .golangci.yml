@@ -5,6 +5,7 @@ linters:
     - bodyclose
     - containedctx
     - deadcode
+    - decorder
     - dogsled
     - durationcheck
     - errcheck

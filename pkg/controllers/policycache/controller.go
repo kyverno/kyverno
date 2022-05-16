@@ -110,14 +110,22 @@ func (c *controller) WarmUp() error {
 		return err
 	}
 	for _, policy := range pols {
-		c.cache.Set(policy)
+		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
+			return err
+		} else {
+			c.cache.Set(key, policy)
+		}
 	}
 	cpols, err := c.cpolLister.List(labels.Everything())
 	if err != nil {
 		return err
 	}
 	for _, policy := range cpols {
-		c.cache.Set(policy)
+		if key, err := cache.MetaNamespaceKeyFunc(policy); err != nil {
+			return err
+		} else {
+			c.cache.Set(key, policy)
+		}
 	}
 	return nil
 }
@@ -141,19 +149,27 @@ func (c *controller) reconcile(key string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			c.cache.Unset(policy)
+			c.cache.Unset(key)
 		}
 		return err
 	}
 	// TODO: check resource version ?
-	c.cache.Set(policy)
+	c.cache.Set(key, policy)
 	return nil
 }
 
 func (c *controller) loadPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
 	if namespace == "" {
-		return c.cpolLister.Get(name)
+		p, err := c.cpolLister.Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return p.DeepCopy(), nil
 	} else {
-		return c.polLister.Policies(namespace).Get(name)
+		p, err := c.polLister.Policies(namespace).Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return p.DeepCopy(), nil
 	}
 }
