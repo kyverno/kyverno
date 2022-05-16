@@ -316,10 +316,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	pCacheController := policycache.NewPolicyCacheController(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	pCacheController := policycache.NewCache(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	auditHandler := webhooks.NewValidateAuditHandler(
-		pCacheController.Cache,
+		pCacheController,
 		eventGenerator,
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -421,7 +421,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
-		pCacheController.Cache,
+		pCacheController,
 		webhookCfg,
 		webhookMonitor,
 		configuration,
