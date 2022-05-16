@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
-
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 

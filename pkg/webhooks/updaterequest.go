@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kyverno/kyverno/pkg/event"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/event"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
