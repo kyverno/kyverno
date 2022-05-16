@@ -6,6 +6,7 @@ linters:
     - containedctx
     - deadcode
     - decorder
+    - dogsled
     - durationcheck
     - errcheck
     - exportloopref
