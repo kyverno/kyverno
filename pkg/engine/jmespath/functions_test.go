@@ -12,19 +12,19 @@ import (
 func Test_Compare(t *testing.T) {
 	testCases := []struct {
 		jmesPath       string
-		expectedResult int
+		expectedResult bool
 	}{
 		{
 			jmesPath:       "compare('a', 'a')",
-			expectedResult: 0,
+			expectedResult: true,
 		},
 		{
 			jmesPath:       "compare('a', 'b')",
-			expectedResult: -1,
+			expectedResult: false,
 		},
 		{
 			jmesPath:       "compare('b', 'a')",
-			expectedResult: 1,
+			expectedResult: false,
 		},
 	}
 
@@ -36,7 +36,7 @@ func Test_Compare(t *testing.T) {
 			result, err := jp.Search("")
 			assert.NilError(t, err)
 
-			res, ok := result.(int)
+			res, ok := result.(bool)
 			assert.Assert(t, ok)
 			assert.Equal(t, res, tc.expectedResult)
 		})
