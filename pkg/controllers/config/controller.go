@@ -30,7 +30,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(configmapInformer corev1informers.ConfigMapInformer, configuration config.Configuration) *controller {
+func NewController(configuration config.Configuration, configmapInformer corev1informers.ConfigMapInformer) *controller {
 	c := controller{
 		configuration:   configuration,
 		configmapLister: configmapInformer.Lister(),
@@ -100,7 +100,7 @@ func (c *controller) worker() {
 
 func (c *controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
-	logger.Info("start")
+	logger.Info("starting ...")
 	defer logger.Info("shutting down")
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
