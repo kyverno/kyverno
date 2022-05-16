@@ -294,7 +294,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 		}
 	} else if len(rule.MatchResources.All) > 0 {
-		// include object if ALL of the criterias match
+		// include object if ALL of the criteria match
 		for _, rmr := range rule.MatchResources.All {
 			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 		}
@@ -304,12 +304,12 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	if len(rule.ExcludeResources.Any) > 0 {
-		// exclude the object if ANY of the criterias match
+		// exclude the object if ANY of the criteria match
 		for _, rer := range rule.ExcludeResources.Any {
 			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 		}
 	} else if len(rule.ExcludeResources.All) > 0 {
-		// exlcude the object if ALL the criterias match
+		// exclude the object if ALL the criteria match
 		excludedByAll := true
 		for _, rer := range rule.ExcludeResources.All {
 			// we got no errors inplying a resource did NOT exclude it
@@ -320,7 +320,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			}
 		}
 		if excludedByAll {
-			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criterias exclude it"))
+			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criteria exclude it"))
 		}
 	} else {
 		rer := kyverno.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
@@ -367,7 +367,7 @@ func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissi
 		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
-			errs = append(errs, fmt.Errorf("resource excluded since one of the criterias excluded it"))
+			errs = append(errs, fmt.Errorf("resource excluded since one of the criteria excluded it"))
 			errs = append(errs, excludeErrs...)
 		}
 	}
