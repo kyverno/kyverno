@@ -13,12 +13,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//Validation provides methods to validate a rule
+// Validation provides methods to validate a rule
 type Validation interface {
 	Validate() (string, error)
 }
 
-//validateAction performs validation on the rule actions
+// validateAction performs validation on the rule actions
 // - Mutate
 // - Validation
 // - Generate
@@ -47,7 +47,7 @@ func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock
 
 	// Generate
 	if rule.HasGenerate() {
-		//TODO: this check is there to support offline validations
+		// TODO: this check is there to support offline validations
 		// generate uses selfSubjectReviews to verify actions
 		// this need to modified to use different implementation for online and offline mode
 		if mock {

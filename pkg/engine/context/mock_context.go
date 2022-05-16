@@ -10,14 +10,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
-//MockContext is used for testing and validation of variables
+// MockContext is used for testing and validation of variables
 type MockContext struct {
 	mutex           sync.RWMutex
 	re              *regexp.Regexp
 	allowedPatterns []string
 }
 
-//NewMockContext creates a new MockContext that allows variables matching the supplied list of wildcard patterns
+// NewMockContext creates a new MockContext that allows variables matching the supplied list of wildcard patterns
 func NewMockContext(re *regexp.Regexp, vars ...string) *MockContext {
 	return &MockContext{re: re, allowedPatterns: vars}
 }
@@ -31,7 +31,7 @@ func (ctx *MockContext) AddVariable(wildcardPattern string) {
 	ctx.allowedPatterns = append(builtInVarsCopy, wildcardPattern)
 }
 
-//Query the JSON context with JMESPATH search path
+// Query the JSON context with JMESPATH search path
 func (ctx *MockContext) Query(query string) (interface{}, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {

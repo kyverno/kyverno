@@ -20,8 +20,10 @@ type PolicyReportEraser interface {
 	EraseResultsEntries(erase EraseResultsEntries) error
 }
 
-type CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
-type EraseResultsEntries = func(pclient kyvernoclient.Interface, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+type (
+	CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
+	EraseResultsEntries         = func(pclient kyvernoclient.Interface, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+)
 
 func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error {
 	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister)

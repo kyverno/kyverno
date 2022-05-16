@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//handleGenerate handles admission-requests for policies with generate rules
+// handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
 	request *admissionv1.AdmissionRequest,
 	policies []kyverno.PolicyInterface,
@@ -95,7 +95,7 @@ func (ws *WebhookServer) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-//handleUpdatesForGenerateRules handles admission-requests for update
+// handleUpdatesForGenerateRules handles admission-requests for update
 func (ws *WebhookServer) handleUpdatesForGenerateRules(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
@@ -117,7 +117,7 @@ func (ws *WebhookServer) handleUpdatesForGenerateRules(request *admissionv1.Admi
 	}
 }
 
-//handleUpdateGenerateSourceResource - handles update of clone source for generate policy
+// handleUpdateGenerateSourceResource - handles update of clone source for generate policy
 func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
@@ -176,7 +176,7 @@ func (ws *WebhookServer) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logge
 	}
 }
 
-//handleUpdateGenerateTargetResource - handles update of target resource for generate policy
+// handleUpdateGenerateTargetResource - handles update of target resource for generate policy
 func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
@@ -270,7 +270,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	return rule, nil
 }
 
-//stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
+// stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 	if metadata, found := obj["metadata"]; found {
 		requiredMetadataInObj := make(map[string]interface{})
@@ -331,7 +331,7 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 	return obj, newRes
 }
 
-//HandleDelete handles DELETE admission-requests for generate policies
+// HandleDelete handles DELETE admission-requests for generate policies
 func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
@@ -379,7 +379,8 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 }
 
 func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType urkyverno.RequestType, grGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
-	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
+	action admissionv1.Operation, engineResponses ...*response.EngineResponse,
+) (failedUpdateRequest []updateRequestResponse) {
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")

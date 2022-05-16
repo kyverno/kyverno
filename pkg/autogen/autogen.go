@@ -18,13 +18,11 @@ import (
 const (
 	// PodControllerCronJob represent CronJob string
 	PodControllerCronJob = "CronJob"
-	//PodControllers stores the list of Pod-controllers in csv string
+	// PodControllers stores the list of Pod-controllers in csv string
 	PodControllers = "DaemonSet,Deployment,Job,StatefulSet,CronJob"
 )
 
-var (
-	podControllersKindsSet = sets.NewString(append(strings.Split(PodControllers, ","), "Pod")...)
-)
+var podControllersKindsSet = sets.NewString(append(strings.Split(PodControllers, ","), "Pod")...)
 
 func isKindOtherthanPod(kinds []string) bool {
 	if len(kinds) > 1 && kubeutils.ContainsKind(kinds, "Pod") {
@@ -166,7 +164,7 @@ func GetControllers(meta *metav1.ObjectMeta, spec *kyverno.Spec) ([]string, []st
 
 // GenerateRulePatches generates rule for podControllers based on scenario A and C
 func GenerateRulePatches(spec *kyverno.Spec, controllers string) (rulePatches [][]byte, errs []error) {
-	var ruleIndex = make(map[string]int)
+	ruleIndex := make(map[string]int)
 	for index, rule := range spec.Rules {
 		ruleIndex[rule.Name] = index
 	}

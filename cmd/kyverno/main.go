@@ -51,7 +51,7 @@ import (
 const resyncPeriod = 15 * time.Minute
 
 var (
-	//TODO: this has been added to backward support command line arguments
+	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	serverIP                     string
 	profilePort                  string
@@ -273,7 +273,6 @@ func main() {
 		policyControllerResyncPeriod,
 		promConfig,
 	)
-
 	if err != nil {
 		setupLog.Error(err, "Failed to create policy controller")
 		os.Exit(1)
@@ -434,7 +433,6 @@ func main() {
 		urc,
 		promConfig,
 	)
-
 	if err != nil {
 		setupLog.Error(err, "Failed to create webhook server")
 		os.Exit(1)

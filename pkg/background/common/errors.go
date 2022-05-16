@@ -60,7 +60,7 @@ func (e *ConfigNotFoundError) Error() string {
 	return fmt.Sprintf("configuration %v, not present in resource %s/%s/%s", e.config, e.kind, e.namespace, e.name)
 }
 
-//NewConfigNotFound returns a new NewConfigNotFound error
+// NewConfigNotFound returns a new NewConfigNotFound error
 func NewConfigNotFound(config interface{}, kind, namespace, name string) *ConfigNotFoundError {
 	return &ConfigNotFoundError{config: config, kind: kind, namespace: namespace, name: name}
 }

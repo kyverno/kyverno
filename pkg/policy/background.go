@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 )
 
-//ContainsUserVariables returns error if variable that does not start from request.object
+// ContainsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyverno.PolicyInterface, vars [][]string) error {
 	for _, rule := range policy.GetSpec().Rules {
 		if rule.IsMutateExisting() {

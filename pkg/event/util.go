@@ -4,7 +4,7 @@ const eventWorkQueueName = "kyverno-events"
 
 const workQueueRetryLimit = 10
 
-//Info defines the event details
+// Info defines the event details
 type Info struct {
 	Kind      string
 	Name      string

@@ -13,7 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewEqualHandler returns handler to manage Equal operations
+// NewEqualHandler returns handler to manage Equal operations
 func NewEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return EqualHandler{
 		ctx: ctx,
@@ -21,13 +21,13 @@ func NewEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//EqualHandler provides implementation to handle NotEqual Operator
+// EqualHandler provides implementation to handle NotEqual Operator
 type EqualHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with Equal Operator
+// Evaluate evaluates expression with Equal Operator
 func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {

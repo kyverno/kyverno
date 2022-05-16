@@ -8,7 +8,7 @@ import (
 
 // MutateTests is E2E Test Config for mutation
 var MutateTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// Data - The Yaml file of the ClusterPolicy
 	Data []byte
@@ -40,7 +40,7 @@ var MutateTests = []struct {
 // Note: sometimes deleting namespaces takes time.
 // Using different names for namespaces prevents collisions.
 var tests = []struct {
-	//TestDescription - Description of the Test
+	// TestDescription - Description of the Test
 	TestDescription string
 	// PolicyName - Name of the Policy
 	PolicyName string

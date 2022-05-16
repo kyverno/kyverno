@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//Validate applies validation rules from policy on the resource
+// Validate applies validation rules from policy on the resource
 func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
@@ -59,7 +59,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
-		var resource = ctx.NewResource
+		resource := ctx.NewResource
 		if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 			resource = ctx.OldResource
 		}

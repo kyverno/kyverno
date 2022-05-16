@@ -158,7 +158,7 @@ func ConditionsToJSONObject(conditions []kyverno.AnyAllConditions) ([]map[string
 		return nil, err
 	}
 
-	var m = []map[string]interface{}{}
+	m := []map[string]interface{}{}
 	if err := json.Unmarshal(bytes, &m); err != nil {
 		return nil, err
 	}
@@ -318,7 +318,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 	})
 }
 
-//VariableResolver defines the handler function for variable substitution
+// VariableResolver defines the handler function for variable substitution
 type VariableResolver = func(ctx context.EvalInterface, variable string) (interface{}, error)
 
 // DefaultVariableResolver is used in all variable substitutions except preconditions
@@ -365,7 +365,6 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				}
 
 				substitutedVar, err := vr(ctx, variable)
-
 				if err != nil {
 					switch err.(type) {
 					case context.InvalidVariableError, gojmespath.NotFoundError:
@@ -478,7 +477,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 		return err, nil
 	}
 
-	if operation == operator.Equal { //if operator does not exist return raw value
+	if operation == operator.Equal { // if operator does not exist return raw value
 		return valFromReference, nil
 	}
 
@@ -490,7 +489,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 	return string(operation) + foundValue.(string), nil
 }
 
-//Parse value to string
+// Parse value to string
 func valFromReferenceToString(value interface{}, operator string) (string, error) {
 	switch typed := value.(type) {
 	case string:

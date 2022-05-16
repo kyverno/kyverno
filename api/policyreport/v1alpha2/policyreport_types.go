@@ -41,7 +41,6 @@ const (
 
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
-
 	// Pass provides the count of policies whose requirements were met
 	// +optional
 	Pass int `json:"pass"`
@@ -89,7 +88,6 @@ type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy
 type PolicyReportResult struct {
-
 	// Source is an identifier for the policy engine that manages this report
 	// +optional
 	Source string `json:"source"`

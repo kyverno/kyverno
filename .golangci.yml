@@ -12,6 +12,8 @@ linters:
     - errname
     - exportloopref
     - gochecknoinits
+    - gofmt
+    - gofumpt
     - goprintffuncname
     - gosec
     - gosimple

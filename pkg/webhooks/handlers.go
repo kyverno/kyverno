@@ -83,7 +83,7 @@ func (ws *WebhookServer) resourceMutation(logger logr.Logger, request *admission
 		return admissionutils.ResponseFailure(false, err.Error())
 	}
 
-	var patches = append(mutatePatches, imagePatches...)
+	patches := append(mutatePatches, imagePatches...)
 
 	return admissionutils.ResponseSuccessWithPatch(true, "", patches)
 }

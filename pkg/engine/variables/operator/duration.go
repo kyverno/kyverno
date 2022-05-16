@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewDurationOperatorHandler returns handler to manage the provided duration operations (>, >=, <=, <)
+// NewDurationOperatorHandler returns handler to manage the provided duration operations (>, >=, <=, <)
 func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
 	return DurationOperatorHandler{
 		ctx:       ctx,
@@ -18,7 +18,7 @@ func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op k
 	}
 }
 
-//DurationOperatorHandler provides implementation to handle Duration Operations associated with policies
+// DurationOperatorHandler provides implementation to handle Duration Operations associated with policies
 type DurationOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
@@ -131,9 +131,11 @@ func (doh DurationOperatorHandler) validateValueWithStringPattern(key string, va
 func (doh DurationOperatorHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	return false
 }
+
 func (doh DurationOperatorHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
 	return false
 }
+
 func (doh DurationOperatorHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	return false
 }

@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//EngineStats stores in the statistics for a single application of resource
+// EngineStats stores in the statistics for a single application of resource
 type EngineStats struct {
 	// average time required to process the policy rules on a resource
 	ExecutionTime time.Duration
@@ -269,7 +269,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 	}
 }
 
-//MatchesResourceDescription checks if the resource matches resource description of the rule or not
+// MatchesResourceDescription checks if the resource matches resource description of the rule or not
 func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef urkyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -329,7 +329,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	}
 
 	// creating final error
-	var errorMessage = fmt.Sprintf("rule %s not matched:", ruleRef.Name)
+	errorMessage := fmt.Sprintf("rule %s not matched:", ruleRef.Name)
 	for i, reasonForFailure := range reasonsForFailure {
 		if reasonForFailure != nil {
 			errorMessage += "\n " + fmt.Sprint(i+1) + ". " + reasonForFailure.Error()

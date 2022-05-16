@@ -16,7 +16,7 @@ type Validate struct {
 	rule *kyverno.Validation
 }
 
-//NewValidateFactory returns a new instance of Mutate validation checker
+// NewValidateFactory returns a new instance of Mutate validation checker
 func NewValidateFactory(rule *kyverno.Validation) *Validate {
 	m := Validate{
 		rule: rule,
@@ -25,7 +25,7 @@ func NewValidateFactory(rule *kyverno.Validation) *Validate {
 	return &m
 }
 
-//Validate validates the 'validate' rule
+// Validate validates the 'validate' rule
 func (v *Validate) Validate() (string, error) {
 	if err := v.validateElements(); err != nil {
 		return "", err

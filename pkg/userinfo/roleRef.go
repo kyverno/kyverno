@@ -22,7 +22,7 @@ const (
 	saPrefix = "system:serviceaccount:"
 )
 
-//GetRoleRef gets the list of roles and cluster roles for the incoming api-request
+// GetRoleRef gets the list of roles and cluster roles for the incoming api-request
 func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Configuration) ([]string, []string, error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
 	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
