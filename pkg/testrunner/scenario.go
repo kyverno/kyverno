@@ -72,7 +72,7 @@ type Generation struct {
 // It assumes that the project directory is 2 levels up. This means if this function is moved
 // it may not work as expected.
 func RootDir() string {
-	_, b, _, _ := runtime.Caller(0)
+	_, b, _, _ := runtime.Caller(0) // nolint:dogsled
 	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
