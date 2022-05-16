@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -131,50 +130,20 @@ func main() {
 	failure := false
 
 	run := func() {
-		certProps, err := tls.GetTLSCertProps(clientConfig)
-		if err != nil {
-			log.Log.Info("failed to get cert properties: %v", err.Error())
-			os.Exit(1)
-		}
-
-		depl, err := kubeClient.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
-		deplHash := ""
-		if err != nil {
-			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
-			os.Exit(1)
-		}
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-
-		name := tls.GenerateRootCASecretName(certProps)
-		secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+		name := tls.GenerateRootCASecretName()
+		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
-
 			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
-			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
 			}
 		}
 
-		name = tls.GenerateTLSPairSecretName(certProps)
-		secret, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace).Get(context.TODO(), name, metav1.GetOptions{})
+		name = tls.GenerateTLSPairSecretName()
+		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
-
 			if !errors.IsNotFound(err) {
-				os.Exit(1)
-			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secret) {
-			secret.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = kubeClient.CoreV1().Secrets(certProps.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
 				os.Exit(1)
 			}
 		}
@@ -206,7 +175,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace, kubeClient, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
@@ -216,7 +185,7 @@ func main() {
 }
 
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
-	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
+	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 	if err != nil {
 		log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
@@ -229,7 +198,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 			Name: "kyvernopre-lock",
 		},
 	}
-	_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace).Create(ctx, &lease, metav1.CreateOptions{})
+	_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Create(ctx, &lease, metav1.CreateOptions{})
 
 	return err
 }
@@ -404,7 +373,7 @@ func addPolicyReportSelectorLabel(client client.Interface) {
 func removeReportChangeRequest(client client.Interface, kind string) error {
 	logger := log.Log.WithName("removeReportChangeRequest")
 
-	ns := config.KyvernoNamespace
+	ns := config.KyvernoNamespace()
 	rcrList, err := client.ListResource("", kind, ns, nil)
 	if err != nil {
 		logger.Error(err, "failed to list reportChangeRequest")
@@ -469,7 +438,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	logger := log.Log.WithName("convertGenerateRequest")
 
 	var errors []error
-	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).List(context.TODO(), metav1.ListOptions{})
+	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		logger.Error(err, "failed to list update requests")
 		return err
@@ -479,7 +448,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		var ur = &urkyverno.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
-				Namespace:    config.KyvernoNamespace,
+				Namespace:    config.KyvernoNamespace(),
 				Labels:       gr.GetLabels(),
 			},
 			Spec: urkyverno.UpdateRequestSpec{
@@ -501,7 +470,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 			},
 		}
 
-		new, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+		new, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
 			errors = append(errors, err)
@@ -511,13 +480,13 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		}
 
 		new.Status.State = urkyverno.Pending
-		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "failed to set UpdateRequest state to Pending")
 			errors = append(errors, err)
 			continue
 		}
 
-		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
+		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
 			errors = append(errors, err)
 			logger.Error(err, "failed to delete GR")
 		}

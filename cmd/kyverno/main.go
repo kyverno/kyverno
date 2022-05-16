@@ -37,6 +37,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
@@ -147,7 +148,7 @@ func main() {
 
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace))
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, policyControllerResyncPeriod)
 
 	// utils
@@ -158,7 +159,7 @@ func main() {
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		setupLog.Info("initializing registry credentials", "secrets", secrets)
-		if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace, "", secrets); err != nil {
+		if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace(), "", secrets); err != nil {
 			setupLog.Error(err, "failed to initialize image pull secrets")
 			os.Exit(1)
 		}
@@ -315,10 +316,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	pCacheController := policycache.NewPolicyCacheController(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	pCacheController := policycache.NewCache(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	auditHandler := webhooks.NewValidateAuditHandler(
-		pCacheController.Cache,
+		pCacheController,
 		eventGenerator,
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -330,12 +331,20 @@ func main() {
 		promConfig,
 	)
 
-	certRenewer, err := tls.NewCertRenewer(kubeClient, clientConfig, tls.CertRenewalInterval, tls.CertValidityDuration, serverIP, log.Log.WithName("CertRenewer"))
+	certRenewer, err := tls.NewCertRenewer(
+		kubeClient,
+		clientConfig,
+		tls.CertRenewalInterval,
+		tls.CAValidityDuration,
+		tls.TLSValidityDuration,
+		serverIP,
+		log.Log.WithName("CertRenewer"),
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
+	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer, webhookCfg.UpdateWebhooksCaBundle)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertManager")
 		os.Exit(1)
@@ -343,14 +352,14 @@ func main() {
 
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	registerWebhookConfigurations := func() {
-		if _, err := certRenewer.InitTLSPemPair(); err != nil {
+		if err := certRenewer.InitTLSPemPair(); err != nil {
 			setupLog.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
 		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
 		// validate the ConfigMap format
-		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace, config.KyvernoConfigMapName); err != nil {
+		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
 			os.Exit(1)
 		}
@@ -375,9 +384,9 @@ func main() {
 	}()
 
 	// webhookconfigurations are registered by the leader only
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace, kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
-		setupLog.Error(err, "failed to elector leader")
+		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
@@ -386,13 +395,21 @@ func main() {
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
 
+	if err := cosign.Init(); err != nil {
+		setupLog.Error(err, "initialization failed")
+		os.Exit(1)
+	}
+
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
+	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+
 	server, err := webhooks.NewWebhookServer(
+		policyHandlers,
 		kyvernoClient,
 		dynamicClient,
 		certManager.GetTLSPemPair,
@@ -404,7 +421,7 @@ func main() {
 		kubeInformer.Rbac().V1().ClusterRoles(),
 		kubeInformer.Core().V1().Namespaces(),
 		eventGenerator,
-		pCacheController.Cache,
+		pCacheController,
 		webhookCfg,
 		webhookMonitor,
 		configuration,
@@ -447,7 +464,7 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace, kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)

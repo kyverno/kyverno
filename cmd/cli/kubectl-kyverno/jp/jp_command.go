@@ -59,7 +59,7 @@ func Command() *cobra.Command {
 			}
 			var input interface{}
 			if filename != "" {
-				f, err := ioutil.ReadFile(filename)
+				f, err := ioutil.ReadFile(filepath.Clean(filename))
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
@@ -118,7 +118,7 @@ func Command() *cobra.Command {
 func printFunctionList() {
 	functions := []string{}
 	for _, function := range jmespath.GetFunctions() {
-		functions = append(functions, string(function.String()))
+		functions = append(functions, function.String())
 	}
 	sort.Strings(functions)
 	fmt.Println(strings.Join(functions, "\n"))

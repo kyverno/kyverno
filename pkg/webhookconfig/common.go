@@ -16,6 +16,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	managedByLabel string = "webhook.kyverno.io/managed-by"
+	kyvernoValue   string = "kyverno"
+)
+
 var (
 	noneOnDryRun = admregapi.SideEffectClassNoneOnDryRun
 	never        = admregapi.NeverReinvocationPolicy
@@ -32,7 +37,7 @@ var (
 	}
 	vertifyObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": "kyverno",
+			"app.kubernetes.io/name": kyvernoValue,
 		},
 	}
 	update       = []admregapi.OperationType{admregapi.Update}
@@ -47,7 +52,7 @@ func (wrc *Register) readCaData() []byte {
 
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.clientConfig, wrc.kubeClient); err == nil {
+	if caData, err = tls.ReadRootCASecret(wrc.kubeClient); err == nil {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}
@@ -69,7 +74,7 @@ func getHealthyPodsIP(pods []corev1.Pod) []string {
 func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": "kyverno",
+			"app.kubernetes.io/name": kyvernoValue,
 		},
 	}
 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
@@ -87,7 +92,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error)
 // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
 // it does not initialize any client call
 func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
-	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace).Get(config.KyvernoDeploymentName)
+	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +160,8 @@ func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSec
 		Name:               name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,
@@ -174,8 +179,8 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, timeoutS
 		Name: name,
 		ClientConfig: admregapi.WebhookClientConfig{
 			Service: &admregapi.ServiceReference{
-				Namespace: config.KyvernoNamespace,
-				Name:      config.KyvernoServiceName,
+				Namespace: config.KyvernoNamespace(),
+				Name:      config.KyvernoServiceName(),
 				Path:      &servicePath,
 			},
 			CABundle: caData,
@@ -190,7 +195,10 @@ func generateValidatingWebhook(name, servicePath string, caData []byte, timeoutS
 
 func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Name:            name,
+		Name: name,
+		Labels: map[string]string{
+			managedByLabel: kyvernoValue,
+		},
 		OwnerReferences: owner,
 	}
 }

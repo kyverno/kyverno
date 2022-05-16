@@ -56,7 +56,7 @@ type Monitor struct {
 // NewMonitor returns a new instance of webhook monitor
 func NewMonitor(kubeClient kubernetes.Interface, log logr.Logger) (*Monitor, error) {
 	monitor := &Monitor{
-		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace),
+		leaseClient:         kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		lastSeenRequestTime: time.Now(),
 		log:                 log,
 	}
@@ -229,6 +229,5 @@ func skipWebhookCheck(register *Register, logger logr.Logger) bool {
 		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
 		return false
 	}
-
-	return tls.IsKyvernoInRollingUpdate(deploy, logger)
+	return tls.IsKyvernoInRollingUpdate(deploy)
 }

@@ -214,13 +214,17 @@ func CallAPI(request APIRequest) (*http.Response, error) {
 	var response *http.Response
 	switch request.Type {
 	case "GET":
-		resp, err := http.Get(request.URL)
+		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, request.URL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
 		}
 		response = resp
 	case "POST", "PUT", "DELETE", "PATCH":
-		req, err := http.NewRequest(string(request.Type), request.URL, request.Body)
+		req, err := http.NewRequestWithContext(context.TODO(), request.Type, request.URL, request.Body)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
 		}

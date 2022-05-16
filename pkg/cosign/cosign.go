@@ -90,7 +90,7 @@ func VerifySignature(opts Options) (digest string, err error) {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := loadCert([]byte(opts.Cert))
 			if err != nil {
-				return "", errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+				return "", errors.Wrapf(err, "failed to load certificate from %s", opts.Cert)
 			}
 
 			if opts.CertChain == "" {

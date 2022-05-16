@@ -383,9 +383,9 @@ func hasInvalidVariables(policy kyverno.PolicyInterface, background bool) error 
 		}
 
 		// skip variable checks on verifyImages.attestations, as variables in attestations are dynamic
-		for _, vi := range ruleCopy.VerifyImages {
-			for _, a := range vi.Attestations {
-				a.Conditions = nil
+		for i, vi := range ruleCopy.VerifyImages {
+			for j := range vi.Attestations {
+				ruleCopy.VerifyImages[i].Attestations[j].Conditions = nil
 			}
 		}
 
@@ -526,7 +526,7 @@ func checkNotFoundErr(err error) bool {
 		switch err.(type) {
 		case jmespath.NotFoundError:
 			return true
-		case context.InvalidVariableErr:
+		case context.InvalidVariableError:
 			return false
 		default:
 			return false
@@ -926,7 +926,7 @@ func validateImageRegistry(entry kyverno.ContextEntry) error {
 	// Replace all variables to prevent validation failing on variable keys.
 	ref := variables.ReplaceAllVars(entry.ImageRegistry.Reference, func(s string) string { return "kyvernoimageref" })
 
-	// it's no use validating a refernce that contains a variable
+	// it's no use validating a reference that contains a variable
 	if !strings.Contains(ref, "kyvernoimageref") {
 		_, err := reference.Parse(ref)
 		if err != nil {

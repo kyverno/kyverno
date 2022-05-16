@@ -85,9 +85,9 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 }
 
 func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	ns := ""
+	var ns string
 	if request.GetKind() == "ReportChangeRequest" {
-		ns = config.KyvernoNamespace
+		ns = config.KyvernoNamespace()
 		rcr, err := convertToRCR(request)
 		if err != nil {
 			return err

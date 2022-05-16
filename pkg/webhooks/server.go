@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -38,6 +37,13 @@ import (
 	listerv1 "k8s.io/client-go/listers/core/v1"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
 )
+
+type Handlers interface {
+	// Mutate performs the mutation of policy resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on policy resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+}
 
 // WebhookServer contains configured TLS server with MutationWebhook.
 type WebhookServer struct {
@@ -59,13 +65,13 @@ type WebhookServer struct {
 	eventGen event.Interface
 
 	// policy cache
-	pCache policycache.Interface
+	pCache policycache.Cache
 
 	// webhook registration client
 	webhookRegister *webhookconfig.Register
 
 	// helpers to validate against current loaded configuration
-	configHandler config.Configuration
+	configuration config.Configuration
 
 	// channel for cleanup notification
 	cleanUp chan<- struct{}
@@ -95,9 +101,10 @@ type WebhookServer struct {
 // NewWebhookServer creates new instance of WebhookServer accordingly to given configuration
 // Policy Controller and Kubernetes Client should be initialized in configuration
 func NewWebhookServer(
+	policyHandlers Handlers,
 	kyvernoClient kyvernoclient.Interface,
 	client client.Interface,
-	tlsPair func() (*tlsutils.PemPair, error),
+	tlsPair func() ([]byte, []byte, error),
 	urInformer urinformer.UpdateRequestInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	rbInformer rbacinformer.RoleBindingInformer,
@@ -106,7 +113,7 @@ func NewWebhookServer(
 	crInformer rbacinformer.ClusterRoleInformer,
 	namespace informers.NamespaceInformer,
 	eventGen event.Interface,
-	pCache policycache.Interface,
+	pCache policycache.Cache,
 	webhookRegistrationClient *webhookconfig.Register,
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Configuration,
@@ -125,7 +132,7 @@ func NewWebhookServer(
 	ws := &WebhookServer{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
-		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
+		urLister:          urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		rbLister:          rbInformer.Lister(),
 		rLister:           rInformer.Lister(),
 		nsLister:          namespace.Lister(),
@@ -134,7 +141,7 @@ func NewWebhookServer(
 		eventGen:          eventGen,
 		pCache:            pCache,
 		webhookRegister:   webhookRegistrationClient,
-		configHandler:     configHandler,
+		configuration:     configHandler,
 		cleanUp:           cleanUp,
 		webhookMonitor:    webhookMonitor,
 		prGenerator:       prGenerator,
@@ -146,22 +153,25 @@ func NewWebhookServer(
 		promConfig:        promConfig,
 	}
 	mux := httprouter.New()
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(true, ws.resourceMutation))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(true, ws.resourceValidation))
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(true, ws.policyMutation))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(true, ws.policyValidation))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
+	resourceLogger := ws.log.WithName("resource")
+	policyLogger := ws.log.WithName("policy")
+	verifyLogger := ws.log.WithName("verify")
+	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("mutate"), true, ws.resourceMutation))
+	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, ws.admissionHandler(resourceLogger.WithName("validate"), true, ws.resourceValidation))
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("mutate"), true, policyHandlers.Mutate))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, ws.admissionHandler(policyLogger.WithName("validate"), true, policyHandlers.Validate))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, ws.admissionHandler(verifyLogger.WithName("mutate"), false, handlers.Verify(ws.webhookMonitor, ws.log.WithName("verifyHandler"))))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(ws.webhookRegister.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	ws.server = &http.Server{
 		Addr: ":9443", // Listen on port for HTTPS requests
 		TLSConfig: &tls.Config{
 			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
-				tlsPair, err := tlsPair()
+				certPem, keyPem, err := tlsPair()
 				if err != nil {
 					return nil, err
 				}
-				pair, err := tls.X509KeyPair(tlsPair.Certificate, tlsPair.PrivateKey)
+				pair, err := tls.X509KeyPair(certPem, keyPem)
 				if err != nil {
 					return nil, err
 				}
@@ -170,8 +180,8 @@ func NewWebhookServer(
 			MinVersion: tls.VersionTLS12,
 		},
 		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
 	}
 	return ws, nil
 }
@@ -183,7 +193,7 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 
 	if addRoles {
 		var err error
-		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configHandler)
+		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(ws.rbLister, ws.crbLister, request, ws.configuration)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
 		}
@@ -206,8 +216,8 @@ func (ws *WebhookServer) buildPolicyContext(request *admissionv1.AdmissionReques
 	policyContext := &engine.PolicyContext{
 		NewResource:         resource,
 		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    ws.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: ws.configHandler.ToFilter,
+		ExcludeGroupRole:    ws.configuration.GetExcludeGroupRole(),
+		ExcludeResourceFunc: ws.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              ws.client,
 		AdmissionOperation:  true,
