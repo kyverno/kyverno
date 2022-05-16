@@ -1,0 +1,33 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels:
+    {{- include "kyverno.labels" . | nindent 4 }}
+    webhook.kyverno.io/managed-by: kyverno
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: {{ template "kyverno.serviceName" . }}
+      namespace: {{ template "kyverno.namespace" . }}
+      path: /policyvalidate
+      port: {{ .Values.service.port }}
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: validate-policy.kyverno.svc
+  rules:
+  - apiGroups:
+    - kyverno.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterpolicies/*
+    - policies/*
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10

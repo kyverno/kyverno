@@ -32,12 +32,9 @@ const (
 	kindValidating string = "ValidatingWebhookConfiguration"
 )
 
-// Register manages webhook registration. There are five webhooks:
-// 1. Policy Validation
-// 2. Policy Mutation
-// 3. Resource Validation
-// 4. Resource Mutation
-// 5. Webhook Status Mutation
+// Register manages resource webhook registration:
+// - Resource Validation
+// - Resource Mutation
 type Register struct {
 	// clients
 	kubeClient   kubernetes.Interface
@@ -120,12 +117,6 @@ func (wrc *Register) Register() error {
 	if err := wrc.createVerifyMutatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
-	if err := wrc.createPolicyValidatingWebhookConfiguration(caData); err != nil {
-		errors = append(errors, err.Error())
-	}
-	if err := wrc.createPolicyMutatingWebhookConfiguration(caData); err != nil {
-		errors = append(errors, err.Error())
-	}
 	if err := wrc.createResourceValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -148,12 +139,6 @@ func (wrc *Register) Check() error {
 		return err
 	}
 	if _, err := wrc.vwcLister.Get(getResourceValidatingWebhookConfigName(wrc.serverIP)); err != nil {
-		return err
-	}
-	if _, err := wrc.mwcLister.Get(getPolicyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
-		return err
-	}
-	if _, err := wrc.vwcLister.Get(getPolicyValidatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
 	return nil
@@ -315,28 +300,6 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte)
 		config = constructDefaultValidatingWebhookConfig(caData, wrc.timeoutSeconds, wrc.autoUpdateWebhooks, owner)
 	}
 	return wrc.createValidatingWebhookConfiguration(config)
-}
-
-func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) error {
-	owner := wrc.constructOwner()
-	var config *admregapi.ValidatingWebhookConfiguration
-	if wrc.serverIP != "" {
-		config = constructDebugPolicyValidatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
-	} else {
-		config = constructPolicyValidatingWebhookConfig(caData, wrc.timeoutSeconds, owner)
-	}
-	return wrc.createValidatingWebhookConfiguration(config)
-}
-
-func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) error {
-	owner := wrc.constructOwner()
-	var config *admregapi.MutatingWebhookConfiguration
-	if wrc.serverIP != "" {
-		config = constructDebugPolicyMutatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
-	} else {
-		config = constructPolicyMutatingWebhookConfig(caData, wrc.timeoutSeconds, owner)
-	}
-	return wrc.createMutatingWebhookConfiguration(config)
 }
 
 func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) error {
@@ -542,11 +505,9 @@ func (wrc *Register) removeWebhookConfigurations() {
 	wrc.log.V(3).Info("deleting all webhook configurations")
 	defer wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
 	var wg sync.WaitGroup
-	wg.Add(5)
+	wg.Add(3)
 	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	go wrc.removeResourceValidatingWebhookConfiguration(&wg)
-	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
-	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
 	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 	wg.Wait()
 }
@@ -559,16 +520,6 @@ func (wrc *Register) removeResourceMutatingWebhookConfiguration(wg *sync.WaitGro
 func (wrc *Register) removeResourceValidatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
 	wrc.removeValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(wrc.serverIP))
-}
-
-func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-	wrc.removeMutatingWebhookConfiguration(getPolicyMutatingWebhookConfigName(wrc.serverIP))
-}
-
-func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
-	defer wg.Done()
-	wrc.removeValidatingWebhookConfiguration(getPolicyValidatingWebhookConfigName(wrc.serverIP))
 }
 
 func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {

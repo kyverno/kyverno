@@ -7565,3 +7565,78 @@ spec:
   selector:
     app: kyverno
     app.kubernetes.io/name: kyverno
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-policy-mutating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /policymutate
+      port: 443
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: mutate-policy.kyverno.svc
+  reinvocationPolicy: IfNeeded
+  rules:
+  - apiGroups:
+    - kyverno.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterpolicies/*
+    - policies/*
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  labels:
+    app.kubernetes.io/component: kyverno
+    app.kubernetes.io/instance: kyverno
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/part-of: kyverno
+    webhook.kyverno.io/managed-by: kyverno
+  name: kyverno-policy-validating-webhook-cfg
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: kyverno-svc
+      namespace: kyverno
+      path: /policyvalidate
+      port: 443
+  failurePolicy: Ignore
+  matchPolicy: Equivalent
+  name: validate-policy.kyverno.svc
+  rules:
+  - apiGroups:
+    - kyverno.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clusterpolicies/*
+    - policies/*
+    scope: '*'
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 10

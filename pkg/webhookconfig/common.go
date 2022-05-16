@@ -203,61 +203,61 @@ func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.Obje
 	}
 }
 
-// policy webhook configuration utils
+// // policy webhook configuration utils
 
-func getPolicyMutatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.PolicyMutatingWebhookConfigurationDebugName
-	}
-	return config.PolicyMutatingWebhookConfigurationName
-}
+// func getPolicyMutatingWebhookConfigName(serverIP string) string {
+// 	if serverIP != "" {
+// 		return config.PolicyMutatingWebhookConfigurationDebugName
+// 	}
+// 	return config.PolicyMutatingWebhookConfigurationName
+// }
 
-func getPolicyValidatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.PolicyValidatingWebhookConfigurationDebugName
-	}
-	return config.PolicyValidatingWebhookConfigurationName
-}
+// func getPolicyValidatingWebhookConfigName(serverIP string) string {
+// 	if serverIP != "" {
+// 		return config.PolicyValidatingWebhookConfigurationDebugName
+// 	}
+// 	return config.PolicyValidatingWebhookConfigurationName
+// }
 
-func constructPolicyValidatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.ValidatingWebhookConfiguration {
-	name, path := config.PolicyValidatingWebhookName, config.PolicyValidatingWebhookServicePath
-	return &admregapi.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationName, owner),
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateValidatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
-		},
-	}
-}
+// func constructPolicyValidatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.ValidatingWebhookConfiguration {
+// 	name, path := config.PolicyValidatingWebhookName, config.PolicyValidatingWebhookServicePath
+// 	return &admregapi.ValidatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationName, owner),
+// 		Webhooks: []admregapi.ValidatingWebhook{
+// 			generateValidatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
+// 		},
+// 	}
+// }
 
-func constructDebugPolicyValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.ValidatingWebhookConfiguration {
-	name, url := config.PolicyValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyValidatingWebhookServicePath)
-	return &admregapi.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admregapi.ValidatingWebhook{
-			generateDebugValidatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
-		},
-	}
-}
+// func constructDebugPolicyValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.ValidatingWebhookConfiguration {
+// 	name, url := config.PolicyValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyValidatingWebhookServicePath)
+// 	return &admregapi.ValidatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationDebugName, owner),
+// 		Webhooks: []admregapi.ValidatingWebhook{
+// 			generateDebugValidatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
+// 		},
+// 	}
+// }
 
-func constructPolicyMutatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.MutatingWebhookConfiguration {
-	name, path := config.PolicyMutatingWebhookName, config.PolicyMutatingWebhookServicePath
-	return &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationName, owner),
-		Webhooks: []admregapi.MutatingWebhook{
-			generateMutatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
-		},
-	}
-}
+// func constructPolicyMutatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.MutatingWebhookConfiguration {
+// 	name, path := config.PolicyMutatingWebhookName, config.PolicyMutatingWebhookServicePath
+// 	return &admregapi.MutatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationName, owner),
+// 		Webhooks: []admregapi.MutatingWebhook{
+// 			generateMutatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
+// 		},
+// 	}
+// }
 
-func constructDebugPolicyMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.MutatingWebhookConfiguration {
-	name, url := config.PolicyMutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyMutatingWebhookServicePath)
-	return &admregapi.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admregapi.MutatingWebhook{
-			generateDebugMutatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
-		},
-	}
-}
+// func constructDebugPolicyMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admregapi.MutatingWebhookConfiguration {
+// 	name, url := config.PolicyMutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyMutatingWebhookServicePath)
+// 	return &admregapi.MutatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationDebugName, owner),
+// 		Webhooks: []admregapi.MutatingWebhook{
+// 			generateDebugMutatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admregapi.Ignore),
+// 		},
+// 	}
+// }
 
 // resource webhook configuration utils
 

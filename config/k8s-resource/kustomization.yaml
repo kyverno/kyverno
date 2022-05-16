@@ -11,3 +11,5 @@ resources:
 - ./metricsconfigmap.yaml
 - ./service.yaml
 - ./serviceaccount.yaml
+- ./mutatingwebhookconfiguration.yaml
+- ./validatingwebhookconfiguration.yaml
