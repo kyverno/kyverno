@@ -75,7 +75,6 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 					continue
 				}
 
-				logger.Info("creating new UR for generate")
 				ur := newUR(policy, trigger, ruleType)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
@@ -116,6 +115,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, tri
 			continue
 		}
 
+		pc.log.Info("creating new UR for generate")
 		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
