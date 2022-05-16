@@ -1,4 +1,4 @@
-package webhooks
+package resource
 
 import (
 	"reflect"
@@ -131,23 +131,8 @@ func (v *validationHandler) handleValidation(
 	// registering the kyverno_admission_review_duration_seconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-
 	// registering the kyverno_admission_requests_total metric concurrently
 	go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
-	return true, ""
-}
 
-func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
-	return policyreport.Info{
-		Namespace: oldR.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
-			{Resource: response.ResourceSpec{
-				Kind:       oldR.GetKind(),
-				APIVersion: oldR.GetAPIVersion(),
-				Namespace:  oldR.GetNamespace(),
-				Name:       oldR.GetName(),
-				UID:        string(oldR.GetUID()),
-			}},
-		},
-	}
+	return true, ""
 }

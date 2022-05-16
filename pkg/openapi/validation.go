@@ -46,7 +46,7 @@ type Controller struct {
 	kindToAPIVersions concurrentMap
 }
 
-// apiVersions stores all available gvks for a kind, a gvk is "/" seperated string
+// apiVersions stores all available gvks for a kind, a gvk is "/" separated string
 type apiVersions struct {
 	serverPreferredGVK string
 	gvks               []string

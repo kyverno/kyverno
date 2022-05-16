@@ -1,4 +1,4 @@
-package webhooks
+package policy
 
 import (
 	"encoding/json"

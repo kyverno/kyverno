@@ -38,6 +38,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
+	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
@@ -317,7 +318,7 @@ func main() {
 
 	pCacheController := policycache.NewCache(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
-	auditHandler := webhooks.NewValidateAuditHandler(
+	auditHandler := webhooksresource.NewValidateAuditHandler(
 		pCacheController,
 		eventGenerator,
 		reportReqGen,
@@ -406,37 +407,32 @@ func main() {
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
 	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
-
-	server, err := webhooks.NewWebhookServer(
-		policyHandlers,
-		kyvernoClient,
+	resourceHandlers := webhooksresource.NewHandlers(
 		dynamicClient,
-		certManager.GetTLSPemPair,
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		kyvernoV1.ClusterPolicies(),
-		kubeInformer.Rbac().V1().RoleBindings(),
-		kubeInformer.Rbac().V1().ClusterRoleBindings(),
-		kubeInformer.Rbac().V1().Roles(),
-		kubeInformer.Rbac().V1().ClusterRoles(),
-		kubeInformer.Core().V1().Namespaces(),
-		eventGenerator,
-		pCacheController,
-		webhookCfg,
-		webhookMonitor,
+		kyvernoClient,
 		configuration,
+		promConfig,
+		pCacheController,
+		kubeInformer.Core().V1().Namespaces().Lister(),
+		kubeInformer.Rbac().V1().RoleBindings().Lister(),
+		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		reportReqGen,
 		urgen,
+		eventGenerator,
 		auditHandler,
-		cleanUp,
-		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		urc,
-		promConfig,
 	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create webhook server")
-		os.Exit(1)
-	}
+
+	server := webhooks.NewServer(
+		policyHandlers,
+		resourceHandlers,
+		certManager.GetTLSPemPair,
+		configuration,
+		webhookCfg,
+		webhookMonitor,
+		cleanUp,
+	)
 
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
@@ -485,7 +481,7 @@ func main() {
 	}
 
 	// verifies if the admission control is enabled and active
-	server.RunAsync(stopCh)
+	server.Run(stopCh)
 
 	<-stopCh
 

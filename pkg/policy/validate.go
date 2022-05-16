@@ -926,7 +926,7 @@ func validateImageRegistry(entry kyverno.ContextEntry) error {
 	// Replace all variables to prevent validation failing on variable keys.
 	ref := variables.ReplaceAllVars(entry.ImageRegistry.Reference, func(s string) string { return "kyvernoimageref" })
 
-	// it's no use validating a refernce that contains a variable
+	// it's no use validating a reference that contains a variable
 	if !strings.Contains(ref, "kyvernoimageref") {
 		_, err := reference.Parse(ref)
 		if err != nil {

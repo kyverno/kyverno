@@ -13,25 +13,16 @@ import (
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	"github.com/kyverno/kyverno/pkg/webhooks"
 	admissionv1 "k8s.io/api/admission/v1"
 )
-
-type Handlers interface {
-	// Mutate performs the mutation of policy resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
-	// Validate performs the validation check on policy resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
-}
 
 type handlers struct {
 	client            client.Interface
 	openAPIController *openapi.Controller
 }
 
-func NewHandlers(
-	client client.Interface,
-	openAPIController *openapi.Controller,
-) Handlers {
+func NewHandlers(client client.Interface, openAPIController *openapi.Controller) webhooks.Handlers {
 	return &handlers{
 		client:            client,
 		openAPIController: openAPIController,
