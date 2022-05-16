@@ -5,9 +5,11 @@ linters:
     - bodyclose
     - containedctx
     - deadcode
+    - decorder
     - dogsled
     - durationcheck
     - errcheck
+    - errname
     - exportloopref
     - gochecknoinits
     - goprintffuncname
