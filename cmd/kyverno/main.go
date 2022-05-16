@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
@@ -228,7 +229,7 @@ func main() {
 		setupLog.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	configurationController := configcontroller.NewController(kubeKyvernoInformer.Core().V1().ConfigMaps(), configuration)
+	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
 
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
@@ -317,10 +318,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	pCacheController := policycache.NewCache(kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	policyCache := policycache.NewCache()
+	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	auditHandler := webhooksresource.NewValidateAuditHandler(
-		pCacheController,
+		policyCache,
 		eventGenerator,
 		reportReqGen,
 		kubeInformer.Rbac().V1().RoleBindings(),
@@ -413,7 +415,7 @@ func main() {
 		kyvernoClient,
 		configuration,
 		promConfig,
-		pCacheController,
+		policyCache,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
@@ -467,10 +469,15 @@ func main() {
 
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
-	pCacheController.CheckPolicySync(stopCh)
+	// warmup policy cache
+	if err := policyCacheController.WarmUp(); err != nil {
+		setupLog.Error(err, "Failed to warm up policy cache")
+		os.Exit(1)
+	}
 
 	// init events handlers
 	// start Kyverno controllers
+	go policyCacheController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go reportReqGen.Run(2, stopCh)
