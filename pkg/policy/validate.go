@@ -526,7 +526,7 @@ func checkNotFoundErr(err error) bool {
 		switch err.(type) {
 		case jmespath.NotFoundError:
 			return true
-		case context.InvalidVariableErr:
+		case context.InvalidVariableError:
 			return false
 		default:
 			return false
