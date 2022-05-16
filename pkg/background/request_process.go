@@ -47,6 +47,10 @@ func (c *Controller) UnmarkUR(ur *urkyverno.UpdateRequest) error {
 		return err
 	}
 
+	if ur.Spec.Type == urkyverno.Mutate && ur.Status.State == urkyverno.Completed {
+		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+	}
+
 	newUR.Status.Handler = ""
 	_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), newUR, metav1.UpdateOptions{})
 	return err
