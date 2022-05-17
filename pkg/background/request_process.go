@@ -53,11 +53,9 @@ func (c *Controller) MarkUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.U
 }
 
 func (c *Controller) UnmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
-	_, err := c.PatchHandler(ur, "")
-	if err != nil {
+	if _, err := c.PatchHandler(ur, ""); err != nil {
 		return err
 	}
-
 	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}

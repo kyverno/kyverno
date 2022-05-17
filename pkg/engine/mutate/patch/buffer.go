@@ -11,8 +11,8 @@ type buffer struct {
 // UnmarshalJSON writes the slice of bytes to an internal buffer
 func (buff buffer) UnmarshalJSON(b []byte) error {
 	buff.Reset()
-	_, err := buff.Write(b)
-	if err != nil {
+
+	if _, err := buff.Write(b); err != nil {
 		return err
 	}
 	return nil
