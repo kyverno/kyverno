@@ -35,7 +35,7 @@ func (c *Controller) MarkUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.U
 	handler := ur.Status.Handler
 	if handler != "" {
 		if handler != config.KyvernoPodName {
-			return nil, false, nil
+			return ur, false, nil
 		}
 		return ur, true, nil
 	}
