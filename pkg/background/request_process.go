@@ -32,10 +32,10 @@ func (c *Controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *Controller) markUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
+	ur = ur.DeepCopy()
 	if ur.Status.Handler != "" {
 		return ur, ur.Status.Handler == config.KyvernoPodName(), nil
 	}
-	ur = ur.DeepCopy()
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var retryError error
 		ur.Status.Handler = config.KyvernoPodName()
@@ -46,11 +46,9 @@ func (c *Controller) markUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.U
 }
 
 func (c *Controller) unmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
-	_, err := c.patchHandler(ur, "")
-	if err != nil {
+	if _, err := c.patchHandler(ur, ""); err != nil {
 		return err
 	}
-
 	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}

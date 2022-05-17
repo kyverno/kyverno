@@ -81,7 +81,7 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
-) (*Controller, error) {
+) *Controller {
 	c := Controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
@@ -90,21 +90,18 @@ func NewController(
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		log:            log,
 		Config:         dynamicConfig,
+		statusControl:  common.StatusControl{Client: kyvernoClient},
+		policyLister:   policyInformer.Lister(),
+		npolicyLister:  npolicyInformer.Lister(),
+		urLister:       urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		nsLister:       namespaceInformer.Lister(),
 	}
-
-	c.statusControl = common.StatusControl{Client: kyvernoClient}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
-
-	c.policyLister = policyInformer.Lister()
-	c.npolicyLister = npolicyInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
-	c.nsLister = namespaceInformer.Lister()
-
-	return &c, nil
+	return &c
 }
 
 // Run starts workers
@@ -178,39 +175,32 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	defer func() {
 		logger.V(4).Info("completed sync update request", "key", key, "processingTime", time.Since(startTime).String())
 	}()
-
 	_, urName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-
 	ur, err := c.urLister.Get(urName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-
 		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
-
 	ur, ok, err := c.markUR(ur)
+	if err != nil {
+		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
+	}
 	if !ok {
 		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
 		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
-	}
-
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
 	if err := c.processUR(ur); err != nil {
 		return fmt.Errorf("failed to process UR %s: %v", key, err)
 	}
-
 	if err = c.unmarkUR(ur); err != nil {
 		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
 	}
-
 	return nil
 }
 
