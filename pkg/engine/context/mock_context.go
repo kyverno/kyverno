@@ -41,8 +41,7 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 	var emptyResult interface{}
 
 	// compile the query
-	_, err := jmespath.New(query)
-	if err != nil {
+	if _, err := jmespath.New(query); err != nil {
 		return emptyResult, fmt.Errorf("invalid JMESPath query %s: %v", query, err)
 	}
 
