@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,11 +15,11 @@ type CanIOptions struct {
 	namespace string
 	verb      string
 	kind      string
-	client    client.Interface
+	client    dclient.Interface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client client.Interface, kind, namespace, verb string) *CanIOptions {
+func NewCanI(client dclient.Interface, kind, namespace, verb string) *CanIOptions {
 	return &CanIOptions{
 		namespace: namespace,
 		kind:      kind,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func privateKeyToPem(rsaKey *rsa.PrivateKey) []byte {
@@ -97,7 +97,7 @@ func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment) bool {
 	return false
 }
 
-func IsSecretManagedByKyverno(secret *v1.Secret) bool {
+func IsSecretManagedByKyverno(secret *corev1.Secret) bool {
 	if secret != nil {
 		labels := secret.GetLabels()
 		if labels == nil {

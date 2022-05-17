@@ -19,7 +19,7 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -62,7 +62,7 @@ type ReportGenerator struct {
 	clusterReportLister              policyreport.ClusterPolicyReportLister
 	reportChangeRequestLister        requestlister.ReportChangeRequestLister
 	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
-	nsLister                         listerv1.NamespaceLister
+	nsLister                         corev1listers.NamespaceLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -81,7 +81,7 @@ func NewReportGenerator(
 	reportInformer policyreportinformer.PolicyReportInformer,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
-	namespace informers.NamespaceInformer,
+	namespace corev1informers.NamespaceInformer,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
@@ -534,7 +534,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 			}
 			// Namespace is deleted, create a fake ns to clean up RCRs
-			ns = new(v1.Namespace)
+			ns = new(corev1.Namespace)
 			ns.SetName(namespace)
 			now := metav1.Now()
 			ns.SetDeletionTimestamp(&now)
@@ -554,7 +554,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	return report, aggregatedRequests, nil
 }
 
-func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
 
 	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
@@ -615,7 +615,7 @@ func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*u
 	return nil, nil, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.Namespace) {
+func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace) {
 	reportUnstructured.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
