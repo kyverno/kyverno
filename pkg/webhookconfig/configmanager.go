@@ -15,7 +15,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
-	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -39,21 +39,21 @@ var DefaultWebhookTimeout int32 = 10
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
 	// clients
-	discoveryClient client.IDiscovery
+	discoveryClient dclient.IDiscovery
 	kubeClient      kubernetes.Interface
 	kyvernoClient   kyvernoclient.Interface
 
 	// informers
 	pInformer        kyvernoinformer.ClusterPolicyInformer
 	npInformer       kyvernoinformer.PolicyInformer
-	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
-	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateInformer   admissionregistrationv1informers.MutatingWebhookConfigurationInformer
+	validateInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer
 
 	// listers
 	pLister        kyvernolister.ClusterPolicyLister
 	npLister       kyvernolister.PolicyLister
-	mutateLister   admlisters.MutatingWebhookConfigurationLister
-	validateLister admlisters.ValidatingWebhookConfigurationLister
+	mutateLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	validateLister admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -77,13 +77,13 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	discoveryClient client.IDiscovery,
+	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
-	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
+	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
+	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,

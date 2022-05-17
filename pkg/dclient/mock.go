@@ -1,4 +1,4 @@
-package client
+package dclient
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
