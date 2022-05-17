@@ -277,8 +277,7 @@ func buildSuccessMessage(r unstructured.Unstructured) string {
 		return "mutated resource"
 	}
 
-	ns := r.GetNamespace()
-	if ns == "" {
+	if r.GetNamespace() == "" {
 		return fmt.Sprintf("mutated %s/%s", r.GetKind(), r.GetName())
 	}
 
