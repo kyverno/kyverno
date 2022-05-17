@@ -205,7 +205,9 @@ func (c *Controller) syncUpdateRequest(key string) error {
 
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
 	if err := c.ProcessUR(ur); err != nil {
-		return fmt.Errorf("failed to process UR %s: %v", key, err)
+		logger.Info("failed to process the UR, triggering handle delete operation", "handler", ur.Status.Handler, "ur", ur.GetName(), "err", err)
+		err = c.HandleDeleteUR(*ur)
+		return fmt.Errorf("failed to process delete UR %s: %v", key, err)
 	}
 
 	if err = c.UnmarkUR(ur); err != nil {
