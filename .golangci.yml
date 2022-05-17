@@ -49,3 +49,9 @@ linters-settings:
     alias:
       - pkg: github.com/kyverno/kyverno/api/(\w+)/(v[\w\d]+)
         alias: $1$2
+      - pkg: k8s.io/apimachinery/pkg/apis/(\w+)/(v[\w\d]+)
+        alias: $1$2
+      - pkg: k8s.io/api/(\w+)/(v[\w\d]+)
+        alias: $1$2
+      - pkg: github.com/kyverno/kyverno/pkg/dclient
+        alias: dclient

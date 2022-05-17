@@ -7,8 +7,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-	v1 "k8s.io/api/core/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
+	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -21,7 +21,7 @@ import (
 
 // Generator generate events
 type Generator struct {
-	client client.Interface
+	client dclient.Interface
 	// list/get cluster policy
 	cpLister kyvernolister.ClusterPolicyLister
 	// list/get policy
@@ -46,7 +46,7 @@ type Interface interface {
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client dclient.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -65,7 +65,7 @@ func rateLimiter() workqueue.RateLimiter {
 	return workqueue.DefaultItemBasedRateLimiter()
 }
 
-func initRecorder(client client.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
+func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
 	// Initialize Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -86,7 +86,7 @@ func initRecorder(client client.Interface, eventSource Source, log logr.Logger) 
 	)
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{
+		corev1.EventSource{
 			Component: eventSource.String(),
 		},
 	)
@@ -203,9 +203,9 @@ func (gen *Generator) syncHandler(key Info) error {
 	}
 
 	// set the event type based on reason
-	eventType := v1.EventTypeWarning
+	eventType := corev1.EventTypeWarning
 	if key.Reason == PolicyApplied.String() {
-		eventType = v1.EventTypeNormal
+		eventType = corev1.EventTypeNormal
 	}
 
 	// based on the source of event generation, use different event recorders
