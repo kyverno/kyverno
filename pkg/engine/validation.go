@@ -7,25 +7,24 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/pkg/errors"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-
-	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/pkg/errors"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//Validate applies validation rules from policy on the resource
+// Validate applies validation rules from policy on the resource
 func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
@@ -59,7 +58,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
-		var resource = ctx.NewResource
+		resource := ctx.NewResource
 		if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 			resource = ctx.OldResource
 		}

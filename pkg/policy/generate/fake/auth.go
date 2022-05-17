@@ -1,10 +1,9 @@
 package fake
 
-//FakeAuth providers implementation for testing, retuning true for all operations
-type FakeAuth struct {
-}
+// FakeAuth providers implementation for testing, retuning true for all operations
+type FakeAuth struct{}
 
-//NewFakeAuth returns a new instance of Fake Auth that returns true for each operation
+// NewFakeAuth returns a new instance of Fake Auth that returns true for each operation
 func NewFakeAuth() *FakeAuth {
 	a := FakeAuth{}
 	return &a

@@ -11,14 +11,14 @@ type Mutate struct {
 	mutation kyverno.Mutation
 }
 
-//NewMutateFactory returns a new instance of Mutate validation checker
+// NewMutateFactory returns a new instance of Mutate validation checker
 func NewMutateFactory(m kyverno.Mutation) *Mutate {
 	return &Mutate{
 		mutation: m,
 	}
 }
 
-//Validate validates the 'mutate' rule
+// Validate validates the 'mutate' rule
 func (m *Mutate) Validate() (string, error) {
 	if m.hasForEach() {
 		return m.validateForEach()

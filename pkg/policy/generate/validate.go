@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"reflect"
 
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
-
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
@@ -19,11 +18,11 @@ type Generate struct {
 	rule kyverno.Generation
 	// authCheck to check access for operations
 	authCheck Operations
-	//logger
+	// logger
 	log logr.Logger
 }
 
-//NewGenerateFactory returns a new instance of Generate validation checker
+// NewGenerateFactory returns a new instance of Generate validation checker
 func NewGenerateFactory(client dclient.Interface, rule kyverno.Generation, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
@@ -34,7 +33,7 @@ func NewGenerateFactory(client dclient.Interface, rule kyverno.Generation, log l
 	return &g
 }
 
-//Validate validates the 'generate' rule
+// Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
 	if rule.GetData() != nil && rule.Clone != (kyverno.CloneFrom{}) {
@@ -57,7 +56,7 @@ func (g *Generate) Validate() (string, error) {
 		}
 	}
 	if target := rule.GetData(); target != nil {
-		//TODO: is this required ?? as anchors can only be on pattern and not resource
+		// TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
 		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{}); err != nil {
 			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
@@ -97,7 +96,7 @@ func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, erro
 	return "", nil
 }
 
-//canIGenerate returns a error if kyverno cannot perform operations
+// canIGenerate returns a error if kyverno cannot perform operations
 func (g *Generate) canIGenerate(kind, namespace string) error {
 	// Skip if there is variable defined
 	authCheck := g.authCheck

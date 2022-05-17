@@ -29,9 +29,8 @@ const (
 	maxRetries = 10
 )
 
-//Controller manages life-cycle of generate-requests
+// Controller manages life-cycle of generate-requests
 type Controller struct {
-
 	// dynamic client implementation
 	client dclient.Interface
 
@@ -63,7 +62,7 @@ type Controller struct {
 	log logr.Logger
 }
 
-//NewController returns a new controller instance to manage generate-requests
+// NewController returns a new controller instance to manage generate-requests
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoclient kyvernoclient.Interface,
@@ -184,7 +183,7 @@ func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
 	c.queue.Add(key)
 }
 
-//Run starts the update-request re-conciliation loop
+// Run starts the update-request re-conciliation loop
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger := c.log
 	defer utilruntime.HandleCrash()

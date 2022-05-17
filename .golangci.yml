@@ -9,14 +9,19 @@ linters:
     - dogsled
     - durationcheck
     - errcheck
+    - errname
     - exportloopref
+    - gci
     - gochecknoinits
+    - gofmt
+    - gofumpt
     - goprintffuncname
     - gosec
     - gosimple
     - govet
     - importas
     - ineffassign
+    - misspell
     - noctx
     - staticcheck
     - structcheck

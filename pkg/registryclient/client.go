@@ -4,11 +4,10 @@ import (
 	"context"
 	"io/ioutil"
 
-	"github.com/google/go-containerregistry/pkg/authn/github"
-
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/github"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/pkg/errors"
@@ -67,7 +66,7 @@ func Initialize(client kubernetes.Interface, ns, sa string, imagePullSecrets []s
 
 // UpdateKeychain reinitializes the image pull secrets and default auth method for container registry API calls
 func UpdateKeychain() error {
-	var err = Initialize(kubeClient, namespace, serviceAccount, Secrets)
+	err := Initialize(kubeClient, namespace, serviceAccount, Secrets)
 	if err != nil {
 		return err
 	}

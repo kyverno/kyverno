@@ -570,9 +570,9 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 	mutateLogPath = filepath.Clean(mutateLogPath)
 	if !mutateLogPathIsDir {
 		// truncation for the case when mutateLogPath is a file (not a directory) is handled under pkg/kyverno/apply/test_command.go
-		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0600) // #nosec G304
+		f, err = os.OpenFile(mutateLogPath, os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304
 	} else {
-		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0600) // #nosec G304
+		f, err = os.OpenFile(mutateLogPath+"/"+fileName+".yaml", os.O_CREATE|os.O_WRONLY, 0o600) // #nosec G304
 	}
 
 	if err != nil {
@@ -654,7 +654,8 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []v1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string) (resources []*unstructured.Unstructured, err error) {
+	cluster bool, policies []v1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
 		if err != nil {
@@ -969,7 +970,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 }
 
 func GetKindsFromPolicy(policy v1.PolicyInterface) map[string]struct{} {
-	var kindOnwhichPolicyIsApplied = make(map[string]struct{})
+	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 			kindOnwhichPolicyIsApplied[kind] = struct{}{}
@@ -981,7 +982,7 @@ func GetKindsFromPolicy(policy v1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-//GetPatchedResourceFromPath - get patchedResource from given path
+// GetPatchedResourceFromPath - get patchedResource from given path
 func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
 	var patchedResourceBytes []byte
 	var patchedResource unstructured.Unstructured
@@ -1012,7 +1013,7 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 	return patchedResource, nil
 }
 
-//GetUserInfoFromPath - get the request info as user info from a given path
+// GetUserInfoFromPath - get the request info as user info from a given path
 func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, store.Subject, error) {
 	userInfo := &v1beta1.RequestInfo{}
 	subjectInfo := &store.Subject{}

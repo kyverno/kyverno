@@ -122,7 +122,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
 		rulePath := rulesPath.Index(i)
-		//check for forward slash
+		// check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return nil, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
 		}
@@ -240,7 +240,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 			}
 		}
 
-		var podOnlyMap = make(map[string]bool) //Validate that Kind is only Pod
+		podOnlyMap := make(map[string]bool) // Validate that Kind is only Pod
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
 			msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
@@ -253,7 +253,7 @@ func Validate(policy kyverno.PolicyInterface, client dclient.Interface, mock boo
 			}, nil
 		}
 
-		//Validate Kind with match resource kinds
+		// Validate Kind with match resource kinds
 		match := rule.MatchResources
 		exclude := rule.ExcludeResources
 		for _, value := range match.Any {
@@ -526,7 +526,7 @@ func checkNotFoundErr(err error) bool {
 		switch err.(type) {
 		case jmespath.NotFoundError:
 			return true
-		case context.InvalidVariableErr:
+		case context.InvalidVariableError:
 			return false
 		default:
 			return false
@@ -704,13 +704,13 @@ func validateResources(path *field.Path, rule kyverno.Rule) (string, error) {
 		}
 	}
 
-	//validating the values present under validate.preconditions, if they exist
+	// validating the values present under validate.preconditions, if they exist
 	if target := rule.GetAnyAllConditions(); target != nil {
 		if path, err := validateConditions(target, "preconditions"); err != nil {
 			return fmt.Sprintf("validate.%s", path), err
 		}
 	}
-	//validating the values present under validate.conditions, if they exist
+	// validating the values present under validate.conditions, if they exist
 	if rule.Validation.Deny != nil {
 		if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
 			if path, err := validateConditions(target, "conditions"); err != nil {
@@ -926,7 +926,7 @@ func validateImageRegistry(entry kyverno.ContextEntry) error {
 	// Replace all variables to prevent validation failing on variable keys.
 	ref := variables.ReplaceAllVars(entry.ImageRegistry.Reference, func(s string) string { return "kyvernoimageref" })
 
-	// it's no use validating a refernce that contains a variable
+	// it's no use validating a reference that contains a variable
 	if !strings.Contains(ref, "kyvernoimageref") {
 		_, err := reference.Parse(ref)
 		if err != nil {

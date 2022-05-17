@@ -7,7 +7,7 @@ import (
 	kubefake "k8s.io/client-go/kubernetes/fake"
 )
 
-//NewMockClient ---testing utilities
+// NewMockClient ---testing utilities
 func NewMockClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (Interface, error) {
 	c := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
 	// the typed and dynamic client are initialized with similar resources

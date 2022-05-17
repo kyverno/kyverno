@@ -445,7 +445,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 
 	for _, gr := range grs.Items {
-		var ur = &urkyverno.UpdateRequest{
+		ur := &urkyverno.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace(),

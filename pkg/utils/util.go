@@ -6,20 +6,19 @@ import (
 	"regexp"
 	"strconv"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
@@ -265,7 +264,7 @@ func isVersionHigher(version string, major int, minor int, patch int) (bool, err
 
 // SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
-	var sliceElementsMap = make(map[string]bool, len(slice))
+	sliceElementsMap := make(map[string]bool, len(slice))
 	for _, sliceElement := range slice {
 		sliceElementsMap[sliceElement] = true
 	}

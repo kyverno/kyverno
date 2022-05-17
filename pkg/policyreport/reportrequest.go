@@ -22,8 +22,10 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-const workQueueName = "report-request-controller"
-const workQueueRetryLimit = 10
+const (
+	workQueueName       = "report-request-controller"
+	workQueueRetryLimit = 10
+)
 
 // Generator creates report request
 type Generator struct {
@@ -54,7 +56,8 @@ func NewReportChangeRequestGenerator(client policyreportclient.Interface,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
 	cpolInformer kyvernoinformer.ClusterPolicyInformer,
 	polInformer kyvernoinformer.PolicyInformer,
-	log logr.Logger) *Generator {
+	log logr.Logger,
+) *Generator {
 	gen := Generator{
 		dclient:                          dclient,
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
@@ -230,7 +233,6 @@ func (gen *Generator) processNextWorkItem() bool {
 		gen.handleErr(err, obj)
 		return nil
 	}(obj)
-
 	if err != nil {
 		logger.Error(err, "failed to process item")
 	}

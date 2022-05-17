@@ -53,7 +53,7 @@ func GeneratePolicyReportName(ns string) string {
 	return name
 }
 
-//GeneratePRsFromEngineResponse generate Violations from engine responses
+// GeneratePRsFromEngineResponse generate Violations from engine responses
 func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
@@ -311,9 +311,11 @@ func toPolicyResult(status response.RuleStatus) string {
 	return ""
 }
 
-const categoryLabel string = "policies.kyverno.io/category"
-const severityLabel string = "policies.kyverno.io/severity"
-const ScoredLabel string = "policies.kyverno.io/scored"
+const (
+	categoryLabel string = "policies.kyverno.io/category"
+	severityLabel string = "policies.kyverno.io/severity"
+	ScoredLabel   string = "policies.kyverno.io/scored"
+)
 
 type annotationValues struct {
 	category string

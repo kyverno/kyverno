@@ -216,7 +216,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 		rulePatches = append(rulePatches, rp)
 	}
 
-	var annotationContent = make(map[string]string)
+	annotationContent := make(map[string]string)
 	policyName := policy.GetName()
 	if policy.GetNamespace() != "" {
 		policyName = policy.GetNamespace() + "/" + policy.GetName()

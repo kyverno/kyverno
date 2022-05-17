@@ -5,9 +5,8 @@ import (
 	"strings"
 	"time"
 
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"

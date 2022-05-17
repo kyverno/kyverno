@@ -66,7 +66,7 @@ type GenerateController struct {
 	Config config.Configuration
 }
 
-//NewGenerateController returns an instance of the Generate-Request Controller
+// NewGenerateController returns an instance of the Generate-Request Controller
 func NewGenerateController(
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
@@ -609,11 +609,11 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 type ResourceMode string
 
 const (
-	//Skip : failed to process rule, will not update the resource
+	// Skip : failed to process rule, will not update the resource
 	Skip ResourceMode = "SKIP"
-	//Create : create a new resource
+	// Create : create a new resource
 	Create = "CREATE"
-	//Update : update/overwrite the new resource
+	// Update : update/overwrite the new resource
 	Update = "UPDATE"
 )
 

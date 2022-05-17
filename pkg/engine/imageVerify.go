@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/go-logr/logr"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -23,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -442,7 +441,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 }
 
 func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
-	var patch = make(map[string]interface{})
+	patch := make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = imageInfo.Pointer
 	patch["value"] = imageInfo.String() + "@" + digest

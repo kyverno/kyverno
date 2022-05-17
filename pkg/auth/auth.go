@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-//CanIOptions provides utility to check if user has authorization for the given operation
+// CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions struct {
 	namespace string
 	verb      string
@@ -18,7 +18,7 @@ type CanIOptions struct {
 	client    client.Interface
 }
 
-//NewCanI returns a new instance of operation access controller evaluator
+// NewCanI returns a new instance of operation access controller evaluator
 func NewCanI(client client.Interface, kind, namespace, verb string) *CanIOptions {
 	return &CanIOptions{
 		namespace: namespace,
@@ -28,7 +28,7 @@ func NewCanI(client client.Interface, kind, namespace, verb string) *CanIOptions
 	}
 }
 
-//RunAccessCheck checks if the caller can perform the operation
+// RunAccessCheck checks if the caller can perform the operation
 // - operation is a combination of namespace, kind, verb
 // - can only evaluate a single verb
 // - group version resource is determined from the kind using the discovery client REST mapper

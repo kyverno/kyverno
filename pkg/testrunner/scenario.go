@@ -12,12 +12,11 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/stretchr/testify/assert"
-
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -78,7 +77,7 @@ func RootDir() string {
 	return filepath.Dir(d)
 }
 
-//getRelativePath expects a path relative to project and builds the complete path
+// getRelativePath expects a path relative to project and builds the complete path
 func getRelativePath(path string) string {
 	root := RootDir()
 	return ospath.Join(root, path)
