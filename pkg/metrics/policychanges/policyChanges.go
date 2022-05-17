@@ -3,7 +3,7 @@ package policychanges
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -40,7 +40,7 @@ func registerPolicyChangesMetric(
 	return nil
 }
 
-func RegisterPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface, policyChangeType PolicyChangeType) error {
+func RegisterPolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface, policyChangeType PolicyChangeType) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -14,7 +14,7 @@ import (
 )
 
 // createUpdateRequests applies generate and mutateExisting policies, and creates update requests for background reconcile
-func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyverno.PolicyInterface, ts int64) {
+func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts int64) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
@@ -26,7 +26,7 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 	go h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
-func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
+func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
 	logger.V(4).Info("update request")
 
 	if request.Operation == admissionv1.Delete {
@@ -65,7 +65,7 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		go h.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
 	}
 
-	if failedResponse := applyUpdateRequest(request, urkyverno.Mutate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+	if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 		for _, failedUR := range failedResponse {
 			err := fmt.Errorf("failed to create update request: %v", failedUR.err)
 			events := event.NewBackgroundFailedEvent(err, failedUR.ur.Policy, "", event.GeneratePolicyController, &policyContext.NewResource)

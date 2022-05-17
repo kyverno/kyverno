@@ -3,21 +3,21 @@ package background
 import (
 	"context"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
 	"github.com/kyverno/kyverno/pkg/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
+func (c *Controller) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	switch ur.Spec.Type {
-	case urkyverno.Mutate:
+	case kyvernov1beta1.Mutate:
 		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
 			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.log, c.Config)
 		return ctrl.ProcessUR(ur)
 
-	case urkyverno.Generate:
+	case kyvernov1beta1.Generate:
 		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
 			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, c.log, c.Config,
 		)
@@ -26,7 +26,7 @@ func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateRequest, bool, error) {
+func (c *Controller) MarkUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
 	handler := ur.Status.Handler
 	if handler != "" {
 		if handler != config.KyvernoPodName() {
@@ -41,13 +41,13 @@ func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateReque
 	return new, true, err
 }
 
-func (c *Controller) UnmarkUR(ur *urkyverno.UpdateRequest) error {
+func (c *Controller) UnmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
 	newUR, err := c.urLister.Get(ur.Name)
 	if err != nil {
 		return err
 	}
 
-	if ur.Spec.Type == urkyverno.Mutate && ur.Status.State == urkyverno.Completed {
+	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 

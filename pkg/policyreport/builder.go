@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	request "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -94,7 +94,7 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 }
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
-	results := []report.PolicyReportResult{}
+	results := []policyreportv1alpha2.PolicyReportResult{}
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
@@ -108,12 +108,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	}
 
 	if info.Namespace != "" {
-		rr := &request.ReportChangeRequest{
+		rr := &kyvernov1alpha2.ReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
 
-		gv := report.SchemeGroupVersion
+		gv := policyreportv1alpha2.SchemeGroupVersion
 		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ReportChangeRequest"})
 
 		rawRcr, err := json.Marshal(rr)
@@ -128,12 +128,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 
 		set(req, info)
 	} else {
-		rr := &request.ClusterReportChangeRequest{
+		rr := &kyvernov1alpha2.ClusterReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
 		}
 
-		gv := report.SchemeGroupVersion
+		gv := policyreportv1alpha2.SchemeGroupVersion
 		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterReportChangeRequest"})
 
 		rawRcr, err := json.Marshal(rr)
@@ -160,10 +160,10 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	return req, nil
 }
 
-func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) report.PolicyReportResult {
+func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyvernov1.ViolatedRule) policyreportv1alpha2.PolicyReportResult {
 	av := builder.fetchAnnotationValues(policy, resource.Namespace)
 
-	result := report.PolicyReportResult{
+	result := policyreportv1alpha2.PolicyReportResult{
 		Policy: policy,
 		Resources: []v1.ObjectReference{
 			{
@@ -181,7 +181,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 
 	result.Rule = rule.Name
 	result.Message = rule.Message
-	result.Result = report.PolicyResult(rule.Status)
+	result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
 	if result.Result == "fail" && !av.scored {
 		result.Result = "warn"
 	}
@@ -193,7 +193,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 }
 
 func set(obj *unstructured.Unstructured, info Info) {
-	obj.SetAPIVersion(request.SchemeGroupVersion.Group + "/" + request.SchemeGroupVersion.Version)
+	obj.SetAPIVersion(kyvernov1alpha2.SchemeGroupVersion.Group + "/" + kyvernov1alpha2.SchemeGroupVersion.Version)
 
 	if info.Namespace == "" {
 		obj.SetGenerateName("crcr-")
@@ -246,18 +246,18 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 	return false
 }
 
-func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
+func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {
-		case report.StatusPass:
+		case policyreportv1alpha2.StatusPass:
 			summary.Pass++
-		case report.StatusFail:
+		case policyreportv1alpha2.StatusFail:
 			summary.Fail++
-		case report.StatusWarn:
+		case policyreportv1alpha2.StatusWarn:
 			summary.Warn++
-		case report.StatusError:
+		case policyreportv1alpha2.StatusError:
 			summary.Error++
-		case report.StatusSkip:
+		case policyreportv1alpha2.StatusSkip:
 			summary.Skip++
 		}
 	}
@@ -278,10 +278,10 @@ func buildPVInfo(er *response.EngineResponse) Info {
 	return info
 }
 
-func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
-	var violatedRules []kyverno.ViolatedRule
+func buildViolatedRules(er *response.EngineResponse) []kyvernov1.ViolatedRule {
+	var violatedRules []kyvernov1.ViolatedRule
 	for _, rule := range er.PolicyResponse.Rules {
-		vrule := kyverno.ViolatedRule{
+		vrule := kyvernov1.ViolatedRule{
 			Name:    rule.Name,
 			Type:    string(rule.Type),
 			Message: rule.Message,
@@ -297,15 +297,15 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 func toPolicyResult(status response.RuleStatus) string {
 	switch status {
 	case response.RuleStatusPass:
-		return report.StatusPass
+		return policyreportv1alpha2.StatusPass
 	case response.RuleStatusFail:
-		return report.StatusFail
+		return policyreportv1alpha2.StatusFail
 	case response.RuleStatusError:
-		return report.StatusError
+		return policyreportv1alpha2.StatusError
 	case response.RuleStatusWarn:
-		return report.StatusWarn
+		return policyreportv1alpha2.StatusWarn
 	case response.RuleStatusSkip:
-		return report.StatusSkip
+		return policyreportv1alpha2.StatusSkip
 	}
 
 	return ""
@@ -319,18 +319,18 @@ const (
 
 type annotationValues struct {
 	category string
-	severity report.PolicySeverity
+	severity policyreportv1alpha2.PolicySeverity
 	scored   bool
 }
 
 func (av *annotationValues) setSeverityFromString(severity string) {
 	switch severity {
-	case report.SeverityHigh:
-		av.severity = report.SeverityHigh
-	case report.SeverityMedium:
-		av.severity = report.SeverityMedium
-	case report.SeverityLow:
-		av.severity = report.SeverityLow
+	case policyreportv1alpha2.SeverityHigh:
+		av.severity = policyreportv1alpha2.SeverityHigh
+	case policyreportv1alpha2.SeverityMedium:
+		av.severity = policyreportv1alpha2.SeverityMedium
+	case policyreportv1alpha2.SeverityLow:
+		av.severity = policyreportv1alpha2.SeverityLow
 	}
 }
 

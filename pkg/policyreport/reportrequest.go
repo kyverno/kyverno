@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
@@ -115,7 +115,7 @@ type Info struct {
 
 type EngineResponseResult struct {
 	Resource response.ResourceSpec
-	Rules    []kyverno.ViolatedRule
+	Rules    []kyvernov1.ViolatedRule
 }
 
 func (i Info) ToKey() string {
