@@ -1,18 +1,14 @@
 package policycache
 
 import (
-	"time"
-
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1lister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -40,66 +36,9 @@ func NewController(pcache pcache.Cache, cpolInformer kyvernov1informer.ClusterPo
 		polLister:  polInformer.Lister(),
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policycache-controller"),
 	}
-	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.add,
-		UpdateFunc: c.update,
-		DeleteFunc: c.delete,
-	})
-	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.add,
-		UpdateFunc: c.update,
-		DeleteFunc: c.delete,
-	})
+	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	return &c
-}
-
-func (c *controller) add(obj interface{}) {
-	c.enqueue(obj)
-}
-
-func (c *controller) update(_, cur interface{}) {
-	c.enqueue(cur)
-}
-
-func (c *controller) delete(obj interface{}) {
-	c.enqueue(kubeutils.GetObjectWithTombstone(obj))
-}
-
-func (c *controller) enqueue(obj interface{}) {
-	if key, err := cache.MetaNamespaceKeyFunc(obj); err != nil {
-		logger.Error(err, "failed to compute key name")
-	} else {
-		c.queue.Add(key)
-	}
-}
-
-func (c *controller) handleErr(err error, key interface{}) {
-	if err == nil {
-		c.queue.Forget(key)
-	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping request from the queue", "key", key, "error", err.Error())
-		c.queue.Forget(key)
-	} else if c.queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("Retrying request", "key", key, "error", err.Error())
-		c.queue.AddRateLimited(key)
-	} else {
-		logger.Error(err, "Failed to process request", "key", key)
-		c.queue.Forget(key)
-	}
-}
-
-func (c *controller) processNextWorkItem() bool {
-	if key, quit := c.queue.Get(); !quit {
-		defer c.queue.Done(key)
-		c.handleErr(c.reconcile(key.(string)), key)
-		return true
-	}
-	return false
-}
-
-func (c *controller) worker() {
-	for c.processNextWorkItem() {
-	}
 }
 
 func (c *controller) WarmUp() error {
@@ -131,21 +70,11 @@ func (c *controller) WarmUp() error {
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	defer runtime.HandleCrash()
-	logger.Info("starting ...")
-	defer logger.Info("shutting down")
-	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, time.Second, stopCh)
-	}
-	<-stopCh
+	controllerutils.Run(logger, c.queue, workers, maxRetries, c.reconcile, stopCh)
 }
 
-func (c *controller) reconcile(key string) error {
-	logger.Info("reconciling ...", "key", key)
-	namespace, name, err := cache.SplitMetaNamespaceKey(key)
-	if err != nil {
-		return err
-	}
+func (c *controller) reconcile(key, namespace, name string) error {
+	logger.Info("reconciling ...", "key", key, "namespace", namespace, "name", name)
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
