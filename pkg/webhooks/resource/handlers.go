@@ -57,7 +57,7 @@ type handlers struct {
 	urLister  urlister.UpdateRequestNamespaceLister
 
 	prGenerator       policyreport.GeneratorInterface
-	urGenerator       webhookgenerate.Interface
+	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
 	auditHandler      AuditHandler
 	openAPIController *openapi.Controller
@@ -75,7 +75,7 @@ func NewHandlers(
 	crbLister rbaclister.ClusterRoleBindingLister,
 	urLister urlister.UpdateRequestNamespaceLister,
 	prGenerator policyreport.GeneratorInterface,
-	urGenerator webhookgenerate.Interface,
+	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	auditHandler AuditHandler,
 	openAPIController *openapi.Controller,
