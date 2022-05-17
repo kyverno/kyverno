@@ -1,4 +1,4 @@
-package client
+package dclient
 
 import "sigs.k8s.io/controller-runtime/pkg/log"
 

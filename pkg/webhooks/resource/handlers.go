@@ -13,7 +13,7 @@ import (
 	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -40,7 +40,7 @@ import (
 
 type handlers struct {
 	// clients
-	client        client.Interface
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 
 	// config
@@ -65,7 +65,7 @@ type handlers struct {
 }
 
 func NewHandlers(
-	client client.Interface,
+	client dclient.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	configuration config.Configuration,
 	promConfig *metrics.PromConfig,
