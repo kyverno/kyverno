@@ -7,9 +7,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type addFunc func(interface{})
-type updateFunc func(interface{}, interface{})
-type deleteFunc func(interface{})
+type (
+	addFunc    func(interface{})
+	updateFunc func(interface{}, interface{})
+	deleteFunc func(interface{})
+)
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
 	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
