@@ -32,7 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	corelister "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -55,7 +55,7 @@ type GenerateController struct {
 	urLister urlister.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corelister.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	// policyLister can list/get cluster policy from the shared informer's store
 	policyLister kyvernolister.ClusterPolicyLister
@@ -74,7 +74,7 @@ func NewGenerateController(
 	npolicyLister kyvernolister.PolicyLister,
 	urLister urlister.UpdateRequestNamespaceLister,
 	eventGen event.Interface,
-	nsLister corelister.NamespaceLister,
+	nsLister corev1listers.NamespaceLister,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 ) (*GenerateController, error) {

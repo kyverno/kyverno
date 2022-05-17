@@ -20,10 +20,10 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
-	rbacinformer "k8s.io/client-go/informers/rbac/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -48,9 +48,9 @@ type auditHandler struct {
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
 
-	rbLister  rbaclister.RoleBindingLister
-	crbLister rbaclister.ClusterRoleBindingLister
-	nsLister  listerv1.NamespaceLister
+	rbLister  rbacv1listers.RoleBindingLister
+	crbLister rbacv1listers.ClusterRoleBindingLister
+	nsLister  corev1listers.NamespaceLister
 
 	log           logr.Logger
 	configHandler config.Configuration
@@ -61,9 +61,9 @@ type auditHandler struct {
 func NewValidateAuditHandler(pCache policycache.Cache,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	rbInformer rbacinformer.RoleBindingInformer,
-	crbInformer rbacinformer.ClusterRoleBindingInformer,
-	namespaces informers.NamespaceInformer,
+	rbInformer rbacv1informers.RoleBindingInformer,
+	crbInformer rbacv1informers.ClusterRoleBindingInformer,
+	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 	client dclient.Interface,

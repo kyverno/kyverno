@@ -32,10 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -74,7 +74,7 @@ type PolicyController struct {
 	urLister urkyvernolister.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister listerv1.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -106,7 +106,7 @@ func NewPolicyController(
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	policyReportEraser policyreport.PolicyReportEraser,
-	namespaces informers.NamespaceInformer,
+	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
