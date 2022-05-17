@@ -8,7 +8,7 @@ import (
 
 	wildcard "github.com/kyverno/go-wildcard"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -121,7 +121,7 @@ type Configuration interface {
 	// GetWebhooks returns the webhook configs
 	GetWebhooks() []WebhookConfig
 	// Load loads configuration from a configmap
-	Load(cm *v1.ConfigMap)
+	Load(cm *corev1.ConfigMap)
 }
 
 // configuration stores the configuration
@@ -212,7 +212,7 @@ func (cd *configuration) GetWebhooks() []WebhookConfig {
 	return cd.webhooks
 }
 
-func (cd *configuration) Load(cm *v1.ConfigMap) {
+func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	reconcilePolicyReport, updateWebhook := true, true
 	if cm != nil {
 		logger.Info("load config", "name", cm.Name, "namespace", cm.Namespace)
@@ -231,7 +231,7 @@ func (cd *configuration) Load(cm *v1.ConfigMap) {
 	}
 }
 
-func (cd *configuration) load(cm *v1.ConfigMap) (reconcilePolicyReport, updateWebhook bool) {
+func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, updateWebhook bool) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
