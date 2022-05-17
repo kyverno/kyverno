@@ -10,7 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -84,12 +84,12 @@ type Builder interface {
 }
 
 type requestBuilder struct {
-	cpolLister kyvernolister.ClusterPolicyLister
-	polLister  kyvernolister.PolicyLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
 }
 
 // NewBuilder ...
-func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernolister.PolicyLister) Builder {
+func NewBuilder(cpolLister kyvernov1listers.ClusterPolicyLister, polLister kyvernov1listers.PolicyLister) Builder {
 	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
 }
 

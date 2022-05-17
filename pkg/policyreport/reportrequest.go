@@ -11,10 +11,10 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -31,15 +31,15 @@ const (
 type Generator struct {
 	dclient dclient.Interface
 
-	reportChangeRequestLister requestlister.ReportChangeRequestLister
+	reportChangeRequestLister kyvernov1alpha2listers.ReportChangeRequestLister
 
-	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
+	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 
 	// cpolLister can list/get policy from the shared informer's store
-	cpolLister kyvernolister.ClusterPolicyLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
 
 	// polLister can list/get namespace policy from the shared informer's store
-	polLister kyvernolister.PolicyLister
+	polLister kyvernov1listers.PolicyLister
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
@@ -52,10 +52,10 @@ type Generator struct {
 // NewReportChangeRequestGenerator returns a new instance of report request generator
 func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 	dclient dclient.Interface,
-	reportReqInformer requestinformer.ReportChangeRequestInformer,
-	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
-	cpolInformer kyvernoinformer.ClusterPolicyInformer,
-	polInformer kyvernoinformer.PolicyInformer,
+	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
+	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
 	log logr.Logger,
 ) *Generator {
 	gen := Generator{
