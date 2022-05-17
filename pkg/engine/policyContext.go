@@ -1,8 +1,8 @@
 package engine
 
 import (
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -11,7 +11,7 @@ import (
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
 	// Policy is the policy to be processed
-	Policy kyverno.PolicyInterface
+	Policy kyvernov1.PolicyInterface
 
 	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured
@@ -23,7 +23,7 @@ type PolicyContext struct {
 	Element unstructured.Unstructured
 
 	// AdmissionInfo contains the admission request information
-	AdmissionInfo urkyverno.RequestInfo
+	AdmissionInfo kyvernov1beta1.RequestInfo
 
 	// Dynamic client - used for api lookups
 	Client client.Interface

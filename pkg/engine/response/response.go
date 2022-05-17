@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/kyverno/go-wildcard"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -15,7 +15,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 
 	// Original policy
-	Policy kyverno.PolicyInterface
+	Policy kyvernov1.PolicyInterface
 
 	// Policy Response
 	PolicyResponse PolicyResponse
@@ -32,7 +32,7 @@ type PolicyResponse struct {
 	// rule response
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
-	ValidationFailureAction kyverno.ValidationFailureAction
+	ValidationFailureAction kyvernov1.ValidationFailureAction
 
 	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
@@ -196,9 +196,9 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	return rules
 }
 
-func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailureAction {
+func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyverno.Enforce && v.Action != kyverno.Audit {
+		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
 			continue
 		}
 		for _, ns := range v.Namespaces {
@@ -211,6 +211,6 @@ func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailure
 }
 
 type ValidationFailureActionOverride struct {
-	Action     kyverno.ValidationFailureAction `json:"action"`
-	Namespaces []string                        `json:"namespaces"`
+	Action     kyvernov1.ValidationFailureAction `json:"action"`
+	Namespaces []string                          `json:"namespaces"`
 }

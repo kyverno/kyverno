@@ -1,8 +1,8 @@
 package common
 
 import (
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -11,9 +11,9 @@ import (
 
 // StatusControlInterface provides interface to update status subresource
 type StatusControlInterface interface {
-	Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error
-	Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
-	Skip(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
+	Failed(ur kyvernov1beta1.UpdateRequest, message string, genResources []kyvernov1.ResourceSpec) error
+	Success(ur kyvernov1beta1.UpdateRequest, genResources []kyvernov1.ResourceSpec) error
+	Skip(ur kyvernov1beta1.UpdateRequest, genResources []kyvernov1.ResourceSpec) error
 }
 
 // StatusControl is default implementaation of GRStatusControlInterface
@@ -22,9 +22,9 @@ type StatusControl struct {
 }
 
 // Failed sets ur status.state to failed with message
-func (sc StatusControl) Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error {
-	genR := &urkyverno.UpdateRequestStatus{
-		State:   urkyverno.Failed,
+func (sc StatusControl) Failed(ur kyvernov1beta1.UpdateRequest, message string, genResources []kyvernov1.ResourceSpec) error {
+	genR := &kyvernov1beta1.UpdateRequestStatus{
+		State:   kyvernov1beta1.Failed,
 		Message: message,
 	}
 	if genResources != nil {
@@ -41,14 +41,14 @@ func (sc StatusControl) Failed(ur urkyverno.UpdateRequest, message string, genRe
 		log.Log.Error(err, "failed to patch update request status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyverno.Failed))
+	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyvernov1.Failed))
 	return nil
 }
 
 // Success sets the ur status.state to completed and clears message
-func (sc StatusControl) Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
-	genR := &urkyverno.UpdateRequestStatus{
-		State:   urkyverno.Completed,
+func (sc StatusControl) Success(ur kyvernov1beta1.UpdateRequest, genResources []kyvernov1.ResourceSpec) error {
+	genR := &kyvernov1beta1.UpdateRequestStatus{
+		State:   kyvernov1beta1.Completed,
 		Message: "",
 	}
 
@@ -66,14 +66,14 @@ func (sc StatusControl) Success(ur urkyverno.UpdateRequest, genResources []kyver
 		log.Log.Error(err, "failed to patch update request status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(urkyverno.Completed))
+	log.Log.V(3).Info("updated update request status", "name", ur.Name, "status", string(kyvernov1beta1.Completed))
 	return nil
 }
 
 // Success sets the ur status.state to completed and clears message
-func (sc StatusControl) Skip(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error {
-	genR := &urkyverno.UpdateRequestStatus{
-		State:   urkyverno.Skip,
+func (sc StatusControl) Skip(ur kyvernov1beta1.UpdateRequest, genResources []kyvernov1.ResourceSpec) error {
+	genR := &kyvernov1beta1.UpdateRequestStatus{
+		State:   kyvernov1beta1.Skip,
 		Message: "",
 	}
 
@@ -91,6 +91,6 @@ func (sc StatusControl) Skip(ur urkyverno.UpdateRequest, genResources []kyverno.
 		log.Log.Error(err, "failed to update UR status", "name", ur.Name)
 		return err
 	}
-	log.Log.V(3).Info("updated UR status", "name", ur.Name, "status", string(kyverno.Skip))
+	log.Log.V(3).Info("updated UR status", "name", ur.Name, "status", string(kyvernov1.Skip))
 	return nil
 }

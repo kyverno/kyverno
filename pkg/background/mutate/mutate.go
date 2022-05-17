@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -77,7 +77,7 @@ func NewMutateExistingController(
 	return &c, nil
 }
 
-func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error {
+func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
 	var errs []error
 
@@ -181,7 +181,7 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	c.eventGen.Add(events...)
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur urkyverno.UpdateRequest, err error) error {
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
 	if err != nil {
 		return statusControl.Failed(ur, err.Error(), nil)
 	}

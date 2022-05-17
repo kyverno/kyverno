@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -29,7 +29,7 @@ type validationHandler struct {
 func (v *validationHandler) handleValidation(
 	promConfig *metrics.PromConfig,
 	request *admissionv1.AdmissionRequest,
-	policies []v1.PolicyInterface,
+	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp int64,

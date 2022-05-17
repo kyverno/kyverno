@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -445,24 +445,24 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 
 	for _, gr := range grs.Items {
-		ur := &urkyverno.UpdateRequest{
+		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace(),
 				Labels:       gr.GetLabels(),
 			},
-			Spec: urkyverno.UpdateRequestSpec{
-				Type:     urkyverno.Generate,
+			Spec: kyvernov1beta1.UpdateRequestSpec{
+				Type:     kyvernov1beta1.Generate,
 				Policy:   gr.Spec.Policy,
 				Resource: *gr.Spec.Resource.DeepCopy(),
-				Context: urkyverno.UpdateRequestSpecContext{
-					UserRequestInfo: urkyverno.RequestInfo{
+				Context: kyvernov1beta1.UpdateRequestSpecContext{
+					UserRequestInfo: kyvernov1beta1.RequestInfo{
 						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
 						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
 						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
 					},
 
-					AdmissionRequestInfo: urkyverno.AdmissionRequestInfoObject{
+					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
 						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
 						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
 					},
@@ -479,7 +479,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
 		}
 
-		new.Status.State = urkyverno.Pending
+		new.Status.State = kyvernov1beta1.Pending
 		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 			logger.Error(err, "failed to set UpdateRequest state to Pending")
 			errors = append(errors, err)

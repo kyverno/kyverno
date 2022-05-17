@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -55,11 +55,11 @@ type ReportChangeRequest struct {
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary report.PolicyReportSummary `json:"summary,omitempty"`
+	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []report.PolicyReportResult `json:"results,omitempty"`
+	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
 }
 
 // +kubebuilder:object:root=true
