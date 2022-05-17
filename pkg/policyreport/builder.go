@@ -15,7 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/version"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -165,7 +165,7 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 
 	result := policyreportv1alpha2.PolicyReportResult{
 		Policy: policy,
-		Resources: []v1.ObjectReference{
+		Resources: []corev1.ObjectReference{
 			{
 				Kind:       resource.Kind,
 				Namespace:  resource.Namespace,
