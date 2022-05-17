@@ -60,3 +60,7 @@ linters-settings:
         alias: kyvernoclient
       - pkg: k8s.io/client-go/kubernetes
         alias: kubernetes
+      - pkg: k8s.io/client-go/informers/(\w+)/(v[\w\d]+)
+        alias: ${1}${2}informers
+      - pkg: k8s.io/client-go/listers/(\w+)/(v[\w\d]+)
+        alias: ${1}${2}listers
