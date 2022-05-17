@@ -110,7 +110,6 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 		// re-queueing the UR by updating the annotation
 		// retry - 5 times
 		logger.V(3).Info("resource does not exist or is pending creation, re-queueing", "details", err.Error(), "retry")
-		updateAnnotation := true
 		urAnnotations := ur.Annotations
 
 		if len(urAnnotations) == 0 {
@@ -126,7 +125,6 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 
 				sleepCountInt := int(sleepCountInt64) + 1
 				if sleepCountInt > 5 {
-					updateAnnotation = false
 					if err := deleteGeneratedResources(logger, c.client, *ur); err != nil {
 						return err
 					}
@@ -145,13 +143,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 			}
 		}
 
-		if updateAnnotation {
-			ur.SetAnnotations(urAnnotations)
-			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(contextdefault.TODO(), ur, metav1.UpdateOptions{})
-			if err != nil {
-				logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion())
-				return err
-			}
+		ur.SetAnnotations(urAnnotations)
+		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(contextdefault.TODO(), ur, metav1.UpdateOptions{})
+		if err != nil {
+			logger.Error(err, "failed to update annotation in update request for the resource", "update request", ur.Name, "resourceVersion", ur.GetResourceVersion())
+			return err
 		}
 
 		return err
