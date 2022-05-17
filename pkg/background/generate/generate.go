@@ -101,7 +101,7 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 	var resource *unstructured.Unstructured
 	var genResources []kyverno.ResourceSpec
 	var precreatedResource bool
-	logger.Info("start processing UR", "resourceVersion", ur.GetResourceVersion())
+	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	// 1 - Check if the resource exists
 	resource, err = common.GetResource(c.client, ur.Spec, c.log)
