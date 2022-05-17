@@ -55,3 +55,7 @@ linters-settings:
         alias: $1$2
       - pkg: github.com/kyverno/kyverno/pkg/dclient
         alias: dclient
+      - pkg: github.com/kyverno/kyverno/pkg/client/clientset/versioned
+        alias: kyvernoclient
+      - pkg: k8s.io/client-go/kubernetes
+        alias: kubernetes
