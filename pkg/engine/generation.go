@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/client-go/tools/cache"
@@ -11,7 +11,7 @@ import (
 )
 
 // GenerateResponse checks for validity of generate rule on the resource
-func GenerateResponse(policyContext *PolicyContext, gr urkyverno.UpdateRequest) (resp *response.EngineResponse) {
+func GenerateResponse(policyContext *PolicyContext, gr kyvernov1beta1.UpdateRequest) (resp *response.EngineResponse) {
 	policyStartTime := time.Now()
 	return filterGenerateRules(policyContext, gr.Spec.Policy, policyStartTime)
 }
