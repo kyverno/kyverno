@@ -16,7 +16,7 @@ import (
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +51,7 @@ var LabelSelector = &metav1.LabelSelector{
 // ReportGenerator creates policy report
 type ReportGenerator struct {
 	pclient kyvernoclient.Interface
-	dclient dclient.Interface
+	client  dclient.Interface
 
 	clusterReportInformer    policyreportv1alpha2informers.ClusterPolicyReportInformer
 	reportInformer           policyreportv1alpha2informers.PolicyReportInformer
@@ -86,7 +86,7 @@ func NewReportGenerator(
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
-		dclient:                  dclient,
+		client:                   dclient,
 		clusterReportInformer:    clusterReportInformer,
 		reportInformer:           reportInformer,
 		reportReqInformer:        reportReqInformer,
@@ -464,7 +464,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-	namespaces, err := g.dclient.ListResource("", "Namespace", "", nil)
+	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
 	}
