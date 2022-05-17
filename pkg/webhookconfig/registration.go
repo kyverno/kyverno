@@ -19,11 +19,11 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
-	informers "k8s.io/client-go/informers/apps/v1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
+	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	"k8s.io/client-go/kubernetes"
-	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
-	listers "k8s.io/client-go/listers/apps/v1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
+	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
 )
 
@@ -44,9 +44,9 @@ type Register struct {
 	clientConfig *rest.Config
 
 	// listers
-	mwcLister   admlisters.MutatingWebhookConfigurationLister
-	vwcLister   admlisters.ValidatingWebhookConfigurationLister
-	kDeplLister listers.DeploymentLister
+	mwcLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	vwcLister   admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	kDeplLister appsv1listers.DeploymentLister
 
 	// channels
 	stopCh               <-chan struct{}
@@ -69,9 +69,9 @@ func NewRegister(
 	client dclient.Interface,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
-	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
-	kDeplInformer informers.DeploymentInformer,
+	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
+	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
+	kDeplInformer appsv1informers.DeploymentInformer,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	serverIP string,

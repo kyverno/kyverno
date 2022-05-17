@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
-	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -46,14 +46,14 @@ type webhookConfigManager struct {
 	// informers
 	pInformer        kyvernoinformer.ClusterPolicyInformer
 	npInformer       kyvernoinformer.PolicyInformer
-	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
-	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateInformer   admissionregistrationv1informers.MutatingWebhookConfigurationInformer
+	validateInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer
 
 	// listers
 	pLister        kyvernolister.ClusterPolicyLister
 	npLister       kyvernolister.PolicyLister
-	mutateLister   admlisters.MutatingWebhookConfigurationLister
-	validateLister admlisters.ValidatingWebhookConfigurationLister
+	mutateLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	validateLister admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -82,8 +82,8 @@ func newWebhookConfigManager(
 	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
-	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
+	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
+	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,

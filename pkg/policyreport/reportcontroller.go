@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -62,7 +62,7 @@ type ReportGenerator struct {
 	clusterReportLister              policyreport.ClusterPolicyReportLister
 	reportChangeRequestLister        requestlister.ReportChangeRequestLister
 	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
-	nsLister                         listerv1.NamespaceLister
+	nsLister                         corev1listers.NamespaceLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -81,7 +81,7 @@ func NewReportGenerator(
 	reportInformer policyreportinformer.PolicyReportInformer,
 	reportReqInformer requestinformer.ReportChangeRequestInformer,
 	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
-	namespace informers.NamespaceInformer,
+	namespace corev1informers.NamespaceInformer,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
