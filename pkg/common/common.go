@@ -12,9 +12,9 @@ import (
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -25,7 +25,7 @@ const (
 )
 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
-func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
+func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, logger logr.Logger) map[string]string {
 	namespaceLabels := make(map[string]string)
 	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
@@ -39,7 +39,7 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 }
 
 // GetNamespaceLabels - from namespace obj
-func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[string]string {
+func GetNamespaceLabels(namespaceObj *corev1.Namespace, logger logr.Logger) map[string]string {
 	namespaceObj.Kind = "Namespace"
 	namespaceRaw, err := json.Marshal(namespaceObj)
 	if err != nil {

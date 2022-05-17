@@ -21,21 +21,21 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -53,7 +53,7 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	client        client.Interface
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 	pInformer     kyvernoinformer.ClusterPolicyInformer
 	npInformer    kyvernoinformer.PolicyInformer
@@ -74,7 +74,7 @@ type PolicyController struct {
 	urLister urkyvernolister.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister listerv1.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
@@ -98,7 +98,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	client client.Interface,
+	client dclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
@@ -106,7 +106,7 @@ func NewPolicyController(
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
 	policyReportEraser policyreport.PolicyReportEraser,
-	namespaces informers.NamespaceInformer,
+	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
 	promConfig *metrics.PromConfig,
@@ -126,7 +126,7 @@ func NewPolicyController(
 		pInformer:          pInformer,
 		npInformer:         npInformer,
 		eventGen:           eventGen,
-		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, v1.EventSource{Component: "policy_controller"}),
+		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:      configHandler,
 		prGenerator:        prGenerator,
@@ -504,7 +504,7 @@ func (pc *PolicyController) getPolicy(key string) (policy kyvernov1.PolicyInterf
 	return
 }
 
-func generateTriggers(client client.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
+func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
 	kinds := fetchUniqueKinds(rule)

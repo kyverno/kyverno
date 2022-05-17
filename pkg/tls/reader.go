@@ -5,7 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -20,7 +20,7 @@ func ReadRootCASecret(client kubernetes.Interface) ([]byte, error) {
 		return nil, err
 	}
 	// try "tls.crt"
-	result := stlsca.Data[v1.TLSCertKey]
+	result := stlsca.Data[corev1.TLSCertKey]
 	// if not there, try old "rootCA.crt"
 	if len(result) == 0 {
 		result = stlsca.Data[RootCAKey]

@@ -18,9 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelister "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -56,7 +56,7 @@ type Controller struct {
 	urLister urkyvernolister.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corelister.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	// logger
 	log logr.Logger
@@ -70,7 +70,7 @@ func NewController(
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer corev1informers.NamespaceInformer,
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{

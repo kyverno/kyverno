@@ -21,7 +21,7 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -654,7 +654,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []kyvernov1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
