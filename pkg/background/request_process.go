@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
@@ -18,14 +18,14 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
+func (c *Controller) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	switch ur.Spec.Type {
-	case urkyverno.Mutate:
+	case kyvernov1beta1.Mutate:
 		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
 			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.log, c.Config)
 		return ctrl.ProcessUR(ur)
 
-	case urkyverno.Generate:
+	case kyvernov1beta1.Generate:
 		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
 			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, c.log, c.Config,
 		)
@@ -34,7 +34,7 @@ func (c *Controller) ProcessUR(ur *urkyverno.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateRequest, bool, error) {
+func (c *Controller) MarkUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
 	handler := ur.Status.Handler
 	if handler != "" {
 		if handler != config.KyvernoPodName() {
@@ -44,7 +44,7 @@ func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateReque
 	}
 	handler = config.KyvernoPodName()
 	ur.Status.Handler = handler
-	var updateRequest *urkyverno.UpdateRequest
+	var updateRequest *kyvernov1beta1.UpdateRequest
 
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var retryError error
@@ -55,19 +55,19 @@ func (c *Controller) MarkUR(ur *urkyverno.UpdateRequest) (*urkyverno.UpdateReque
 	return updateRequest, true, err
 }
 
-func (c *Controller) UnmarkUR(ur *urkyverno.UpdateRequest) error {
+func (c *Controller) UnmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
 	_, err := c.PatchHandler(ur, "")
 	if err != nil {
 		return err
 	}
 
-	if ur.Spec.Type == urkyverno.Mutate && ur.Status.State == urkyverno.Completed {
+	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }
 
-func (c *Controller) PatchHandler(ur *urkyverno.UpdateRequest, val string) (*urkyverno.UpdateRequest, error) {
+func (c *Controller) PatchHandler(ur *kyvernov1beta1.UpdateRequest, val string) (*kyvernov1beta1.UpdateRequest, error) {
 	patch := jsonutils.NewPatch(
 		"/status/handler",
 		"replace",
@@ -85,7 +85,7 @@ func (c *Controller) PatchHandler(ur *urkyverno.UpdateRequest, val string) (*urk
 	return updateUR, nil
 }
 
-func (c *Controller) HandleDeleteUR(ur urkyverno.UpdateRequest) error {
+func (c *Controller) HandleDeleteUR(ur kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("kind", ur.Kind, "namespace", ur.Namespace, "name", ur.Name)
 	// 1- Corresponding policy has been deleted
 	// then we don't delete the generated resources
@@ -120,7 +120,7 @@ func (c *Controller) HandleDeleteUR(ur urkyverno.UpdateRequest) error {
 	return nil
 }
 
-func ownerResourceExists(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) bool {
+func ownerResourceExists(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) bool {
 	_, err := client.GetResource("", ur.Spec.Resource.Kind, ur.Spec.Resource.Namespace, ur.Spec.Resource.Name)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
@@ -134,7 +134,7 @@ func ownerResourceExists(log logr.Logger, client dclient.Interface, ur urkyverno
 	return true
 }
 
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {

@@ -5,7 +5,7 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -15,7 +15,7 @@ import (
 // Generate provides implementation to validate 'generate' rule
 type Generate struct {
 	// rule to hold 'generate' rule specifications
-	rule kyverno.Generation
+	rule kyvernov1.Generation
 	// authCheck to check access for operations
 	authCheck Operations
 	// logger
@@ -23,7 +23,7 @@ type Generate struct {
 }
 
 // NewGenerateFactory returns a new instance of Generate validation checker
-func NewGenerateFactory(client dclient.Interface, rule kyverno.Generation, log logr.Logger) *Generate {
+func NewGenerateFactory(client dclient.Interface, rule kyvernov1.Generation, log logr.Logger) *Generate {
 	g := Generate{
 		rule:      rule,
 		authCheck: NewAuth(client, log),
@@ -36,7 +36,7 @@ func NewGenerateFactory(client dclient.Interface, rule kyverno.Generation, log l
 // Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
-	if rule.GetData() != nil && rule.Clone != (kyverno.CloneFrom{}) {
+	if rule.GetData() != nil && rule.Clone != (kyvernov1.CloneFrom{}) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
@@ -50,7 +50,7 @@ func (g *Generate) Validate() (string, error) {
 	}
 	// Can I generate resource
 
-	if !reflect.DeepEqual(rule.Clone, kyverno.CloneFrom{}) {
+	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
 		if path, err := g.validateClone(rule.Clone, kind); err != nil {
 			return fmt.Sprintf("clone.%s", path), err
 		}
@@ -74,7 +74,7 @@ func (g *Generate) Validate() (string, error) {
 	return "", nil
 }
 
-func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, error) {
+func (g *Generate) validateClone(c kyvernov1.CloneFrom, kind string) (string, error) {
 	if c.Name == "" {
 		return "name", fmt.Errorf("name cannot be empty")
 	}

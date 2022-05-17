@@ -4,36 +4,36 @@ import (
 	"fmt"
 	"reflect"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
-func ParsePolicyValidationMode(validationFailureAction kyverno.ValidationFailureAction) (PolicyValidationMode, error) {
+func ParsePolicyValidationMode(validationFailureAction kyvernov1.ValidationFailureAction) (PolicyValidationMode, error) {
 	switch validationFailureAction {
-	case kyverno.Enforce:
+	case kyvernov1.Enforce:
 		return Enforce, nil
-	case kyverno.Audit:
+	case kyvernov1.Audit:
 		return Audit, nil
 	default:
 		return "", fmt.Errorf("wrong validation failure action found %s. Allowed: '%s', '%s'", validationFailureAction, "enforce", "audit")
 	}
 }
 
-func ParsePolicyBackgroundMode(policy kyverno.PolicyInterface) PolicyBackgroundMode {
+func ParsePolicyBackgroundMode(policy kyvernov1.PolicyInterface) PolicyBackgroundMode {
 	if policy.BackgroundProcessingEnabled() {
 		return BackgroundTrue
 	}
 	return BackgroundFalse
 }
 
-func ParseRuleType(rule kyverno.Rule) RuleType {
-	if !reflect.DeepEqual(rule.Validation, kyverno.Validation{}) {
+func ParseRuleType(rule kyvernov1.Rule) RuleType {
+	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		return Validate
 	}
-	if !reflect.DeepEqual(rule.Mutation, kyverno.Mutation{}) {
+	if !reflect.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		return Mutate
 	}
-	if !reflect.DeepEqual(rule.Generation, kyverno.Generation{}) {
+	if !reflect.DeepEqual(rule.Generation, kyvernov1.Generation{}) {
 		return Generate
 	}
 	return EmptyRuleType
@@ -67,7 +67,7 @@ func ParseRuleTypeFromEngineRuleResponse(rule response.RuleResponse) RuleType {
 	}
 }
 
-func GetPolicyInfos(policy kyverno.PolicyInterface) (string, string, PolicyType, PolicyBackgroundMode, PolicyValidationMode, error) {
+func GetPolicyInfos(policy kyvernov1.PolicyInterface) (string, string, PolicyType, PolicyBackgroundMode, PolicyValidationMode, error) {
 	name := policy.GetName()
 	namespace := ""
 	policyType := Cluster

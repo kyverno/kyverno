@@ -4,20 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func UnmarshalPolicy(kind string, raw []byte) (kyverno.PolicyInterface, error) {
+func UnmarshalPolicy(kind string, raw []byte) (kyvernov1.PolicyInterface, error) {
 	if kind == "ClusterPolicy" {
-		var policy *kyverno.ClusterPolicy
+		var policy *kyvernov1.ClusterPolicy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
 		return policy, nil
 	} else if kind == "Policy" {
-		var policy *kyverno.Policy
+		var policy *kyvernov1.Policy
 		if err := json.Unmarshal(raw, &policy); err != nil {
 			return nil, err
 		}
@@ -26,11 +26,11 @@ func UnmarshalPolicy(kind string, raw []byte) (kyverno.PolicyInterface, error) {
 	return nil, fmt.Errorf("admission request does not contain a policy")
 }
 
-func GetPolicy(request *admissionv1.AdmissionRequest) (kyverno.PolicyInterface, error) {
+func GetPolicy(request *admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, error) {
 	return UnmarshalPolicy(request.Kind.Kind, request.Object.Raw)
 }
 
-func GetPolicies(request *admissionv1.AdmissionRequest) (kyverno.PolicyInterface, kyverno.PolicyInterface, error) {
+func GetPolicies(request *admissionv1.AdmissionRequest) (kyvernov1.PolicyInterface, kyvernov1.PolicyInterface, error) {
 	policy, err := UnmarshalPolicy(request.Kind.Kind, request.Object.Raw)
 	if err != nil {
 		return policy, nil, err
