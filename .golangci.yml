@@ -15,6 +15,7 @@ linters:
     - gochecknoinits
     - gofmt
     - gofumpt
+    - goimports
     - goprintffuncname
     - gosec
     - gosimple
