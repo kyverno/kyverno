@@ -104,7 +104,7 @@ func (c *controller) worker() {
 
 func (c *controller) WarmUp() error {
 	logger.Info("warming up ...")
-	defer logger.Info("warm up done²")
+	defer logger.Info("warm up done")
 	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		return err
