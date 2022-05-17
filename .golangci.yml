@@ -19,11 +19,13 @@ linters:
     - gosec
     - gosimple
     - govet
+    - grouper
     - importas
     - ineffassign
     - makezero
     - misspell
     - noctx
+    - nolintlint
     - staticcheck
     - structcheck
     - tenv
