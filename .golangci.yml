@@ -21,6 +21,7 @@ linters:
     - govet
     - importas
     - ineffassign
+    - makezero
     - misspell
     - noctx
     - staticcheck
