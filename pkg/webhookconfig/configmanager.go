@@ -15,7 +15,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -39,7 +39,7 @@ var DefaultWebhookTimeout int32 = 10
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
 	// clients
-	discoveryClient client.IDiscovery
+	discoveryClient dclient.IDiscovery
 	kubeClient      kubernetes.Interface
 	kyvernoClient   kyvernoclient.Interface
 
@@ -77,7 +77,7 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	discoveryClient client.IDiscovery,
+	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,

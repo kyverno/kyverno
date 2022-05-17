@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -18,11 +18,11 @@ import (
 )
 
 type handlers struct {
-	client            client.Interface
+	client            dclient.Interface
 	openAPIController *openapi.Controller
 }
 
-func NewHandlers(client client.Interface, openAPIController *openapi.Controller) webhooks.Handlers {
+func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller) webhooks.Handlers {
 	return &handlers{
 		client:            client,
 		openAPIController: openAPIController,

@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -203,12 +203,12 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	return true
 }
 
-func createNamespace(client client.Interface, ns *unstructured.Unstructured) error {
+func createNamespace(client dclient.Interface, ns *unstructured.Unstructured) error {
 	_, err := client.CreateResource("", "Namespace", "", ns, false)
 	return err
 }
 
-func validateGeneratedResources(t *testing.T, client client.Interface, policy kyvernov1.ClusterPolicy, namespace string, expected []kyvernov1.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client dclient.Interface, policy kyvernov1.ClusterPolicy, namespace string, expected []kyvernov1.ResourceSpec) {
 	t.Helper()
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
@@ -357,7 +357,7 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 	return resources[0]
 }
 
-func getClient(t *testing.T, files []string) client.Interface {
+func getClient(t *testing.T, files []string) dclient.Interface {
 	t.Helper()
 	var objects []k8sRuntime.Object
 	for _, file := range files {
@@ -366,14 +366,14 @@ func getClient(t *testing.T, files []string) client.Interface {
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := client.NewMockClient(scheme, nil, objects...)
+	c, err := dclient.NewMockClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil
 	}
 	// get GVR from GVK
 	gvrs := getGVRForResources(objects)
-	c.SetDiscovery(client.NewFakeDiscoveryClient(gvrs))
+	c.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs))
 	t.Log("created mock client with pre-loaded resources")
 	return c
 }

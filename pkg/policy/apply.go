@@ -9,7 +9,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -20,7 +20,7 @@ import (
 // applyPolicy applies policy on a resource
 func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
-	client client.Interface, namespaceLabels map[string]string,
+	client dclient.Interface, namespaceLabels map[string]string,
 ) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
