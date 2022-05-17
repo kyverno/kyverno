@@ -43,6 +43,7 @@ import (
 var longHelp = `
 The test command provides a facility to test resources against policies by comparing expected results, declared ahead of time in a test manifest file, to actual results reported by Kyverno. Users provide the path to the folder containing a kyverno-test.yaml file where the location could be on a local filesystem or a remote git repository.
 `
+
 var exampleHelp = `
 # Test a git repository containing Kyverno test cases.
 kyverno test https://github.com/kyverno/policies/pod-security --git-branch main
@@ -298,7 +299,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	fs := memfs.New()
 	rc = &resultCounts{}
 	var testYamlCount int
-	var tf = &testFilter{
+	tf := &testFilter{
 		enabled: true,
 	}
 
@@ -772,7 +773,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	var filteredPolicies = []v1.PolicyInterface{}
+	filteredPolicies := []v1.PolicyInterface{}
 	for _, p := range policies {
 		for _, res := range values.Results {
 			if p.GetName() == res.Policy {
@@ -783,7 +784,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, p := range filteredPolicies {
-		var filteredRules = []v1.Rule{}
+		filteredRules := []v1.Rule{}
 
 		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {
@@ -815,7 +816,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	var filteredResources = []*unstructured.Unstructured{}
+	filteredResources := []*unstructured.Unstructured{}
 	for _, r := range resources {
 		for _, res := range values.Results {
 			if r.GetName() == res.Resource {

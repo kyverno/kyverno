@@ -1,6 +1,6 @@
 package event
 
-//Source of event generation
+// Source of event generation
 type Source int
 
 const (

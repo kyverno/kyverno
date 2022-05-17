@@ -13,6 +13,8 @@ linters:
     - exportloopref
     - gci
     - gochecknoinits
+    - gofmt
+    - gofumpt
     - goprintffuncname
     - gosec
     - gosimple

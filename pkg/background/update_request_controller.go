@@ -69,7 +69,7 @@ type Controller struct {
 	Config config.Configuration
 }
 
-//NewController returns an instance of the Generate-Request Controller
+// NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,

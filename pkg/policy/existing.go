@@ -99,11 +99,11 @@ func excludeAutoGenResources(policy kyverno.PolicyInterface, resourceMap map[str
 	}
 }
 
-//Condition defines condition type
+// Condition defines condition type
 type Condition int
 
 const (
-	//NotEvaluate to not evaluate condition
+	// NotEvaluate to not evaluate condition
 	NotEvaluate Condition = 0
 	// Process to evaluate condition
 	Process Condition = 1
@@ -111,7 +111,7 @@ const (
 	Skip Condition = 2
 )
 
-//NewResourceManager returns a new ResourceManager
+// NewResourceManager returns a new ResourceManager
 func NewResourceManager(rebuildTime int64) *ResourceManager {
 	rm := ResourceManager{
 		scope:       make(map[string]bool),
@@ -136,14 +136,14 @@ type ResourceManager struct {
 
 type resourceManager interface {
 	ProcessResource(policy, pv, kind, ns, name, rv string) bool
-	//TODO	removeResource(kind, ns, name string) error
+	// TODO	removeResource(kind, ns, name string) error
 	RegisterResource(policy, pv, kind, ns, name, rv string)
 	RegisterScope(kind string, namespaced bool)
 	GetScope(kind string) (bool, error)
 	Drop()
 }
 
-//Drop drop the cache after every rebuild interval mins
+// Drop drop the cache after every rebuild interval mins
 func (rm *ResourceManager) Drop() {
 	timeSince := time.Since(rm.time)
 	if timeSince > time.Duration(rm.rebuildTime)*time.Second {
@@ -156,7 +156,7 @@ func (rm *ResourceManager) Drop() {
 
 var empty struct{}
 
-//RegisterResource stores if the policy is processed on this resource version
+// RegisterResource stores if the policy is processed on this resource version
 func (rm *ResourceManager) RegisterResource(policy, pv, kind, ns, name, rv string) {
 	rm.mux.Lock()
 	defer rm.mux.Unlock()
@@ -165,7 +165,7 @@ func (rm *ResourceManager) RegisterResource(policy, pv, kind, ns, name, rv strin
 	rm.data[key] = empty
 }
 
-//ProcessResource returns true if the policy was not applied on the resource
+// ProcessResource returns true if the policy was not applied on the resource
 func (rm *ResourceManager) ProcessResource(policy, pv, kind, ns, name, rv string) bool {
 	rm.mux.RLock()
 	defer rm.mux.RUnlock()

@@ -441,7 +441,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 }
 
 func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, error) {
-	var patch = make(map[string]interface{})
+	patch := make(map[string]interface{})
 	patch["op"] = "replace"
 	patch["path"] = imageInfo.Pointer
 	patch["value"] = imageInfo.String() + "@" + digest

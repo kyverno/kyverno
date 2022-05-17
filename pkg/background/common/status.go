@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//StatusControlInterface provides interface to update status subresource
+// StatusControlInterface provides interface to update status subresource
 type StatusControlInterface interface {
 	Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error
 	Success(ur urkyverno.UpdateRequest, genResources []kyverno.ResourceSpec) error
@@ -21,7 +21,7 @@ type StatusControl struct {
 	Client kyvernoclient.Interface
 }
 
-//Failed sets ur status.state to failed with message
+// Failed sets ur status.state to failed with message
 func (sc StatusControl) Failed(ur urkyverno.UpdateRequest, message string, genResources []kyverno.ResourceSpec) error {
 	genR := &urkyverno.UpdateRequestStatus{
 		State:   urkyverno.Failed,

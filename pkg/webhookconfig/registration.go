@@ -79,7 +79,8 @@ func NewRegister(
 	debug bool,
 	autoUpdateWebhooks bool,
 	stopCh <-chan struct{},
-	log logr.Logger) *Register {
+	log logr.Logger,
+) *Register {
 	register := &Register{
 		clientConfig:         clientConfig,
 		kubeClient:           kubeClient,

@@ -356,7 +356,7 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("expected string type")
 	}
 
-	var data = map[string]interface{}{}
+	data := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(s), &data); err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON: %s", err.Error())
 	}

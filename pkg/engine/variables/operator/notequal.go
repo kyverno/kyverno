@@ -12,7 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-//NewNotEqualHandler returns handler to manage NotEqual operations
+// NewNotEqualHandler returns handler to manage NotEqual operations
 func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return NotEqualHandler{
 		ctx: ctx,
@@ -20,13 +20,13 @@ func NewNotEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHand
 	}
 }
 
-//NotEqualHandler provides implementation to handle NotEqual Operator
+// NotEqualHandler provides implementation to handle NotEqual Operator
 type NotEqualHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with NotEqual Operator
+// Evaluate evaluates expression with NotEqual Operator
 func (neh NotEqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {

@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-//handleGenerate handles admission-requests for policies with generate rules
+// handleGenerate handles admission-requests for policies with generate rules
 func (h *handlers) handleGenerate(
 	logger logr.Logger,
 	request *admissionv1.AdmissionRequest,
@@ -87,7 +87,7 @@ func (h *handlers) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-//handleUpdatesForGenerateRules handles admission-requests for update
+// handleUpdatesForGenerateRules handles admission-requests for update
 func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
@@ -108,7 +108,7 @@ func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *ad
 	}
 }
 
-//handleUpdateGenerateSourceResource - handles update of clone source for generate policy
+// handleUpdateGenerateSourceResource - handles update of clone source for generate policy
 func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]string, logger logr.Logger) {
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
@@ -167,7 +167,7 @@ func (h *handlers) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logger logr
 	}
 }
 
-//handleUpdateGenerateTargetResource - handles update of target resource for generate policy
+// handleUpdateGenerateTargetResource - handles update of target resource for generate policy
 func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)

@@ -28,23 +28,23 @@ const (
 	ValidatingWebhookConfigurationDebugName = "kyverno-resource-validating-webhook-cfg-debug"
 	// ValidatingWebhookName ...
 	ValidatingWebhookName = "validate.kyverno.svc"
-	//VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
+	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	//VerifyMutatingWebhookConfigurationDebugName default verify mutating webhook configuration name for debug mode
+	// VerifyMutatingWebhookConfigurationDebugName default verify mutating webhook configuration name for debug mode
 	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
-	//VerifyMutatingWebhookName default verify mutating webhook name
+	// VerifyMutatingWebhookName default verify mutating webhook name
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
-	//PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
+	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
-	//PolicyValidatingWebhookConfigurationDebugName default policy validating webhook configuration name for debug mode
+	// PolicyValidatingWebhookConfigurationDebugName default policy validating webhook configuration name for debug mode
 	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
-	//PolicyValidatingWebhookName default policy validating webhook name
+	// PolicyValidatingWebhookName default policy validating webhook name
 	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
-	//PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
+	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
 	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
-	//PolicyMutatingWebhookConfigurationDebugName default policy mutating webhook configuration name for debug mode
+	// PolicyMutatingWebhookConfigurationDebugName default policy mutating webhook configuration name for debug mode
 	PolicyMutatingWebhookConfigurationDebugName = "kyverno-policy-mutating-webhook-cfg-debug"
-	//PolicyMutatingWebhookName default policy mutating webhook name
+	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
 	// Issue: https://github.com/kubernetes/kubernetes/pull/63972
@@ -53,15 +53,15 @@ const (
 	ClusterRoleAPIVersion = "rbac.authorization.k8s.io/v1"
 	// ClusterRoleKind define the default clusterrole resource kind
 	ClusterRoleKind = "ClusterRole"
-	//MutatingWebhookServicePath is the path for mutation webhook
+	// MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
-	//ValidatingWebhookServicePath is the path for validation webhook
+	// ValidatingWebhookServicePath is the path for validation webhook
 	ValidatingWebhookServicePath = "/validate"
-	//PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
+	// PolicyValidatingWebhookServicePath is the path for policy validation webhook(used to validate policy resource)
 	PolicyValidatingWebhookServicePath = "/policyvalidate"
-	//PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
+	// PolicyMutatingWebhookServicePath is the path for policy mutation webhook(used to default)
 	PolicyMutatingWebhookServicePath = "/policymutate"
-	//VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
+	// VerifyMutatingWebhookServicePath is the path for verify webhook(used to veryfing if admission control is enabled and active)
 	VerifyMutatingWebhookServicePath = "/verifymutate"
 	// LivenessServicePath is the path for check liveness health
 	LivenessServicePath = "/health/liveness"

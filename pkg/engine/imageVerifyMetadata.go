@@ -49,7 +49,7 @@ func parseImageMetadata(jsonData string) (*ImageVerificationMetadata, error) {
 func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logger) ([][]byte, error) {
 	var patches [][]byte
 	if !hasAnnotations {
-		var addAnnotationsPatch = make(map[string]interface{})
+		addAnnotationsPatch := make(map[string]interface{})
 		addAnnotationsPatch["op"] = "add"
 		addAnnotationsPatch["path"] = "/metadata/annotations"
 		addAnnotationsPatch["value"] = map[string]string{}
@@ -67,7 +67,7 @@ func (ivm *ImageVerificationMetadata) Patches(hasAnnotations bool, log logr.Logg
 		return nil, errors.Wrapf(err, "failed to marshal metadata value: %v", data)
 	}
 
-	var addKeyPatch = make(map[string]interface{})
+	addKeyPatch := make(map[string]interface{})
 	addKeyPatch["op"] = "add"
 	addKeyPatch["path"] = makeAnnotationKeyForJSONPatch()
 	addKeyPatch["value"] = string(data)

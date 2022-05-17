@@ -19,7 +19,7 @@ import (
 	"k8s.io/klog/v2"
 )
 
-//Generator generate events
+// Generator generate events
 type Generator struct {
 	client client.Interface
 	// list/get cluster policy
@@ -40,12 +40,12 @@ type Generator struct {
 	log logr.Logger
 }
 
-//Interface to generate event
+// Interface to generate event
 type Interface interface {
 	Add(infoList ...Info)
 }
 
-//NewEventGenerator to generate a new event controller
+// NewEventGenerator to generate a new event controller
 func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
@@ -93,7 +93,7 @@ func initRecorder(client client.Interface, eventSource Source, log logr.Logger) 
 	return recorder
 }
 
-//Add queues an event for generation
+// Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
 	logger := gen.log
 	for _, info := range infos {

@@ -254,7 +254,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 	return rule, nil
 }
 
-//stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
+// stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
 func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
 	if metadata, found := obj["metadata"]; found {
 		requiredMetadataInObj := make(map[string]interface{})
@@ -316,7 +316,8 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 }
 
 func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Interface, userRequestInfo kyvernov1beta1.RequestInfo,
-	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
+	action admissionv1.Operation, engineResponses ...*response.EngineResponse,
+) (failedUpdateRequest []updateRequestResponse) {
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")

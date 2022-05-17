@@ -52,8 +52,8 @@ func registerPolicyResultsMetric(
 	return nil
 }
 
-//policy - policy related data
-//engineResponse - resource and rule related data
+// policy - policy related data
+// engineResponse - resource and rule related data
 func ProcessEngineResponse(pc *metrics.PromConfig, policy kyverno.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {

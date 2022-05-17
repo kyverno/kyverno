@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//OperatorHandler provides interface to manage types
+// OperatorHandler provides interface to manage types
 type OperatorHandler interface {
 	Evaluate(key, value interface{}) bool
 	validateValueWithStringPattern(key string, value interface{}) bool
@@ -21,10 +21,10 @@ type OperatorHandler interface {
 	validateValueWithSlicePattern(key []interface{}, value interface{}) bool
 }
 
-//VariableSubstitutionHandler defines the handler function for variable substitution
+// VariableSubstitutionHandler defines the handler function for variable substitution
 type VariableSubstitutionHandler = func(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error)
 
-//CreateOperatorHandler returns the operator handler based on the operator used in condition
+// CreateOperatorHandler returns the operator handler based on the operator used in condition
 func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
 	str := strings.ToLower(string(op))
 	switch str {

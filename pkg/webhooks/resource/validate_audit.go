@@ -150,7 +150,8 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	userRequestInfo := v1beta1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
+		AdmissionUserInfo: request.UserInfo,
+	}
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {

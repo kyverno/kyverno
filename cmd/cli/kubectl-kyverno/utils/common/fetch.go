@@ -29,7 +29,7 @@ import (
 func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient client.Interface, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
-	var resourceTypesMap = make(map[string]bool)
+	resourceTypesMap := make(map[string]bool)
 	var resourceTypes []string
 
 	for _, policy := range policies {
@@ -119,7 +119,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 // GetResourcesWithTest with gets matched resources by the given policies
 func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
-	var resourceTypesMap = make(map[string]bool)
+	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
 		for _, rule := range autogen.ComputeRules(policy) {
 			for _, kind := range rule.MatchResources.Kinds {
@@ -289,7 +289,7 @@ func GetPatchedResource(patchResourceBytes []byte) (unstructured.Unstructured, e
 
 // GetKindsFromRule will return the kinds from policy match block
 func GetKindsFromRule(rule v1.Rule) map[string]bool {
-	var resourceTypesMap = make(map[string]bool)
+	resourceTypesMap := make(map[string]bool)
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
 			lastElement := kind[strings.LastIndex(kind, "/")+1:]

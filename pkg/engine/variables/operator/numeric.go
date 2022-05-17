@@ -11,7 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-//NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
+// NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
 func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
 	return NumericOperatorHandler{
 		ctx:       ctx,
@@ -20,7 +20,7 @@ func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op ky
 	}
 }
 
-//NumericOperatorHandler provides implementation to handle Numeric Operations associated with policies
+// NumericOperatorHandler provides implementation to handle Numeric Operations associated with policies
 type NumericOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
@@ -210,9 +210,11 @@ func parseQuantity(key, value interface{}) (parsedKey, parsedValue resource.Quan
 func (noh NumericOperatorHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	return false
 }
+
 func (noh NumericOperatorHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
 	return false
 }
+
 func (noh NumericOperatorHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	return false
 }

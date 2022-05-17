@@ -77,7 +77,7 @@ func RootDir() string {
 	return filepath.Dir(d)
 }
 
-//getRelativePath expects a path relative to project and builds the complete path
+// getRelativePath expects a path relative to project and builds the complete path
 func getRelativePath(path string) string {
 	root := RootDir()
 	return ospath.Join(root, path)

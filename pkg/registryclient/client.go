@@ -66,7 +66,7 @@ func Initialize(client kubernetes.Interface, ns, sa string, imagePullSecrets []s
 
 // UpdateKeychain reinitializes the image pull secrets and default auth method for container registry API calls
 func UpdateKeychain() error {
-	var err = Initialize(kubeClient, namespace, serviceAccount, Secrets)
+	err := Initialize(kubeClient, namespace, serviceAccount, Secrets)
 	if err != nil {
 		return err
 	}
