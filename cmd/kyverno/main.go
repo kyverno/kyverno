@@ -154,6 +154,7 @@ func main() {
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	// load image registry secrets
@@ -264,7 +265,7 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		configuration,
 		eventGenerator,
 		reportReqGen,
@@ -279,10 +280,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	urgen := webhookgenerate.NewGenerator(kyvernoClient,
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		stopCh,
-		log.Log.WithName("UpdateRequestGenerator"))
+	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
 
 	urc, err := background.NewController(
 		kubeClient,
@@ -290,7 +288,7 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("BackgroundController"),
@@ -307,7 +305,7 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("GenerateCleanUpController"),
 	)
@@ -417,7 +415,7 @@ func main() {
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		kyvernoV1beta1.UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		reportReqGen,
 		urgen,
 		eventGenerator,
