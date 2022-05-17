@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -227,8 +227,8 @@ func (c *Controller) enqueueUpdateRequest(obj interface{}) {
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
 	logger := c.log
-	oldP := old.(*kyverno.ClusterPolicy)
-	curP := cur.(*kyverno.ClusterPolicy)
+	oldP := old.(*kyvernov1.ClusterPolicy)
+	curP := cur.(*kyvernov1.ClusterPolicy)
 	if oldP.ResourceVersion == curP.ResourceVersion {
 		// Periodic resync will send update events for all known Namespace.
 		// Two different versions of the same replica set will always have different RVs.
@@ -266,7 +266,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 }
 
 func (c *Controller) addUR(obj interface{}) {
-	ur := obj.(*urkyverno.UpdateRequest)
+	ur := obj.(*kyvernov1beta1.UpdateRequest)
 	if ur.Status.Handler != "" {
 		return
 	}
@@ -274,8 +274,8 @@ func (c *Controller) addUR(obj interface{}) {
 }
 
 func (c *Controller) updateUR(old, cur interface{}) {
-	oldUr := old.(*urkyverno.UpdateRequest)
-	curUr := cur.(*urkyverno.UpdateRequest)
+	oldUr := old.(*kyvernov1beta1.UpdateRequest)
+	curUr := cur.(*kyvernov1beta1.UpdateRequest)
 	if oldUr.ResourceVersion == curUr.ResourceVersion {
 		// Periodic resync will send update events for all known Namespace.
 		// Two different versions of the same replica set will always have different RVs.
@@ -283,7 +283,7 @@ func (c *Controller) updateUR(old, cur interface{}) {
 	}
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the UPDATE Request fails due to incorrect policy, it will be requeued during policy update
-	if curUr.Status.State != urkyverno.Pending {
+	if curUr.Status.State != kyvernov1beta1.Pending {
 		return
 	}
 
@@ -295,14 +295,14 @@ func (c *Controller) updateUR(old, cur interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
 			return
