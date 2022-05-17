@@ -10,7 +10,7 @@ import (
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -22,7 +22,7 @@ const (
 )
 
 // GetRoleRef gets the list of roles and cluster roles for the incoming api-request
-func GetRoleRef(rbLister rbaclister.RoleBindingLister, crbLister rbaclister.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Configuration) ([]string, []string, error) {
+func GetRoleRef(rbLister rbacv1listers.RoleBindingLister, crbLister rbacv1listers.ClusterRoleBindingLister, request *admissionv1.AdmissionRequest, dynamicConfig config.Configuration) ([]string, []string, error) {
 	keys := append(request.UserInfo.Groups, request.UserInfo.Username)
 	if utils.SliceContains(keys, dynamicConfig.GetExcludeGroupRole()...) {
 		return nil, nil, nil

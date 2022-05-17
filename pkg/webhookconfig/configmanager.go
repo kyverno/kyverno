@@ -15,20 +15,20 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
-	admregapi "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
-	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
+	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
-	admlisters "k8s.io/client-go/listers/admissionregistration/v1"
+	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -39,21 +39,21 @@ var DefaultWebhookTimeout int32 = 10
 // it is NOT multi-thread safe
 type webhookConfigManager struct {
 	// clients
-	discoveryClient client.IDiscovery
+	discoveryClient dclient.IDiscovery
 	kubeClient      kubernetes.Interface
 	kyvernoClient   kyvernoclient.Interface
 
 	// informers
 	pInformer        kyvernoinformer.ClusterPolicyInformer
 	npInformer       kyvernoinformer.PolicyInformer
-	mutateInformer   adminformers.MutatingWebhookConfigurationInformer
-	validateInformer adminformers.ValidatingWebhookConfigurationInformer
+	mutateInformer   admissionregistrationv1informers.MutatingWebhookConfigurationInformer
+	validateInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer
 
 	// listers
 	pLister        kyvernolister.ClusterPolicyLister
 	npLister       kyvernolister.PolicyLister
-	mutateLister   admlisters.MutatingWebhookConfigurationLister
-	validateLister admlisters.ValidatingWebhookConfigurationLister
+	mutateLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	validateLister admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -77,13 +77,13 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
-	discoveryClient client.IDiscovery,
+	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
-	mwcInformer adminformers.MutatingWebhookConfigurationInformer,
-	vwcInformer adminformers.ValidatingWebhookConfigurationInformer,
+	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
+	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -216,14 +216,14 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 
 func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admregapi.MutatingWebhookConfiguration)
+	webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			m.log.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		webhook, ok = tombstone.Obj.(*admregapi.MutatingWebhookConfiguration)
+		webhook, ok = tombstone.Obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
 		if !ok {
 			m.log.Info("tombstone contained object that is not a MutatingWebhookConfiguration", "obj", obj)
 			return
@@ -236,14 +236,14 @@ func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 
 func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admregapi.ValidatingWebhookConfiguration)
+	webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			m.log.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		webhook, ok = tombstone.Obj.(*admregapi.ValidatingWebhookConfiguration)
+		webhook, ok = tombstone.Obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
 		if !ok {
 			m.log.Info("tombstone contained object that is not a ValidatingWebhookConfiguration", "obj", obj)
 			return
@@ -480,11 +480,11 @@ func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName st
 	for i := range resourceWebhook.Webhooks {
 		newWebhook := webhooksMap[webhookKey(kindMutating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
 		if newWebhook == nil || newWebhook.isEmpty() {
-			resourceWebhook.Webhooks[i].Rules = []admregapi.RuleWithOperations{}
+			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
 		} else {
 			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
-			resourceWebhook.Webhooks[i].Rules = []admregapi.RuleWithOperations{
-				newWebhook.buildRuleWithOperations(admregapi.Create, admregapi.Update, admregapi.Delete),
+			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
+				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete),
 			}
 		}
 	}
@@ -507,11 +507,11 @@ func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName 
 	for i := range resourceWebhook.Webhooks {
 		newWebhook := webhooksMap[webhookKey(kindValidating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
 		if newWebhook == nil || newWebhook.isEmpty() {
-			resourceWebhook.Webhooks[i].Rules = []admregapi.RuleWithOperations{}
+			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
 		} else {
 			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
-			resourceWebhook.Webhooks[i].Rules = []admregapi.RuleWithOperations{
-				newWebhook.buildRuleWithOperations(admregapi.Create, admregapi.Update, admregapi.Delete, admregapi.Connect),
+			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
+				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 			}
 		}
 	}
@@ -572,9 +572,9 @@ type webhook struct {
 	resources         sets.String
 }
 
-func (wh *webhook) buildRuleWithOperations(ops ...admregapi.OperationType) admregapi.RuleWithOperations {
-	return admregapi.RuleWithOperations{
-		Rule: admregapi.Rule{
+func (wh *webhook) buildRuleWithOperations(ops ...admissionregistrationv1.OperationType) admissionregistrationv1.RuleWithOperations {
+	return admissionregistrationv1.RuleWithOperations{
+		Rule: admissionregistrationv1.Rule{
 			APIGroups:   wh.groups.List(),
 			APIVersions: wh.versions.List(),
 			Resources:   wh.resources.List(),
