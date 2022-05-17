@@ -16,7 +16,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	admregapi "k8s.io/api/admissionregistration/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	adminformers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -268,7 +268,7 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 	return json.Unmarshal([]byte(webhooks), &webhookCfgs)
 }
 
-func (wrc *Register) createMutatingWebhookConfiguration(config *admregapi.MutatingWebhookConfiguration) error {
+func (wrc *Register) createMutatingWebhookConfiguration(config *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	logger := wrc.log.WithValues("kind", kindMutating, "name", config.Name)
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{}); err != nil {
 		if errorsapi.IsAlreadyExists(err) {
@@ -282,7 +282,7 @@ func (wrc *Register) createMutatingWebhookConfiguration(config *admregapi.Mutati
 	return nil
 }
 
-func (wrc *Register) createValidatingWebhookConfiguration(config *admregapi.ValidatingWebhookConfiguration) error {
+func (wrc *Register) createValidatingWebhookConfiguration(config *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	logger := wrc.log.WithValues("kind", kindValidating, "name", config.Name)
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{}); err != nil {
 		if errorsapi.IsAlreadyExists(err) {
@@ -298,7 +298,7 @@ func (wrc *Register) createValidatingWebhookConfiguration(config *admregapi.Vali
 
 func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) error {
 	owner := wrc.constructOwner()
-	var config *admregapi.MutatingWebhookConfiguration
+	var config *admissionregistrationv1.MutatingWebhookConfiguration
 	if wrc.serverIP != "" {
 		config = constructDefaultDebugMutatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, wrc.autoUpdateWebhooks, owner)
 	} else {
@@ -309,7 +309,7 @@ func (wrc *Register) createResourceMutatingWebhookConfiguration(caData []byte) e
 
 func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte) error {
 	owner := wrc.constructOwner()
-	var config *admregapi.ValidatingWebhookConfiguration
+	var config *admissionregistrationv1.ValidatingWebhookConfiguration
 	if wrc.serverIP != "" {
 		config = constructDefaultDebugValidatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, wrc.autoUpdateWebhooks, owner)
 	} else {
@@ -320,7 +320,7 @@ func (wrc *Register) createResourceValidatingWebhookConfiguration(caData []byte)
 
 func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) error {
 	owner := wrc.constructOwner()
-	var config *admregapi.ValidatingWebhookConfiguration
+	var config *admissionregistrationv1.ValidatingWebhookConfiguration
 	if wrc.serverIP != "" {
 		config = constructDebugPolicyValidatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
 	} else {
@@ -331,7 +331,7 @@ func (wrc *Register) createPolicyValidatingWebhookConfiguration(caData []byte) e
 
 func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) error {
 	owner := wrc.constructOwner()
-	var config *admregapi.MutatingWebhookConfiguration
+	var config *admissionregistrationv1.MutatingWebhookConfiguration
 	if wrc.serverIP != "" {
 		config = constructDebugPolicyMutatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
 	} else {
@@ -342,7 +342,7 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) err
 
 func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) error {
 	owner := wrc.constructOwner()
-	var config *admregapi.MutatingWebhookConfiguration
+	var config *admissionregistrationv1.MutatingWebhookConfiguration
 	if wrc.serverIP != "" {
 		config = constructDebugVerifyMutatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
 	} else {
@@ -429,19 +429,19 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(webhookCfg confi
 
 // updateMutatingWebhookConfiguration updates an existing MutatingWebhookConfiguration with the rules provided by
 // the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
-func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.MutatingWebhookConfiguration) error {
+func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	// Fetch the existing webhook.
 	currentConfiguration, err := wrc.mwcLister.Get(targetConfig.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get %s %s: %v", kindMutating, targetConfig.Name, err)
 	}
 	// Create a map of the target webhooks.
-	targetWebhooksMap := make(map[string]admregapi.MutatingWebhook)
+	targetWebhooksMap := make(map[string]admissionregistrationv1.MutatingWebhook)
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
 	// Update the webhooks.
-	newWebhooks := make([]admregapi.MutatingWebhook, 0)
+	newWebhooks := make([]admissionregistrationv1.MutatingWebhook, 0)
 	for _, w := range currentConfiguration.Webhooks {
 		target, exist := targetWebhooksMap[w.Name]
 		if !exist {
@@ -473,19 +473,19 @@ func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admregapi.
 
 // updateValidatingWebhookConfiguration updates an existing ValidatingWebhookConfiguration with the rules provided by
 // the targetConfig. If the targetConfig doesn't provide any rules, the existing rules will be preserved.
-func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admregapi.ValidatingWebhookConfiguration) error {
+func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	// Fetch the existing webhook.
 	currentConfiguration, err := wrc.vwcLister.Get(targetConfig.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get %s %s: %v", kindValidating, targetConfig.Name, err)
 	}
 	// Create a map of the target webhooks.
-	targetWebhooksMap := make(map[string]admregapi.ValidatingWebhook)
+	targetWebhooksMap := make(map[string]admissionregistrationv1.ValidatingWebhook)
 	for _, w := range targetConfig.Webhooks {
 		targetWebhooksMap[w.Name] = w
 	}
 	// Update the webhooks.
-	newWebhooks := make([]admregapi.ValidatingWebhook, 0)
+	newWebhooks := make([]admissionregistrationv1.ValidatingWebhook, 0)
 	for _, w := range currentConfiguration.Webhooks {
 		target, exist := targetWebhooksMap[w.Name]
 		if !exist {

@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
-	coord "k8s.io/api/coordination/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -193,7 +193,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 		os.Exit(0)
 	}
 
-	lease := coord.Lease{
+	lease := coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kyvernopre-lock",
 		},

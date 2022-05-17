@@ -12,7 +12,7 @@ import (
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -91,7 +91,7 @@ func (c *crdSync) sync() {
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
-	}).List(context.TODO(), v1.ListOptions{})
+	}).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return

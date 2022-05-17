@@ -8,7 +8,7 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -86,7 +86,7 @@ func initRecorder(client client.Interface, eventSource Source, log logr.Logger) 
 	)
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{
+		corev1.EventSource{
 			Component: eventSource.String(),
 		},
 	)
@@ -203,9 +203,9 @@ func (gen *Generator) syncHandler(key Info) error {
 	}
 
 	// set the event type based on reason
-	eventType := v1.EventTypeWarning
+	eventType := corev1.EventTypeWarning
 	if key.Reason == PolicyApplied.String() {
-		eventType = v1.EventTypeNormal
+		eventType = corev1.EventTypeNormal
 	}
 
 	// based on the source of event generation, use different event recorders
