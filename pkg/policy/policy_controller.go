@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -149,7 +149,7 @@ func NewPolicyController(
 	return &pc, nil
 }
 
-func (pc *PolicyController) canBackgroundProcess(p kyverno.PolicyInterface) bool {
+func (pc *PolicyController) canBackgroundProcess(p kyvernov1.PolicyInterface) bool {
 	logger := pc.log.WithValues("policy", p.GetName())
 	if !p.BackgroundProcessingEnabled() {
 		logger.V(4).Info("background processed is disabled")
@@ -166,7 +166,7 @@ func (pc *PolicyController) canBackgroundProcess(p kyverno.PolicyInterface) bool
 
 func (pc *PolicyController) addPolicy(obj interface{}) {
 	logger := pc.log
-	p := obj.(*kyverno.ClusterPolicy)
+	p := obj.(*kyvernov1.ClusterPolicy)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
@@ -177,7 +177,7 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		pol, _ := utilscommon.MutatePolicy(p, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add policy ")
 		}
@@ -193,8 +193,8 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
-	oldP := old.(*kyverno.ClusterPolicy)
-	curP := cur.(*kyverno.ClusterPolicy)
+	oldP := old.(*kyvernov1.ClusterPolicy)
+	curP := cur.(*kyvernov1.ClusterPolicy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
@@ -203,7 +203,7 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		pol, _ := utilscommon.MutatePolicy(curP, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyverno.ClusterPolicy), metav1.UpdateOptions{})
+		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update policy ")
 		}
@@ -225,14 +225,14 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyverno.ClusterPolicy)
+	p, ok := obj.(*kyvernov1.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
 			return
@@ -261,7 +261,7 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
-	p := obj.(*kyverno.Policy)
+	p := obj.(*kyvernov1.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
@@ -273,7 +273,7 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	spec := p.GetSpec()
 	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 		nsPol, _ := utilscommon.MutatePolicy(p, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to add namespace policy")
 		}
@@ -287,8 +287,8 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
-	oldP := old.(*kyverno.Policy)
-	curP := cur.(*kyverno.Policy)
+	oldP := old.(*kyvernov1.Policy)
+	curP := cur.(*kyvernov1.Policy)
 
 	// register kyverno_policy_rule_info_total metric concurrently
 	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
@@ -297,7 +297,7 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
 		nsPol, _ := utilscommon.MutatePolicy(curP, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyverno.Policy), metav1.UpdateOptions{})
+		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update namespace policy ")
 		}
@@ -319,14 +319,14 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyverno.Policy)
+	p, ok := obj.(*kyvernov1.Policy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		p, ok = tombstone.Obj.(*kyverno.Policy)
+		p, ok = tombstone.Obj.(*kyvernov1.Policy)
 		if !ok {
 			logger.Info("tombstone container object that is not a policy", "obj", obj)
 			return
@@ -355,7 +355,7 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	pc.enqueuePolicy(pol)
 }
 
-func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyverno.PolicyInterface) {
+func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyvernov1.PolicyInterface) {
 	curRule := make(map[string]bool)
 	for _, rule := range autogen.ComputeRules(cur) {
 		curRule[rule.Name] = true
@@ -367,7 +367,7 @@ func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyverno.PolicyInterfa
 				PolicyName: cur.GetName(),
 				Results: []policyreport.EngineResponseResult{
 					{
-						Rules: []kyverno.ViolatedRule{
+						Rules: []kyvernov1.ViolatedRule{
 							{Name: rule.Name},
 						},
 					},
@@ -383,7 +383,7 @@ func (pc *PolicyController) enqueueRCRDeletedPolicy(policyName string) {
 	})
 }
 
-func (pc *PolicyController) enqueuePolicy(policy kyverno.PolicyInterface) {
+func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 	logger := pc.log
 	key, err := cache.MetaNamespaceKeyFunc(policy)
 	if err != nil {
@@ -490,7 +490,7 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	return nil
 }
 
-func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterface, err error) {
+func (pc *PolicyController) getPolicy(key string) (policy kyvernov1.PolicyInterface, err error) {
 	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		return pc.pLister.Get(key)
@@ -504,7 +504,7 @@ func (pc *PolicyController) getPolicy(key string) (policy kyverno.PolicyInterfac
 	return
 }
 
-func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logger) []*unstructured.Unstructured {
+func generateTriggers(client client.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
 	kinds := fetchUniqueKinds(rule)
@@ -519,7 +519,7 @@ func generateTriggers(client client.Interface, rule kyverno.Rule, log logr.Logge
 	return convertlist(list.Items)
 }
 
-func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
 	for _, v := range grList {
 		if policyKey == v.Spec.Policy {
 			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
@@ -530,7 +530,7 @@ func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []
 	}
 }
 
-func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []*urkyverno.UpdateRequest, logger logr.Logger) {
+func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
 	for _, ur := range urList {
 		if policyKey == ur.Spec.Policy {
 			urLabels := ur.Labels
@@ -551,7 +551,7 @@ func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []
 				continue
 			}
 
-			new.Status.State = urkyverno.Pending
+			new.Status.State = kyvernov1beta1.Pending
 			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set UpdateRequest state to Pending")
 			}
@@ -559,7 +559,7 @@ func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []
 	}
 }
 
-func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
+func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool {
 	var podRuleName []string
 	ruleCount := 1
 	spec := policy.GetSpec()
@@ -571,7 +571,7 @@ func missingAutoGenRules(policy kyverno.PolicyInterface, log logr.Logger) bool {
 
 	if len(podRuleName) > 0 {
 		annotations := policy.GetAnnotations()
-		val, ok := annotations[kyverno.PodControllersAnnotation]
+		val, ok := annotations[kyvernov1.PodControllersAnnotation]
 		if !ok {
 			return true
 		}

@@ -8,8 +8,8 @@ import (
 
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -134,7 +134,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -269,7 +269,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef urkyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -299,7 +299,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 		}
 	} else {
-		rmr := kyverno.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
+		rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
 		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 	}
 
@@ -323,7 +323,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criteria exclude it"))
 		}
 	} else {
-		rer := kyverno.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
+		rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
 		reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 	}
 
@@ -342,15 +342,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 
-func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
-	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
-		rmr.UserInfo = kyverno.UserInfo{}
+	if reflect.DeepEqual(admissionInfo, kyvernov1.RequestInfo{}) {
+		rmr.UserInfo = kyvernov1.UserInfo{}
 	}
 
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rmr.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rmr.UserInfo, kyverno.UserInfo{}) {
+	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		errs = append(errs, matchErrs...)
 	} else {
@@ -359,11 +359,11 @@ func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admission
 	return errs
 }
 
-func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionExcludeHelper(rer kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rer.ResourceDescription, kyverno.ResourceDescription{}) ||
-		!reflect.DeepEqual(rer.UserInfo, kyverno.UserInfo{}) {
+	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
+		!reflect.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
@@ -395,8 +395,8 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 // ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyverno.PolicyInterface, resource unstructured.Unstructured) bool {
-	podControllers, ok := policy.GetAnnotations()[kyverno.PodControllersAnnotation]
+func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) bool {
+	podControllers, ok := policy.GetAnnotations()[kyvernov1.PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
 		return false
 	}
@@ -441,12 +441,12 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyverno.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
 	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError, nil)
 }
 
-func ruleResponse(rule kyverno.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
 	resp := &response.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,

@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )
@@ -28,10 +28,10 @@ func TransformConditions(original apiextensions.JSON) (interface{}, error) {
 		return nil, err
 	}
 	switch typedValue := oldConditions.(type) {
-	case kyverno.AnyAllConditions:
+	case kyvernov1.AnyAllConditions:
 		return *typedValue.DeepCopy(), nil
-	case []kyverno.Condition: // backwards compatibility
-		var copies []kyverno.Condition
+	case []kyvernov1.Condition: // backwards compatibility
+		var copies []kyvernov1.Condition
 		for _, condition := range typedValue {
 			copies = append(copies, *condition.DeepCopy())
 		}
