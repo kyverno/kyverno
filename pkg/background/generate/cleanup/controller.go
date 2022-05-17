@@ -14,6 +14,7 @@ import (
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -94,18 +95,10 @@ func NewController(
 
 func (c *Controller) deletePolicy(obj interface{}) {
 	logger := c.log
-	p, ok := obj.(*kyverno.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyverno.ClusterPolicy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
-		if !ok {
-			logger.Info("Tombstone contained object that is not a Update Request", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
@@ -145,18 +138,10 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := kubeutils.GetObjectWithTombstone(obj).(*urkyverno.UpdateRequest)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
-		if !ok {
-			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	if ur.Status.Handler != "" {

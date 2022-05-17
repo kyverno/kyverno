@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -297,24 +298,14 @@ func (c *Controller) updateUR(old, cur interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := kubeutils.GetObjectWithTombstone(obj).(*urkyverno.UpdateRequest)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
+		logger.Info("Failed to get deleted object", "obj", obj)
+	} else {
+		if ur.Status.Handler != "" {
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
-		if !ok {
-			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
-			return
-		}
+		// sync Handler will remove it from the queue
+		c.enqueueUpdateRequest(ur)
 	}
-
-	if ur.Status.Handler != "" {
-		return
-	}
-
-	// sync Handler will remove it from the queue
-	c.enqueueUpdateRequest(ur)
 }
