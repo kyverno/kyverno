@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -42,7 +42,7 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client      client.Interface
+	client      dclient.Interface
 	queue       workqueue.RateLimitingInterface
 	pCache      policycache.Cache
 	eventGen    event.Interface
@@ -66,7 +66,7 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 	namespaces informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
-	client client.Interface,
+	client dclient.Interface,
 	promConfig *metrics.PromConfig,
 ) AuditHandler {
 	return &auditHandler{

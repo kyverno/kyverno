@@ -3,7 +3,7 @@ package engine
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -26,7 +26,7 @@ type PolicyContext struct {
 	AdmissionInfo kyvernov1beta1.RequestInfo
 
 	// Dynamic client - used for api lookups
-	Client client.Interface
+	Client dclient.Interface
 
 	// Config handler
 	ExcludeGroupRole []string

@@ -21,7 +21,7 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -53,7 +53,7 @@ const (
 // PolicyController is responsible for synchronizing Policy objects stored
 // in the system with the corresponding policy violations
 type PolicyController struct {
-	client        client.Interface
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 	pInformer     kyvernoinformer.ClusterPolicyInformer
 	npInformer    kyvernoinformer.PolicyInformer
@@ -98,7 +98,7 @@ type PolicyController struct {
 func NewPolicyController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	client client.Interface,
+	client dclient.Interface,
 	pInformer kyvernoinformer.ClusterPolicyInformer,
 	npInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
@@ -504,7 +504,7 @@ func (pc *PolicyController) getPolicy(key string) (policy kyvernov1.PolicyInterf
 	return
 }
 
-func generateTriggers(client client.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
+func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
 	kinds := fetchUniqueKinds(rule)
