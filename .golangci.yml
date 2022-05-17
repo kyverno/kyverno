@@ -25,6 +25,7 @@ linters:
     - makezero
     - misspell
     - noctx
+    - nolintlint
     - staticcheck
     - structcheck
     - tenv
