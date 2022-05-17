@@ -1,7 +1,7 @@
 package engine
 
 import (
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 )
 
@@ -17,5 +17,5 @@ func IsResponseSuccessful(engineReponses []*response.EngineResponse) bool {
 
 // CheckEngineResponse return true if engine response is not successful and validation failure action is set to 'enforce'
 func CheckEngineResponse(er *response.EngineResponse) bool {
-	return !er.IsSuccessful() && er.GetValidationFailureAction() == kyverno.Enforce
+	return !er.IsSuccessful() && er.GetValidationFailureAction() == kyvernov1.Enforce
 }

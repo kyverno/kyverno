@@ -44,3 +44,9 @@ run:
   skip-files:
     - ".+_test.go"
     - ".+_test_.+.go"
+
+linters-settings:
+  importas:
+    alias:
+      - pkg: github.com/kyverno/kyverno/api/(\w+)/(v[\w\d]+)
+        alias: $1$2
