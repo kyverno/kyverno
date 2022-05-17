@@ -633,7 +633,7 @@ func getUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) 
 	return utils.ConvertToUnstructured(ruleData)
 }
 
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {
