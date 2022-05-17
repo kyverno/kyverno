@@ -9,7 +9,7 @@ import (
 
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,7 +20,7 @@ import (
 )
 
 type crdSync struct {
-	client     client.Interface
+	client     dclient.Interface
 	controller *Controller
 }
 
@@ -52,7 +52,7 @@ var crdDefinitionNew struct {
 }
 
 // NewCRDSync ...
-func NewCRDSync(client client.Interface, controller *Controller) *crdSync {
+func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
 	if controller == nil {
 		panic(fmt.Errorf("nil controller sent into crd sync"))
 	}
