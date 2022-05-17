@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
@@ -94,14 +94,14 @@ func NewController(
 
 func (c *Controller) deletePolicy(obj interface{}) {
 	logger := c.log
-	p, ok := obj.(*kyverno.ClusterPolicy)
+	p, ok := obj.(*kyvernov1.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
 		if !ok {
 			logger.Info("Tombstone contained object that is not a Update Request", "obj", obj)
 			return
@@ -114,12 +114,12 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 	// get the generated resource name from update request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		urkyverno.URGeneratePolicyLabel: p.Name,
+		kyvernov1beta1.URGeneratePolicyLabel: p.Name,
 	}))
 
 	urList, err := c.urLister.List(selector)
 	if err != nil {
-		logger.Error(err, "failed to get update request for the resource", "label", urkyverno.URGeneratePolicyLabel)
+		logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
 		return
 	}
 
@@ -145,14 +145,14 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
 			return
@@ -166,9 +166,9 @@ func (c *Controller) deleteUR(obj interface{}) {
 	c.enqueue(ur)
 }
 
-func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
+func (c *Controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
 	// skip enqueueing Pending requests
-	if ur.Status.State == urkyverno.Pending {
+	if ur.Status.State == kyvernov1beta1.Pending {
 		return
 	}
 
