@@ -9,8 +9,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
-	informerv1 "k8s.io/client-go/informers/core/v1"
-	listersv1 "k8s.io/client-go/listers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -24,12 +24,12 @@ type Controller interface {
 
 type controller struct {
 	renewer         *tls.CertRenewer
-	secretLister    listersv1.SecretLister
+	secretLister    corev1listers.SecretLister
 	secretQueue     chan bool
 	onSecretChanged func() error
 }
 
-func NewController(secretInformer informerv1.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
 	manager := &controller{
 		renewer:         certRenewer,
 		secretLister:    secretInformer.Lister(),

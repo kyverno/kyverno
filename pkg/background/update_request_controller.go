@@ -22,9 +22,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelister "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -62,7 +62,7 @@ type Controller struct {
 	urLister urlister.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corelister.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	log logr.Logger
 
@@ -78,7 +78,7 @@ func NewController(
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
 	eventGen event.Interface,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer corev1informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
 ) (*Controller, error) {
