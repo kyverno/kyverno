@@ -1,12 +1,11 @@
 package main
 
+// We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 import (
 	"context"
 	"flag"
 	"fmt"
 	"net/http"
-
-	// We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 	_ "net/http/pprof" // #nosec
 	"os"
 	"strings"

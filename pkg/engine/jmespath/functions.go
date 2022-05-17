@@ -113,7 +113,7 @@ func GetFunctions() []*FunctionEntry {
 				},
 				Handler: jpfCompare,
 			},
-			ReturnType: []JpType{JpBool},
+			ReturnType: []JpType{JpNumber},
 		},
 		{
 			Entry: &gojmespath.FunctionEntry{

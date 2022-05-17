@@ -11,7 +11,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	rbaclister "k8s.io/client-go/listers/rbac/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 

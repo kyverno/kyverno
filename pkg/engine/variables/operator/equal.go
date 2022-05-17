@@ -6,11 +6,10 @@ import (
 	"reflect"
 	"strconv"
 
-	wildcard "github.com/kyverno/go-wildcard"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // NewEqualHandler returns handler to manage Equal operations
