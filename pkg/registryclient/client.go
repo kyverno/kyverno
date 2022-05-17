@@ -4,11 +4,10 @@ import (
 	"context"
 	"io/ioutil"
 
-	"github.com/google/go-containerregistry/pkg/authn/github"
-
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/authn/github"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	"github.com/pkg/errors"
