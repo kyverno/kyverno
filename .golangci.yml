@@ -19,6 +19,7 @@ linters:
     - gosec
     - gosimple
     - govet
+    - grouper
     - importas
     - ineffassign
     - makezero
