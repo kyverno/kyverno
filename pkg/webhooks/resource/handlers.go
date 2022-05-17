@@ -34,8 +34,8 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	corelister "k8s.io/client-go/listers/core/v1"
-	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
 type handlers struct {
@@ -51,9 +51,9 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister  corelister.NamespaceLister
-	rbLister  rbaclister.RoleBindingLister
-	crbLister rbaclister.ClusterRoleBindingLister
+	nsLister  corev1listers.NamespaceLister
+	rbLister  rbacv1listers.RoleBindingLister
+	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  urlister.UpdateRequestNamespaceLister
 
 	prGenerator       policyreport.GeneratorInterface
@@ -70,9 +70,9 @@ func NewHandlers(
 	configuration config.Configuration,
 	promConfig *metrics.PromConfig,
 	pCache policycache.Cache,
-	nsLister corelister.NamespaceLister,
-	rbLister rbaclister.RoleBindingLister,
-	crbLister rbaclister.ClusterRoleBindingLister,
+	nsLister corev1listers.NamespaceLister,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister urlister.UpdateRequestNamespaceLister,
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Interface,

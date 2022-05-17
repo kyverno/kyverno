@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -25,7 +25,7 @@ const (
 )
 
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
-func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
+func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, logger logr.Logger) map[string]string {
 	namespaceLabels := make(map[string]string)
 	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
