@@ -193,7 +193,7 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
 
-	ur, ok, err := c.MarkUR(ur)
+	ur, ok, err := c.markUR(ur)
 	if !ok {
 		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
 		return nil
@@ -203,11 +203,11 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	}
 
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
-	if err := c.ProcessUR(ur); err != nil {
+	if err := c.processUR(ur); err != nil {
 		return fmt.Errorf("failed to process UR %s: %v", key, err)
 	}
 
-	if err = c.UnmarkUR(ur); err != nil {
+	if err = c.unmarkUR(ur); err != nil {
 		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
 	}
 

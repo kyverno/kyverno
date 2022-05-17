@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/util/retry"
 )
 
-func (c *Controller) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *Controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
 		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
@@ -31,29 +31,22 @@ func (c *Controller) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) MarkUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
-	handler := ur.Status.Handler
-	if handler != "" {
-		if handler != config.KyvernoPodName() {
-			return ur, false, nil
-		}
-		return ur, true, nil
+func (c *Controller) markUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
+	if ur.Status.Handler != "" {
+		return ur, ur.Status.Handler == config.KyvernoPodName(), nil
 	}
-	handler = config.KyvernoPodName()
-	ur.Status.Handler = handler
-	var updateRequest *kyvernov1beta1.UpdateRequest
-
+	ur = ur.DeepCopy()
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var retryError error
-		updateRequest, retryError = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		ur.Status.Handler = config.KyvernoPodName()
+		ur, retryError = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return retryError
 	})
-
-	return updateRequest, true, err
+	return ur, true, err
 }
 
-func (c *Controller) UnmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
-	_, err := c.PatchHandler(ur, "")
+func (c *Controller) unmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
+	_, err := c.patchHandler(ur, "")
 	if err != nil {
 		return err
 	}
@@ -64,7 +57,7 @@ func (c *Controller) UnmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) PatchHandler(ur *kyvernov1beta1.UpdateRequest, val string) (*kyvernov1beta1.UpdateRequest, error) {
+func (c *Controller) patchHandler(ur *kyvernov1beta1.UpdateRequest, val string) (*kyvernov1beta1.UpdateRequest, error) {
 	patch := jsonutils.NewPatch(
 		"/status/handler",
 		"replace",
