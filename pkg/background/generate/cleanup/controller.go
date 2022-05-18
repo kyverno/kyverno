@@ -3,7 +3,6 @@ package cleanup
 import (
 	"time"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -29,37 +28,32 @@ const (
 	maxRetries = 10
 )
 
-// Controller manages life-cycle of generate-requests
-type Controller struct {
-	// dynamic client implementation
-	client dclient.Interface
+type Controller interface {
+	// Run starts workers
+	Run(int, <-chan struct{})
+}
 
-	// typed client for kyverno CRDs
+// controller manages life-cycle of generate-requests
+type controller struct {
+	// clients
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 
+	// informers
 	pInformer  kyvernov1informers.ClusterPolicyInformer
 	urInformer kyvernov1beta1informers.UpdateRequestInformer
 
-	// control is used to delete the UR
-	control ControlInterface
-
-	// ur that need to be synced
-	queue workqueue.RateLimitingInterface
-
-	// pLister can list/get cluster policy from the shared informer's store
-	pLister kyvernov1listers.ClusterPolicyLister
-
-	// npLister can list/get namespace policy from the shared informer's store
+	// listers
+	pLister  kyvernov1listers.ClusterPolicyLister
 	npLister kyvernov1listers.PolicyLister
-
-	// urLister can list/get update request from the shared informer's store
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
-
-	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
-	// logger
-	log logr.Logger
+	// queue
+	queue workqueue.RateLimitingInterface
+
+	// control is used to delete the UR
+	control ControlInterface
 }
 
 // NewController returns a new controller instance to manage generate-requests
@@ -71,29 +65,22 @@ func NewController(
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
-	log logr.Logger,
-) (*Controller, error) {
-	c := Controller{
-		kyvernoClient: kyvernoclient,
+) Controller {
+	return &controller{
 		client:        client,
+		kyvernoClient: kyvernoclient,
 		pInformer:     pInformer,
 		urInformer:    urInformer,
+		pLister:       pInformer.Lister(),
+		npLister:      npInformer.Lister(),
+		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		nsLister:      namespaceInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		log:           log,
+		control:       Control{client: kyvernoclient},
 	}
-
-	c.control = Control{client: kyvernoclient}
-
-	c.pLister = pInformer.Lister()
-	c.npLister = npInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
-	c.nsLister = namespaceInformer.Lister()
-
-	return &c, nil
 }
 
-func (c *Controller) deletePolicy(obj interface{}) {
-	logger := c.log
+func (c *controller) deletePolicy(obj interface{}) {
 	p, ok := obj.(*kyvernov1.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -143,8 +130,7 @@ func (c *Controller) deletePolicy(obj interface{}) {
 	}
 }
 
-func (c *Controller) deleteUR(obj interface{}) {
-	logger := c.log
+func (c *controller) deleteUR(obj interface{}) {
 	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -166,13 +152,12 @@ func (c *Controller) deleteUR(obj interface{}) {
 	c.enqueue(ur)
 }
 
-func (c *Controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
+func (c *controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
 	// skip enqueueing Pending requests
 	if ur.Status.State == kyvernov1beta1.Pending {
 		return
 	}
 
-	logger := c.log
 	key, err := cache.MetaNamespaceKeyFunc(ur)
 	if err != nil {
 		logger.Error(err, "failed to extract key")
@@ -184,8 +169,7 @@ func (c *Controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
 }
 
 // Run starts the update-request re-conciliation loop
-func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
-	logger := c.log
+func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer c.queue.ShutDown()
 	logger.Info("starting")
@@ -208,12 +192,12 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 
 // worker runs a worker thread that just de-queues items, processes them, and marks them done.
 // It enforces that the syncUpdateRequest is never invoked concurrently with the same key.
-func (c *Controller) worker() {
+func (c *controller) worker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *controller) processNextWorkItem() bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
@@ -225,8 +209,7 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Controller) handleErr(err error, key interface{}) {
-	logger := c.log
+func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
 		return
@@ -248,8 +231,8 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	c.queue.Forget(key)
 }
 
-func (c *Controller) syncUpdateRequest(key string) error {
-	logger := c.log.WithValues("key", key)
+func (c *controller) syncUpdateRequest(key string) error {
+	logger := logger.WithValues("key", key)
 	var err error
 	startTime := time.Now()
 	logger.V(4).Info("started syncing update request", "startTime", startTime)

@@ -9,8 +9,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func (c *Controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
-	logger := c.log.WithValues("kind", ur.Kind, "namespace", ur.Namespace, "name", ur.Name)
+func (c *controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
+	logger := logger.WithValues("kind", ur.Kind, "namespace", ur.Namespace, "name", ur.Name)
 	// 1- Corresponding policy has been deleted
 	// then we don't delete the generated resources
 
