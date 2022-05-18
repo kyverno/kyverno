@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,11 +36,11 @@ type Generator struct {
 	stopCh <-chan struct{}
 	log    logr.Logger
 
-	urLister urkyvernolister.UpdateRequestNamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client kyvernoclient.Interface, urInformer urkyvernoinformer.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
+func NewGenerator(client kyvernoclient.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer, stopCh <-chan struct{}, log logr.Logger) *Generator {
 	gen := &Generator{
 		client:   client,
 		stopCh:   stopCh,
@@ -94,7 +94,7 @@ func retryApplyResource(
 	urSpec kyvernov1beta1.UpdateRequestSpec,
 	log logr.Logger,
 	action admissionv1.Operation,
-	urLister urkyvernolister.UpdateRequestNamespaceLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 ) error {
 	if action == admissionv1.Delete && urSpec.Type == kyvernov1beta1.Generate {
 		return nil

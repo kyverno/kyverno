@@ -7,10 +7,8 @@ import (
 )
 
 func Init() error {
-	certs := fulcio.GetRoots()
-	if certs == nil {
+	if fulcio.GetRoots() == nil {
 		return fmt.Errorf("failed to initialize Fulcio roots")
 	}
-
 	return nil
 }
