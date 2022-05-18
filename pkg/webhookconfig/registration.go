@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -72,8 +72,8 @@ func NewRegister(
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer appsv1informers.DeploymentInformer,
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	npInformer kyvernoinformer.PolicyInformer,
+	pInformer kyvernov1informers.ClusterPolicyInformer,
+	npInformer kyvernov1informers.PolicyInformer,
 	serverIP string,
 	webhookTimeout int32,
 	debug bool,

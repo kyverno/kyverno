@@ -16,11 +16,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -52,16 +52,16 @@ type GenerateController struct {
 	log logr.Logger
 
 	// urLister can list/get update request from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
 	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernolister.ClusterPolicyLister
+	policyLister kyvernov1listers.ClusterPolicyLister
 
 	// policyLister can list/get Namespace policy from the shared informer's store
-	npolicyLister kyvernolister.PolicyLister
+	npolicyLister kyvernov1listers.PolicyLister
 
 	Config config.Configuration
 }
@@ -70,9 +70,9 @@ type GenerateController struct {
 func NewGenerateController(
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	policyLister kyvernolister.ClusterPolicyLister,
-	npolicyLister kyvernolister.PolicyLister,
-	urLister urlister.UpdateRequestNamespaceLister,
+	policyLister kyvernov1listers.ClusterPolicyLister,
+	npolicyLister kyvernov1listers.PolicyLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	eventGen event.Interface,
 	nsLister corev1listers.NamespaceLister,
 	log logr.Logger,

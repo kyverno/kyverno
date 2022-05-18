@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

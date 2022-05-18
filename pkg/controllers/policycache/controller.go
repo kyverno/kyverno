@@ -2,8 +2,8 @@ package policycache
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1informer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov1lister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -22,14 +22,14 @@ type controller struct {
 	cache pcache.Cache
 
 	// listers
-	cpolLister kyvernov1lister.ClusterPolicyLister
-	polLister  kyvernov1lister.PolicyLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(pcache pcache.Cache, cpolInformer kyvernov1informer.ClusterPolicyInformer, polInformer kyvernov1informer.PolicyInformer) *controller {
+func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) *controller {
 	c := controller{
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),

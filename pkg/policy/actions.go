@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
