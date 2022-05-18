@@ -21,7 +21,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -35,35 +35,26 @@ const (
 	maxRetries = 10
 )
 
-// Controller manages the life-cycle for Generate-Requests and applies generate rule
-type Controller struct {
-	// dynamic client implementation
-	client dclient.Interface
+type Controller interface {
+	Run(int, <-chan struct{})
+}
 
-	// typed client for Kyverno CRDs
+// controller manages the life-cycle for Generate-Requests and applies generate rule
+type controller struct {
+	// clients
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 
-	// event generator interface
-	eventGen event.Interface
+	// listers
+	policyLister  kyvernov1listers.ClusterPolicyLister
+	npolicyLister kyvernov1listers.PolicyLister
+	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister      corev1listers.NamespaceLister
 
-	// urStatusControl is used to update UR status
-	statusControl common.StatusControlInterface
-
-	// UR that need to be synced
+	// queue
 	queue workqueue.RateLimitingInterface
 
-	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernov1listers.ClusterPolicyLister
-
-	// policyLister can list/get Namespace policy from the shared informer's store
-	npolicyLister kyvernov1listers.PolicyLister
-
-	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
-
-	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corev1listers.NamespaceLister
-
+	eventGen      event.Interface
 	configuration config.Configuration
 }
 
@@ -78,19 +69,18 @@ func NewController(
 	eventGen event.Interface,
 	namespaceInformer corev1informers.NamespaceInformer,
 	dynamicConfig config.Configuration,
-) *Controller {
+) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
-	c := Controller{
+	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
-		configuration: dynamicConfig,
-		statusControl: common.NewStatusControl(kyvernoClient, urLister),
 		policyLister:  policyInformer.Lister(),
 		npolicyLister: npolicyInformer.Lister(),
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		eventGen:      eventGen,
+		configuration: dynamicConfig,
 	}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -105,8 +95,8 @@ func NewController(
 }
 
 // Run starts workers
-func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
+func (c *controller) Run(workers int, stopCh <-chan struct{}) {
+	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger.Info("starting")
@@ -121,12 +111,12 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
-func (c *Controller) worker() {
+func (c *controller) worker() {
 	for c.processNextWorkItem() {
 	}
 }
 
-func (c *Controller) processNextWorkItem() bool {
+func (c *controller) processNextWorkItem() bool {
 	key, quit := c.queue.Get()
 	if quit {
 		return false
@@ -138,7 +128,7 @@ func (c *Controller) processNextWorkItem() bool {
 	return true
 }
 
-func (c *Controller) handleErr(err error, key interface{}) {
+func (c *controller) handleErr(err error, key interface{}) {
 	if err == nil {
 		c.queue.Forget(key)
 		return
@@ -160,7 +150,7 @@ func (c *Controller) handleErr(err error, key interface{}) {
 	c.queue.Forget(key)
 }
 
-func (c *Controller) syncUpdateRequest(key string) error {
+func (c *controller) syncUpdateRequest(key string) error {
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
@@ -207,7 +197,7 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	return err
 }
 
-func (c *Controller) enqueueUpdateRequest(obj interface{}) {
+func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		logger.Error(err, "failed to extract name")
@@ -217,7 +207,7 @@ func (c *Controller) enqueueUpdateRequest(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *Controller) updatePolicy(old, cur interface{}) {
+func (c *controller) updatePolicy(old, cur interface{}) {
 	oldP := old.(*kyvernov1.ClusterPolicy)
 	curP := cur.(*kyvernov1.ClusterPolicy)
 	if oldP.ResourceVersion == curP.ResourceVersion {
@@ -239,17 +229,17 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 	}
 }
 
-func (c *Controller) addUR(obj interface{}) {
+func (c *controller) addUR(obj interface{}) {
 	ur := obj.(*kyvernov1beta1.UpdateRequest)
 	c.enqueueUpdateRequest(ur)
 }
 
-func (c *Controller) updateUR(_, cur interface{}) {
+func (c *controller) updateUR(_, cur interface{}) {
 	curUr := cur.(*kyvernov1beta1.UpdateRequest)
 	c.enqueueUpdateRequest(curUr)
 }
 
-func (c *Controller) deleteUR(obj interface{}) {
+func (c *controller) deleteUR(obj interface{}) {
 	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
@@ -267,7 +257,7 @@ func (c *Controller) deleteUR(obj interface{}) {
 	c.enqueueUpdateRequest(ur)
 }
 
-func (c *Controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
 		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
@@ -283,7 +273,7 @@ func (c *Controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
+func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var err error
 		ur, err = c.urLister.Get(ur.GetName())
@@ -301,7 +291,7 @@ func (c *Controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 	return ur, ur.Status.Handler == config.KyvernoPodName(), err
 }
 
-func (c *Controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
+func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var err error
 		ur, err = c.urLister.Get(ur.GetName())
@@ -319,7 +309,7 @@ func (c *Controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 	return ur, err
 }
 
-func (c *Controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
+func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
