@@ -8,6 +8,7 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/retry"
 )
 
 // UpdateRequest provides interface to manage update requests
@@ -163,13 +165,19 @@ func retryApplyResource(
 			} else {
 				log.V(4).Info("successfully updated UpdateRequest", "retryCount", i, "name", ur.GetName(), "namespace", ur.GetNamespace())
 			}
-
-			new.Status.State = kyvernov1beta1.Pending
-			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			err = retry.RetryOnConflict(common.DefaultRetry, func() error {
+				ur, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), new.GetName(), metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				ur.Status.State = kyvernov1beta1.Pending
+				_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+				return err
+			})
+			if err != nil {
 				log.Error(err, "failed to set UpdateRequest state to Pending")
 				return err
 			}
-
 			isExist = true
 		}
 
@@ -186,12 +194,6 @@ func retryApplyResource(
 				return err
 			} else {
 				log.V(4).Info("successfully created UpdateRequest", "retryCount", i, "name", new.GetName(), "namespace", ur.GetNamespace())
-			}
-
-			new.Status.State = kyvernov1beta1.Pending
-			if _, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-				log.Error(err, "failed to set UpdateRequest state to Pending")
-				return err
 			}
 		}
 

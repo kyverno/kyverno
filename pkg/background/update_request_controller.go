@@ -172,15 +172,25 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-	ur, err := c.urLister.Get(urName)
+	// if state is not set, try to set it to pending
+	{
+		ur, err := c.urLister.Get(urName)
+		if err != nil {
+			return err
+		}
+		if ur.Status.State == "" {
+			ur = ur.DeepCopy()
+			ur.Status.State = kyvernov1beta1.Pending
+			_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			// in any case we want to return and wait the next reconcile
+			return err
+		}
+	}
+	ur, ok, err := c.markUR(urName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
-	}
-	ur, ok, err := c.markUR(ur)
-	if err != nil {
 		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
 	}
 	if !ok {
@@ -238,9 +248,6 @@ func (c *Controller) addUR(obj interface{}) {
 
 func (c *Controller) updateUR(_, cur interface{}) {
 	curUr := cur.(*kyvernov1beta1.UpdateRequest)
-	if curUr.Status.State != kyvernov1beta1.Pending {
-		return
-	}
 	c.enqueueUpdateRequest(curUr)
 }
 
@@ -278,18 +285,25 @@ func (c *Controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *Controller) markUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
-	ur = ur.DeepCopy()
-	if ur.Status.Handler != "" {
-		return ur, ur.Status.Handler == config.KyvernoPodName(), nil
-	}
+func (c *Controller) markUR(name string) (*kyvernov1beta1.UpdateRequest, bool, error) {
+	var ok bool
+	var ur *kyvernov1beta1.UpdateRequest
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
-		var retryError error
+		var err error
+		ur, err = c.urLister.Get(name)
+		if err != nil {
+			return err
+		}
+		ur = ur.DeepCopy()
+		if ur.Status.Handler != "" {
+			ok = ur.Status.Handler == config.KyvernoPodName()
+			return nil
+		}
 		ur.Status.Handler = config.KyvernoPodName()
-		ur, retryError = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return retryError
+		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		return err
 	})
-	return ur, true, err
+	return ur, ok, err
 }
 
 func (c *Controller) unmarkUR(ur *kyvernov1beta1.UpdateRequest) error {

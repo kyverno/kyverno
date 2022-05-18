@@ -14,6 +14,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -38,6 +39,7 @@ import (
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -550,9 +552,16 @@ func updateUR(kyvernoClient kyvernoclient.Interface, policyKey string, urList []
 				logger.Error(err, "failed to update gr", "name", ur.GetName())
 				continue
 			}
-
-			new.Status.State = kyvernov1beta1.Pending
-			if _, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
+			err = retry.RetryOnConflict(common.DefaultRetry, func() error {
+				ur, err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), new.GetName(), metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				ur.Status.State = kyvernov1beta1.Pending
+				_, err = kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+				return err
+			})
+			if err != nil {
 				logger.Error(err, "failed to set UpdateRequest state to Pending")
 			}
 		}
