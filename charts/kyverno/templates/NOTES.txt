@@ -5,7 +5,7 @@ Thank you for installing {{ .Chart.Name }}! Your release is named {{ .Release.Na
 
 {{- if not .Values.replicaCount }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
-{{- else if lt .Values.replicaCount 3 }}
+{{- else if lt (int .Values.replicaCount) 3 }}
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
 {{- end }}
 
