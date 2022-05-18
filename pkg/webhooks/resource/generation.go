@@ -18,11 +18,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/util/retry"
 )
 
 // handleGenerate handles admission-requests for policies with generate rules
@@ -142,36 +140,18 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 // updateAnnotationInUR - function used to update UR annotation
 // updating UR will trigger reprocessing of UR and recreation/updation of generated resource
 func (h *handlers) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	urAnnotations := ur.Annotations
-	if len(urAnnotations) == 0 {
-		urAnnotations = make(map[string]string)
-	}
-	h.mu.Lock()
-	urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
-	ur.SetAnnotations(urAnnotations)
-	h.mu.Unlock()
-
-	patch := jsonutils.NewPatch(
-		"/metadata/annotations",
-		"replace",
-		ur.Annotations,
-	)
-
-	new, err := gencommon.PatchUpdateRequest(ur, patch, h.kyvernoClient)
-	if err != nil {
+	if _, err := gencommon.Update(h.kyvernoClient, h.urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+		urAnnotations := ur.Annotations
+		if len(urAnnotations) == 0 {
+			urAnnotations = make(map[string]string)
+		}
+		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+		ur.SetAnnotations(urAnnotations)
+	}); err != nil {
 		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", ur.Name)
 		return
 	}
-	err = retry.RetryOnConflict(gencommon.DefaultRetry, func() error {
-		ur, err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(context.TODO(), new.GetName(), metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		ur.Status.State = kyvernov1beta1.Pending
-		_, err = h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
-		return err
-	})
-	if err != nil {
+	if _, err := gencommon.UpdateStatus(h.kyvernoClient, h.urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }

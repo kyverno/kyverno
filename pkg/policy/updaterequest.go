@@ -31,7 +31,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 	var errors []error
 	mutateURs := pc.listMutateURs(policyKey, nil)
 	generateURs := pc.listGenerateURs(policyKey, nil)
-	updateUR(pc.kyvernoClient, policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
+	updateUR(pc.kyvernoClient, pc.urLister.UpdateRequests(config.KyvernoNamespace()), policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
 
 	for _, rule := range policy.GetSpec().Rules {
 		var ruleType kyvernov1beta1.RequestType

@@ -73,7 +73,7 @@ func NewMutateExistingController(
 		Config:        dynamicConfig,
 	}
 
-	c.statusControl = common.StatusControl{Client: kyvernoClient}
+	c.statusControl = common.NewStatusControl(kyvernoClient, urLister)
 	return &c, nil
 }
 
@@ -183,10 +183,15 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 
 func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
 	if err != nil {
-		return statusControl.Failed(ur, err.Error(), nil)
+		if _, err := statusControl.Failed(ur.GetName(), err.Error(), nil); err != nil {
+			return err
+		}
+	} else {
+		if _, err := statusControl.Success(ur.GetName(), nil); err != nil {
+			return err
+		}
 	}
-
-	return statusControl.Success(ur, nil)
+	return nil
 }
 
 func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {

@@ -18,8 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -81,16 +79,17 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	dynamicConfig config.Configuration,
 ) *Controller {
+	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := Controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
 		eventGen:      eventGen,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		configuration: dynamicConfig,
-		statusControl: common.StatusControl{Client: kyvernoClient},
+		statusControl: common.NewStatusControl(kyvernoClient, urLister),
 		policyLister:  policyInformer.Lister(),
 		npolicyLister: npolicyInformer.Lister(),
-		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
 	}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -162,7 +161,6 @@ func (c *Controller) handleErr(err error, key interface{}) {
 }
 
 func (c *Controller) syncUpdateRequest(key string) error {
-	var err error
 	startTime := time.Now()
 	logger.V(4).Info("started sync", "key", key, "startTime", startTime)
 	defer func() {
@@ -198,8 +196,10 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		return nil
 	}
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
-	if err := c.processUR(ur); err != nil {
-		return fmt.Errorf("failed to process UR %s: %v", key, err)
+	if ur.Status.State == kyvernov1beta1.Pending {
+		if err := c.processUR(ur); err != nil {
+			return fmt.Errorf("failed to process UR %s: %v", key, err)
+		}
 	}
 	if err = c.unmarkUR(ur); err != nil {
 		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
@@ -317,19 +317,18 @@ func (c *Controller) unmarkUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *Controller) patchHandler(ur *kyvernov1beta1.UpdateRequest, val string) (*kyvernov1beta1.UpdateRequest, error) {
-	patch := jsonutils.NewPatch(
-		"/status/handler",
-		"replace",
-		val,
-	)
-
-	updateUR, err := common.PatchUpdateRequest(ur, patch, c.kyvernoClient, "status")
-	if err != nil && !apierrors.IsNotFound(err) {
-		logger.Error(err, "failed to patch UpdateRequest: %v", patch)
-		if val == "" {
-			return nil, errors.Wrapf(err, "failed to patch UpdateRequest to clear /status/handler")
+	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
+		ur, err := c.urLister.Get(ur.GetName())
+		if err != nil {
+			return err
 		}
-		return nil, errors.Wrapf(err, "failed to patch UpdateRequest to update /status/handler to %s", val)
+		ur = ur.DeepCopy()
+		ur.Status.Handler = val
+		_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		return err
+	})
+	if err != nil {
+		return nil, err
 	}
-	return updateUR, nil
+	return ur, nil
 }
