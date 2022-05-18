@@ -16,10 +16,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -55,8 +55,8 @@ const (
 type PolicyController struct {
 	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
-	pInformer     kyvernoinformer.ClusterPolicyInformer
-	npInformer    kyvernoinformer.PolicyInformer
+	pInformer     kyvernov1informers.ClusterPolicyInformer
+	npInformer    kyvernov1informers.PolicyInformer
 
 	eventGen      event.Interface
 	eventRecorder record.EventRecorder
@@ -65,13 +65,13 @@ type PolicyController struct {
 	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get policy from the shared informer's store
-	pLister kyvernolister.ClusterPolicyLister
+	pLister kyvernov1listers.ClusterPolicyLister
 
 	// npLister can list/get namespace policy from the shared informer's store
-	npLister kyvernolister.PolicyLister
+	npLister kyvernov1listers.PolicyLister
 
 	// urLister can list/get update request from the shared informer's store
-	urLister urkyvernolister.UpdateRequestLister
+	urLister kyvernov1beta1listers.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
@@ -99,9 +99,9 @@ func NewPolicyController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	npInformer kyvernoinformer.PolicyInformer,
-	urInformer urkyvernoinformer.UpdateRequestInformer,
+	pInformer kyvernov1informers.ClusterPolicyInformer,
+	npInformer kyvernov1informers.PolicyInformer,
+	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,

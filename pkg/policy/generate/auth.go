@@ -3,7 +3,7 @@ package generate
 import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/auth"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 )
 
 // Operations provides methods to performing operations on resource

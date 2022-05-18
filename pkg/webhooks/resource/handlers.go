@@ -10,7 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
@@ -54,7 +54,7 @@ type handlers struct {
 	nsLister  corev1listers.NamespaceLister
 	rbLister  rbacv1listers.RoleBindingLister
 	crbLister rbacv1listers.ClusterRoleBindingLister
-	urLister  urlister.UpdateRequestNamespaceLister
+	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	prGenerator       policyreport.GeneratorInterface
 	urGenerator       webhookgenerate.Interface
@@ -73,7 +73,7 @@ func NewHandlers(
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
-	urLister urlister.UpdateRequestNamespaceLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Interface,
 	eventGen event.Interface,
