@@ -12,8 +12,8 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -44,14 +44,14 @@ type webhookConfigManager struct {
 	kyvernoClient   kyvernoclient.Interface
 
 	// informers
-	pInformer        kyvernoinformer.ClusterPolicyInformer
-	npInformer       kyvernoinformer.PolicyInformer
+	pInformer        kyvernov1informers.ClusterPolicyInformer
+	npInformer       kyvernov1informers.PolicyInformer
 	mutateInformer   admissionregistrationv1informers.MutatingWebhookConfigurationInformer
 	validateInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer
 
 	// listers
-	pLister        kyvernolister.ClusterPolicyLister
-	npLister       kyvernolister.PolicyLister
+	pLister        kyvernov1listers.ClusterPolicyLister
+	npLister       kyvernov1listers.PolicyLister
 	mutateLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
 	validateLister admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
@@ -80,8 +80,8 @@ func newWebhookConfigManager(
 	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	npInformer kyvernoinformer.PolicyInformer,
+	pInformer kyvernov1informers.ClusterPolicyInformer,
+	npInformer kyvernov1informers.PolicyInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	serverIP string,

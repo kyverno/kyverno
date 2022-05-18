@@ -21,6 +21,7 @@ linters:
     - gosimple
     - govet
     - grouper
+    - ifshort
     - importas
     - ineffassign
     - makezero
@@ -63,4 +64,8 @@ linters-settings:
       - pkg: k8s.io/client-go/informers/(\w+)/(v[\w\d]+)
         alias: ${1}${2}informers
       - pkg: k8s.io/client-go/listers/(\w+)/(v[\w\d]+)
+        alias: ${1}${2}listers
+      - pkg: github.com/kyverno/kyverno/pkg/client/informers/externalversions/(\w+)/(v[\w\d]+)
+        alias: ${1}${2}informers
+      - pkg: github.com/kyverno/kyverno/pkg/client/listers/(\w+)/(v[\w\d]+)
         alias: ${1}${2}listers
