@@ -284,7 +284,7 @@ func main() {
 		stopCh,
 		log.Log.WithName("UpdateRequestGenerator"))
 
-	urc, err := background.NewController(
+	urc := background.NewController(
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
@@ -296,10 +296,6 @@ func main() {
 		log.Log.WithName("BackgroundController"),
 		configuration,
 	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create generate controller")
-		os.Exit(1)
-	}
 
 	grcc, err := generatecleanup.NewController(
 		kubeClient,
