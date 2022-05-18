@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"context"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -51,9 +53,6 @@ type controller struct {
 
 	// queue
 	queue workqueue.RateLimitingInterface
-
-	// control is used to delete the UR
-	control ControlInterface
 }
 
 // NewController returns a new controller instance to manage generate-requests
@@ -76,7 +75,6 @@ func NewController(
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		nsLister:      namespaceInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		control:       Control{client: kyvernoclient},
 	}
 }
 
@@ -256,21 +254,17 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if err != nil {
 		return err
 	}
-
 	if pNamespace == "" {
 		_, err = c.pLister.Get(pName)
 	} else {
 		_, err = c.npLister.Policies(pNamespace).Get(pName)
 	}
-
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-
 		logger.Error(err, "failed to get policy, deleting the update request", "key", ur.Spec.Policy)
-		return c.control.Delete(ur.Name)
+		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
 	}
-
 	return c.processUR(*ur)
 }

@@ -1,12 +1,15 @@
 package cleanup
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (c *controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
@@ -38,7 +41,7 @@ func (c *controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
 			// - trigger-resource is deleted
 			// - generated-resources are deleted
 			// - > Now delete the UpdateRequest CR
-			return c.control.Delete(ur.Name)
+			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
 		}
 	}
 	return nil
