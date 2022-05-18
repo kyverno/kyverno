@@ -28,6 +28,7 @@ linters:
     - misspell
     - noctx
     - nolintlint
+    - paralleltest
     - staticcheck
     - structcheck
     - tenv
