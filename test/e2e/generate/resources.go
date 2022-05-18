@@ -255,6 +255,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -294,6 +295,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
