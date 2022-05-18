@@ -17,7 +17,7 @@ import (
 
 var DefaultRetry = wait.Backoff{
 	Steps:    15,
-	Duration: 30 * time.Millisecond,
+	Duration: 100 * time.Millisecond,
 	Factor:   1.0,
 	Jitter:   0.1,
 }
@@ -27,11 +27,15 @@ func Update(client kyvernoclient.Interface, urLister kyvernov1beta1listers.Updat
 	err := retry.RetryOnConflict(DefaultRetry, func() error {
 		ur, err := urLister.Get(name)
 		if err != nil {
+			log.Log.Error(err, "[ATTEMPT] failed to fetch update request", "name", name)
 			return err
 		}
 		ur = ur.DeepCopy()
 		mutator(ur)
 		_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), ur, metav1.UpdateOptions{})
+		if err != nil {
+			log.Log.Error(err, "[ATTEMPT] failed to update update request", "name", name)
+		}
 		return err
 	})
 	if err != nil {
@@ -47,7 +51,7 @@ func UpdateStatus(client kyvernoclient.Interface, urLister kyvernov1beta1listers
 	err := retry.RetryOnConflict(DefaultRetry, func() error {
 		ur, err := urLister.Get(name)
 		if err != nil {
-			log.Log.Error(err, "failed to fetch update request", "name", name)
+			log.Log.Error(err, "[ATTEMPT] failed to fetch update request", "name", name)
 			return err
 		}
 		ur = ur.DeepCopy()
@@ -57,6 +61,10 @@ func UpdateStatus(client kyvernoclient.Interface, urLister kyvernov1beta1listers
 			ur.Status.GeneratedResources = genResources
 		}
 		_, err = client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		if err != nil {
+			log.Log.Error(err, "[ATTEMPT] failed to update update request status", "name", name)
+			return err
+		}
 		return err
 	})
 	if err != nil {
