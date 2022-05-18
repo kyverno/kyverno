@@ -79,6 +79,23 @@ func NewController(
 	}
 }
 
+func (c *controller) Run(workers int, stopCh <-chan struct{}) {
+	defer utilruntime.HandleCrash()
+	defer c.queue.ShutDown()
+	logger.Info("starting")
+	defer logger.Info("shutting down")
+	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
+	})
+	c.urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		DeleteFunc: c.deleteUR,
+	})
+	for i := 0; i < workers; i++ {
+		go wait.Until(c.worker, time.Second, stopCh)
+	}
+	<-stopCh
+}
+
 func (c *controller) deletePolicy(obj interface{}) {
 	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
@@ -147,28 +164,6 @@ func (c *controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
 
 	logger.V(5).Info("enqueue update request", "name", ur.Name)
 	c.queue.Add(key)
-}
-
-// Run starts the update-request re-conciliation loop
-func (c *controller) Run(workers int, stopCh <-chan struct{}) {
-	defer utilruntime.HandleCrash()
-	defer c.queue.ShutDown()
-	logger.Info("starting")
-	defer logger.Info("shutting down")
-
-	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
-	})
-
-	c.urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		DeleteFunc: c.deleteUR,
-	})
-
-	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, time.Second, stopCh)
-	}
-
-	<-stopCh
 }
 
 // worker runs a worker thread that just de-queues items, processes them, and marks them done.
