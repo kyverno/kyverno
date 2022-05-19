@@ -90,7 +90,7 @@ func NewGenerateController(
 		urLister:      urLister,
 	}
 
-	c.statusControl = common.StatusControl{Client: kyvernoClient}
+	c.statusControl = common.NewStatusControl(kyvernoClient, urLister)
 	c.nsLister = nsLister
 
 	return &c, nil
@@ -301,12 +301,19 @@ func (c *GenerateController) getPolicySpec(ur urkyverno.UpdateRequest) (kyverno.
 
 func updateStatus(statusControl common.StatusControlInterface, ur urkyverno.UpdateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
-		return statusControl.Failed(ur, err.Error(), genResources)
+		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
+			return err
+		}
 	} else if precreatedResource {
-		return statusControl.Skip(ur, genResources)
+		if _, err := statusControl.Skip(ur.GetName(), genResources); err != nil {
+			return err
+		}
+	} else {
+		if _, err := statusControl.Success(ur.GetName(), genResources); err != nil {
+			return err
+		}
 	}
-
-	return statusControl.Success(ur, genResources)
+	return nil
 }
 
 func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur urkyverno.UpdateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
