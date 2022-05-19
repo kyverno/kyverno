@@ -31,7 +31,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 	var errors []error
 	mutateURs := pc.listMutateURs(policyKey, nil)
 	generateURs := pc.listGenerateURs(policyKey, nil)
-	updateUR(pc.kyvernoClient, policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
+	updateUR(pc.kyvernoClient, pc.urLister.UpdateRequests(config.KyvernoNamespace()), policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
 
 	for _, rule := range policy.GetSpec().Rules {
 		var ruleType kyvernov1beta1.RequestType
@@ -115,14 +115,8 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 		}
 
 		pc.log.Info("creating new UR for generate")
-		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		_, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
-			return false, err
-		}
-
-		new.Status.State = kyvernov1beta1.Pending
-		if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			pc.log.Error(err, "failed to set UpdateRequest state to Pending")
 			return false, err
 		}
 	}
