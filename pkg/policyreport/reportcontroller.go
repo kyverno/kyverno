@@ -11,15 +11,15 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	policyreportinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
+	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -51,18 +51,18 @@ var LabelSelector = &metav1.LabelSelector{
 // ReportGenerator creates policy report
 type ReportGenerator struct {
 	pclient kyvernoclient.Interface
-	dclient dclient.Interface
+	client  dclient.Interface
 
-	clusterReportInformer    policyreportinformer.ClusterPolicyReportInformer
-	reportInformer           policyreportinformer.PolicyReportInformer
-	reportReqInformer        requestinformer.ReportChangeRequestInformer
-	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer
+	clusterReportInformer    policyreportv1alpha2informers.ClusterPolicyReportInformer
+	reportInformer           policyreportv1alpha2informers.PolicyReportInformer
+	reportReqInformer        kyvernov1alpha2informers.ReportChangeRequestInformer
+	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer
 
-	reportLister                     policyreport.PolicyReportLister
-	clusterReportLister              policyreport.ClusterPolicyReportLister
-	reportChangeRequestLister        requestlister.ReportChangeRequestLister
-	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
-	nsLister                         listerv1.NamespaceLister
+	reportLister                     policyreportv1alpha2listers.PolicyReportLister
+	clusterReportLister              policyreportv1alpha2listers.ClusterPolicyReportLister
+	reportChangeRequestLister        kyvernov1alpha2listers.ReportChangeRequestLister
+	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
+	nsLister                         corev1listers.NamespaceLister
 
 	queue workqueue.RateLimitingInterface
 
@@ -77,16 +77,16 @@ type ReportGenerator struct {
 func NewReportGenerator(
 	pclient kyvernoclient.Interface,
 	dclient dclient.Interface,
-	clusterReportInformer policyreportinformer.ClusterPolicyReportInformer,
-	reportInformer policyreportinformer.PolicyReportInformer,
-	reportReqInformer requestinformer.ReportChangeRequestInformer,
-	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
-	namespace informers.NamespaceInformer,
+	clusterReportInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
+	reportInformer policyreportv1alpha2informers.PolicyReportInformer,
+	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
+	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
+	namespace corev1informers.NamespaceInformer,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
-		dclient:                  dclient,
+		client:                   dclient,
 		clusterReportInformer:    clusterReportInformer,
 		reportInformer:           reportInformer,
 		reportReqInformer:        reportReqInformer,
@@ -464,7 +464,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-	namespaces, err := g.dclient.ListResource("", "Namespace", "", nil)
+	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
 	}
@@ -534,7 +534,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 			}
 			// Namespace is deleted, create a fake ns to clean up RCRs
-			ns = new(v1.Namespace)
+			ns = new(corev1.Namespace)
 			ns.SetName(namespace)
 			now := metav1.Now()
 			ns.SetDeletionTimestamp(&now)
@@ -554,7 +554,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 	return report, aggregatedRequests, nil
 }
 
-func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
 
 	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
@@ -615,7 +615,7 @@ func mergeRequests(ns, kyvernoNs *v1.Namespace, requestsGeneral interface{}) (*u
 	return nil, nil, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.Namespace) {
+func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace) {
 	reportUnstructured.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 

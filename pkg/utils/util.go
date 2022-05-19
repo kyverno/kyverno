@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -99,7 +99,7 @@ func compareString(str, name string) bool {
 }
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(discovery client.IDiscovery) bool {
+func CRDsInstalled(discovery dclient.IDiscovery) bool {
 	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
@@ -110,7 +110,7 @@ func CRDsInstalled(discovery client.IDiscovery) bool {
 	return true
 }
 
-func isCRDInstalled(discoveryClient client.IDiscovery, kind string) bool {
+func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 	gvr, err := discoveryClient.GetGVRFromKind(kind)
 	if gvr.Empty() {
 		if err == nil {

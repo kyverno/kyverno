@@ -25,7 +25,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -708,7 +708,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 
 func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
-	var dClient client.Interface
+	var dClient dclient.Interface
 	values := &Test{}
 	var variablesString string
 	var pvInfos []policyreport.Info
