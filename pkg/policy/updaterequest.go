@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -14,12 +14,11 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInterface) error {
+func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
 
 	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
@@ -35,10 +34,10 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 	updateUR(pc.kyvernoClient, policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
 
 	for _, rule := range policy.GetSpec().Rules {
-		var ruleType urkyverno.RequestType
+		var ruleType kyvernov1beta1.RequestType
 
 		if rule.IsMutateExisting() {
-			ruleType = urkyverno.Mutate
+			ruleType = kyvernov1beta1.Mutate
 
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
@@ -65,7 +64,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 			}
 		}
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
-			ruleType = urkyverno.Generate
+			ruleType = kyvernov1beta1.Generate
 			triggers := generateTriggers(pc.client, rule, pc.log)
 			for _, trigger := range triggers {
 				gurs := pc.listGenerateURs(policyKey, trigger)
@@ -75,7 +74,6 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 					continue
 				}
 
-				logger.Info("creating new UR for generate")
 				ur := newUR(policy, trigger, ruleType)
 				skip, err := pc.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
@@ -99,7 +97,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyverno.PolicyInte
 	return nil
 }
 
-func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyverno.Rule, policy kyverno.PolicyInterface) (skip bool, err error) {
+func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
 	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
@@ -116,12 +114,13 @@ func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, tri
 			continue
 		}
 
+		pc.log.Info("creating new UR for generate")
 		new, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
 
-		new.Status.State = urkyverno.Pending
+		new.Status.State = kyvernov1beta1.Pending
 		if _, err := pc.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
 			pc.log.Error(err, "failed to set UpdateRequest state to Pending")
 			return false, err
@@ -130,7 +129,7 @@ func (pc *PolicyController) handleUpdateRequest(ur *urkyverno.UpdateRequest, tri
 	return false, err
 }
 
-func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*urkyverno.UpdateRequest {
+func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	selector := createMutateLabels(policyKey, trigger)
 	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
 	if err != nil {
@@ -140,7 +139,7 @@ func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructure
 	return mutateURs
 }
 
-func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*urkyverno.UpdateRequest {
+func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
 	selector := createGenerateLabels(policyKey, trigger)
 	generateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
 	if err != nil {
@@ -150,7 +149,7 @@ func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructu
 	return generateURs
 }
 
-func newUR(policy kyverno.PolicyInterface, trigger *unstructured.Unstructured, ruleType urkyverno.RequestType) *urkyverno.UpdateRequest {
+func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -160,22 +159,22 @@ func newUR(policy kyverno.PolicyInterface, trigger *unstructured.Unstructured, r
 	}
 
 	var label labels.Set
-	if ruleType == urkyverno.Mutate {
+	if ruleType == kyvernov1beta1.Mutate {
 		label = createMutateLabels(policyNameNamespaceKey, trigger)
 	} else {
 		label = createGenerateLabels(policyNameNamespaceKey, trigger)
 	}
 
-	return &urkyverno.UpdateRequest{
+	return &kyvernov1beta1.UpdateRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "ur-",
 			Namespace:    config.KyvernoNamespace(),
 			Labels:       label,
 		},
-		Spec: urkyverno.UpdateRequestSpec{
+		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
-			Resource: kyverno.ResourceSpec{
+			Resource: kyvernov1.ResourceSpec{
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),
 				Name:       trigger.GetName(),
@@ -189,18 +188,18 @@ func createMutateLabels(policyKey string, trigger *unstructured.Unstructured) la
 	var selector labels.Set
 	if trigger == nil {
 		selector = labels.Set(map[string]string{
-			urkyverno.URMutatePolicyLabel: policyKey,
+			kyvernov1beta1.URMutatePolicyLabel: policyKey,
 		})
 	} else {
 		selector = labels.Set(map[string]string{
-			urkyverno.URMutatePolicyLabel:      policyKey,
-			urkyverno.URMutateTriggerNameLabel: trigger.GetName(),
-			urkyverno.URMutateTriggerNSLabel:   trigger.GetNamespace(),
-			urkyverno.URMutatetriggerKindLabel: trigger.GetKind(),
+			kyvernov1beta1.URMutatePolicyLabel:      policyKey,
+			kyvernov1beta1.URMutateTriggerNameLabel: trigger.GetName(),
+			kyvernov1beta1.URMutateTriggerNSLabel:   trigger.GetNamespace(),
+			kyvernov1beta1.URMutatetriggerKindLabel: trigger.GetKind(),
 		})
 
 		if trigger.GetAPIVersion() != "" {
-			selector[urkyverno.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
+			selector[kyvernov1beta1.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
 		}
 	}
 
@@ -211,11 +210,11 @@ func createGenerateLabels(policyKey string, trigger *unstructured.Unstructured) 
 	var selector labels.Set
 	if trigger == nil {
 		selector = labels.Set(map[string]string{
-			urkyverno.URGeneratePolicyLabel: policyKey,
+			kyvernov1beta1.URGeneratePolicyLabel: policyKey,
 		})
 	} else {
 		selector = labels.Set(map[string]string{
-			urkyverno.URGeneratePolicyLabel:          policyKey,
+			kyvernov1beta1.URGeneratePolicyLabel:     policyKey,
 			"generate.kyverno.io/resource-name":      trigger.GetName(),
 			"generate.kyverno.io/resource-kind":      trigger.GetKind(),
 			"generate.kyverno.io/resource-namespace": trigger.GetNamespace(),

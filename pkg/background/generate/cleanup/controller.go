@@ -4,23 +4,23 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelister "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -29,17 +29,16 @@ const (
 	maxRetries = 10
 )
 
-//Controller manages life-cycle of generate-requests
+// Controller manages life-cycle of generate-requests
 type Controller struct {
-
 	// dynamic client implementation
 	client dclient.Interface
 
 	// typed client for kyverno CRDs
 	kyvernoClient kyvernoclient.Interface
 
-	pInformer  kyvernoinformer.ClusterPolicyInformer
-	urInformer urkyvernoinformer.UpdateRequestInformer
+	pInformer  kyvernov1informers.ClusterPolicyInformer
+	urInformer kyvernov1beta1informers.UpdateRequestInformer
 
 	// control is used to delete the UR
 	control ControlInterface
@@ -48,30 +47,30 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// pLister can list/get cluster policy from the shared informer's store
-	pLister kyvernolister.ClusterPolicyLister
+	pLister kyvernov1listers.ClusterPolicyLister
 
 	// npLister can list/get namespace policy from the shared informer's store
-	npLister kyvernolister.PolicyLister
+	npLister kyvernov1listers.PolicyLister
 
 	// urLister can list/get update request from the shared informer's store
-	urLister urkyvernolister.UpdateRequestNamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corelister.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	// logger
 	log logr.Logger
 }
 
-//NewController returns a new controller instance to manage generate-requests
+// NewController returns a new controller instance to manage generate-requests
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoclient kyvernoclient.Interface,
 	client dclient.Interface,
-	pInformer kyvernoinformer.ClusterPolicyInformer,
-	npInformer kyvernoinformer.PolicyInformer,
-	urInformer urkyvernoinformer.UpdateRequestInformer,
-	namespaceInformer coreinformers.NamespaceInformer,
+	pInformer kyvernov1informers.ClusterPolicyInformer,
+	npInformer kyvernov1informers.PolicyInformer,
+	urInformer kyvernov1beta1informers.UpdateRequestInformer,
+	namespaceInformer corev1informers.NamespaceInformer,
 	log logr.Logger,
 ) (*Controller, error) {
 	c := Controller{
@@ -95,14 +94,14 @@ func NewController(
 
 func (c *Controller) deletePolicy(obj interface{}) {
 	logger := c.log
-	p, ok := obj.(*kyverno.ClusterPolicy)
+	p, ok := obj.(*kyvernov1.ClusterPolicy)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		p, ok = tombstone.Obj.(*kyverno.ClusterPolicy)
+		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
 		if !ok {
 			logger.Info("Tombstone contained object that is not a Update Request", "obj", obj)
 			return
@@ -115,12 +114,12 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 	// get the generated resource name from update request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		urkyverno.URGeneratePolicyLabel: p.Name,
+		kyvernov1beta1.URGeneratePolicyLabel: p.Name,
 	}))
 
 	urList, err := c.urLister.List(selector)
 	if err != nil {
-		logger.Error(err, "failed to get update request for the resource", "label", urkyverno.URGeneratePolicyLabel)
+		logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
 		return
 	}
 
@@ -146,14 +145,14 @@ func (c *Controller) deletePolicy(obj interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
 		if !ok {
 			logger.Info("ombstone contained object that is not a Update Request", "obj", obj)
 			return
@@ -167,9 +166,9 @@ func (c *Controller) deleteUR(obj interface{}) {
 	c.enqueue(ur)
 }
 
-func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
+func (c *Controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
 	// skip enqueueing Pending requests
-	if ur.Status.State == urkyverno.Pending {
+	if ur.Status.State == kyvernov1beta1.Pending {
 		return
 	}
 
@@ -184,7 +183,7 @@ func (c *Controller) enqueue(ur *urkyverno.UpdateRequest) {
 	c.queue.Add(key)
 }
 
-//Run starts the update-request re-conciliation loop
+// Run starts the update-request re-conciliation loop
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	logger := c.log
 	defer utilruntime.HandleCrash()

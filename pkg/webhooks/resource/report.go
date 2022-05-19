@@ -1,4 +1,4 @@
-package webhooks
+package resource
 
 import (
 	"github.com/go-logr/logr"
@@ -6,7 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-//generateEvents generates event info for the engine responses
+// generateEvents generates event info for the engine responses
 func generateEvents(engineResponses []*response.EngineResponse, blocked bool, log logr.Logger) []event.Info {
 	var events []event.Info
 

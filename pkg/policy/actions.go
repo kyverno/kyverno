@@ -3,26 +3,25 @@ package policy
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/policy/mutate"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
+	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//Validation provides methods to validate a rule
+// Validation provides methods to validate a rule
 type Validation interface {
 	Validate() (string, error)
 }
 
-//validateAction performs validation on the rule actions
+// validateAction performs validation on the rule actions
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock bool) error {
+func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool) error {
 	if rule == nil {
 		return nil
 	}
@@ -47,7 +46,7 @@ func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock
 
 	// Generate
 	if rule.HasGenerate() {
-		//TODO: this check is there to support offline validations
+		// TODO: this check is there to support offline validations
 		// generate uses selfSubjectReviews to verify actions
 		// this need to modified to use different implementation for online and offline mode
 		if mock {
@@ -63,7 +62,7 @@ func validateActions(idx int, rule *kyverno.Rule, client dclient.Interface, mock
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, rule.Generation.Kind) {
-			return fmt.Errorf("generation kind and match resource kind should not be the same.")
+			return fmt.Errorf("generation kind and match resource kind should not be the same")
 		}
 	}
 

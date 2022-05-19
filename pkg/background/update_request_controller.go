@@ -6,25 +6,25 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	coreinformers "k8s.io/client-go/informers/core/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	corelister "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -41,7 +41,7 @@ type Controller struct {
 	// typed client for Kyverno CRDs
 	kyvernoClient kyvernoclient.Interface
 
-	policyInformer kyvernoinformer.ClusterPolicyInformer
+	policyInformer kyvernov1informers.ClusterPolicyInformer
 
 	// event generator interface
 	eventGen event.Interface
@@ -53,35 +53,35 @@ type Controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernolister.ClusterPolicyLister
+	policyLister kyvernov1listers.ClusterPolicyLister
 
 	// policyLister can list/get Namespace policy from the shared informer's store
-	npolicyLister kyvernolister.PolicyLister
+	npolicyLister kyvernov1listers.PolicyLister
 
 	// urLister can list/get update request from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corelister.NamespaceLister
+	nsLister corev1listers.NamespaceLister
 
 	log logr.Logger
 
 	Config config.Configuration
 }
 
-//NewController returns an instance of the Generate-Request Controller
+// NewController returns an instance of the Generate-Request Controller
 func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	policyInformer kyvernoinformer.ClusterPolicyInformer,
-	npolicyInformer kyvernoinformer.PolicyInformer,
-	urInformer urkyvernoinformer.UpdateRequestInformer,
+	policyInformer kyvernov1informers.ClusterPolicyInformer,
+	npolicyInformer kyvernov1informers.PolicyInformer,
+	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	eventGen event.Interface,
-	namespaceInformer coreinformers.NamespaceInformer,
+	namespaceInformer corev1informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
-) (*Controller, error) {
+) *Controller {
 	c := Controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
@@ -90,21 +90,18 @@ func NewController(
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		log:            log,
 		Config:         dynamicConfig,
+		statusControl:  common.StatusControl{Client: kyvernoClient},
+		policyLister:   policyInformer.Lister(),
+		npolicyLister:  npolicyInformer.Lister(),
+		urLister:       urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		nsLister:       namespaceInformer.Lister(),
 	}
-
-	c.statusControl = common.StatusControl{Client: kyvernoClient}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
-
-	c.policyLister = policyInformer.Lister()
-	c.npolicyLister = npolicyInformer.Lister()
-	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
-	c.nsLister = namespaceInformer.Lister()
-
-	return &c, nil
+	return &c
 }
 
 // Run starts workers
@@ -178,39 +175,32 @@ func (c *Controller) syncUpdateRequest(key string) error {
 	defer func() {
 		logger.V(4).Info("completed sync update request", "key", key, "processingTime", time.Since(startTime).String())
 	}()
-
 	_, urName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return err
 	}
-
 	ur, err := c.urLister.Get(urName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-
 		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
-
-	ur, ok, err := c.MarkUR(ur)
+	ur, ok, err := c.markUR(ur)
+	if err != nil {
+		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
+	}
 	if !ok {
 		logger.V(3).Info("another instance is handling the UR", "handler", ur.Status.Handler)
 		return nil
 	}
-	if err != nil {
-		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
-	}
-
 	logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
-	if err := c.ProcessUR(ur); err != nil {
+	if err := c.processUR(ur); err != nil {
 		return fmt.Errorf("failed to process UR %s: %v", key, err)
 	}
-
-	if err = c.UnmarkUR(ur); err != nil {
-		return fmt.Errorf("failed to un-mark UR %s: %v", key, err)
+	if err = c.unmarkUR(ur); err != nil {
+		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
 	}
-
 	return nil
 }
 
@@ -227,8 +217,8 @@ func (c *Controller) enqueueUpdateRequest(obj interface{}) {
 
 func (c *Controller) updatePolicy(old, cur interface{}) {
 	logger := c.log
-	oldP := old.(*kyverno.ClusterPolicy)
-	curP := cur.(*kyverno.ClusterPolicy)
+	oldP := old.(*kyvernov1.ClusterPolicy)
+	curP := cur.(*kyvernov1.ClusterPolicy)
 	if oldP.ResourceVersion == curP.ResourceVersion {
 		// Periodic resync will send update events for all known Namespace.
 		// Two different versions of the same replica set will always have different RVs.
@@ -266,7 +256,7 @@ func (c *Controller) updatePolicy(old, cur interface{}) {
 }
 
 func (c *Controller) addUR(obj interface{}) {
-	ur := obj.(*urkyverno.UpdateRequest)
+	ur := obj.(*kyvernov1beta1.UpdateRequest)
 	if ur.Status.Handler != "" {
 		return
 	}
@@ -274,8 +264,8 @@ func (c *Controller) addUR(obj interface{}) {
 }
 
 func (c *Controller) updateUR(old, cur interface{}) {
-	oldUr := old.(*urkyverno.UpdateRequest)
-	curUr := cur.(*urkyverno.UpdateRequest)
+	oldUr := old.(*kyvernov1beta1.UpdateRequest)
+	curUr := cur.(*kyvernov1beta1.UpdateRequest)
 	if oldUr.ResourceVersion == curUr.ResourceVersion {
 		// Periodic resync will send update events for all known Namespace.
 		// Two different versions of the same replica set will always have different RVs.
@@ -283,7 +273,7 @@ func (c *Controller) updateUR(old, cur interface{}) {
 	}
 	// only process the ones that are in "Pending"/"Completed" state
 	// if the UPDATE Request fails due to incorrect policy, it will be requeued during policy update
-	if curUr.Status.State != urkyverno.Pending {
+	if curUr.Status.State != kyvernov1beta1.Pending {
 		return
 	}
 
@@ -295,14 +285,14 @@ func (c *Controller) updateUR(old, cur interface{}) {
 
 func (c *Controller) deleteUR(obj interface{}) {
 	logger := c.log
-	ur, ok := obj.(*urkyverno.UpdateRequest)
+	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
 	if !ok {
 		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
 		if !ok {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
 			return

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -27,9 +27,9 @@ func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstru
 	resultsMap := buildPolicyResults(pvInfos)
 	for scope, result := range resultsMap {
 		if scope == clusterpolicyreport {
-			report := &report.ClusterPolicyReport{
+			report := &policyreportv1alpha2.ClusterPolicyReport{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: report.SchemeGroupVersion.String(),
+					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 					Kind:       "ClusterPolicyReport",
 				},
 				Results: result,
@@ -41,9 +41,9 @@ func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstru
 				log.Log.V(3).Info("failed to serialize policy report", "name", report.Name, "scope", scope, "error", err)
 			}
 		} else {
-			report := &report.PolicyReport{
+			report := &policyreportv1alpha2.PolicyReport{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: report.SchemeGroupVersion.String(),
+					APIVersion: policyreportv1alpha2.SchemeGroupVersion.String(),
 					Kind:       "PolicyReport",
 				},
 				Results: result,
@@ -73,8 +73,8 @@ func buildPolicyReports(pvInfos []policyreport.Info) (res []*unstructured.Unstru
 
 // buildPolicyResults returns a string-PolicyReportResult map
 // the key of the map is one of "clusterpolicyreport", "policyreport-ns-<namespace>"
-func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyReportResult {
-	results := make(map[string][]report.PolicyReportResult)
+func buildPolicyResults(infos []policyreport.Info) map[string][]policyreportv1alpha2.PolicyReportResult {
+	results := make(map[string][]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, info := range infos {
@@ -92,7 +92,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 					continue
 				}
 
-				result := report.PolicyReportResult{
+				result := policyreportv1alpha2.PolicyReportResult{
 					Policy: info.PolicyName,
 					Resources: []corev1.ObjectReference{
 						{
@@ -108,7 +108,7 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 
 				result.Rule = rule.Name
 				result.Message = rule.Message
-				result.Result = report.PolicyResult(rule.Status)
+				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
 				result.Source = policyreport.SourceValue
 				result.Timestamp = now
 				results[appname] = append(results[appname], result)
@@ -119,12 +119,12 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]report.PolicyRep
 	return results
 }
 
-func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
+func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {
-		case report.StatusPass:
+		case policyreportv1alpha2.StatusPass:
 			summary.Pass++
-		case report.StatusFail:
+		case policyreportv1alpha2.StatusFail:
 			summary.Fail++
 		case "warn":
 			summary.Warn++

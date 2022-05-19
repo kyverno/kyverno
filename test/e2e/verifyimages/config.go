@@ -8,7 +8,7 @@ import (
 var taskGVR = e2e.GetGVR("tekton.dev", "v1beta1", "tasks")
 
 var VerifyImagesTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// PolicyName - Name of the Policy
 	PolicyName string

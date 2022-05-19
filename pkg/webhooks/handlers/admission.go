@@ -84,7 +84,7 @@ func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
 	}
 }
 
-func Verify(m *webhookconfig.Monitor, logger logr.Logger) AdmissionHandler {
+func Verify(m *webhookconfig.Monitor) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)

@@ -6,7 +6,7 @@ import (
 )
 
 type filter struct {
-	Kind      string //TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
+	Kind      string // TODO: as we currently only support one GVK version, we use the kind only. But if we support multiple GVK, then GV need to be added
 	Namespace string
 	Name      string
 }

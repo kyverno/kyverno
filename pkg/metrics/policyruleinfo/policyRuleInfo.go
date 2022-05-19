@@ -3,7 +3,7 @@ package policyruleinfo
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -58,7 +58,7 @@ func registerPolicyRuleInfoMetric(
 	return nil
 }
 
-func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func AddPolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
 	return nil
 }
 
-func RemovePolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func RemovePolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

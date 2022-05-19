@@ -1,4 +1,4 @@
-package webhooks
+package resource
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -20,10 +20,10 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	informers "k8s.io/client-go/informers/core/v1"
-	rbacinformer "k8s.io/client-go/informers/rbac/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
-	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -42,15 +42,15 @@ type AuditHandler interface {
 }
 
 type auditHandler struct {
-	client      client.Interface
+	client      dclient.Interface
 	queue       workqueue.RateLimitingInterface
-	pCache      policycache.Interface
+	pCache      policycache.Cache
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
 
-	rbLister  rbaclister.RoleBindingLister
-	crbLister rbaclister.ClusterRoleBindingLister
-	nsLister  listerv1.NamespaceLister
+	rbLister  rbacv1listers.RoleBindingLister
+	crbLister rbacv1listers.ClusterRoleBindingLister
+	nsLister  corev1listers.NamespaceLister
 
 	log           logr.Logger
 	configHandler config.Configuration
@@ -58,15 +58,15 @@ type auditHandler struct {
 }
 
 // NewValidateAuditHandler returns a new instance of audit policy handler
-func NewValidateAuditHandler(pCache policycache.Interface,
+func NewValidateAuditHandler(pCache policycache.Cache,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
-	rbInformer rbacinformer.RoleBindingInformer,
-	crbInformer rbacinformer.ClusterRoleBindingInformer,
-	namespaces informers.NamespaceInformer,
+	rbInformer rbacv1informers.RoleBindingInformer,
+	crbInformer rbacv1informers.ClusterRoleBindingInformer,
+	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	dynamicConfig config.Configuration,
-	client client.Interface,
+	client dclient.Interface,
 	promConfig *metrics.PromConfig,
 ) AuditHandler {
 	return &auditHandler{
@@ -150,7 +150,8 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	userRequestInfo := v1beta1.RequestInfo{
 		Roles:             roles,
 		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo}
+		AdmissionUserInfo: request.UserInfo,
+	}
 
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {

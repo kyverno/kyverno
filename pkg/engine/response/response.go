@@ -5,23 +5,23 @@ import (
 	"time"
 
 	"github.com/kyverno/go-wildcard"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-//EngineResponse engine response to the action
+// EngineResponse engine response to the action
 type EngineResponse struct {
 	// Resource patched with the engine action changes
 	PatchedResource unstructured.Unstructured
 
 	// Original policy
-	Policy kyverno.PolicyInterface
+	Policy kyvernov1.PolicyInterface
 
 	// Policy Response
 	PolicyResponse PolicyResponse
 }
 
-//PolicyResponse policy application response
+// PolicyResponse policy application response
 type PolicyResponse struct {
 	// policy details
 	Policy PolicySpec `json:"policy"`
@@ -32,18 +32,18 @@ type PolicyResponse struct {
 	// rule response
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
-	ValidationFailureAction kyverno.ValidationFailureAction
+	ValidationFailureAction kyvernov1.ValidationFailureAction
 
 	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
 
-//PolicySpec policy
+// PolicySpec policy
 type PolicySpec struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
 }
 
-//ResourceSpec resource action applied on
+// ResourceSpec resource action applied on
 type ResourceSpec struct {
 	Kind       string `json:"kind"`
 	APIVersion string `json:"apiVersion"`
@@ -55,14 +55,13 @@ type ResourceSpec struct {
 	UID string `json:"uid"`
 }
 
-//GetKey returns the key
+// GetKey returns the key
 func (rs ResourceSpec) GetKey() string {
 	return rs.Kind + "/" + rs.Namespace + "/" + rs.Name
 }
 
-//PolicyStats stores statistics for the single policy application
+// PolicyStats stores statistics for the single policy application
 type PolicyStats struct {
-
 	// time required to process the policy rules on a resource
 	ProcessingTime time.Duration `json:"processingTime"`
 
@@ -79,19 +78,18 @@ type PolicyStats struct {
 type RuleType string
 
 const (
-	//Mutation type for mutation rule
+	// Mutation type for mutation rule
 	Mutation RuleType = "Mutation"
-	//Validation type for validation rule
+	// Validation type for validation rule
 	Validation RuleType = "Validation"
-	//Generation type for generation rule
+	// Generation type for generation rule
 	Generation RuleType = "Generation"
 	// ImageVerify type for image verification
 	ImageVerify RuleType = "ImageVerify"
 )
 
-//RuleResponse details for each rule application
+// RuleResponse details for each rule application
 type RuleResponse struct {
-
 	// rule name specified in policy
 	Name string `json:"name"`
 
@@ -117,12 +115,12 @@ type RuleResponse struct {
 	PatchedTarget *unstructured.Unstructured
 }
 
-//ToString ...
+// ToString ...
 func (rr RuleResponse) ToString() string {
 	return fmt.Sprintf("rule %s (%s): %v", rr.Name, rr.Type, rr.Message)
 }
 
-//RuleStats stores the statistics for the single rule application
+// RuleStats stores the statistics for the single rule application
 type RuleStats struct {
 	// time required to apply the rule on the resource
 	ProcessingTime time.Duration `json:"processingTime"`
@@ -130,7 +128,7 @@ type RuleStats struct {
 	RuleExecutionTimestamp int64 `json:"ruleExecutionTimestamp"`
 }
 
-//IsSuccessful checks if any rule has failed or produced an error during execution
+// IsSuccessful checks if any rule has failed or produced an error during execution
 func (er EngineResponse) IsSuccessful() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail || r.Status == RuleStatusError {
@@ -141,7 +139,7 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
-//IsFailed checks if any rule has succeeded or not
+// IsFailed checks if any rule has succeeded or not
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail {
@@ -152,12 +150,12 @@ func (er EngineResponse) IsFailed() bool {
 	return false
 }
 
-//IsEmpty checks if any rule results are present
+// IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
 }
 
-//GetPatches returns all the patches joined
+// GetPatches returns all the patches joined
 func (er EngineResponse) GetPatches() [][]byte {
 	var patches [][]byte
 	for _, r := range er.PolicyResponse.Rules {
@@ -169,12 +167,12 @@ func (er EngineResponse) GetPatches() [][]byte {
 	return patches
 }
 
-//GetFailedRules returns failed rules
+// GetFailedRules returns failed rules
 func (er EngineResponse) GetFailedRules() []string {
 	return er.getRules(RuleStatusFail)
 }
 
-//GetSuccessRules returns success rules
+// GetSuccessRules returns success rules
 func (er EngineResponse) GetSuccessRules() []string {
 	return er.getRules(RuleStatusPass)
 }
@@ -201,9 +199,9 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	return rules
 }
 
-func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailureAction {
+func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyverno.Enforce && v.Action != kyverno.Audit {
+		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
 			continue
 		}
 		for _, ns := range v.Namespaces {
@@ -216,6 +214,6 @@ func (er *EngineResponse) GetValidationFailureAction() kyverno.ValidationFailure
 }
 
 type ValidationFailureActionOverride struct {
-	Action     kyverno.ValidationFailureAction `json:"action"`
-	Namespaces []string                        `json:"namespaces"`
+	Action     kyvernov1.ValidationFailureAction `json:"action"`
+	Namespaces []string                          `json:"namespaces"`
 }
