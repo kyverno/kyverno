@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -26,7 +26,7 @@ import (
 // the resources are fetched from
 // - local paths to resources, if given
 // - the k8s cluster, if given
-func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient client.Interface, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func GetResources(policies []kyvernov1.PolicyInterface, resourcePaths []string, dClient dclient.Interface, cluster bool, namespace string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	var err error
 	resourceTypesMap := make(map[string]bool)
@@ -59,7 +59,7 @@ func GetResources(policies []v1.PolicyInterface, resourcePaths []string, dClient
 	return resources, err
 }
 
-func whenClusterIsTrue(resourceTypes []string, dClient client.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
+func whenClusterIsTrue(resourceTypes []string, dClient dclient.Interface, namespace string, resourcePaths []string, policyReport bool) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceMap, err := getResourcesOfTypeFromCluster(resourceTypes, dClient, namespace)
 	if err != nil {
@@ -117,7 +117,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 }
 
 // GetResourcesWithTest with gets matched resources by the given policies
-func GetResourcesWithTest(fs billy.Filesystem, policies []v1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
+func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterface, resourcePaths []string, isGit bool, policyResourcePath string) ([]*unstructured.Unstructured, error) {
 	resources := make([]*unstructured.Unstructured, 0)
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
@@ -186,7 +186,7 @@ func GetResource(resourceBytes []byte) ([]*unstructured.Unstructured, error) {
 	return resources, nil
 }
 
-func getResourcesOfTypeFromCluster(resourceTypes []string, dClient client.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
+func getResourcesOfTypeFromCluster(resourceTypes []string, dClient dclient.Interface, namespace string) (map[string]*unstructured.Unstructured, error) {
 	r := make(map[string]*unstructured.Unstructured)
 
 	for _, kind := range resourceTypes {
@@ -288,7 +288,7 @@ func GetPatchedResource(patchResourceBytes []byte) (unstructured.Unstructured, e
 }
 
 // GetKindsFromRule will return the kinds from policy match block
-func GetKindsFromRule(rule v1.Rule) map[string]bool {
+func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 	resourceTypesMap := make(map[string]bool)
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {

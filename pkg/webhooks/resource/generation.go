@@ -1,14 +1,14 @@
 package resource
 
 import (
-	contextdefault "context"
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -28,7 +27,7 @@ import (
 func (h *handlers) handleGenerate(
 	logger logr.Logger,
 	request *admissionv1.AdmissionRequest,
-	policies []kyverno.PolicyInterface,
+	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp int64,
 	latencySender *chan int64,
@@ -66,7 +65,7 @@ func (h *handlers) handleGenerate(
 			go h.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
-		if failedResponse := applyUpdateRequest(request, urkyverno.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedUR := range failedResponse {
 				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
@@ -88,7 +87,7 @@ func (h *handlers) handleGenerate(
 }
 
 // handleUpdatesForGenerateRules handles admission-requests for update
-func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface) {
+func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
 	}
@@ -113,7 +112,7 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 		// check if the policy exists
-		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
+		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				logger.V(4).Info("skipping update of update request as policy is deleted")
@@ -122,12 +121,12 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 			}
 		} else {
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				urkyverno.URGeneratePolicyLabel: policyName,
+				kyvernov1beta1.URGeneratePolicyLabel: policyName,
 			}))
 
 			urList, err := h.urLister.List(selector)
 			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "label", urkyverno.URGeneratePolicyLabel)
+				logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
 				return
 			}
 
@@ -140,35 +139,25 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 
 // updateAnnotationInUR - function used to update UR annotation
 // updating UR will trigger reprocessing of UR and recreation/updation of generated resource
-func (h *handlers) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logger logr.Logger) {
-	urAnnotations := ur.Annotations
-	if len(urAnnotations) == 0 {
-		urAnnotations = make(map[string]string)
-	}
-	h.mu.Lock()
-	urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
-	ur.SetAnnotations(urAnnotations)
-	h.mu.Unlock()
-
-	patch := jsonutils.NewPatch(
-		"/metadata/annotations",
-		"replace",
-		ur.Annotations,
-	)
-
-	new, err := gencommon.PatchUpdateRequest(ur, patch, h.kyvernoClient)
-	if err != nil {
+func (h *handlers) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger logr.Logger) {
+	if _, err := gencommon.Update(h.kyvernoClient, h.urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+		urAnnotations := ur.Annotations
+		if len(urAnnotations) == 0 {
+			urAnnotations = make(map[string]string)
+		}
+		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+		ur.SetAnnotations(urAnnotations)
+	}); err != nil {
 		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", ur.Name)
 		return
 	}
-	new.Status.State = urkyverno.Pending
-	if _, err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := gencommon.UpdateStatus(h.kyvernoClient, h.urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }
 
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
+func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -179,7 +168,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
+	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 	if err != nil {
 		logger.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return
@@ -232,7 +221,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 func (h *handlers) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		urkyverno.URGeneratePolicyLabel:          engineResponse.PolicyResponse.Policy.Name,
+		kyvernov1beta1.URGeneratePolicyLabel:     engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
@@ -245,14 +234,9 @@ func (h *handlers) deleteGR(logger logr.Logger, engineResponse *response.EngineR
 	}
 
 	for _, v := range urList {
-		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update ur")
 		}
 	}
 }
-
-// type updateRequestResponse struct {
-// 	ur  urkyverno.UpdateRequestSpec
-// 	err error
-// }

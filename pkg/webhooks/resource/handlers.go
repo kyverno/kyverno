@@ -10,10 +10,10 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -34,13 +34,13 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	corelister "k8s.io/client-go/listers/core/v1"
-	rbaclister "k8s.io/client-go/listers/rbac/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
+	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
 
 type handlers struct {
 	// clients
-	client        client.Interface
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
 
 	// config
@@ -51,10 +51,10 @@ type handlers struct {
 	pCache policycache.Cache
 
 	// listers
-	nsLister  corelister.NamespaceLister
-	rbLister  rbaclister.RoleBindingLister
-	crbLister rbaclister.ClusterRoleBindingLister
-	urLister  urlister.UpdateRequestNamespaceLister
+	nsLister  corev1listers.NamespaceLister
+	rbLister  rbacv1listers.RoleBindingLister
+	crbLister rbacv1listers.ClusterRoleBindingLister
+	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	prGenerator       policyreport.GeneratorInterface
 	urGenerator       webhookgenerate.Interface
@@ -65,15 +65,15 @@ type handlers struct {
 }
 
 func NewHandlers(
-	client client.Interface,
+	client dclient.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	configuration config.Configuration,
 	promConfig *metrics.PromConfig,
 	pCache policycache.Cache,
-	nsLister corelister.NamespaceLister,
-	rbLister rbaclister.RoleBindingLister,
-	crbLister rbaclister.ClusterRoleBindingLister,
-	urLister urlister.UpdateRequestNamespaceLister,
+	nsLister corev1listers.NamespaceLister,
+	rbLister rbacv1listers.RoleBindingLister,
+	crbLister rbacv1listers.ClusterRoleBindingLister,
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Interface,
 	eventGen event.Interface,

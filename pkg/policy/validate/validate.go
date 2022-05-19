@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
@@ -12,11 +12,11 @@ import (
 // Validate validates a 'validate' rule
 type Validate struct {
 	// rule to hold 'validate' rule specifications
-	rule *kyverno.Validation
+	rule *kyvernov1.Validation
 }
 
 // NewValidateFactory returns a new instance of Mutate validation checker
-func NewValidateFactory(rule *kyverno.Validation) *Validate {
+func NewValidateFactory(rule *kyvernov1.Validation) *Validate {
 	m := Validate{
 		rule: rule,
 	}
@@ -72,7 +72,7 @@ func (v *Validate) validateElements() error {
 	return nil
 }
 
-func validationElemCount(v *kyverno.Validation) int {
+func validationElemCount(v *kyvernov1.Validation) int {
 	if v == nil {
 		return 0
 	}
@@ -97,7 +97,7 @@ func validationElemCount(v *kyverno.Validation) int {
 	return count
 }
 
-func (v *Validate) validateForEach(foreach kyverno.ForEachValidation) error {
+func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 	if foreach.List == "" {
 		return fmt.Errorf("foreach.list is required")
 	}
@@ -118,7 +118,7 @@ func (v *Validate) validateForEach(foreach kyverno.ForEachValidation) error {
 	return nil
 }
 
-func foreachElemCount(foreach kyverno.ForEachValidation) int {
+func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 	count := 0
 	if foreach.GetPattern() != nil {
 		count++

@@ -10,17 +10,17 @@ import (
 	"sync"
 	"time"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
-	coord "k8s.io/api/coordination/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -82,7 +82,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh)
+	client, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -193,7 +193,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 		os.Exit(0)
 	}
 
-	lease := coord.Lease{
+	lease := coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kyvernopre-lock",
 		},
@@ -203,7 +203,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	return err
 }
 
-func executeRequest(client client.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
+func executeRequest(client dclient.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
 	case policyReportKind:
 		return removePolicyReport(client, req.kind)
@@ -253,7 +253,7 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client client.Interface, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
 	logger := log.Log.WithName("process")
 	out := make(chan error)
 	go func() {
@@ -307,7 +307,7 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 	return out
 }
 
-func removeClusterPolicyReport(client client.Interface, kind string) error {
+func removeClusterPolicyReport(client dclient.Interface, kind string) error {
 	logger := log.Log.WithName("removeClusterPolicyReport")
 
 	cpolrs, err := client.ListResource("", kind, "", policyreport.LabelSelector)
@@ -322,7 +322,7 @@ func removeClusterPolicyReport(client client.Interface, kind string) error {
 	return nil
 }
 
-func removePolicyReport(client client.Interface, kind string) error {
+func removePolicyReport(client dclient.Interface, kind string) error {
 	logger := log.Log.WithName("removePolicyReport")
 
 	polrs, err := client.ListResource("", kind, metav1.NamespaceAll, policyreport.LabelSelector)
@@ -338,7 +338,7 @@ func removePolicyReport(client client.Interface, kind string) error {
 	return nil
 }
 
-func addClusterPolicyReportSelectorLabel(client client.Interface) {
+func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
 	cpolrs, err := client.ListResource("", clusterPolicyReportKind, "", updateLabelSelector)
@@ -354,7 +354,7 @@ func addClusterPolicyReportSelectorLabel(client client.Interface) {
 	}
 }
 
-func addPolicyReportSelectorLabel(client client.Interface) {
+func addPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
 	polrs, err := client.ListResource("", policyReportKind, metav1.NamespaceAll, updateLabelSelector)
@@ -370,7 +370,7 @@ func addPolicyReportSelectorLabel(client client.Interface) {
 	}
 }
 
-func removeReportChangeRequest(client client.Interface, kind string) error {
+func removeReportChangeRequest(client dclient.Interface, kind string) error {
 	logger := log.Log.WithName("removeReportChangeRequest")
 
 	ns := config.KyvernoNamespace()
@@ -387,7 +387,7 @@ func removeReportChangeRequest(client client.Interface, kind string) error {
 	return nil
 }
 
-func removeClusterReportChangeRequest(client client.Interface, kind string) error {
+func removeClusterReportChangeRequest(client dclient.Interface, kind string) error {
 	crcrList, err := client.ListResource("", kind, "", nil)
 	if err != nil {
 		log.Log.Error(err, "failed to list clusterReportChangeRequest")
@@ -400,7 +400,7 @@ func removeClusterReportChangeRequest(client client.Interface, kind string) erro
 	return nil
 }
 
-func deleteResource(client client.Interface, apiversion, kind, ns, name string) {
+func deleteResource(client dclient.Interface, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
@@ -410,7 +410,7 @@ func deleteResource(client client.Interface, apiversion, kind, ns, name string) 
 	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
 }
 
-func addSelectorLabel(client client.Interface, apiversion, kind, ns, name string) {
+func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name string) {
 	res, err := client.GetResource(apiversion, kind, ns, name)
 	if err != nil && !errors.IsNotFound(err) {
 		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
@@ -445,24 +445,24 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 
 	for _, gr := range grs.Items {
-		ur := &urkyverno.UpdateRequest{
+		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace(),
 				Labels:       gr.GetLabels(),
 			},
-			Spec: urkyverno.UpdateRequestSpec{
-				Type:     urkyverno.Generate,
+			Spec: kyvernov1beta1.UpdateRequestSpec{
+				Type:     kyvernov1beta1.Generate,
 				Policy:   gr.Spec.Policy,
 				Resource: *gr.Spec.Resource.DeepCopy(),
-				Context: urkyverno.UpdateRequestSpecContext{
-					UserRequestInfo: urkyverno.RequestInfo{
+				Context: kyvernov1beta1.UpdateRequestSpecContext{
+					UserRequestInfo: kyvernov1beta1.RequestInfo{
 						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
 						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
 						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
 					},
 
-					AdmissionRequestInfo: urkyverno.AdmissionRequestInfoObject{
+					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
 						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
 						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
 					},
@@ -470,20 +470,13 @@ func convertGR(pclient kyvernoclient.Interface) error {
 			},
 		}
 
-		new, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
 			errors = append(errors, err)
 			continue
 		} else {
 			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
-		}
-
-		new.Status.State = urkyverno.Pending
-		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			logger.Error(err, "failed to set UpdateRequest state to Pending")
-			errors = append(errors, err)
-			continue
 		}
 
 		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {

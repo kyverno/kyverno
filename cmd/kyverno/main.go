@@ -21,7 +21,7 @@ import (
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -284,7 +284,7 @@ func main() {
 		stopCh,
 		log.Log.WithName("UpdateRequestGenerator"))
 
-	urc, err := background.NewController(
+	urc := background.NewController(
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
@@ -293,13 +293,8 @@ func main() {
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("BackgroundController"),
 		configuration,
 	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create generate controller")
-		os.Exit(1)
-	}
 
 	grcc, err := generatecleanup.NewController(
 		kubeClient,

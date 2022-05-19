@@ -1,7 +1,7 @@
 package generate
 
 import (
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy/generate/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -14,7 +14,7 @@ type FakeGenerate struct {
 
 // NewFakeGenerate returns a new instance of generatecheck that uses
 // fake/mock implementation for operation access(always returns true)
-func NewFakeGenerate(rule kyverno.Generation) *FakeGenerate {
+func NewFakeGenerate(rule kyvernov1.Generation) *FakeGenerate {
 	g := FakeGenerate{}
 	g.rule = rule
 	g.authCheck = fake.NewFakeAuth()

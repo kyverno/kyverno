@@ -15,13 +15,13 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -72,14 +72,14 @@ type NamespaceSelector struct {
 }
 
 // HasVariables - check for variables in the policy
-func HasVariables(policy v1.PolicyInterface) [][]string {
+func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
 }
 
 // GetPolicies - Extracting the policies from multiple YAML
-func GetPolicies(paths []string) (policies []v1.PolicyInterface, errors []error) {
+func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors []error) {
 	for _, path := range paths {
 		log.Log.V(5).Info("reading policies", "path", path)
 
@@ -178,7 +178,7 @@ func GetPolicies(paths []string) (policies []v1.PolicyInterface, errors []error)
 }
 
 // MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInterface, error) {
+func MutatePolicy(policy kyvernov1.PolicyInterface, logger logr.Logger) (kyvernov1.PolicyInterface, error) {
 	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
 	if len(patches) == 0 {
 		return policy, nil
@@ -196,14 +196,14 @@ func MutatePolicy(policy v1.PolicyInterface, logger logr.Logger) (v1.PolicyInter
 		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
 	}
 	if policy.IsNamespaced() {
-		var p v1.Policy
+		var p kyvernov1.Policy
 		err = json.Unmarshal(modifiedPolicy, &p)
 		if err != nil {
 			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
 		}
 		return &p, nil
 	} else {
-		var p v1.ClusterPolicy
+		var p kyvernov1.ClusterPolicy
 		err = json.Unmarshal(modifiedPolicy, &p)
 		if err != nil {
 			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
@@ -363,8 +363,8 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error) {
-	newPolicies := make([]v1.PolicyInterface, 0)
+func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInterface, error) {
+	newPolicies := make([]kyvernov1.PolicyInterface, 0)
 	logger := log.Log.WithName("apply")
 
 	for _, policy := range policies {
@@ -381,8 +381,8 @@ func MutatePolicies(policies []v1.PolicyInterface) ([]v1.PolicyInterface, error)
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(policy v1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo v1beta1.RequestInfo, policyReport bool,
+func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructured.Unstructured,
+	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo kyvernov1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool,
 ) ([]*response.EngineResponse, policyreport.Info, error) {
@@ -500,8 +500,8 @@ OuterLoop:
 	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
 		if policy.HasAutoGenAnnotation() {
 			annotations := policy.GetAnnotations()
-			if _, ok := annotations[v1.PodControllersAnnotation]; ok {
-				delete(annotations, v1.PodControllersAnnotation)
+			if _, ok := annotations[kyvernov1.PodControllersAnnotation]; ok {
+				delete(annotations, kyvernov1.PodControllersAnnotation)
 				policy.SetAnnotations(annotations)
 			}
 		}
@@ -593,7 +593,7 @@ func PrintMutatedOutput(mutateLogPath string, mutateLogPathIsDir bool, yaml stri
 }
 
 // GetPoliciesFromPaths - get policies according to the resource path
-func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []v1.PolicyInterface, err error) {
+func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, policyResourcePath string) (policies []kyvernov1.PolicyInterface, err error) {
 	if isGit {
 		for _, pp := range dirPath {
 			filep, err := fs.Open(filepath.Join(policyResourcePath, pp))
@@ -654,7 +654,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 
 // GetResourceAccordingToResourcePath - get resources according to the resource path
 func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []string,
-	cluster bool, policies []v1.PolicyInterface, dClient client.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
+	cluster bool, policies []kyvernov1.PolicyInterface, dClient dclient.Interface, namespace string, policyReport bool, isGit bool, policyResourcePath string,
 ) (resources []*unstructured.Unstructured, err error) {
 	if isGit {
 		resources, err = GetResourcesWithTest(fs, policies, resourcePaths, isGit, policyResourcePath)
@@ -707,8 +707,8 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
-	var violatedRules []v1.ViolatedRule
+func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
+	var violatedRules []kyvernov1.ViolatedRule
 
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
@@ -720,7 +720,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 		for i, valResponseRule := range validateResponse.PolicyResponse.Rules {
 			if policyRule.Name == valResponseRule.Name {
 				ruleFoundInEngineResponse = true
-				vrule := v1.ViolatedRule{
+				vrule := kyvernov1.ViolatedRule{
 					Name:    valResponseRule.Name,
 					Type:    string(valResponseRule.Type),
 					Message: valResponseRule.Message,
@@ -729,17 +729,17 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 				switch valResponseRule.Status {
 				case response.RuleStatusPass:
 					rc.Pass++
-					vrule.Status = report.StatusPass
+					vrule.Status = policyreportv1alpha2.StatusPass
 
 				case response.RuleStatusFail:
 					ann := policy.GetAnnotations()
 					if scored, ok := ann[policyreport.ScoredLabel]; ok && scored == "false" {
 						rc.Warn++
-						vrule.Status = report.StatusWarn
+						vrule.Status = policyreportv1alpha2.StatusWarn
 						break
 					} else {
 						rc.Fail++
-						vrule.Status = report.StatusFail
+						vrule.Status = policyreportv1alpha2.StatusFail
 					}
 
 					if !policyReport {
@@ -753,15 +753,15 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 
 				case response.RuleStatusError:
 					rc.Error++
-					vrule.Status = report.StatusError
+					vrule.Status = policyreportv1alpha2.StatusError
 
 				case response.RuleStatusWarn:
 					rc.Warn++
-					vrule.Status = report.StatusWarn
+					vrule.Status = policyreportv1alpha2.StatusWarn
 
 				case response.RuleStatusSkip:
 					rc.Skip++
-					vrule.Status = report.StatusSkip
+					vrule.Status = policyreportv1alpha2.StatusSkip
 				}
 
 				violatedRules = append(violatedRules, vrule)
@@ -771,11 +771,11 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 
 		if !ruleFoundInEngineResponse {
 			rc.Skip++
-			vruleSkip := v1.ViolatedRule{
+			vruleSkip := kyvernov1.ViolatedRule{
 				Name:    policyRule.Name,
 				Type:    "Validation",
 				Message: policyRule.Validation.Message,
-				Status:  report.StatusSkip,
+				Status:  policyreportv1alpha2.StatusSkip,
 			}
 			violatedRules = append(violatedRules, vruleSkip)
 		}
@@ -783,7 +783,7 @@ func ProcessValidateEngineResponse(policy v1.PolicyInterface, validateResponse *
 	return buildPVInfo(validateResponse, violatedRules)
 }
 
-func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) policyreport.Info {
+func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) policyreport.Info {
 	info := policyreport.Info{
 		PolicyName: er.PolicyResponse.Policy.Name,
 		Namespace:  er.PatchedResource.GetNamespace(),
@@ -797,7 +797,7 @@ func buildPVInfo(er *response.EngineResponse, violatedRules []v1.ViolatedRule) p
 	return info
 }
 
-func updateResultCounts(policy v1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
+func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *response.EngineResponse, resPath string, rc *ResultCounts) {
 	printCount := 0
 	for _, policyRule := range autogen.ComputeRules(policy) {
 		ruleFoundInEngineResponse := false
@@ -825,7 +825,7 @@ func updateResultCounts(policy v1.PolicyInterface, engineResponse *response.Engi
 	}
 }
 
-func SetInStoreContext(mutatedPolicies []v1.PolicyInterface, variables map[string]string) map[string]string {
+func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables map[string]string) map[string]string {
 	storePolicies := make([]store.Policy, 0)
 	for _, policy := range mutatedPolicies {
 		storeRules := make([]store.Rule, 0)
@@ -859,7 +859,7 @@ func SetInStoreContext(mutatedPolicies []v1.PolicyInterface, variables map[strin
 	return variables
 }
 
-func processMutateEngineResponse(policy v1.PolicyInterface, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
+func processMutateEngineResponse(policy kyvernov1.PolicyInterface, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
 	var policyHasMutate bool
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
@@ -928,7 +928,7 @@ func processMutateEngineResponse(policy v1.PolicyInterface, mutateResponse *resp
 	return nil
 }
 
-func PrintMutatedPolicy(mutatedPolicies []v1.PolicyInterface) error {
+func PrintMutatedPolicy(mutatedPolicies []kyvernov1.PolicyInterface) error {
 	for _, policy := range mutatedPolicies {
 		p, err := json.Marshal(policy)
 		if err != nil {
@@ -969,7 +969,7 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 	return thisPolicyResourceValues, nil
 }
 
-func GetKindsFromPolicy(policy v1.PolicyInterface) map[string]struct{} {
+func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
@@ -1014,8 +1014,8 @@ func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, po
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
-func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (v1beta1.RequestInfo, store.Subject, error) {
-	userInfo := &v1beta1.RequestInfo{}
+func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (kyvernov1beta1.RequestInfo, store.Subject, error) {
+	userInfo := &kyvernov1beta1.RequestInfo{}
 	subjectInfo := &store.Subject{}
 	if isGit {
 		filep, err := fs.Open(filepath.Join(policyResourcePath, path))
