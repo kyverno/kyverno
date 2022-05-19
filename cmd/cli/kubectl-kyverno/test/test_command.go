@@ -830,10 +830,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		values.Results[i].PatchedResource = patchedResourceFullPath[0]
 		values.Results[i].GeneratedResource = generatedResourceFullPath[0]
 		values.Results[i].CloneSourceResource = CloneSourceResourceFullPath[0]
-
-		if result.Namespace == "" {
-			values.Results[i].Namespace = "default"
-		}
 	}
 
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
