@@ -503,20 +503,13 @@ func convertGR(pclient kyvernoclient.Interface) error {
 			},
 		}
 
-		new, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
+		_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
 			errors = append(errors, err)
 			continue
 		} else {
 			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
-		}
-
-		new.Status.State = urkyverno.Pending
-		if _, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			logger.Error(err, "failed to set UpdateRequest state to Pending")
-			errors = append(errors, err)
-			continue
 		}
 
 		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
