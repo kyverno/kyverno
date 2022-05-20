@@ -618,6 +618,11 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			}
 		}
 	}
+
+	strategicMergeMap, ok := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
+	if ok {
+		return checkMetadata(strategicMergeMap)
+	}
 	return true
 }
 
