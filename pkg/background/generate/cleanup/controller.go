@@ -152,17 +152,11 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) enqueue(ur *kyvernov1beta1.UpdateRequest) {
-	// skip enqueueing Pending requests
-	if ur.Status.State == kyvernov1beta1.Pending {
-		return
-	}
-
 	key, err := cache.MetaNamespaceKeyFunc(ur)
 	if err != nil {
 		logger.Error(err, "failed to extract key")
 		return
 	}
-
 	logger.V(5).Info("enqueue update request", "name", ur.Name)
 	c.queue.Add(key)
 }
@@ -227,6 +221,9 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return nil
 		}
 		return err
+	}
+	if ur.Status.State == kyvernov1beta1.Pending {
+		return nil
 	}
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
 	if err != nil {
