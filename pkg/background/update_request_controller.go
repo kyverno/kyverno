@@ -185,7 +185,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return nil
 		}
 		logger.V(3).Info("UR is marked successfully", "ur", ur.GetName(), "resourceVersion", ur.GetResourceVersion())
-		if err := c.processUR(ur); err != nil {
+		if err := c.processUR(ur.DeepCopy()); err != nil {
 			return fmt.Errorf("failed to process UR %s: %v", key, err)
 		}
 	}
@@ -224,7 +224,7 @@ func (c *controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the UR as the policy was updated
 	for _, ur := range urs {
-		ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
+		// ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueUpdateRequest(ur)
 	}
 }
@@ -258,16 +258,14 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+	ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client, c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
 		return ctrl.ProcessUR(ur)
 
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client, c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
