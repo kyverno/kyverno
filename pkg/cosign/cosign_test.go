@@ -80,5 +80,4 @@ func TestCosignKeyless(t *testing.T) {
 	opts.Issuer = "https://github.com/login/oauth"
 	_, err = VerifySignature(opts)
 	assert.NilError(t, err)
-
 }

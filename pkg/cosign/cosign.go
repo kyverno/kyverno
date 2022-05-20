@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -57,7 +56,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 	if err != nil {
 		return "", errors.Wrap(err, "constructing client options")
 	}
-	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
+	o, err := registryclient.GetOptions()
+	if err != nil {
+		return "", errors.Wrap(err, "getting remote options")
+	}
+	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(o))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
