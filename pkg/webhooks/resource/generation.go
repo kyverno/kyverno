@@ -1,7 +1,7 @@
 package resource
 
 import (
-	contextdefault "context"
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -113,7 +112,7 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 	policyNames := strings.Split(resLabels["generate.kyverno.io/clone-policy-name"], ",")
 	for _, policyName := range policyNames {
 		// check if the policy exists
-		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
+		_, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
 				logger.V(4).Info("skipping update of update request as policy is deleted")
@@ -141,28 +140,18 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 // updateAnnotationInUR - function used to update UR annotation
 // updating UR will trigger reprocessing of UR and recreation/updation of generated resource
 func (h *handlers) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	urAnnotations := ur.Annotations
-	if len(urAnnotations) == 0 {
-		urAnnotations = make(map[string]string)
-	}
-	h.mu.Lock()
-	urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
-	ur.SetAnnotations(urAnnotations)
-	h.mu.Unlock()
-
-	patch := jsonutils.NewPatch(
-		"/metadata/annotations",
-		"replace",
-		ur.Annotations,
-	)
-
-	new, err := gencommon.PatchUpdateRequest(ur, patch, h.kyvernoClient)
-	if err != nil {
+	if _, err := gencommon.Update(h.kyvernoClient, h.urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+		urAnnotations := ur.Annotations
+		if len(urAnnotations) == 0 {
+			urAnnotations = make(map[string]string)
+		}
+		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+		ur.SetAnnotations(urAnnotations)
+	}); err != nil {
 		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", ur.Name)
 		return
 	}
-	new.Status.State = kyvernov1beta1.Pending
-	if _, err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := gencommon.UpdateStatus(h.kyvernoClient, h.urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }
@@ -179,7 +168,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(contextdefault.TODO(), policyName, metav1.GetOptions{})
+	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 	if err != nil {
 		logger.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return
@@ -245,14 +234,9 @@ func (h *handlers) deleteGR(logger logr.Logger, engineResponse *response.EngineR
 	}
 
 	for _, v := range urList {
-		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := h.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update ur")
 		}
 	}
 }
-
-// type updateRequestResponse struct {
-// 	ur  urkyverno.UpdateRequestSpec
-// 	err error
-// }

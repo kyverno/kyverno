@@ -291,9 +291,9 @@ func main() {
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("BackgroundController"),
+		kubeInformer.Core().V1().Pods(),
+		eventGenerator,
 		configuration,
 	)
 
