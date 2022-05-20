@@ -995,7 +995,6 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 	var resourceBytes []byte
 	var resource unstructured.Unstructured
 	var err error
-
 	if isGit {
 		if len(path) > 0 {
 			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
@@ -1038,7 +1037,6 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	objects := []runtime.Object{&policyContext.NewResource}
 	var resources = []*unstructured.Unstructured{}
-
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
 			resourceBytes, err := getFileBytes(path)

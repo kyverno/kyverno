@@ -663,7 +663,6 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 	if err != nil {
 		return nil, err
 	}
-
 	return resource, nil
 }
 func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
