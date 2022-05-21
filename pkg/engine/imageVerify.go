@@ -46,11 +46,8 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 	defer policyContext.JSONContext.Restore()
 
 	// update image registry secrets
-	if len(registryclient.Secrets) > 0 {
-		logger.V(4).Info("updating registry credentials", "secrets", registryclient.Secrets)
-		if err := registryclient.UpdateKeychain(); err != nil {
-			logger.Error(err, "failed to update image pull secrets")
-		}
+	if err := registryclient.DefaultClient.RefreshKeychainPullSecrets(); err != nil {
+		logger.Error(err, "failed to update image pull secrets")
 	}
 
 	ivm := &ImageVerificationMetadata{}
@@ -259,7 +256,7 @@ func fetchImageDigest(ref string) (string, error) {
 		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
 
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultClient.Keychain()))
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}

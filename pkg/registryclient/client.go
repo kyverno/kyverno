@@ -2,7 +2,11 @@ package registryclient
 
 import (
 	"context"
+	"crypto/tls"
 	"io/ioutil"
+	"net/http"
+
+	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
@@ -10,65 +14,145 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
 	"github.com/google/go-containerregistry/pkg/v1/google"
+	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
 	"k8s.io/client-go/kubernetes"
 )
 
-var (
-	Secrets []string
+// DefaultClient is default registry client.
+var DefaultClient, _ = InitClient()
 
-	kubeClient     kubernetes.Interface
-	namespace      string
-	serviceAccount string
+// Client provides registry related objects.
+type Client interface {
+	// Keychain provides keychain object.
+	Keychain() authn.Keychain
 
-	defaultKeychain = authn.NewMultiKeychain(
+	// Transport provides transport object.
+	Transport() *http.Transport
+
+	// UseLocalKeychain updates keychain with the default local keychain.
+	UseLocalKeychain()
+
+	// RefreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
+	// If pull secrets are empty - returns.
+	RefreshKeychainPullSecrets() error
+}
+
+// InitClient initialize registry client with given options.
+func InitClient(options ...Option) (Client, error) {
+	baseKeychain := authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
 		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
 		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 		github.Keychain,
 	)
+	c := &client{
+		keychain:     baseKeychain,
+		baseKeychain: baseKeychain,
+		transport:    gcrremote.DefaultTransport,
+	}
 
-	DefaultKeychain = defaultKeychain
-)
+	for _, opt := range options {
+		if err := opt(c); err != nil {
+			return nil, err
+		}
+	}
 
-// InitializeLocal loads the docker credentials and initializes the default auth method for container registry API calls
-func InitializeLocal() {
-	DefaultKeychain = authn.DefaultKeychain
+	return c, nil
 }
 
-// Initialize loads the image pull secrets and initializes the default auth method for container registry API calls
-func Initialize(client kubernetes.Interface, ns, sa string, imagePullSecrets []string) error {
-	kubeClient = client
-	namespace = ns
-	serviceAccount = sa
-	Secrets = imagePullSecrets
+// Option is an option to initialize registry client.
+type Option func(*client) error
 
-	var kc authn.Keychain
+// WithKeychainPullSecrets provides initialize registry client option that allows to use pull secrets.
+func WithKeychainPullSecrets(kubClient kubernetes.Interface, namespace, serviceAccount string, imagePullSecrets []string) Option {
+	return func(c *client) error {
+		refresher := func(c *client) error {
+			freshKeychain, err := generateKeychainForPullSecrets(kubClient, namespace, serviceAccount, imagePullSecrets)
+			if err != nil {
+				return err
+			}
+
+			c.keychain = authn.NewMultiKeychain(
+				c.baseKeychain,
+				freshKeychain,
+			)
+
+			return nil
+		}
+
+		c.pullSecretRefresher = refresher
+		return refresher(c)
+	}
+}
+
+// WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
+func WithAllowInsecureRegistry() Option {
+	return func(c *client) error {
+		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		return nil
+	}
+}
+
+type client struct {
+	keychain  authn.Keychain
+	transport *http.Transport
+
+	baseKeychain        authn.Keychain
+	pullSecretRefresher func(*client) error
+}
+
+// Keychain provides keychain object.
+func (c *client) Keychain() authn.Keychain {
+	return c.keychain
+}
+
+// Transport provides transport object.
+func (c *client) Transport() *http.Transport {
+	return c.transport
+}
+
+// UseLocalKeychain updates keychain with the default local keychain.
+func (c *client) UseLocalKeychain() {
+	c.keychain = authn.DefaultKeychain
+	c.baseKeychain = authn.DefaultKeychain
+}
+
+// RefreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
+// If pull secrets are empty - returns.
+func (c *client) RefreshKeychainPullSecrets() error {
+	if c.pullSecretRefresher == nil {
+		return nil
+	}
+
+	return c.pullSecretRefresher(c)
+}
+
+// generateKeychainForPullSecrets generates keychain by fetching secrets data from imagePullSecrets.
+func generateKeychainForPullSecrets(
+	client kubernetes.Interface,
+	namespace, serviceAccount string,
+	imagePullSecrets []string,
+) (authn.Keychain, error) {
 	kcOpts := kauth.Options{
 		Namespace:          namespace,
 		ServiceAccountName: serviceAccount,
 		ImagePullSecrets:   imagePullSecrets,
 	}
 
-	kc, err := kauth.New(context.Background(), client, kcOpts)
+	kc, err := kauth.New(context.Background(), client, kcOpts) // uses k8s client to fetch secrets data
 	if err != nil {
-		return errors.Wrap(err, "failed to initialize registry keychain")
+		return nil, errors.Wrap(err, "failed to initialize registry keychain")
 	}
 
-	DefaultKeychain = authn.NewMultiKeychain(
-		defaultKeychain,
-		kc,
-	)
-
-	return nil
+	return kc, nil
 }
 
-// UpdateKeychain reinitializes the image pull secrets and default auth method for container registry API calls
-func UpdateKeychain() error {
-	err := Initialize(kubeClient, namespace, serviceAccount, Secrets)
-	if err != nil {
-		return err
-	}
-	return nil
+// BuildRemoteOption builds remote.Option based on client.
+func BuildRemoteOption(c Client) remote.Option {
+	return remote.WithRemoteOptions(
+		gcrremote.WithAuthFromKeychain(c.Keychain()),
+		gcrremote.WithTransport(c.Transport()),
+	)
 }

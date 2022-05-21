@@ -135,10 +135,8 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 }
 
 func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
-	if len(registryclient.Secrets) > 0 {
-		if err := registryclient.UpdateKeychain(); err != nil {
-			return fmt.Errorf("unable to load image registry credentials, %w", err)
-		}
+	if err := registryclient.DefaultClient.RefreshKeychainPullSecrets(); err != nil {
+		return fmt.Errorf("unable to load image registry credentials, %w", err)
 	}
 	imageData, err := fetchImageData(logger, entry, ctx)
 	if err != nil {
@@ -186,7 +184,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
 	}
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultClient.Keychain()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
 	}
