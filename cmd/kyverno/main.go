@@ -293,7 +293,6 @@ func main() {
 		kubeInformer.Core().V1().Pods(),
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("BackgroundController"),
 		configuration,
 	)
 
@@ -416,7 +415,7 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		urc,
+		&urc,
 		promConfig,
 	)
 

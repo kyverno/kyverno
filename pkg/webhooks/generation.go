@@ -10,7 +10,7 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
@@ -23,7 +23,6 @@ import (
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,7 +74,7 @@ func (ws *WebhookServer) handleGenerate(
 			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
-		if failedResponse := applyUpdateRequest(request, urkyverno.Generate, ws.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
+		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, ws.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedUR := range failedResponse {
 				err := fmt.Errorf("failed to create Update Request: %v", failedUR.err)
@@ -133,12 +132,12 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 			}
 		} else {
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				urkyverno.URGeneratePolicyLabel: policyName,
+				kyvernov1beta1.URGeneratePolicyLabel: policyName,
 			}))
 
 			urList, err := ws.urLister.List(selector)
 			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "label", urkyverno.URGeneratePolicyLabel)
+				logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
 				return
 			}
 
@@ -152,31 +151,22 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 
 // updateAnnotationInUR - function used to update UR annotation
 // updating UR will trigger reprocessing of UR and recreation/updation of generated resource
-func (ws *WebhookServer) updateAnnotationInUR(ur *urkyverno.UpdateRequest, logger logr.Logger) {
-	urAnnotations := ur.Annotations
-	if len(urAnnotations) == 0 {
-		urAnnotations = make(map[string]string)
-	}
-	ws.mu.Lock()
-	urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
-	ur.SetAnnotations(urAnnotations)
-	ws.mu.Unlock()
-
-	patch := jsonutils.NewPatch(
-		"/metadata/annotations",
-		"replace",
-		ur.Annotations,
-	)
-
-	new, err := gencommon.PatchUpdateRequest(ur, patch, ws.kyvernoClient)
-	if err != nil {
+func (ws *WebhookServer) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger logr.Logger) {
+	if _, err := gencommon.Update(ws.kyvernoClient, ws.urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+		urAnnotations := ur.Annotations
+		if len(urAnnotations) == 0 {
+			urAnnotations = make(map[string]string)
+		}
+		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
+		ur.SetAnnotations(urAnnotations)
+	}); err != nil {
 		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", ur.Name)
 		return
 	}
-	new.Status.State = urkyverno.Pending
-	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+	if _, err := gencommon.UpdateStatus(ws.kyvernoClient, ws.urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
+
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
@@ -354,7 +344,7 @@ func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 			return
 		}
 
-		if ur.Spec.Type == urkyverno.Mutate {
+		if ur.Spec.Type == kyvernov1beta1.Mutate {
 			return
 		}
 		ws.updateAnnotationInUR(ur, logger)
@@ -364,7 +354,7 @@ func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		urkyverno.URGeneratePolicyLabel:          engineResponse.PolicyResponse.Policy.Name,
+		kyvernov1beta1.URGeneratePolicyLabel:     engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
@@ -384,14 +374,14 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType urkyverno.RequestType, grGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
+func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Interface, userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")
 	}
-	admissionRequestInfo := urkyverno.AdmissionRequestInfoObject{
+	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
 		AdmissionRequest: string(requestBytes),
 		Operation:        action,
 	}
@@ -406,7 +396,7 @@ func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType urkyvern
 	return
 }
 
-func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRequestInfo urkyverno.RequestInfo, er *response.EngineResponse, ruleType urkyverno.RequestType) urkyverno.UpdateRequestSpec {
+func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, userRequestInfo kyvernov1beta1.RequestInfo, er *response.EngineResponse, ruleType kyvernov1beta1.RequestType) kyvernov1beta1.UpdateRequestSpec {
 	var PolicyNameNamespaceKey string
 	if er.PolicyResponse.Policy.Namespace != "" {
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
@@ -414,7 +404,7 @@ func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRe
 		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
 	}
 
-	ur := urkyverno.UpdateRequestSpec{
+	ur := kyvernov1beta1.UpdateRequestSpec{
 		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
@@ -423,7 +413,7 @@ func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRe
 			Name:       er.PolicyResponse.Resource.Name,
 			APIVersion: er.PolicyResponse.Resource.APIVersion,
 		},
-		Context: urkyverno.UpdateRequestSpecContext{
+		Context: kyvernov1beta1.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,
 			AdmissionRequestInfo: admissionRequestInfo,
 		},
@@ -433,6 +423,6 @@ func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRe
 }
 
 type updateRequestResponse struct {
-	ur  urkyverno.UpdateRequestSpec
+	ur  kyvernov1beta1.UpdateRequestSpec
 	err error
 }
