@@ -2,12 +2,20 @@ package common
 
 import (
 	"fmt"
+	"reflect"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
+	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+type Object interface {
+	GetName() string
+	GetNamespace() string
+	GetKind() string
+	GetAPIVersion() string
+}
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured) {
 	// add managedBY label if not defined
@@ -25,11 +33,12 @@ func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured
 	unstr.SetLabels(labels)
 }
 
-func MutateLabelsSet(policyKey string, trigger *unstructured.Unstructured) labels.Set {
-	set := labels.Set{
+func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	set := pkglabels.Set{
 		kyvernov1beta1.URMutatePolicyLabel: policyKey,
 	}
-	if trigger != nil {
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	if !isNil {
 		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
 		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URMutatetriggerKindLabel] = trigger.GetKind()
@@ -40,14 +49,15 @@ func MutateLabelsSet(policyKey string, trigger *unstructured.Unstructured) label
 	return set
 }
 
-func GenerateLabelsSet(policyKey string, trigger *unstructured.Unstructured) labels.Set {
-	set := labels.Set{
-		kyvernov1beta1.URMutatePolicyLabel: policyKey,
+func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	set := pkglabels.Set{
+		kyvernov1beta1.URGeneratePolicyLabel: policyKey,
 	}
-	if trigger != nil {
-		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
-		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
-		set[kyvernov1beta1.URMutatetriggerKindLabel] = trigger.GetKind()
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	if !isNil {
+		set[kyvernov1beta1.URGenerateResourceNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
+		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
 	}
 	return set
 }
