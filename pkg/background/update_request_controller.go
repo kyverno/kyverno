@@ -1,6 +1,7 @@
 package background
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	coreinformers "k8s.io/client-go/informers/core/v1"
@@ -64,7 +66,9 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
-	log logr.Logger
+	// nsLister can list/get pods from the shared informer's store
+	podLister corelister.PodLister
+	log       logr.Logger
 
 	Config config.Configuration
 }
@@ -77,6 +81,7 @@ func NewController(
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
+	podInformer coreinformers.PodInformer,
 	eventGen event.Interface,
 	namespaceInformer coreinformers.NamespaceInformer,
 	log logr.Logger,
@@ -95,6 +100,7 @@ func NewController(
 		npolicyLister:  npolicyInformer.Lister(),
 		urLister:       urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 		nsLister:       namespaceInformer.Lister(),
+		podLister:      podInformer.Lister(),
 	}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -186,6 +192,20 @@ func (c *Controller) syncUpdateRequest(key string) error {
 		}
 		return fmt.Errorf("failed to fetch update request %s: %v", key, err)
 	}
+
+	// if it was acquired by a pod that is gone, release it
+	if ur.Status.Handler != "" {
+		_, err = c.podLister.Pods(config.KyvernoNamespace).Get(ur.Status.Handler)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				ur = ur.DeepCopy()
+				ur.Status.Handler = ""
+				_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			}
+			return err
+		}
+	}
+
 	ur, ok, err := c.markUR(ur)
 	if err != nil {
 		return fmt.Errorf("failed to mark handler for UR %s: %v", key, err)
