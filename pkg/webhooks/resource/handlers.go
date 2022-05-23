@@ -3,7 +3,6 @@ package resource
 import (
 	"fmt"
 	"reflect"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -61,7 +60,6 @@ type handlers struct {
 	eventGen          event.Interface
 	auditHandler      AuditHandler
 	openAPIController *openapi.Controller
-	mu                sync.RWMutex
 }
 
 func NewHandlers(
