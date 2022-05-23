@@ -28,6 +28,7 @@ linters:
     - misspell
     - noctx
     - nolintlint
+    - nosprintfhostport
     - paralleltest
     - staticcheck
     - structcheck
