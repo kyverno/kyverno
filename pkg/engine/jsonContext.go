@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -135,11 +133,6 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 }
 
 func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
-	if len(registryclient.Secrets) > 0 {
-		if err := registryclient.UpdateKeychain(); err != nil {
-			return fmt.Errorf("unable to load image registry credentials, %w", err)
-		}
-	}
 	imageData, err := fetchImageData(logger, entry, ctx)
 	if err != nil {
 		return err
@@ -182,13 +175,9 @@ func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 
 // FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
-	parsedRef, err := name.ParseReference(ref)
+	parsedRef, desc, err := registryclient.Get(ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+		return nil, err
 	}
 	image, err := desc.Image()
 	if err != nil {
