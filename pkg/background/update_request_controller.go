@@ -50,6 +50,7 @@ type controller struct {
 	npolicyLister kyvernov1listers.PolicyLister
 	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister      corev1listers.NamespaceLister
+	podLister     corev1listers.PodLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -66,6 +67,7 @@ func NewController(
 	policyInformer kyvernoinformer.ClusterPolicyInformer,
 	npolicyInformer kyvernoinformer.PolicyInformer,
 	urInformer urkyvernoinformer.UpdateRequestInformer,
+	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	namespaceInformer corev1informers.NamespaceInformer,
 	dynamicConfig config.Configuration,
@@ -78,6 +80,7 @@ func NewController(
 		npolicyLister: npolicyInformer.Lister(),
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
+		podLister:     podInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
 		eventGen:      eventGen,
 		configuration: dynamicConfig,
@@ -170,6 +173,18 @@ func (c *controller) syncUpdateRequest(key string) error {
 		ur.Status.State = kyvernov1beta1.Pending
 		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
+	}
+	// if it was acquired by a pod that is gone, release it
+	if ur.Status.Handler != "" {
+		_, err = c.podLister.Pods(config.KyvernoNamespace).Get(ur.Status.Handler)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				ur = ur.DeepCopy()
+				ur.Status.Handler = ""
+				_, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+			}
+			return err
+		}
 	}
 	// if in pending state, try to acquire ur and eventually process it
 	if ur.Status.State == kyvernov1beta1.Pending {
