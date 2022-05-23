@@ -443,28 +443,27 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		logger.Error(err, "failed to list update requests")
 		return err
 	}
-
 	for _, gr := range grs.Items {
+		cp := gr.DeepCopy()
 		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace(),
-				Labels:       gr.GetLabels(),
+				Labels:       cp.GetLabels(),
 			},
 			Spec: kyvernov1beta1.UpdateRequestSpec{
 				Type:     kyvernov1beta1.Generate,
-				Policy:   gr.Spec.Policy,
-				Resource: *gr.Spec.Resource.DeepCopy(),
+				Policy:   cp.Spec.Policy,
+				Resource: cp.Spec.Resource,
 				Context: kyvernov1beta1.UpdateRequestSpecContext{
 					UserRequestInfo: kyvernov1beta1.RequestInfo{
-						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
-						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
-						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
+						Roles:             cp.Spec.Context.UserRequestInfo.Roles,
+						ClusterRoles:      cp.Spec.Context.UserRequestInfo.ClusterRoles,
+						AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
 					},
-
 					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
-						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+						AdmissionRequest: cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
+						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
 					},
 				},
 			},
