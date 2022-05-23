@@ -171,9 +171,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	}
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
 		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
-		for i, foreach := range rule.Validation.ForEachValidation {
-			newForeachValidate[i] = foreach
-		}
+		copy(newForeachValidate, rule.Validation.ForEachValidation)
 		rule.Validation = kyvernov1.Validation{
 			Message:           variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 			ForEachValidation: newForeachValidate,
