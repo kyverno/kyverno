@@ -7018,6 +7018,11 @@ spec:
               message:
                 description: Specifies request status message.
                 type: string
+              observedPolicyGeneration:
+                description: The policy generation observed by the update request
+                  controller.
+                format: int64
+                type: integer
               state:
                 description: State represents state of the update request.
                 type: string
