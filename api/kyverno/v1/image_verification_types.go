@@ -12,7 +12,6 @@ import (
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
-
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -84,7 +83,6 @@ type ImageVerification struct {
 }
 
 type AttestorSet struct {
-
 	// Count specifies the required number of entries that must match. If the count is null, all entries must match
 	// (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a
 	// value N, then N must be less than or equal to the size of entries, and at least N entries must match.
@@ -99,7 +97,6 @@ type AttestorSet struct {
 }
 
 type Attestor struct {
-
 	// Keys specifies one or more public keys
 	// +kubebuilder:validation:Optional
 	Keys *StaticKeyAttestor `json:"keys,omitempty" yaml:"keys,omitempty"`
@@ -128,7 +125,6 @@ type Attestor struct {
 }
 
 type StaticKeyAttestor struct {
-
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
 	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
@@ -144,7 +140,6 @@ type StaticKeyAttestor struct {
 }
 
 type CertificateAttestor struct {
-
 	// Certificate is an optional PEM encoded public certificate.
 	// +kubebuilder:validation:Optional
 	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
@@ -161,7 +156,6 @@ type CertificateAttestor struct {
 }
 
 type KeylessAttestor struct {
-
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
@@ -197,7 +191,6 @@ type CTLog struct {
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
-
 	// PredicateType defines the type of Predicate contained within the Statement.
 	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
 

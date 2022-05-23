@@ -6,13 +6,13 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-//NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
-func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
+// NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
+func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov1.ConditionOperator) OperatorHandler {
 	return NumericOperatorHandler{
 		ctx:       ctx,
 		log:       log,
@@ -20,23 +20,23 @@ func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op ky
 	}
 }
 
-//NumericOperatorHandler provides implementation to handle Numeric Operations associated with policies
+// NumericOperatorHandler provides implementation to handle Numeric Operations associated with policies
 type NumericOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
-	condition kyverno.ConditionOperator
+	condition kyvernov1.ConditionOperator
 }
 
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
-func compareByCondition(key float64, value float64, op kyverno.ConditionOperator, log logr.Logger) bool {
+func compareByCondition(key float64, value float64, op kyvernov1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
+	case kyvernov1.ConditionOperators["GreaterThanOrEquals"]:
 		return key >= value
-	case kyverno.ConditionOperators["GreaterThan"]:
+	case kyvernov1.ConditionOperators["GreaterThan"]:
 		return key > value
-	case kyverno.ConditionOperators["LessThanOrEquals"]:
+	case kyvernov1.ConditionOperators["LessThanOrEquals"]:
 		return key <= value
-	case kyverno.ConditionOperators["LessThan"]:
+	case kyvernov1.ConditionOperators["LessThan"]:
 		return key < value
 	default:
 		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
@@ -44,15 +44,15 @@ func compareByCondition(key float64, value float64, op kyverno.ConditionOperator
 	}
 }
 
-func compareVersionByCondition(key semver.Version, value semver.Version, op kyverno.ConditionOperator, log logr.Logger) bool {
+func compareVersionByCondition(key semver.Version, value semver.Version, op kyvernov1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyverno.ConditionOperators["GreaterThanOrEquals"]:
+	case kyvernov1.ConditionOperators["GreaterThanOrEquals"]:
 		return key.GTE(value)
-	case kyverno.ConditionOperators["GreaterThan"]:
+	case kyvernov1.ConditionOperators["GreaterThan"]:
 		return key.GT(value)
-	case kyverno.ConditionOperators["LessThanOrEquals"]:
+	case kyvernov1.ConditionOperators["LessThanOrEquals"]:
 		return key.LTE(value)
-	case kyverno.ConditionOperators["LessThan"]:
+	case kyvernov1.ConditionOperators["LessThan"]:
 		return key.LT(value)
 	default:
 		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
@@ -210,9 +210,11 @@ func parseQuantity(key, value interface{}) (parsedKey, parsedValue resource.Quan
 func (noh NumericOperatorHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	return false
 }
+
 func (noh NumericOperatorHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
 	return false
 }
+
 func (noh NumericOperatorHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	return false
 }

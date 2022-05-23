@@ -11,10 +11,9 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
-	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/in-toto/in-toto-golang/in_toto"
 	wildcard "github.com/kyverno/go-wildcard"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -57,7 +56,11 @@ func VerifySignature(opts Options) (digest string, err error) {
 	if err != nil {
 		return "", errors.Wrap(err, "constructing client options")
 	}
-	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(gcrremote.WithAuthFromKeychain(registryclient.DefaultKeychain)))
+	o, err := registryclient.GetOptions()
+	if err != nil {
+		return "", errors.Wrap(err, "getting remote options")
+	}
+	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(o))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
@@ -219,7 +222,7 @@ func loadCertChain(pem []byte) ([]*x509.Certificate, error) {
 
 // FetchAttestations retrieves signed attestations and decodes them into in-toto statements
 // https://github.com/in-toto/attestation/blob/main/spec/README.md#statement
-func FetchAttestations(imageRef string, imageVerify v1.ImageVerification) ([]map[string]interface{}, error) {
+func FetchAttestations(imageRef string, imageVerify kyvernov1.ImageVerification) ([]map[string]interface{}, error) {
 	ctx := context.Background()
 	var err error
 
@@ -356,7 +359,7 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 		return nil, fmt.Errorf("expected string type")
 	}
 
-	var data = map[string]interface{}{}
+	data := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(s), &data); err != nil {
 		return nil, fmt.Errorf("failed to marshal JSON: %s", err.Error())
 	}

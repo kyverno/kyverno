@@ -5,9 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -15,7 +13,7 @@ import (
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx *PolicyContext, ruleName string) error {
+func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
@@ -75,7 +73,7 @@ func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx 
 	return nil
 }
 
-func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) (err error) {
+func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) (err error) {
 	path := ""
 	if entry.Variable.JMESPath != "" {
 		jp, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.Variable.JMESPath)
@@ -134,12 +132,7 @@ func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCon
 	}
 }
 
-func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
-	if len(registryclient.Secrets) > 0 {
-		if err := registryclient.UpdateKeychain(); err != nil {
-			return fmt.Errorf("unable to load image registry credentials, %w", err)
-		}
-	}
+func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
 	imageData, err := fetchImageData(logger, entry, ctx)
 	if err != nil {
 		return err
@@ -154,7 +147,7 @@ func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCo
 	return nil
 }
 
-func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) (interface{}, error) {
+func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) (interface{}, error) {
 	ref, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ImageRegistry.Reference)
 	if err != nil {
 		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
@@ -182,13 +175,9 @@ func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyC
 
 // FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
-	parsedRef, err := name.ParseReference(ref)
+	parsedRef, desc, err := registryclient.Get(ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+		return nil, err
 	}
 	image, err := desc.Image()
 	if err != nil {
@@ -238,7 +227,7 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	return untyped, nil
 }
 
-func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
+func loadAPIData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
 	jsonData, err := fetchAPIData(logger, entry, ctx)
 	if err != nil {
 		return err
@@ -295,7 +284,7 @@ func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	return applyJMESPath(jmesPath, data)
 }
 
-func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
+func fetchAPIData(log logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) ([]byte, error) {
 	if entry.APICall == nil {
 		return nil, fmt.Errorf("missing APICall in context entry %s %v", entry.Name, entry.APICall)
 	}
@@ -353,7 +342,7 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
+func loadConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
 	data, err := fetchConfigMap(logger, entry, ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
@@ -367,7 +356,7 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCo
 	return nil
 }
 
-func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
+func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
 	name, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Name)

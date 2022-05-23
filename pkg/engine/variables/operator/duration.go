@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewDurationOperatorHandler returns handler to manage the provided duration operations (>, >=, <=, <)
-func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyverno.ConditionOperator) OperatorHandler {
+// NewDurationOperatorHandler returns handler to manage the provided duration operations (>, >=, <=, <)
+func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov1.ConditionOperator) OperatorHandler {
 	return DurationOperatorHandler{
 		ctx:       ctx,
 		log:       log,
@@ -18,23 +18,23 @@ func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op k
 	}
 }
 
-//DurationOperatorHandler provides implementation to handle Duration Operations associated with policies
+// DurationOperatorHandler provides implementation to handle Duration Operations associated with policies
 type DurationOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
-	condition kyverno.ConditionOperator
+	condition kyvernov1.ConditionOperator
 }
 
 // durationCompareByCondition compares a time.Duration key with a time.Duration value on the basis of the provided operator
-func durationCompareByCondition(key time.Duration, value time.Duration, op kyverno.ConditionOperator, log logr.Logger) bool {
+func durationCompareByCondition(key time.Duration, value time.Duration, op kyvernov1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyverno.ConditionOperators["DurationGreaterThanOrEquals"]:
+	case kyvernov1.ConditionOperators["DurationGreaterThanOrEquals"]:
 		return key >= value
-	case kyverno.ConditionOperators["DurationGreaterThan"]:
+	case kyvernov1.ConditionOperators["DurationGreaterThan"]:
 		return key > value
-	case kyverno.ConditionOperators["DurationLessThanOrEquals"]:
+	case kyvernov1.ConditionOperators["DurationLessThanOrEquals"]:
 		return key <= value
-	case kyverno.ConditionOperators["DurationLessThan"]:
+	case kyvernov1.ConditionOperators["DurationLessThan"]:
 		return key < value
 	default:
 		log.Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))
@@ -131,9 +131,11 @@ func (doh DurationOperatorHandler) validateValueWithStringPattern(key string, va
 func (doh DurationOperatorHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	return false
 }
+
 func (doh DurationOperatorHandler) validateValueWithMapPattern(key map[string]interface{}, value interface{}) bool {
 	return false
 }
+
 func (doh DurationOperatorHandler) validateValueWithSlicePattern(key []interface{}, value interface{}) bool {
 	return false
 }

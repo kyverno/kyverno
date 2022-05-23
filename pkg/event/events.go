@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -42,7 +42,7 @@ func buildPolicyEventMessage(resp *response.RuleResponse, resource response.Reso
 	return b.String()
 }
 
-func getPolicyKind(policy v1.PolicyInterface) string {
+func getPolicyKind(policy kyvernov1.PolicyInterface) string {
 	if policy.IsNamespaced() {
 		return "Policy"
 	}

@@ -12,9 +12,9 @@ import (
 
 type store interface {
 	// set inserts a policy in the cache
-	set(kyvernov1.PolicyInterface)
+	set(string, kyvernov1.PolicyInterface)
 	// unset removes a policy from the cache
-	unset(kyvernov1.PolicyInterface)
+	unset(string)
 	// get finds policies that match a given type, gvk and namespace
 	get(PolicyType, string, string) []kyvernov1.PolicyInterface
 }
@@ -30,18 +30,18 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(policy kyvernov1.PolicyInterface) {
+func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	pc.store.set(policy)
-	logger.V(4).Info("policy is added to cache", "name", policy.GetName())
+	pc.store.set(key, policy)
+	logger.V(4).Info("policy is added to cache", "key", key)
 }
 
-func (pc *policyCache) unset(p kyvernov1.PolicyInterface) {
+func (pc *policyCache) unset(key string) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	pc.store.unset(p)
-	logger.V(4).Info("policy is removed from cache", "name", p.GetName())
+	pc.store.unset(key)
+	logger.V(4).Info("policy is removed from cache", "key", key)
 }
 
 func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []kyvernov1.PolicyInterface {
@@ -73,15 +73,6 @@ func computeKind(gvk string) string {
 	return kind
 }
 
-func computeKey(policy kyvernov1.PolicyInterface) string {
-	namespace := policy.GetNamespace()
-	if namespace == "" {
-		return policy.GetName()
-	} else {
-		return namespace + "/" + policy.GetName()
-	}
-}
-
 func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
 	if spec.GetValidationFailureAction() == kyvernov1.Enforce {
 		return true
@@ -102,8 +93,8 @@ func set(set sets.String, item string, value bool) sets.String {
 	}
 }
 
-func (m *policyMap) set(policy kyvernov1.PolicyInterface) {
-	key, enforcePolicy := computeKey(policy), computeEnforcePolicy(policy.GetSpec())
+func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
+	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
 		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
@@ -141,8 +132,7 @@ func (m *policyMap) set(policy kyvernov1.PolicyInterface) {
 	}
 }
 
-func (m *policyMap) unset(policy kyvernov1.PolicyInterface) {
-	key := computeKey(policy)
+func (m *policyMap) unset(key string) {
 	delete(m.policies, key)
 	for kind := range m.kindType {
 		for policyType := range m.kindType[kind] {
