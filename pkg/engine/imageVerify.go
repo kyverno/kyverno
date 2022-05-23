@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -216,11 +214,11 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.Im
 	}
 
 	if digest == "" {
-		var err error
-		digest, err = fetchImageDigest(imageInfo.String())
+		desc, err := registryclient.DefaultClient.FetchImageDescriptor(imageInfo.String())
 		if err != nil {
 			return nil, "", err
 		}
+		digest = desc.Digest.String()
 	}
 
 	patch, err := makeAddDigestPatch(imageInfo, digest)
@@ -248,20 +246,6 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool
 	}
 
 	return result
-}
-
-func fetchImageDigest(ref string) (string, error) {
-	parsedRef, err := name.ParseReference(ref)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultClient.Keychain()))
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
-	}
-
-	return desc.Digest.String(), nil
 }
 
 func imageMatches(image string, imagePatterns []string) bool {

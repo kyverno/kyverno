@@ -3,19 +3,20 @@ package registryclient
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"net/http"
-
-	"github.com/sigstore/cosign/pkg/oci/remote"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
 	"github.com/chrismellard/docker-credential-acr-env/pkg/credhelper"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/authn/github"
 	kauth "github.com/google/go-containerregistry/pkg/authn/kubernetes"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/google"
 	gcrremote "github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/pkg/errors"
+	"github.com/sigstore/cosign/pkg/oci/remote"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -29,6 +30,10 @@ type Client interface {
 
 	// Transport provides transport object.
 	Transport() *http.Transport
+
+	// FetchImageDescriptor fetches Descriptor from registry with given imageRef
+	// and provides access to metadata about remote artifact.
+	FetchImageDescriptor(imageRef string) (*gcrremote.Descriptor, error)
 
 	// UseLocalKeychain updates keychain with the default local keychain.
 	UseLocalKeychain()
@@ -119,6 +124,22 @@ func (c *client) UseLocalKeychain() {
 	c.baseKeychain = authn.DefaultKeychain
 }
 
+// FetchImageDescriptor fetches Descriptor from registry with given imageRef
+// and provides access to metadata about remote artifact.
+func (c *client) FetchImageDescriptor(imageRef string) (*gcrremote.Descriptor, error) {
+	parsedRef, err := name.ParseReference(imageRef)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", imageRef, err)
+	}
+
+	desc, err := gcrremote.Get(parsedRef, gcrremote.WithAuthFromKeychain(c.keychain))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", imageRef, err)
+	}
+
+	return desc, nil
+}
+
 // RefreshKeychainPullSecrets loads fresh data from pull secrets and updates Keychain.
 // If pull secrets are empty - returns.
 func (c *client) RefreshKeychainPullSecrets() error {
@@ -145,8 +166,7 @@ func generateKeychainForPullSecrets(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize registry keychain")
 	}
-
-	return kc, nil
+	return kc, err
 }
 
 // BuildRemoteOption builds remote.Option based on client.

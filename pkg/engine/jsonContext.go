@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
@@ -180,13 +178,9 @@ func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 
 // FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
-	parsedRef, err := name.ParseReference(ref)
+	desc, err := registryclient.DefaultClient.FetchImageDescriptor(ref)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
-	}
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultClient.Keychain()))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+		return nil, err
 	}
 	image, err := desc.Image()
 	if err != nil {
@@ -210,12 +204,13 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err := json.Unmarshal(rawConfig, &configData); err != nil {
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
+
 	data := map[string]interface{}{
 		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
-		"registry":      parsedRef.Context().RegistryStr(),
-		"repository":    parsedRef.Context().RepositoryStr(),
-		"identifier":    parsedRef.Identifier(),
+		"resolvedImage": fmt.Sprintf("%s@%s", desc.Ref.Context().Name(), desc.Digest.String()),
+		"registry":      desc.Ref.Context().RegistryStr(),
+		"repository":    desc.Ref.Context().RepositoryStr(),
+		"identifier":    desc.Ref.Identifier(),
 		"manifest":      manifest,
 		"configData":    configData,
 	}
