@@ -414,7 +414,7 @@ func main() {
 		cleanUp,
 		log.Log.WithName("WebhookServer"),
 		openAPIController,
-		urc,
+		&urc,
 		promConfig,
 	)
 

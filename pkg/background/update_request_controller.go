@@ -13,6 +13,8 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	urkyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -21,7 +23,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	corev1informers "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
@@ -66,7 +70,7 @@ func NewController(
 	namespaceInformer corev1informers.NamespaceInformer,
 	dynamicConfig config.Configuration,
 ) Controller {
-	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
+	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
@@ -164,7 +168,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if ur.Status.State == "" {
 		ur = ur.DeepCopy()
 		ur.Status.State = kyvernov1beta1.Pending
-		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	}
 	// if in pending state, try to acquire ur and eventually process it
@@ -243,7 +247,7 @@ func (c *controller) deleteUR(obj interface{}) {
 			logger.Info("Couldn't get object from tombstone", "obj", obj)
 			return
 		}
-		ur, ok = tombstone.Obj.(*urkyverno.UpdateRequest)
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
 		if !ok {
 			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
 			return
@@ -280,11 +284,11 @@ func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 			return nil
 		}
 		ur = ur.DeepCopy()
-		ur.Status.Handler = config.KyvernoPodName()
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		ur.Status.Handler = config.KyvernoPodName
+		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	})
-	return ur, ur.Status.Handler == config.KyvernoPodName(), err
+	return ur, ur.Status.Handler == config.KyvernoPodName, err
 }
 
 func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
@@ -294,12 +298,12 @@ func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 		if err != nil {
 			return err
 		}
-		if ur.Status.Handler != config.KyvernoPodName() {
+		if ur.Status.Handler != config.KyvernoPodName {
 			return nil
 		}
 		ur = ur.DeepCopy()
 		ur.Status.Handler = ""
-		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
+		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	})
 	return ur, err
@@ -307,7 +311,7 @@ func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 
 func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 	if ur.Spec.Type == kyvernov1beta1.Mutate && ur.Status.State == kyvernov1beta1.Completed {
-		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
+		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
 }
