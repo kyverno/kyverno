@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	utils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -26,22 +25,27 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	logger logr.Logger,
 ) (*engine.PolicyContext, bool, error) {
 	ctx := context.NewContext()
-	requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	var request admissionv1.AdmissionRequest
+	// requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
+	// var request admissionv1.AdmissionRequest
 	var new, old unstructured.Unstructured
 
-	if requestString != "" {
-		err := json.Unmarshal([]byte(requestString), &request)
-		if err != nil {
-			return nil, false, errors.Wrap(err, "error parsing the request string")
-		}
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+		var err error
+		// err := json.Unmarshal([]byte(requestString), &request)
+		// if err != nil {
+		// 	return nil, false, errors.Wrap(err, "error parsing the request string")
+		// }
 
-		if err := ctx.AddRequest(&request); err != nil {
+		if err := ctx.AddRequest(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
+			dbg, _ := json.Marshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+			logger.Info(string(dbg))
 			return nil, false, errors.Wrap(err, "failed to load request in context")
 		}
 
-		new, old, err = utils.ExtractResources(nil, &request)
+		new, old, err = utils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
 		if err != nil {
+			dbg, _ := json.Marshal(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+			logger.Info(string(dbg))
 			return nil, false, errors.Wrap(err, "failed to load request in context")
 		}
 

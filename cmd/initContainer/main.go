@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"sync"
@@ -20,8 +21,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -134,7 +136,7 @@ func main() {
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
-			if !errors.IsNotFound(err) {
+			if !apierrors.IsNotFound(err) {
 				os.Exit(1)
 			}
 		}
@@ -143,7 +145,7 @@ func main() {
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
 			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
-			if !errors.IsNotFound(err) {
+			if !apierrors.IsNotFound(err) {
 				os.Exit(1)
 			}
 		}
@@ -402,7 +404,7 @@ func removeClusterReportChangeRequest(client dclient.Interface, kind string) err
 
 func deleteResource(client dclient.Interface, apiversion, kind, ns, name string) {
 	err := client.DeleteResource(apiversion, kind, ns, name, false)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
 		return
 	}
@@ -412,7 +414,7 @@ func deleteResource(client dclient.Interface, apiversion, kind, ns, name string)
 
 func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name string) {
 	res, err := client.GetResource(apiversion, kind, ns, name)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
 		return
 	}
@@ -445,43 +447,48 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 
 	for _, gr := range grs.Items {
-		ur := &kyvernov1beta1.UpdateRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ur-",
-				Namespace:    config.KyvernoNamespace(),
-				Labels:       gr.GetLabels(),
-			},
-			Spec: kyvernov1beta1.UpdateRequestSpec{
-				Type:     kyvernov1beta1.Generate,
-				Policy:   gr.Spec.Policy,
-				Resource: *gr.Spec.Resource.DeepCopy(),
-				Context: kyvernov1beta1.UpdateRequestSpecContext{
-					UserRequestInfo: kyvernov1beta1.RequestInfo{
-						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
-						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
-						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
-					},
+		var request admissionv1.AdmissionRequest
 
-					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
-						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+		if err := json.Unmarshal([]byte(gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest), &request); err != nil {
+			errors = append(errors, err)
+		} else {
+			ur := &kyvernov1beta1.UpdateRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ur-",
+					Namespace:    config.KyvernoNamespace(),
+					Labels:       gr.GetLabels(),
+				},
+				Spec: kyvernov1beta1.UpdateRequestSpec{
+					Type:     kyvernov1beta1.Generate,
+					Policy:   gr.Spec.Policy,
+					Resource: *gr.Spec.Resource.DeepCopy(),
+					Context: kyvernov1beta1.UpdateRequestSpecContext{
+						UserRequestInfo: kyvernov1beta1.RequestInfo{
+							Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
+							ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
+							AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
+						},
+						AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
+							AdmissionRequest: &request,
+							Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+						},
 					},
 				},
-			},
-		}
+			}
 
-		_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
-		if err != nil {
-			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
-			errors = append(errors, err)
-			continue
-		} else {
-			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
-		}
+			_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+			if err != nil {
+				logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
+				errors = append(errors, err)
+				continue
+			} else {
+				logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
+			}
 
-		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
-			errors = append(errors, err)
-			logger.Error(err, "failed to delete GR")
+			if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
+				errors = append(errors, err)
+				logger.Error(err, "failed to delete GR")
+			}
 		}
 	}
 
