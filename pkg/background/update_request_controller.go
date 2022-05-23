@@ -287,9 +287,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 }
 
 func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
+	name := ur.GetName()
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var err error
-		ur, err = c.urLister.Get(ur.GetName())
+		ur, err = c.urLister.Get(name)
 		if err != nil {
 			return err
 		}
@@ -301,6 +302,10 @@ func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	})
+	if err != nil {
+		logger.Error(err, "failed to acquire ur", "name", name, "ur", ur)
+		return nil, false, err
+	}
 	return ur, ur.Status.Handler == config.KyvernoPodName(), err
 }
 
