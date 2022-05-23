@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -44,14 +42,6 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
-
-	// update image registry secrets
-	if len(registryclient.Secrets) > 0 {
-		logger.V(4).Info("updating registry credentials", "secrets", registryclient.Secrets)
-		if err := registryclient.UpdateKeychain(); err != nil {
-			logger.Error(err, "failed to update image pull secrets")
-		}
-	}
 
 	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
@@ -254,16 +244,10 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool
 }
 
 func fetchImageDigest(ref string) (string, error) {
-	parsedRef, err := name.ParseReference(ref)
+	_, desc, err := registryclient.Get(ref)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+		return "", err
 	}
-
-	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
-	}
-
 	return desc.Digest.String(), nil
 }
 
