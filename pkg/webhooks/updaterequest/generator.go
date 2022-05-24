@@ -120,24 +120,14 @@ func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.Up
 
 	if !isExist {
 		logger.V(4).Info("creating new UpdateRequest", "type", ur.Spec.Type)
-
 		ur.SetGenerateName("ur-")
 		ur.SetLabels(queryLabels)
-
-		new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{})
-		if err != nil {
+		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{}); err != nil {
 			logger.V(4).Info("failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace(), "err", err.Error())
 			return err
 		} else {
 			logger.V(4).Info("successfully created UpdateRequest", "name", new.GetName(), "namespace", ur.GetNamespace())
 		}
-
-		new.Status.State = kyvernov1beta1.Pending
-		if _, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			logger.Error(err, "failed to set UpdateRequest state to Pending")
-			return err
-		}
 	}
-
 	return nil
 }
