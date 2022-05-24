@@ -454,11 +454,10 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-
 func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{}, imageVerify kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo) error {
 	image := imageInfo.String()
 	statementsByPredicate, types := buildStatementMap(statements)
-	iv.logger.V(4).Info("checking attestations",  "predicates", types, "image", image)
+	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
 	for _, ac := range imageVerify.Attestations {
 		statements := statementsByPredicate[ac.PredicateType]

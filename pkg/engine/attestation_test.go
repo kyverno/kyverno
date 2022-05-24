@@ -2,6 +2,8 @@ package engine
 
 import (
 	"encoding/json"
+	"testing"
+
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/utils/api"
@@ -9,7 +11,6 @@ import (
 	"gotest.tools/assert"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 var scanPredicate = `
@@ -293,7 +294,7 @@ func Test_Conditions(t *testing.T) {
 
 	ctx := context.NewContext()
 	img := api.ImageInfo{Pointer: "/spec/containers/0/image"}
-	img.ImageInfo = image.ImageInfo {
+	img.ImageInfo = image.ImageInfo{
 		Registry: "docker.io",
 		Name:     "nginx",
 		Path:     "test/nginx",

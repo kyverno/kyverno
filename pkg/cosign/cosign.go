@@ -33,9 +33,9 @@ import (
 var ImageSignatureRepository string
 
 type Options struct {
-	ImageRef          string
-	FetchAttestations bool
-	Key               string
+	ImageRef             string
+	FetchAttestations    bool
+	Key                  string
 	Cert                 string
 	CertChain            string
 	Roots                string
@@ -59,7 +59,6 @@ func Verify(opts Options) (*Response, error) {
 		return verifySignature(opts)
 	}
 }
-
 
 // verifySignature verifies that the image has the expected signatures
 func verifySignature(opts Options) (*Response, error) {
@@ -165,24 +164,24 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			if opts.CertChain == "" {
 				cosignOpts.SigVerifier, err = signature.LoadVerifier(cert.PublicKey, crypto.SHA256)
 				if err != nil {
-					return nil, errors.Wrap(err,"failed to load signature from certificate")
+					return nil, errors.Wrap(err, "failed to load signature from certificate")
 				}
 			} else {
 				// Verify certificate with chain
 				chain, err := loadCertChain([]byte(opts.CertChain))
 				if err != nil {
-					return nil, errors.Wrap(err,"failed to load load certificate chain")
+					return nil, errors.Wrap(err, "failed to load load certificate chain")
 				}
 				cosignOpts.SigVerifier, err = cosign.ValidateAndUnpackCertWithChain(cert, chain, cosignOpts)
 				if err != nil {
-					return nil, errors.Wrap(err,"failed to load validate certificate chain")
+					return nil, errors.Wrap(err, "failed to load validate certificate chain")
 				}
 			}
 		} else if opts.CertChain != "" {
 			// load cert chain as roots
 			cp, err := loadCertPool([]byte(opts.CertChain))
 			if err != nil {
-				return nil, errors.Wrap(err,"failed to load certificates")
+				return nil, errors.Wrap(err, "failed to load certificates")
 			}
 			cosignOpts.RootCerts = cp
 		} else {
@@ -261,7 +260,7 @@ func fetchAttestations(opts Options) (*Response, error) {
 
 	ref, err := name.ParseReference(opts.ImageRef)
 	if err != nil {
-		return nil, errors.Wrap(err,"failed to parse image")
+		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
 	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
