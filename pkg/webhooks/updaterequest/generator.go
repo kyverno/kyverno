@@ -35,7 +35,7 @@ type generator struct {
 func NewGenerator(client kyvernoclient.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer) Generator {
 	return &generator{
 		client:   client,
-		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
+		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace),
 	}
 }
 

@@ -374,7 +374,7 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Interface, userRequestInfo kyvernov1beta1.RequestInfo,
+func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
