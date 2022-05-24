@@ -564,7 +564,7 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
 func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 
-	checkLableAnnotation := func(metaKey map[string]interface{}) bool {
+	checkLabelAnnotation := func(metaKey map[string]interface{}) bool {
 		for mk := range metaKey {
 			if mk == "labels" {
 				labelKey, ok := metaKey[mk].(map[string]interface{})
@@ -598,13 +598,12 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 				metaKey, ok := patternMap[k].(map[string]interface{})
 				if ok {
 					// range over metadata
-					return checkLableAnnotation(metaKey)
+					return checkLabelAnnotation(metaKey)
 				}
 			}
 			if k == "spec" {
 				metadata, _ := jsonq.NewQuery(patternMap).Object("spec", "template", "metadata")
-				fmt.Println("metadata", metadata)
-				return checkLableAnnotation(metadata)
+				return checkLabelAnnotation(metadata)
 			}
 		}
 		return true
