@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -275,14 +276,10 @@ func (c *controller) deleteUR(obj interface{}) {
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.cpolLister, c.polLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client, c.cpolLister, c.polLister, c.urLister, c.eventGen, logger, c.configuration)
 		return ctrl.ProcessUR(ur)
-
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.cpolLister, c.polLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client, c.cpolLister, c.polLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
@@ -334,4 +331,15 @@ func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
+}
+
+func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+	ns, name, err := cache.SplitMetaNamespaceKey(key)
+	if err == nil {
+		return nil, err
+	}
+	if ns == "" {
+		return c.cpolLister.Get(name)
+	}
+	return c.polLister.Policies(ns).Get(name)
 }

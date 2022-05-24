@@ -40,7 +40,7 @@ type MutateExistingController struct {
 	log logr.Logger
 
 	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
+	// urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 
 	// policyLister can list/get cluster policy from the shared informer's store
 	policyLister kyvernov1listers.ClusterPolicyLister
@@ -69,8 +69,8 @@ func NewMutateExistingController(
 		log:           log,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		Config:        dynamicConfig,
+		// urLister:      urLister,
+		Config: dynamicConfig,
 	}
 
 	c.statusControl = common.NewStatusControl(kyvernoClient, urLister)
