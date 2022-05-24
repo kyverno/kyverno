@@ -325,11 +325,6 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 			verifiedCount++
 			if verifiedCount >= requiredCount {
 				iv.logger.V(2).Info("image verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
-
-				if cosignResp.Statements != nil {
-
-				}
-
 				return cosignResp, nil
 			}
 		} else {

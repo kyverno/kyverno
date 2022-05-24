@@ -224,53 +224,6 @@ var scanPredicate = `
         }
     }
 }
-
-`
-
-var policy = `
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: signed-task-image
-spec:
-  validationFailureAction: enforce
-  webhookTimeoutSeconds: 30
-  rules:
-  - name: check-signature
-    match:
-      resources:
-        kinds:
-        - tekton.dev/v1beta1/TaskRun.status
-    imageExtractors:
-      TaskRun:
-        - name: "taskrunstatus"
-          path: "/status/taskSpec/steps/*"
-          value: "image"
-          key: "name"
-    preconditions:
-      all:
-        key: "images."
-    verifyImages:
-    - imageReferences:
-      - "*"
-      attestors:
-      - entries:
-        - keys:
-            publicKeys: |-
-              -----BEGIN PUBLIC KEY-----
-              MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEahmSvGFmxMJABilV1usgsw6ImcQ/
-              gDaxw57Sq+uNGHW8Q3zUSx46PuRqdTI+4qE3Ng2oFZgLMpFN/qMrP0MQQg==
-              -----END PUBLIC KEY-----
-      attestations:
-      - predicateType: https://grype.anchore.io/scan
-        conditions:
-        - any:
-          - key: "matches[].vulnerability[].cvss[?metrics.impactScore > '8.0'][] | length(@)"
-            operator: Equals
-            value: 0
-          - key: "source.target.userInput"
-            operator: Equals
-            value: "ghcr.io/tap8stry/git-init:v0.21.0@sha256:322e3502c1e6fba5f1869efb55cfd998a3679e073840d33eb0e3c482b5d5609b"
 `
 
 func Test_Conditions(t *testing.T) {

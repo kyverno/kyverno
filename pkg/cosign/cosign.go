@@ -53,7 +53,7 @@ type Response struct {
 }
 
 func Verify(opts Options) (*Response, error) {
-	if opts.FetchAttestations == true {
+	if opts.FetchAttestations {
 		return fetchAttestations(opts)
 	} else {
 		return verifySignature(opts)
@@ -209,14 +209,6 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	}
 
 	return cosignOpts, nil
-}
-
-func getFulcioRoots(roots []byte) (*x509.CertPool, error) {
-	if len(roots) == 0 {
-		return fulcio.GetRoots(), nil
-	}
-
-	return loadCertPool(roots)
 }
 
 func loadCertPool(roots []byte) (*x509.CertPool, error) {
