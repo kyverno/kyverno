@@ -185,6 +185,22 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return err
 		}
 	}
+	// try to get the linked policy
+	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
+		if apierrors.IsNotFound(err) {
+			// here only takes care of mutateExisting policies
+			// generate cleanup controller handles policy deletion
+			selector := &metav1.LabelSelector{
+				MatchLabels: common.MutateLabelsSet(ur.Spec.Policy, nil),
+			}
+			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).DeleteCollection(
+				context.TODO(),
+				metav1.DeleteOptions{},
+				metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
+			)
+		}
+		return err
+	}
 	// if in pending state, try to acquire ur and eventually process it
 	if ur.Status.State == kyvernov1beta1.Pending {
 		ur, ok, err := c.acquireUR(ur)
@@ -329,4 +345,15 @@ func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
+}
+
+func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if namespace == "" {
+		return c.policyLister.Get(name)
+	}
+	return c.npolicyLister.Policies(namespace).Get(key)
 }
