@@ -6,6 +6,7 @@ import (
 
 	backoff "github.com/cenkalti/backoff"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
@@ -75,25 +76,11 @@ func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.Up
 		},
 	}
 
-	queryLabels := make(map[string]string)
+	var queryLabels labels.Set
 	if ur.Spec.Type == kyvernov1beta1.Mutate {
-		queryLabels := map[string]string{
-			kyvernov1beta1.URMutatePolicyLabel:                  ur.Spec.Policy,
-			"mutate.updaterequest.kyverno.io/trigger-name":      ur.Spec.Resource.Name,
-			"mutate.updaterequest.kyverno.io/trigger-namespace": ur.Spec.Resource.Namespace,
-			"mutate.updaterequest.kyverno.io/trigger-kind":      ur.Spec.Resource.Kind,
-		}
-
-		if ur.Spec.Resource.APIVersion != "" {
-			queryLabels["mutate.updaterequest.kyverno.io/trigger-apiversion"] = ur.Spec.Resource.APIVersion
-		}
+		queryLabels = common.MutateLabelsSet(ur.Spec.Policy, ur.Spec.Resource)
 	} else if ur.Spec.Type == kyvernov1beta1.Generate {
-		queryLabels = labels.Set(map[string]string{
-			kyvernov1beta1.URGeneratePolicyLabel:     policyName,
-			"generate.kyverno.io/resource-name":      urSpec.Resource.Name,
-			"generate.kyverno.io/resource-kind":      urSpec.Resource.Kind,
-			"generate.kyverno.io/resource-namespace": urSpec.Resource.Namespace,
-		})
+		queryLabels = common.GenerateLabelsSet(ur.Spec.Policy, ur.Spec.Resource)
 	}
 
 	ur.SetNamespace(config.KyvernoNamespace())

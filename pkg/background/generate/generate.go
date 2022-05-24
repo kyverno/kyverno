@@ -99,10 +99,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 		urAnnotations := ur.Annotations
 
 		if len(urAnnotations) == 0 {
-			urAnnotations = make(map[string]string)
-			urAnnotations["generate.kyverno.io/retry-count"] = "1"
+			urAnnotations = map[string]string{
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]: "1",
+			}
 		} else {
-			if val, ok := urAnnotations["generate.kyverno.io/retry-count"]; ok {
+			if val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]; ok {
 				sleepCountInt64, err := strconv.ParseUint(val, 10, 32)
 				if err != nil {
 					logger.Error(err, "unable to convert retry-count")
@@ -121,11 +122,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 				} else {
 					time.Sleep(time.Second * time.Duration(sleepCountInt))
 					incrementedCountString := strconv.Itoa(sleepCountInt)
-					urAnnotations["generate.kyverno.io/retry-count"] = incrementedCountString
+					urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = incrementedCountString
 				}
 			} else {
 				time.Sleep(time.Second * 1)
-				urAnnotations["generate.kyverno.io/retry-count"] = "1"
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = "1"
 			}
 		}
 
@@ -203,10 +204,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		if r.Status != response.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				kyvernov1beta1.URGeneratePolicyLabel:     engineResponse.PolicyResponse.Policy.Name,
-				"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
-				"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
-				"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
+				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
+				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
+				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
+				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
 			}))
 			urList, err := c.urLister.List(selector)
 			if err != nil {
