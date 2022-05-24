@@ -69,75 +69,50 @@ func (g *generator) applyResource(policyName string, urSpec kyvernov1beta1.Updat
 }
 
 func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.UpdateRequestSpec) error {
-	ur := kyvernov1beta1.UpdateRequest{
-		Spec: urSpec,
-		Status: kyvernov1beta1.UpdateRequestStatus{
-			State: kyvernov1beta1.Pending,
-		},
-	}
-
+	l := logger.WithValues("ruleType", urSpec.Type, "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 	var queryLabels labels.Set
-	if ur.Spec.Type == kyvernov1beta1.Mutate {
-		queryLabels = common.MutateLabelsSet(ur.Spec.Policy, ur.Spec.Resource)
-	} else if ur.Spec.Type == kyvernov1beta1.Generate {
-		queryLabels = common.GenerateLabelsSet(ur.Spec.Policy, ur.Spec.Resource)
+	if urSpec.Type == kyvernov1beta1.Mutate {
+		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.Resource)
+	} else if urSpec.Type == kyvernov1beta1.Generate {
+		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.Resource)
 	}
-
-	ur.SetNamespace(config.KyvernoNamespace())
-	isExist := false
-	logger.V(4).Info("apply UpdateRequest", "ruleType", ur.Spec.Type)
-
 	urList, err := g.urLister.List(labels.SelectorFromSet(queryLabels))
 	if err != nil {
-		logger.Error(err, "failed to get update request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
+		l.Error(err, "failed to get update request for the resource", "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 		return err
 	}
-
 	for _, v := range urList {
-		logger.V(4).Info("updating existing update request", "name", v.GetName())
-
-		v.Spec.Context = ur.Spec.Context
-		v.Spec.Policy = ur.Spec.Policy
-		v.Spec.Resource = ur.Spec.Resource
-		v.Status.Message = ""
-
-		new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
-		if err != nil {
-			logger.V(4).Info("failed to update UpdateRequest, retrying", "name", ur.GetName(), "namespace", ur.GetNamespace(), "err", err.Error())
+		l := l.WithValues("name", v.GetName())
+		l.V(4).Info("updating existing update request")
+		if _, err := common.Update(g.client, g.urLister, v.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+			v.Spec = urSpec
+		}); err != nil {
+			l.V(4).Error(err, "failed to update UpdateRequest")
 			return err
 		} else {
-			logger.V(4).Info("successfully updated UpdateRequest", "name", ur.GetName(), "namespace", ur.GetNamespace())
+			l.V(4).Info("successfully updated UpdateRequest")
 		}
-
-		new.Status.State = kyvernov1beta1.Pending
-		if _, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			logger.Error(err, "failed to set UpdateRequest state to Pending")
-			return err
-		}
-
-		isExist = true
-	}
-
-	if !isExist {
-		logger.V(4).Info("creating new UpdateRequest", "type", ur.Spec.Type)
-
-		ur.SetGenerateName("ur-")
-		ur.SetLabels(queryLabels)
-
-		new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{})
-		if err != nil {
-			logger.V(4).Info("failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace(), "err", err.Error())
-			return err
-		} else {
-			logger.V(4).Info("successfully created UpdateRequest", "name", new.GetName(), "namespace", ur.GetNamespace())
-		}
-
-		new.Status.State = kyvernov1beta1.Pending
-		if _, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), new, metav1.UpdateOptions{}); err != nil {
-			logger.Error(err, "failed to set UpdateRequest state to Pending")
+		if _, err := common.UpdateStatus(g.client, g.urLister, v.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
+			l.V(4).Error(err, "failed to update UpdateRequest status")
 			return err
 		}
 	}
-
+	if len(urList) == 0 {
+		l.V(4).Info("creating new UpdateRequest")
+		ur := kyvernov1beta1.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace:    config.KyvernoNamespace(),
+				GenerateName: "ur-",
+				Labels:       queryLabels,
+			},
+			Spec: urSpec,
+		}
+		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{}); err != nil {
+			l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
+			return err
+		} else {
+			l.V(4).Info("successfully created UpdateRequest", "name", new.GetName(), "namespace", ur.GetNamespace())
+		}
+	}
 	return nil
 }
