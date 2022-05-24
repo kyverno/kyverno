@@ -390,8 +390,3 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 
 	return data, nil
 }
-
-func addTargetToContext(ctx *PolicyContext, target interface{}) error {
-	return nil
-
-}
