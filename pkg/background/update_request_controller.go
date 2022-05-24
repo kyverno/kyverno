@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -239,7 +238,6 @@ func (c *controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the UR as the policy was updated
 	for _, ur := range urs {
-		ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueUpdateRequest(ur)
 	}
 }
@@ -273,16 +271,13 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.policyLister, c.npolicyLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
-
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.policyLister, c.npolicyLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
