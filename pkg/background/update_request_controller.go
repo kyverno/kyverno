@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -239,7 +238,6 @@ func (c *controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the UR as the policy was updated
 	for _, ur := range urs {
-		ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueUpdateRequest(ur)
 	}
 }
