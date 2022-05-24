@@ -11,6 +11,7 @@ import (
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
+	"github.com/jmoiron/jsonq"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -562,6 +563,34 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
 func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
+
+	checkLableAnnotation := func(metaKey map[string]interface{}) bool {
+		for mk := range metaKey {
+			if mk == "labels" {
+				labelKey, ok := metaKey[mk].(map[string]interface{})
+				if ok {
+					// range over labels
+					for _, val := range labelKey {
+						if reflect.TypeOf(val).String() != "string" {
+							return false
+						}
+					}
+				}
+			} else if mk == "annotations" {
+				annotationKey, ok := metaKey[mk].(map[string]interface{})
+				if ok {
+					// range over annotations
+					for _, val := range annotationKey {
+						if reflect.TypeOf(val).String() != "string" {
+							return false
+						}
+					}
+				}
+			}
+		}
+		return true
+	}
+
 	// checkMetadata - Verify if the labels and annotations contains string value inside metadata
 	checkMetadata := func(patternMap map[string]interface{}) bool {
 		for k := range patternMap {
@@ -569,30 +598,14 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 				metaKey, ok := patternMap[k].(map[string]interface{})
 				if ok {
 					// range over metadata
-					for mk := range metaKey {
-						if mk == "labels" {
-							labelKey, ok := metaKey[mk].(map[string]interface{})
-							if ok {
-								// range over labels
-								for _, val := range labelKey {
-									if reflect.TypeOf(val).String() != "string" {
-										return false
-									}
-								}
-							}
-						} else if mk == "annotations" {
-							annotationKey, ok := metaKey[mk].(map[string]interface{})
-							if ok {
-								// range over annotations
-								for _, val := range annotationKey {
-									if reflect.TypeOf(val).String() != "string" {
-										return false
-									}
-								}
-							}
-						}
-					}
+					return checkLableAnnotation(metaKey)
 				}
+			}
+			if k == "spec" {
+				metadata, _ := jsonq.NewQuery(patternMap).Object("spec", "template", "metadata")
+				fmt.Println("metadata", metadata)
+				return checkLableAnnotation(metadata)
+
 			}
 		}
 		return true
@@ -618,11 +631,20 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			}
 		}
 	}
-
-	strategicMergeMap, ok := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
-	if ok {
-		return checkMetadata(strategicMergeMap)
+	if rule.Mutation.ForEachMutation != nil {
+		for _, foreach := range rule.Mutation.ForEachMutation {
+			forEachStrategicMergeMap, ok := foreach.GetPatchStrategicMerge().(map[string]interface{})
+			if ok {
+				return checkMetadata(forEachStrategicMergeMap)
+			}
+		}
+	} else {
+		strategicMergeMap, ok := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
+		if ok {
+			return checkMetadata(strategicMergeMap)
+		}
 	}
+
 	return true
 }
 
