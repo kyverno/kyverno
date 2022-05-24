@@ -105,7 +105,6 @@ func check(admissionRsc, existingRsc *unstructured.Unstructured) bool {
 	if existingRsc == nil {
 		return admissionRsc == nil
 	}
-
 	if admissionRsc.GetName() != existingRsc.GetName() {
 		return false
 	}

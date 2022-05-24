@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -46,11 +45,11 @@ type controller struct {
 	kyvernoClient kyvernoclient.Interface
 
 	// listers
-	policyLister  kyvernov1listers.ClusterPolicyLister
-	npolicyLister kyvernov1listers.PolicyLister
-	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
-	nsLister      corev1listers.NamespaceLister
-	podLister     corev1listers.PodLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
+	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister   corev1listers.NamespaceLister
+	podLister  corev1listers.PodLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -64,8 +63,8 @@ func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	policyInformer kyvernov1informers.ClusterPolicyInformer,
-	npolicyInformer kyvernov1informers.PolicyInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 	podInformer corev1informers.PodInformer,
@@ -76,8 +75,8 @@ func NewController(
 	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		policyLister:  policyInformer.Lister(),
-		npolicyLister: npolicyInformer.Lister(),
+		cpolLister:    cpolInformer.Lister(),
+		polLister:     polInformer.Lister(),
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
 		podLister:     podInformer.Lister(),
@@ -90,7 +89,11 @@ func NewController(
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePolicy, // We only handle updates to policy
+		// Deletion of policy will be handled by cleanup controller
+	})
+	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy, // We only handle updates to policy
 		// Deletion of policy will be handled by cleanup controller
 	})
@@ -221,24 +224,21 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) updatePolicy(old, cur interface{}) {
-	oldP := old.(*kyvernov1.ClusterPolicy)
-	curP := cur.(*kyvernov1.ClusterPolicy)
-	if oldP.ResourceVersion == curP.ResourceVersion {
-		return
-	}
-
-	logger.V(4).Info("updating policy", "name", oldP.Name)
-
-	urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(curP.Name)
+func (c *controller) updatePolicy(_, obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		logger.Error(err, "failed to update request for policy", "name", curP.Name)
-		return
-	}
-
-	// re-evaluate the UR as the policy was updated
-	for _, ur := range urs {
-		c.enqueueUpdateRequest(ur)
+		logger.Error(err, "failed to compute policy key")
+	} else {
+		logger.V(4).Info("updating policy", "key", key)
+		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
+		if err != nil {
+			logger.Error(err, "failed to list update requests for policy", "key", key)
+			return
+		}
+		// re-evaluate the UR as the policy was updated
+		for _, ur := range urs {
+			c.enqueueUpdateRequest(ur)
+		}
 	}
 }
 
@@ -274,10 +274,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.policyLister, c.npolicyLister, c.configuration, c.eventGen, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.cpolLister, c.polLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.policyLister, c.npolicyLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
