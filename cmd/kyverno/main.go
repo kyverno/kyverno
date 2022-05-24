@@ -295,7 +295,7 @@ func main() {
 		configuration,
 	)
 
-	grcc, err := generatecleanup.NewController(
+	grcc := generatecleanup.NewController(
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
@@ -303,12 +303,7 @@ func main() {
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("GenerateCleanUpController"),
 	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create generate cleanup controller")
-		os.Exit(1)
-	}
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
