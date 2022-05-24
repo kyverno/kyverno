@@ -273,16 +273,13 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.policyLister, c.npolicyLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
-
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.policyLister, c.npolicyLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
