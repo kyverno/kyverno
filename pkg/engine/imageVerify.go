@@ -259,13 +259,13 @@ func imageMatches(image string, imagePatterns []string) bool {
 }
 
 func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
+	if len(imageVerify.Attestors) <= 0 {
+		return nil, ""
+	}
+
 	image := imageInfo.String()
 	iv.logger.V(2).Info("verifying image signatures", "image", image,
 		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
-
-	if len(imageVerify.Attestors) <= 0 {
-		return ruleError(iv.rule, response.ImageVerify, "invalid rule", fmt.Errorf("missing attestors")), ""
-	}
 
 	var cosignResponse *cosign.Response
 	for i, attestorSet := range imageVerify.Attestors {
