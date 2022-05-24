@@ -19,7 +19,7 @@ func (c *Controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
 		deleteUR := false
 		// check retry count in annotaion
 		urAnnotations := ur.Annotations
-		if val, ok := urAnnotations["generate.kyverno.io/retry-count"]; ok {
+		if val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]; ok {
 			retryCount, err := strconv.ParseUint(val, 10, 32)
 			if err != nil {
 				logger.Error(err, "unable to convert retry-count")

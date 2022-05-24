@@ -124,22 +124,18 @@ func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest
 }
 
 func (pc *PolicyController) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
-	selector := createMutateLabels(policyKey, trigger)
-	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
+	mutateURs, err := pc.urLister.List(labels.SelectorFromSet(common.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		logger.Error(err, "failed to list update request for mutate policy")
 	}
-
 	return mutateURs
 }
 
 func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
-	selector := createGenerateLabels(policyKey, trigger)
-	generateURs, err := pc.urLister.List(labels.SelectorFromSet(selector))
+	generateURs, err := pc.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		logger.Error(err, "failed to list update request for generate policy")
 	}
-
 	return generateURs
 }
 
@@ -154,9 +150,9 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 
 	var label labels.Set
 	if ruleType == kyvernov1beta1.Mutate {
-		label = createMutateLabels(policyNameNamespaceKey, trigger)
+		label = common.MutateLabelsSet(policyNameNamespaceKey, trigger)
 	} else {
-		label = createGenerateLabels(policyNameNamespaceKey, trigger)
+		label = common.GenerateLabelsSet(policyNameNamespaceKey, trigger)
 	}
 
 	return &kyvernov1beta1.UpdateRequest{
@@ -176,44 +172,4 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 			},
 		},
 	}
-}
-
-func createMutateLabels(policyKey string, trigger *unstructured.Unstructured) labels.Set {
-	var selector labels.Set
-	if trigger == nil {
-		selector = labels.Set(map[string]string{
-			kyvernov1beta1.URMutatePolicyLabel: policyKey,
-		})
-	} else {
-		selector = labels.Set(map[string]string{
-			kyvernov1beta1.URMutatePolicyLabel:      policyKey,
-			kyvernov1beta1.URMutateTriggerNameLabel: trigger.GetName(),
-			kyvernov1beta1.URMutateTriggerNSLabel:   trigger.GetNamespace(),
-			kyvernov1beta1.URMutatetriggerKindLabel: trigger.GetKind(),
-		})
-
-		if trigger.GetAPIVersion() != "" {
-			selector[kyvernov1beta1.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
-		}
-	}
-
-	return selector
-}
-
-func createGenerateLabels(policyKey string, trigger *unstructured.Unstructured) labels.Set {
-	var selector labels.Set
-	if trigger == nil {
-		selector = labels.Set(map[string]string{
-			kyvernov1beta1.URGeneratePolicyLabel: policyKey,
-		})
-	} else {
-		selector = labels.Set(map[string]string{
-			kyvernov1beta1.URGeneratePolicyLabel:     policyKey,
-			"generate.kyverno.io/resource-name":      trigger.GetName(),
-			"generate.kyverno.io/resource-kind":      trigger.GetKind(),
-			"generate.kyverno.io/resource-namespace": trigger.GetNamespace(),
-		})
-	}
-
-	return selector
 }
