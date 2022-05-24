@@ -41,7 +41,7 @@ func NewGenerator(client kyvernoclient.Interface, urInformer kyvernov1beta1infor
 
 // Apply creates update request resource
 func (g *generator) Apply(ur kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
-	l.V(4).Info("reconcile Update Request", "request", ur)
+	logger.V(4).Info("reconcile Update Request", "request", ur)
 	if action == admissionv1.Delete && ur.Type == kyvernov1beta1.Generate {
 		return nil
 	}
@@ -64,12 +64,12 @@ func (g *generator) applyResource(policyName string, urSpec kyvernov1beta1.Updat
 	}
 	exbackoff.Reset()
 	if err := backoff.Retry(func() error { return g.tryApplyResource(policyName, urSpec) }, exbackoff); err != nil {
-		l.Error(err, "failed to update request CR")
+		logger.Error(err, "failed to update request CR")
 	}
 }
 
 func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.UpdateRequestSpec) error {
-	l = l.WithValues("ruleType", urSpec.Type, "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
+	l := logger.WithValues("ruleType", urSpec.Type, "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 	var queryLabels labels.Set
 	if urSpec.Type == kyvernov1beta1.Mutate {
 		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.Resource)
