@@ -611,37 +611,51 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 		return true
 	}
 
-	patternMap, ok := rule.Validation.GetPattern().(map[string]interface{})
-	if ok {
-		return checkMetadata(patternMap)
-	} else if rule.Validation.GetAnyPattern() != nil {
-		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
-		if err != nil {
-			log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
-			return false
-		}
-
-		for _, pattern := range anyPatterns {
-			patternMap, ok := pattern.(map[string]interface{})
+	if rule.HasValidate() {
+		if rule.Validation.ForEachValidation != nil {
+			for _, foreach := range rule.Validation.ForEachValidation {
+				patternMap, ok := foreach.GetPattern().(map[string]interface{})
+				if ok {
+					return checkMetadata(patternMap)
+				}
+			}
+		} else {
+			patternMap, ok := rule.Validation.GetPattern().(map[string]interface{})
 			if ok {
-				ret := checkMetadata(patternMap)
-				if !ret {
-					return ret
+				return checkMetadata(patternMap)
+			} else if rule.Validation.GetAnyPattern() != nil {
+				anyPatterns, err := rule.Validation.DeserializeAnyPattern()
+				if err != nil {
+					log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
+					return false
+				}
+
+				for _, pattern := range anyPatterns {
+					patternMap, ok := pattern.(map[string]interface{})
+					if ok {
+						ret := checkMetadata(patternMap)
+						if !ret {
+							return ret
+						}
+					}
 				}
 			}
 		}
 	}
-	if rule.Mutation.ForEachMutation != nil {
-		for _, foreach := range rule.Mutation.ForEachMutation {
-			forEachStrategicMergeMap, ok := foreach.GetPatchStrategicMerge().(map[string]interface{})
-			if ok {
-				return checkMetadata(forEachStrategicMergeMap)
+
+	if rule.HasMutate() {
+		if rule.Mutation.ForEachMutation != nil {
+			for _, foreach := range rule.Mutation.ForEachMutation {
+				forEachStrategicMergeMap, ok := foreach.GetPatchStrategicMerge().(map[string]interface{})
+				if ok {
+					return checkMetadata(forEachStrategicMergeMap)
+				}
 			}
-		}
-	} else {
-		strategicMergeMap, ok := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
-		if ok {
-			return checkMetadata(strategicMergeMap)
+		} else {
+			strategicMergeMap, ok := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
+			if ok {
+				return checkMetadata(strategicMergeMap)
+			}
 		}
 	}
 
