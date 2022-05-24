@@ -285,7 +285,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
+				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -348,12 +348,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
+					pathPrefix := "target"
+					if _, err := ctx.Query("target"); err != nil {
+						pathPrefix = "request.object"
+					}
 					path := getJMESPath(data.Path)
 					var val string
 					if strings.HasPrefix(path, "[") {
-						val = fmt.Sprintf("request.object%s", path)
+						val = fmt.Sprintf("%s%s", pathPrefix, path)
 					} else {
-						val = fmt.Sprintf("request.object.%s", path)
+						val = fmt.Sprintf("%s.%s", pathPrefix, path)
 					}
 
 					variable = strings.Replace(variable, "@", val, -1)
