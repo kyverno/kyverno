@@ -35,6 +35,7 @@ const (
 )
 
 type Controller interface {
+	// Run starts workers
 	Run(int, <-chan struct{})
 }
 
@@ -96,7 +97,6 @@ func NewController(
 	return &c
 }
 
-// Run starts workers
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
