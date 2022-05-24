@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionv1 "k8s.io/api/admission/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -239,7 +238,6 @@ func (c *controller) updatePolicy(old, cur interface{}) {
 
 	// re-evaluate the UR as the policy was updated
 	for _, ur := range urs {
-		ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
 		c.enqueueUpdateRequest(ur)
 	}
 }
@@ -273,25 +271,23 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.policyLister, c.npolicyLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
-
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.policyLister, c.npolicyLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
 }
 
 func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
+	name := ur.GetName()
 	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
 		var err error
-		ur, err = c.urLister.Get(ur.GetName())
+		ur, err = c.urLister.Get(name)
 		if err != nil {
 			return err
 		}
@@ -303,6 +299,10 @@ func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 		ur, err = c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).UpdateStatus(context.TODO(), ur, metav1.UpdateOptions{})
 		return err
 	})
+	if err != nil {
+		logger.Error(err, "failed to acquire ur", "name", name, "ur", ur)
+		return nil, false, err
+	}
 	return ur, ur.Status.Handler == config.KyvernoPodName(), err
 }
 

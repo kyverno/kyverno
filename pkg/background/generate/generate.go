@@ -37,62 +37,48 @@ import (
 )
 
 type GenerateController struct {
-	//	GenerateController updaterequest.GenerateController
-	client dclient.Interface
-
-	// typed client for Kyverno CRDs
+	// clients
+	client        dclient.Interface
 	kyvernoClient kyvernoclient.Interface
-
-	// urStatusControl is used to update UR status
 	statusControl common.StatusControlInterface
 
-	// event generator interface
-	eventGen event.Interface
-
-	log logr.Logger
-
-	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
-
-	// nsLister can list/get namespaces from the shared informer's store
-	nsLister corev1listers.NamespaceLister
-
-	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernov1listers.ClusterPolicyLister
-
-	// policyLister can list/get Namespace policy from the shared informer's store
+	// listers
+	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister      corev1listers.NamespaceLister
+	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 
-	Config config.Configuration
+	configuration config.Configuration
+	eventGen      event.Interface
+	log           logr.Logger
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
 func NewGenerateController(
-	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
+	kyvernoClient kyvernoclient.Interface,
+	statusControl common.StatusControlInterface,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
-	eventGen event.Interface,
 	nsLister corev1listers.NamespaceLister,
-	log logr.Logger,
 	dynamicConfig config.Configuration,
-) (*GenerateController, error) {
+	eventGen event.Interface,
+	log logr.Logger,
+) *GenerateController {
 	c := GenerateController{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		log:           log,
-		Config:        dynamicConfig,
+		statusControl: statusControl,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
 		urLister:      urLister,
+		nsLister:      nsLister,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
-
-	c.statusControl = common.NewStatusControl(kyvernoClient, urLister)
-	c.nsLister = nsLister
-
-	return &c, nil
+	return &c
 }
 
 func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
@@ -113,10 +99,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 		urAnnotations := ur.Annotations
 
 		if len(urAnnotations) == 0 {
-			urAnnotations = make(map[string]string)
-			urAnnotations["generate.kyverno.io/retry-count"] = "1"
+			urAnnotations = map[string]string{
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]: "1",
+			}
 		} else {
-			if val, ok := urAnnotations["generate.kyverno.io/retry-count"]; ok {
+			if val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]; ok {
 				sleepCountInt64, err := strconv.ParseUint(val, 10, 32)
 				if err != nil {
 					logger.Error(err, "unable to convert retry-count")
@@ -135,11 +122,11 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 				} else {
 					time.Sleep(time.Second * time.Duration(sleepCountInt))
 					incrementedCountString := strconv.Itoa(sleepCountInt)
-					urAnnotations["generate.kyverno.io/retry-count"] = incrementedCountString
+					urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = incrementedCountString
 				}
 			} else {
 				time.Sleep(time.Second * 1)
-				urAnnotations["generate.kyverno.io/retry-count"] = "1"
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = "1"
 			}
 		}
 
@@ -199,7 +186,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.Config, namespaceLabels, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
@@ -217,10 +204,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		if r.Status != response.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				kyvernov1beta1.URGeneratePolicyLabel:     engineResponse.PolicyResponse.Policy.Name,
-				"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
-				"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
-				"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
+				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
+				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
+				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
+				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
 			}))
 			urList, err := c.urLister.List(selector)
 			if err != nil {
