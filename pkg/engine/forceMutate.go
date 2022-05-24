@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -20,8 +21,7 @@ func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resour
 
 	patchedResource := resource
 	// TODO: if we apply autogen, tests will fail
-	spec := policy.GetSpec()
-	for _, rule := range spec.Rules {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasMutate() {
 			continue
 		}

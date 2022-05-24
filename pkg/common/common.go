@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/dclient"
@@ -81,7 +82,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 
 func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range autogen.ComputeRules(policy) {
 		clone, sync := rule.GetCloneSyncForGenerate()
 		if !(clone && sync) {
 			continue

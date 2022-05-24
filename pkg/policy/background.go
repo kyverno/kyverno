@@ -10,7 +10,7 @@ import (
 
 // ContainsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.IsMutateExisting() {
 			return nil
 		}

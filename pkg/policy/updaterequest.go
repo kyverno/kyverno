@@ -7,6 +7,7 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -33,7 +34,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 	generateURs := pc.listGenerateURs(policyKey, nil)
 	updateUR(pc.kyvernoClient, pc.urLister.UpdateRequests(config.KyvernoNamespace()), policyKey, append(mutateURs, generateURs...), pc.log.WithName("updateUR"))
 
-	for _, rule := range policy.GetSpec().Rules {
+	for _, rule := range autogen.ComputeRules(policy) {
 		var ruleType kyvernov1beta1.RequestType
 
 		if rule.IsMutateExisting() {
