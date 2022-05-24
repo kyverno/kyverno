@@ -348,12 +348,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
+					pathPrefix := "target."
+					if _, err := ctx.Query("target"); err != nil {
+						pathPrefix = "request.object."
+					}
 					path := getJMESPath(data.Path)
 					var val string
 					if strings.HasPrefix(path, "[") {
-						val = fmt.Sprintf("target.%s", path)
+						val = fmt.Sprintf("%s%s", pathPrefix, path)
 					} else {
-						val = fmt.Sprintf("target.%s", path)
+						val = fmt.Sprintf("%s%s", pathPrefix, path)
 					}
 
 					variable = strings.Replace(variable, "@", val, -1)

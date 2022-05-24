@@ -97,10 +97,12 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				continue
 			}
 
-			policyContext := policyContext.Copy()
-			if err := policyContext.JSONContext.AddTargetResource(patchedResource.Object); err != nil {
-				log.Log.Error(err, "failed to add target resource to the context")
-				continue
+			if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
+				policyContext := policyContext.Copy()
+				if err := policyContext.JSONContext.AddTargetResource(patchedResource.Object); err != nil {
+					log.Log.Error(err, "failed to add target resource to the context")
+					continue
+				}
 			}
 
 			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
@@ -121,8 +123,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 					incrementAppliedCount(resp)
 				}
 			}
-
-			policyContext.JSONContext.Reset()
 		}
 	}
 
