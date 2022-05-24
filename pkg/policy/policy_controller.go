@@ -26,6 +26,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -176,11 +177,13 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 	// register kyverno_policy_changes_total metric concurrently
 	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
-	if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		pol, _ := utilscommon.MutatePolicy(p, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to add policy ")
+	if !toggle.AutogenInternals() {
+		if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
+			pol, _ := utilscommon.MutatePolicy(p, logger)
+			_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to add policy ")
+			}
 		}
 	}
 
@@ -202,11 +205,13 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	// register kyverno_policy_changes_total metric concurrently
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
-	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		pol, _ := utilscommon.MutatePolicy(curP, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to update policy ")
+	if !toggle.AutogenInternals() {
+		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
+			pol, _ := utilscommon.MutatePolicy(curP, logger)
+			_, err := pc.kyvernoClient.KyvernoV1().ClusterPolicies().Update(context.TODO(), pol.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update policy ")
+			}
 		}
 	}
 
@@ -271,14 +276,17 @@ func (pc *PolicyController) addNsPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
-	spec := p.GetSpec()
-	if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
-		nsPol, _ := utilscommon.MutatePolicy(p, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to add namespace policy")
+	if !toggle.AutogenInternals() {
+		spec := p.GetSpec()
+		if spec.Background == nil || spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
+			nsPol, _ := utilscommon.MutatePolicy(p, logger)
+			_, err := pc.kyvernoClient.KyvernoV1().Policies(p.Namespace).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to add namespace policy")
+			}
 		}
 	}
+
 	if !pc.canBackgroundProcess(p) {
 		return
 	}
@@ -296,11 +304,13 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	// register kyverno_policy_changes_total metric concurrently
 	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
-	if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
-		nsPol, _ := utilscommon.MutatePolicy(curP, logger)
-		_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
-		if err != nil {
-			logger.Error(err, "failed to update namespace policy ")
+	if !toggle.AutogenInternals() {
+		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
+			nsPol, _ := utilscommon.MutatePolicy(curP, logger)
+			_, err := pc.kyvernoClient.KyvernoV1().Policies(curP.GetNamespace()).Update(context.TODO(), nsPol.(*kyvernov1.Policy), metav1.UpdateOptions{})
+			if err != nil {
+				logger.Error(err, "failed to update namespace policy ")
+			}
 		}
 	}
 
