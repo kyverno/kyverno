@@ -97,7 +97,6 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 				continue
 			}
 
-			policyContext.JSONContext.Reset()
 			policyContext := policyContext.Copy()
 			if err := policyContext.JSONContext.AddTargetResource(patchedResource.Object); err != nil {
 				log.Log.Error(err, "failed to add target resource to the context")
@@ -122,6 +121,8 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 					incrementAppliedCount(resp)
 				}
 			}
+
+			policyContext.JSONContext.Reset()
 		}
 	}
 
