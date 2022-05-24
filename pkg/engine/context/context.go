@@ -49,6 +49,9 @@ type Interface interface {
 	// AddOldResource merges resource json under request.oldObject
 	AddOldResource(data map[string]interface{}) error
 
+	// AddTargetResource merges resource json under target
+	AddTargetResource(data map[string]interface{}) error
+
 	// AddUserInfo merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
 
@@ -163,6 +166,11 @@ func (ctx *context) AddResource(data map[string]interface{}) error {
 // AddOldResource data at path: request.oldObject
 func (ctx *context) AddOldResource(data map[string]interface{}) error {
 	return addToContext(ctx, data, "request", "oldObject")
+}
+
+// AddTargetResource adds data at path: target
+func (ctx *context) AddTargetResource(data map[string]interface{}) error {
+	return addToContext(ctx, data, "target")
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
