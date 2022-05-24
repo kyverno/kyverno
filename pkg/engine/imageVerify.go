@@ -175,16 +175,13 @@ func (iv *imageVerifier) verify(imageVerify v1.ImageVerification, images map[str
 				continue
 			}
 
-			var ruleResp *response.RuleResponse
-			var digest string
-
-			if len(imageVerify.Attestors) > 0 {
-				if len(imageVerify.Attestations) > 0 {
-					ruleResp = iv.verifyAttestations(imageVerify, imageInfo)
-				} else {
-					ruleResp, digest = iv.verifySignatures(imageVerify, imageInfo)
-				}
+			verified, err := isImageVerified(iv.policyContext.NewResource, image, iv.logger)
+			if err == nil && verified {
+				iv.logger.Info("image was previously verified, skipping check", "image", image)
+				continue
 			}
+
+			ruleResp, digest := iv.verifyImage(imageVerify, imageInfo)
 
 			if imageVerify.MutateDigest {
 				patch, retrievedDigest, err := iv.handleMutateDigest(digest, imageInfo)
@@ -279,15 +276,20 @@ func imageMatches(image string, imagePatterns []string) bool {
 	return false
 }
 
-func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
-	image := imageInfo.String()
-	iv.logger.V(2).Info("verifying image signatures", "image", image, "attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
+func (iv *imageVerifier) verifyImage(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) (*response.RuleResponse, string) {
+	if len(imageVerify.Attestors) <= 0 {
+		return nil, ""
+	}
 
-	var digest string
+	image := imageInfo.String()
+	iv.logger.V(2).Info("verifying image signatures", "image", image,
+		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
+
+	var cosignResponse *cosign.Response
 	for i, attestorSet := range imageVerify.Attestors {
 		var err error
 		path := fmt.Sprintf(".attestors[%d]", i)
-		digest, err = iv.verifyAttestorSet(attestorSet, imageVerify, image, path)
+		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
 			iv.logger.Error(err, "failed to verify signature")
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
@@ -295,19 +297,26 @@ func (iv *imageVerifier) verifySignatures(imageVerify v1.ImageVerification, imag
 		}
 	}
 
+	if cosignResponse == nil {
+		return ruleError(iv.rule, response.ImageVerify, "invalid response", fmt.Errorf("nil")), ""
+	}
+
 	msg := fmt.Sprintf("verified image signatures for %s", image)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), digest
+	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil), cosignResponse.Digest
 }
 
-func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify v1.ImageVerification, image, path string) (string, error) {
+func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVerify v1.ImageVerification,
+	imageInfo apiutils.ImageInfo, path string) (*cosign.Response, error) {
+
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
+	image := imageInfo.String()
 
 	for i, a := range attestorSet.Entries {
-		var digest string
 		var entryError error
+		var cosignResp *cosign.Response
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
 
 		if a.Attestor != nil {
@@ -316,11 +325,15 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVeri
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
 				attestorPath += ".attestor"
-				digest, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, image, attestorPath)
+				cosignResp, entryError = iv.verifyAttestorSet(*nestedAttestorSet, imageVerify, imageInfo, attestorPath)
 			}
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
-			digest, entryError = cosign.VerifySignature(*opts)
+			cosignResp, entryError = cosign.Verify(*opts)
+			if opts.FetchAttestations && entryError == nil {
+				entryError = iv.verifyAttestations(cosignResp.Statements, imageVerify, imageInfo)
+			}
+
 			if entryError != nil {
 				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
 			}
@@ -330,7 +343,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVeri
 			verifiedCount++
 			if verifiedCount >= requiredCount {
 				iv.logger.V(2).Info("image verification succeeded", "verifiedCount", verifiedCount, "requiredCount", requiredCount)
-				return digest, nil
+				return cosignResp, nil
 			}
 		} else {
 			errorList = append(errorList, entryError)
@@ -339,7 +352,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet v1.AttestorSet, imageVeri
 
 	iv.logger.Info("image verification failed", "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", errorList)
 	err := engineUtils.CombineErrors(errorList)
-	return "", err
+	return nil, err
 }
 
 func expandStaticKeys(attestorSet v1.AttestorSet) v1.AttestorSet {
@@ -406,6 +419,10 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor v1.Attestor, imageVerify v
 		opts.Roots = imageVerify.Roots
 	}
 
+	if len(imageVerify.Attestations) > 0 {
+		opts.FetchAttestations = true
+	}
+
 	if attestor.Keys != nil {
 		path = path + ".keys"
 		opts.Key = attestor.Keys.PublicKeys
@@ -452,46 +469,39 @@ func makeAddDigestPatch(imageInfo apiutils.ImageInfo, digest string) ([]byte, er
 	return json.Marshal(patch)
 }
 
-func (iv *imageVerifier) verifyAttestations(imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) *response.RuleResponse {
+func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{}, imageVerify v1.ImageVerification, imageInfo apiutils.ImageInfo) error {
 	image := imageInfo.String()
-	start := time.Now()
-
-	statements, err := cosign.FetchAttestations(image, imageVerify)
-	if err != nil {
-		iv.logger.Info("failed to fetch attestations", "image", image, "error", err, "duration", time.Since(start).Seconds())
-		return ruleError(iv.rule, response.ImageVerify, fmt.Sprintf("failed to fetch attestations for %s", image), err)
-	}
-
-	iv.logger.V(4).Info("received attestations", "count", len(statements))
-	statementsByPredicate := buildStatementMap(statements)
+	statementsByPredicate, types := buildStatementMap(statements)
+	iv.logger.V(4).Info("checking attestations", "predicates", types, "image", image)
 
 	for _, ac := range imageVerify.Attestations {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
-			msg := fmt.Sprintf("predicate type %s not found", ac.PredicateType)
-			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+			iv.logger.Info("attestation predicate type %s not found", "predicates", types, "image", imageInfo.String())
+			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
+
+		iv.logger.Info("checking attestation predicate type %s", "predicates", types, "image", imageInfo.String())
 
 		for _, s := range statements {
 			val, err := iv.checkAttestations(ac, s, imageInfo)
 			if err != nil {
-				return ruleError(iv.rule, response.ImageVerify, "failed to check attestation", err)
+				return errors.Wrap(err, "failed to check attestations")
 			}
 
 			if !val {
-				msg := fmt.Sprintf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
-				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil)
+				return fmt.Errorf("attestation checks failed for %s and predicate %s", imageInfo.String(), ac.PredicateType)
 			}
 		}
 	}
 
-	msg := fmt.Sprintf("attestation checks passed for %s", imageInfo.String())
-	iv.logger.V(2).Info(msg)
-	return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusPass, nil)
+	iv.logger.V(3).Info("attestation checks passed for %s", imageInfo.String())
+	return nil
 }
 
-func buildStatementMap(statements []map[string]interface{}) map[string][]map[string]interface{} {
+func buildStatementMap(statements []map[string]interface{}) (map[string][]map[string]interface{}, []string) {
 	results := map[string][]map[string]interface{}{}
+	var predicateTypes []string
 	for _, s := range statements {
 		predicateType := s["predicateType"].(string)
 		if results[predicateType] != nil {
@@ -499,9 +509,11 @@ func buildStatementMap(statements []map[string]interface{}) map[string][]map[str
 		} else {
 			results[predicateType] = []map[string]interface{}{s}
 		}
+
+		predicateTypes = append(predicateTypes, predicateType)
 	}
 
-	return results
+	return results, predicateTypes
 }
 
 func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interface{}, img apiutils.ImageInfo) (bool, error) {
@@ -512,24 +524,34 @@ func (iv *imageVerifier) checkAttestations(a v1.Attestation, s map[string]interf
 	iv.policyContext.JSONContext.Checkpoint()
 	defer iv.policyContext.JSONContext.Restore()
 
+	return evaluateConditions(a.Conditions, iv.policyContext.JSONContext, s, img, iv.logger)
+}
+
+func evaluateConditions(
+	conditions []v1.AnyAllConditions,
+	ctx context.Interface,
+	s map[string]interface{},
+	img apiutils.ImageInfo,
+	log logr.Logger) (bool, error) {
+
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)
 	}
 
-	if err := context.AddJSONObject(iv.policyContext.JSONContext, predicate); err != nil {
+	if err := context.AddJSONObject(ctx, predicate); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
 	}
 
-	if err := iv.policyContext.JSONContext.AddImageInfo(img); err != nil {
+	if err := ctx.AddImageInfo(img); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
 	}
 
-	conditions, err := variables.SubstituteAllInConditions(iv.logger, iv.policyContext.JSONContext, a.Conditions)
+	c, err := variables.SubstituteAllInConditions(log, ctx, conditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to substitute variables in attestation conditions")
 	}
 
-	pass := variables.EvaluateAnyAllConditions(iv.logger, iv.policyContext.JSONContext, conditions)
+	pass := variables.EvaluateAnyAllConditions(log, ctx, c)
 	return pass, nil
 }
