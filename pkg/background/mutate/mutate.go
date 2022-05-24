@@ -8,9 +8,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -26,55 +24,39 @@ import (
 var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
 
 type MutateExistingController struct {
-	client dclient.Interface
-
-	// typed client for Kyverno CRDs
-	kyvernoClient kyvernoclient.Interface
-
-	// urStatusControl is used to update UR status
+	// clients
+	client        dclient.Interface
 	statusControl common.StatusControlInterface
 
-	// event generator interface
-	eventGen event.Interface
-
-	log logr.Logger
-
-	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
-
-	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernov1listers.ClusterPolicyLister
-
-	// policyLister can list/get Namespace policy from the shared informer's store
+	// listers
+	policyLister  kyvernov1listers.ClusterPolicyLister
 	npolicyLister kyvernov1listers.PolicyLister
 
-	Config config.Configuration
+	configuration config.Configuration
+	eventGen      event.Interface
+	log           logr.Logger
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
-	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
+	statusControl common.StatusControlInterface,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,
-	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
+	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
-	dynamicConfig config.Configuration,
-) (*MutateExistingController, error) {
+) *MutateExistingController {
 	c := MutateExistingController{
 		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		log:           log,
+		statusControl: statusControl,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		Config:        dynamicConfig,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
-
-	c.statusControl = common.NewStatusControl(kyvernoClient, urLister)
-	return &c, nil
+	return &c
 }
 
 func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
@@ -99,7 +81,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.Config, nil, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
