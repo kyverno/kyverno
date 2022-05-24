@@ -605,7 +605,6 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 				metadata, _ := jsonq.NewQuery(patternMap).Object("spec", "template", "metadata")
 				fmt.Println("metadata", metadata)
 				return checkLableAnnotation(metadata)
-
 			}
 		}
 		return true
