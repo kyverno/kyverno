@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewAllNotInHandler returns handler to manage AllNotIn operations
+// NewAllNotInHandler returns handler to manage AllNotIn operations
 func NewAllNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AllNotInHandler{
 		ctx: ctx,
@@ -15,13 +15,13 @@ func NewAllNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHand
 	}
 }
 
-//AllNotInHandler provides implementation to handle AllNotIn Operator
+// AllNotInHandler provides implementation to handle AllNotIn Operator
 type AllNotInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AllNotIn Operator
+// Evaluate evaluates expression with AllNotIn Operator
 func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:

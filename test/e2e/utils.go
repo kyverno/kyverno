@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,7 +19,8 @@ import (
 
 // E2EClient ...
 type E2EClient struct {
-	Client dynamic.Interface
+	Client  dynamic.Interface
+	KClient versioned.Interface
 }
 
 type APIRequest struct {
@@ -38,14 +40,50 @@ func NewE2EClient() (*E2EClient, error) {
 		return nil, err
 	}
 	e2eClient := new(E2EClient)
-	dClient, err := dynamic.NewForConfig(config)
-	e2eClient.Client = dClient
-	return e2eClient, err
+	if dClient, err := dynamic.NewForConfig(config); err != nil {
+		return nil, err
+	} else {
+		e2eClient.Client = dClient
+	}
+	if kclient, err := versioned.NewForConfig(config); err != nil {
+		return nil, err
+	} else {
+		e2eClient.KClient = kclient
+	}
+	return e2eClient, nil
 }
 
 // GetGVR :- gets GroupVersionResource for dynamic client
 func GetGVR(group, version, resource string) schema.GroupVersionResource {
 	return schema.GroupVersionResource{Group: group, Version: version, Resource: resource}
+}
+
+func (e2e *E2EClient) ClusterPolicyReady(policyName string) bool {
+	return GetWithRetry(1*time.Second, 15, func() error {
+		if cpol, err := e2e.KClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{}); err != nil {
+			return err
+		} else {
+			if !cpol.IsReady() {
+				return fmt.Errorf("cluster policy %s is not ready", policyName)
+			}
+			time.Sleep(2 * time.Second)
+			return nil
+		}
+	}) == nil
+}
+
+func (e2e *E2EClient) PolicyReady(namespace string, policyName string) bool {
+	return GetWithRetry(1*time.Second, 15, func() error {
+		if pol, err := e2e.KClient.KyvernoV1().Policies(namespace).Get(context.TODO(), policyName, metav1.GetOptions{}); err != nil {
+			return err
+		} else {
+			if !pol.IsReady() {
+				return fmt.Errorf("cluster policy %s is not ready", policyName)
+			}
+			time.Sleep(2 * time.Second)
+			return nil
+		}
+	}) != nil
 }
 
 // CleanClusterPolicies ;- Deletes all the cluster policies
@@ -176,13 +214,17 @@ func CallAPI(request APIRequest) (*http.Response, error) {
 	var response *http.Response
 	switch request.Type {
 	case "GET":
-		resp, err := http.Get(request.URL)
+		req, err := http.NewRequestWithContext(context.TODO(), http.MethodGet, request.URL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
+		}
+		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
 		}
 		response = resp
 	case "POST", "PUT", "DELETE", "PATCH":
-		req, err := http.NewRequest(string(request.Type), request.URL, request.Body)
+		req, err := http.NewRequestWithContext(context.TODO(), request.Type, request.URL, request.Body)
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while calling %s: %w", request.URL, err)
 		}

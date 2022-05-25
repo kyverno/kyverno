@@ -36,7 +36,7 @@ func getResourceFromKind(kind string) string {
 	return ""
 }
 
-//ConvertToUnstructured converts a resource to unstructured format
+// ConvertToUnstructured converts a resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
@@ -45,11 +45,4 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 		return nil, err
 	}
 	return resource, nil
-}
-
-func envOr(name, def string) string {
-	if v, ok := os.LookupEnv(name); ok {
-		return v
-	}
-	return def
 }

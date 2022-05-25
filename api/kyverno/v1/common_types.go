@@ -5,8 +5,6 @@ import (
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
@@ -42,7 +40,6 @@ type AnyAllConditions struct {
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
 type ContextEntry struct {
-
 	// Name is the variable name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
@@ -94,7 +91,6 @@ type ImageRegistry struct {
 
 // ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
-
 	// Name is the ConfigMap name.
 	Name string `json:"name" yaml:"name"`
 
@@ -107,7 +103,6 @@ type ConfigMapReference struct {
 // used to perform the HTTP GET request and an optional JMESPath used to
 // transform the retrieved JSON data.
 type APICall struct {
-
 	// URLPath is the URL path to be used in the HTTP GET request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
@@ -215,17 +210,9 @@ type ResourceFilter struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
-
-	// mutateExisting controls whether to mutate existing resource ONLY
-	// The existing resources will be mutated ONLY if set to "true".
-	// Otherwise all resources including admission requests are mutated.
-	// Optional. Defaults to "false" if not specified.
-	// +optional
-	MutateExisting bool `json:"mutateExisting,omitempty" yaml:"mutatingExisting,omitempty"`
-
 	// Targets defines the target resources to be mutated.
 	// +optional
-	Targets []TargetMutation `json:"targets,omitempty" yaml:"targets,omitempty"`
+	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
 
 	// PatchStrategicMerge is a strategic merge patch used to modify resources.
 	// See https://kubernetes.io/docs/tasks/manage-kubernetes-objects/update-api-object-kubectl-patch/
@@ -240,13 +227,7 @@ type Mutation struct {
 
 	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
-	ForEachMutation []*ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
-}
-
-type TargetMutation struct {
-	// ResourceSpec specifies the target resource information.
-	// +optional
-	ResourceSpec `json:",omitempty" yaml:",omitempty"`
+	ForEachMutation []ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {
@@ -302,7 +283,7 @@ type Validation struct {
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
-	ForEachValidation []*ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+	ForEachValidation []ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
 
 	// Pattern specifies an overlay-style pattern used to check resources.
 	// +optional
@@ -376,7 +357,6 @@ func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 
 // ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
-
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
@@ -464,89 +444,10 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {
-
 	// Namespace specifies source resource namespace.
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 
 	// Name specifies name of the resource.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-const (
-	// Ready means that the policy is ready
-	PolicyConditionReady = "Ready"
-)
-
-const (
-	// PolicyReasonSucceeded is the reason set when the policy is ready
-	PolicyReasonSucceeded = "Succeeded"
-	// PolicyReasonSucceeded is the reason set when the policy is not ready
-	PolicyReasonFailed = "Failed"
-)
-
-// PolicyStatus mostly contains runtime information related to policy execution.
-// Deprecated. Policy metrics are now available via the "/metrics" endpoint.
-// See: https://kyverno.io/docs/monitoring-kyverno-with-prometheus-metrics/
-type PolicyStatus struct {
-	// Ready indicates if the policy is ready to serve the admission request.
-	// Deprecated in favor of Conditions
-	Ready bool `json:"ready" yaml:"ready"`
-	// Conditions is a list of conditions that apply to the policy
-	// +optional
-	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Autogen contains autogen status information
-	// +optional
-	Autogen AutogenStatus `json:"autogen" yaml:"autogen"`
-	// Rules is a list of Rule instances. It contains original rules defined in the spec
-	// auto generated rules added for pod controllers
-	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
-}
-
-func (status *PolicyStatus) SetReady(ready bool) {
-	condition := metav1.Condition{
-		Type: PolicyConditionReady,
-	}
-	if ready {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = PolicyReasonSucceeded
-	} else {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = PolicyReasonFailed
-	}
-	status.Ready = ready
-	meta.SetStatusCondition(&status.Conditions, condition)
-}
-
-// IsReady indicates if the policy is ready to serve the admission request
-func (status *PolicyStatus) IsReady() bool {
-	condition := meta.FindStatusCondition(status.Conditions, PolicyConditionReady)
-	return condition != nil && condition.Status == metav1.ConditionTrue
-}
-
-// AutogenStatus contains autogen status information.
-// It indicates requested, supported and effective autogen controllers used when
-// automatically generating rules.
-type AutogenStatus struct {
-	// Requested indicates the autogen requested controllers
-	Requested []string `json:"requested,omitempty" yaml:"requested,omitempty"`
-	// Supported indicates the autogen supported controllers
-	Supported []string `json:"supported,omitempty" yaml:"supported,omitempty"`
-	// Activated indicates the autogen activated controllers
-	Activated []string `json:"activated,omitempty" yaml:"activated,omitempty"`
-}
-
-// ResourceSpec contains information to identify a resource.
-type ResourceSpec struct {
-	// APIVersion specifies resource apiVersion.
-	// +optional
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	// Namespace specifies resource namespace.
-	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	// Name specifies the resource name.
-	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }

@@ -3,22 +3,22 @@ package mutate
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
-	mutation kyverno.Mutation
+	mutation kyvernov1.Mutation
 }
 
-//NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyverno.Mutation) *Mutate {
+// NewMutateFactory returns a new instance of Mutate validation checker
+func NewMutateFactory(m kyvernov1.Mutation) *Mutate {
 	return &Mutate{
 		mutation: m,
 	}
 }
 
-//Validate validates the 'mutate' rule
+// Validate validates the 'mutate' rule
 func (m *Mutate) Validate() (string, error) {
 	if m.hasForEach() {
 		return m.validateForEach()

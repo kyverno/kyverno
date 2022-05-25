@@ -112,3 +112,28 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	return &cs, nil
 }
+
+// NewForConfigOrDie creates a new Clientset for the given config and
+// panics if there is an error in the config.
+func NewForConfigOrDie(c *rest.Config) *Clientset {
+	var cs Clientset
+	cs.kyvernoV1 = kyvernov1.NewForConfigOrDie(c)
+	cs.kyvernoV1beta1 = kyvernov1beta1.NewForConfigOrDie(c)
+	cs.kyvernoV1alpha2 = kyvernov1alpha2.NewForConfigOrDie(c)
+	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.NewForConfigOrDie(c)
+
+	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
+	return &cs
+}
+
+// New creates a new Clientset for the given RESTClient.
+func New(c rest.Interface) *Clientset {
+	var cs Clientset
+	cs.kyvernoV1 = kyvernov1.New(c)
+	cs.kyvernoV1beta1 = kyvernov1beta1.New(c)
+	cs.kyvernoV1alpha2 = kyvernov1alpha2.New(c)
+	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.New(c)
+
+	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
+	return &cs
+}

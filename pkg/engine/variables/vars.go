@@ -8,11 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/kyverno/kyverno/pkg/engine/anchor"
-
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	jsonUtils "github.com/kyverno/kyverno/pkg/engine/jsonutils"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -93,7 +92,7 @@ func SubstituteAllInPreconditions(log logr.Logger, ctx context.EvalInterface, do
 	return substituteAll(log, ctx, untypedDoc, newPreconditionsVariableResolver(log))
 }
 
-func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllInRule(log logr.Logger, ctx context.EvalInterface, typedRule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
 	var rule interface{}
 	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
@@ -123,22 +122,22 @@ func DocumentToUntyped(doc interface{}) (interface{}, error) {
 	return untyped, nil
 }
 
-func UntypedToRule(untyped interface{}) (kyverno.Rule, error) {
+func UntypedToRule(untyped interface{}) (kyvernov1.Rule, error) {
 	jsonRule, err := json.Marshal(untyped)
 	if err != nil {
-		return kyverno.Rule{}, err
+		return kyvernov1.Rule{}, err
 	}
 
-	var rule kyverno.Rule
+	var rule kyvernov1.Rule
 	err = json.Unmarshal(jsonRule, &rule)
 	if err != nil {
-		return kyverno.Rule{}, err
+		return kyvernov1.Rule{}, err
 	}
 
 	return rule, nil
 }
 
-func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []*kyverno.AnyAllConditions) ([]*kyverno.AnyAllConditions, error) {
+func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, conditions []kyvernov1.AnyAllConditions) ([]kyvernov1.AnyAllConditions, error) {
 	c, err := ConditionsToJSONObject(conditions)
 	if err != nil {
 		return nil, err
@@ -152,13 +151,13 @@ func SubstituteAllInConditions(log logr.Logger, ctx context.EvalInterface, condi
 	return JSONObjectToConditions(i)
 }
 
-func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[string]interface{}, error) {
+func ConditionsToJSONObject(conditions []kyvernov1.AnyAllConditions) ([]map[string]interface{}, error) {
 	bytes, err := json.Marshal(conditions)
 	if err != nil {
 		return nil, err
 	}
 
-	var m = []map[string]interface{}{}
+	m := []map[string]interface{}{}
 	if err := json.Unmarshal(bytes, &m); err != nil {
 		return nil, err
 	}
@@ -166,13 +165,13 @@ func ConditionsToJSONObject(conditions []*kyverno.AnyAllConditions) ([]map[strin
 	return m, nil
 }
 
-func JSONObjectToConditions(data interface{}) ([]*kyverno.AnyAllConditions, error) {
+func JSONObjectToConditions(data interface{}) ([]kyvernov1.AnyAllConditions, error) {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	var c []*kyverno.AnyAllConditions
+	var c []kyvernov1.AnyAllConditions
 	if err := json.Unmarshal(bytes, &c); err != nil {
 		return nil, err
 	}
@@ -189,17 +188,17 @@ func substituteAll(log logr.Logger, ctx context.EvalInterface, document interfac
 	return substituteVars(log, ctx, document, resolver)
 }
 
-func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule kyverno.Rule) (_ kyverno.Rule, err error) {
+func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule kyvernov1.Rule) (_ kyvernov1.Rule, err error) {
 	var rule interface{}
 
 	rule, err = DocumentToUntyped(typedRule)
 	if err != nil {
-		return kyverno.Rule{}, err
+		return kyvernov1.Rule{}, err
 	}
 
 	rule, err = substituteReferences(log, rule)
 	if err != nil {
-		return kyverno.Rule{}, err
+		return kyvernov1.Rule{}, err
 	}
 
 	if ctx == nil {
@@ -207,7 +206,7 @@ func SubstituteAllForceMutate(log logr.Logger, ctx context.Interface, typedRule 
 	} else {
 		rule, err = substituteVars(log, ctx, rule, DefaultVariableResolver)
 		if err != nil {
-			return kyverno.Rule{}, err
+			return kyvernov1.Rule{}, err
 		}
 	}
 
@@ -250,13 +249,13 @@ func validateElementInForEach(log logr.Logger) jsonUtils.Action {
 	})
 }
 
-// NotResolvedReferenceErr is returned when it is impossible to resolve the variable
-type NotResolvedReferenceErr struct {
+// NotResolvedReferenceError is returned when it is impossible to resolve the variable
+type NotResolvedReferenceError struct {
 	reference string
 	path      string
 }
 
-func (n NotResolvedReferenceErr) Error() string {
+func (n NotResolvedReferenceError) Error() string {
 	return fmt.Sprintf("NotResolvedReferenceErr,reference %s not resolved at path %s", n.reference, n.path)
 }
 
@@ -278,7 +277,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			resolvedReference, err := resolveReference(log, data.Document, v, data.Path)
 			if err != nil {
 				switch err.(type) {
-				case context.InvalidVariableErr:
+				case context.InvalidVariableError:
 					return nil, err
 				default:
 					return nil, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
@@ -286,7 +285,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 			}
 
 			if resolvedReference == nil {
-				return data.Element, fmt.Errorf("failed to resolve %v at path %s: %v", v, data.Path, err)
+				return data.Element, fmt.Errorf("got nil resolved variable %v at path %s: %v", v, data.Path, err)
 			}
 
 			log.V(3).Info("reference resolved", "reference", v, "value", resolvedReference, "path", data.Path)
@@ -304,7 +303,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 				continue
 			}
 
-			return data.Element, NotResolvedReferenceErr{
+			return data.Element, NotResolvedReferenceError{
 				reference: v,
 				path:      data.Path,
 			}
@@ -318,7 +317,7 @@ func substituteReferencesIfAny(log logr.Logger) jsonUtils.Action {
 	})
 }
 
-//VariableResolver defines the handler function for variable substitution
+// VariableResolver defines the handler function for variable substitution
 type VariableResolver = func(ctx context.EvalInterface, variable string) (interface{}, error)
 
 // DefaultVariableResolver is used in all variable substitutions except preconditions
@@ -349,12 +348,16 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				variable := replaceBracesAndTrimSpaces(v)
 
 				if variable == "@" {
+					pathPrefix := "target"
+					if _, err := ctx.Query("target"); err != nil {
+						pathPrefix = "request.object"
+					}
 					path := getJMESPath(data.Path)
 					var val string
 					if strings.HasPrefix(path, "[") {
-						val = fmt.Sprintf("request.object%s", path)
+						val = fmt.Sprintf("%s%s", pathPrefix, path)
 					} else {
-						val = fmt.Sprintf("request.object.%s", path)
+						val = fmt.Sprintf("%s.%s", pathPrefix, path)
 					}
 
 					variable = strings.Replace(variable, "@", val, -1)
@@ -365,10 +368,9 @@ func substituteVariablesIfAny(log logr.Logger, ctx context.EvalInterface, vr Var
 				}
 
 				substitutedVar, err := vr(ctx, variable)
-
 				if err != nil {
 					switch err.(type) {
-					case context.InvalidVariableErr, gojmespath.NotFoundError:
+					case context.InvalidVariableError, gojmespath.NotFoundError:
 						return nil, err
 					default:
 						return nil, fmt.Errorf("failed to resolve %v at path %s: %v", variable, data.Path, err)
@@ -478,7 +480,7 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 		return err, nil
 	}
 
-	if operation == operator.Equal { //if operator does not exist return raw value
+	if operation == operator.Equal { // if operator does not exist return raw value
 		return valFromReference, nil
 	}
 
@@ -490,9 +492,8 @@ func resolveReference(log logr.Logger, fullDocument interface{}, reference, abso
 	return string(operation) + foundValue.(string), nil
 }
 
-//Parse value to string
+// Parse value to string
 func valFromReferenceToString(value interface{}, operator string) (string, error) {
-
 	switch typed := value.(type) {
 	case string:
 		return typed, nil

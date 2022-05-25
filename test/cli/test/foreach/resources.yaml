@@ -25,6 +25,30 @@ spec:
 apiVersion: v1
 kind: Pod
 metadata:
+  name: test-pod-ghcr
+spec:
+  containers:
+    - image: ghcr.io/test-webserver
+      name: test1
+      volumeMounts:
+        - mountPath: /tmp/cache
+          name: cache-volume
+    - image: ghcr.io/test-webserver
+      name: test2
+      volumeMounts:
+        - mountPath: /tmp/cache
+          name: cache-volume
+        - mountPath: /gce
+          name: gce
+  volumes:
+    - name: cache-volume
+      emptyDir: {}
+    - name: gce
+      gcePersistentDisk: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
   name: test-pod2
 spec:
   containers:

@@ -26,6 +26,10 @@ type ClusterPolicyListerExpansion interface{}
 // GenerateRequestLister.
 type GenerateRequestListerExpansion interface{}
 
+// GenerateRequestNamespaceListerExpansion allows custom methods to be added to
+// GenerateRequestNamespaceLister.
+type GenerateRequestNamespaceListerExpansion interface{}
+
 // PolicyListerExpansion allows custom methods to be added to
 // PolicyLister.
 type PolicyListerExpansion interface{}

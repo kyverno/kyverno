@@ -1,12 +1,8 @@
 package apply
 
 import (
-	"reflect"
-
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -22,69 +18,12 @@ func generateCLIRaw(reports []*unstructured.Unstructured) (*unstructured.Unstruc
 	return mergeClusterReport(reports)
 }
 
-// generateToCluster updates the existing policy reports in the cluster
-// creates new report if not exist
-func generateToCluster(dClient *client.Client, reports []*unstructured.Unstructured) {
-	var clusterReports, namespaceReports []*unstructured.Unstructured
-	for _, report := range reports {
-		if report.GetNamespace() == "" {
-			clusterReports = append(clusterReports, report)
-		} else {
-			namespaceReports = append(namespaceReports, report)
-		}
-	}
-
-	if clusterReport, err := mergeClusterReport(clusterReports); err != nil {
-		log.Log.V(3).Info("failed to merge cluster report", "error", err)
-	} else {
-		if err := updateReport(dClient, clusterReport); err != nil {
-			log.Log.V(3).Info("failed to update policy report", "report", clusterReport.GetName(), "error", err)
-		}
-	}
-
-	for _, report := range namespaceReports {
-		if err := updateReport(dClient, report); err != nil {
-			log.Log.V(3).Info("failed to update policy report", "report", report.GetName(), "error", err)
-		}
-	}
-}
-
-func updateReport(dClient *client.Client, new *unstructured.Unstructured) error {
-	old, err := dClient.GetResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new.GetName())
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			if _, err := dClient.CreateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false); err != nil {
-				return err
-			}
-		}
-		return err
-	}
-
-	oldResults, _, err := unstructured.NestedSlice(old.UnstructuredContent(), "results")
-	if err != nil {
-		log.Log.V(3).Info("failed to get results entry", "error", err)
-	}
-
-	newResults, _, err := unstructured.NestedSlice(new.UnstructuredContent(), "results")
-	if err != nil {
-		log.Log.V(3).Info("failed to get results entry", "error", err)
-	}
-
-	if reflect.DeepEqual(oldResults, newResults) {
-		log.Log.V(3).Info("policy report unchanged", "name", new.GetName())
-		return nil
-	}
-
-	_, err = dClient.UpdateResource(new.GetAPIVersion(), new.GetKind(), new.GetNamespace(), new, false)
-	return err
-}
-
 func mergeClusterReport(reports []*unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	var resultsEntry []interface{}
 	res := &unstructured.Unstructured{}
 	res.SetName(clusterpolicyreport)
 	res.SetKind("ClusterPolicyReport")
-	res.SetAPIVersion(report.SchemeGroupVersion.String())
+	res.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 
 	for _, report := range reports {
 		if report.GetNamespace() != "" {
@@ -120,7 +59,7 @@ func mergeResults(report *unstructured.Unstructured, results *[]interface{}) {
 
 func updateSummary(results []interface{}) map[string]interface{} {
 	summary := make(map[string]interface{})
-	status := []string{report.StatusPass, report.StatusFail, report.StatusError, report.StatusSkip, report.StatusWarn}
+	status := []string{policyreportv1alpha2.StatusPass, policyreportv1alpha2.StatusFail, policyreportv1alpha2.StatusError, policyreportv1alpha2.StatusSkip, policyreportv1alpha2.StatusWarn}
 	for i := 0; i < 5; i++ {
 		if _, ok := summary[status[i]].(int64); !ok {
 			summary[status[i]] = int64(0)
@@ -133,26 +72,26 @@ func updateSummary(results []interface{}) map[string]interface{} {
 		}
 
 		switch typedResult["result"].(string) {
-		case report.StatusPass:
-			pass, _ := summary[report.StatusPass].(int64)
+		case policyreportv1alpha2.StatusPass:
+			pass, _ := summary[policyreportv1alpha2.StatusPass].(int64)
 			pass++
-			summary[report.StatusPass] = pass
-		case report.StatusFail:
-			fail, _ := summary[report.StatusFail].(int64)
+			summary[policyreportv1alpha2.StatusPass] = pass
+		case policyreportv1alpha2.StatusFail:
+			fail, _ := summary[policyreportv1alpha2.StatusFail].(int64)
 			fail++
-			summary[report.StatusFail] = fail
-		case report.StatusWarn:
-			warn, _ := summary[report.StatusWarn].(int64)
+			summary[policyreportv1alpha2.StatusFail] = fail
+		case policyreportv1alpha2.StatusWarn:
+			warn, _ := summary[policyreportv1alpha2.StatusWarn].(int64)
 			warn++
-			summary[report.StatusWarn] = warn
-		case report.StatusError:
-			e, _ := summary[report.StatusError].(int64)
+			summary[policyreportv1alpha2.StatusWarn] = warn
+		case policyreportv1alpha2.StatusError:
+			e, _ := summary[policyreportv1alpha2.StatusError].(int64)
 			e++
-			summary[report.StatusError] = e
-		case report.StatusSkip:
-			skip, _ := summary[report.StatusSkip].(int64)
+			summary[policyreportv1alpha2.StatusError] = e
+		case policyreportv1alpha2.StatusSkip:
+			skip, _ := summary[policyreportv1alpha2.StatusSkip].(int64)
 			skip++
-			summary[report.StatusSkip] = skip
+			summary[policyreportv1alpha2.StatusSkip] = skip
 		}
 	}
 

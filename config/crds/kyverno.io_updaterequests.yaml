@@ -21,6 +21,9 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
+    - jsonPath: .spec.requestType
+      name: RuleType
+      type: string
     - jsonPath: .spec.resource.kind
       name: ResourceKind
       type: string
@@ -141,7 +144,6 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
-                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -159,7 +161,6 @@ spec:
                 description: This will track the resources that are updated by the
                   generate Policy. Will be used during clean up resources.
                 items:
-                  description: ResourceSpec contains information to identify a resource.
                   properties:
                     apiVersion:
                       description: APIVersion specifies resource apiVersion.
@@ -169,18 +170,20 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
-                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
                       type: string
                   type: object
                 type: array
+              handler:
+                description: Handler represents the instance ID that handles the UR
+                type: string
               message:
                 description: Specifies request status message.
                 type: string
               state:
-                description: State represents state of the generate request.
+                description: State represents state of the update request.
                 type: string
             required:
             - state

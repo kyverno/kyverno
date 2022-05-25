@@ -3,7 +3,7 @@ package policyruleinfo
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -31,11 +31,11 @@ func registerPolicyRuleInfoMetric(
 	}
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
 	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
 		return nil
 	}
 	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_rule_info_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
 		return nil
 	}
 	if policyType == metrics.Cluster {
@@ -58,7 +58,7 @@ func registerPolicyRuleInfoMetric(
 	return nil
 }
 
-func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func AddPolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func AddPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
 	return nil
 }
 
-func RemovePolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface) error {
+func RemovePolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

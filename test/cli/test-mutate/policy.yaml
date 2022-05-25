@@ -75,3 +75,27 @@ spec:
             options:
               - name: ndots
                 value: "1"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: example
+spec:
+  rules:
+  - name: object_from_lists
+    context:
+      - name: annotations
+        variable:
+          jmesPath: items(request.object.metadata.annotations, 'key', 'value')[?starts_with(key, 'key')]
+      - name: annotations
+        variable:
+          jmesPath: object_from_lists(annotations[].key, annotations[].value)
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchesJson6902: |-
+        - path: "/metadata/annotations"
+          op: replace
+          value: {{ annotations }}

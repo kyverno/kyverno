@@ -1,0 +1,16 @@
+name: test-image-signature
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: verify-signature
+    rule: check-static-key
+    resource: signed
+    kind: Pod
+    status: pass
+  - policy: verify-signature
+    rule: check-static-key
+    resource: unsigned
+    kind: Pod
+    status: fail
