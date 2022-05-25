@@ -278,13 +278,13 @@ func convertResourceToUnstructured(resourceYaml []byte) (*unstructured.Unstructu
 }
 
 // GetPatchedResource converts raw bytes to unstructured object
-func GetPatchedResource(patchResourceBytes []byte) (unstructured.Unstructured, error) {
-	getPatchedResource, err := GetResource(patchResourceBytes)
+func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstructured, error) {
+	getResource, err := GetResource(resourceBytes)
 	if err != nil {
 		return unstructured.Unstructured{}, err
 	}
-	patchedResource := *getPatchedResource[0]
-	return patchedResource, nil
+	resource := *getResource[0]
+	return resource, nil
 }
 
 // GetKindsFromRule will return the kinds from policy match block

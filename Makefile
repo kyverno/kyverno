@@ -267,7 +267,7 @@ test-clean: ## Clean tests cache
 	go clean -testcache ./...
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-test-case-selector-flag test-cli-registry
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
@@ -280,6 +280,10 @@ test-cli-local: cli
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
+
+.PHONY: test-cli-local-generate
+test-cli-local-generate: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-generate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli

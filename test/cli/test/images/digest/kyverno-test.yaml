@@ -8,9 +8,11 @@ results:
     rule: check-digest
     resource: no-digest
     kind: Pod
+    namespace: test
     status: fail
   - policy: require-image-digest
     rule: check-digest
     resource: with-digest
     kind: Pod
+    namespace: test
     status: pass
