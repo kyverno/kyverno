@@ -293,6 +293,20 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			return variables, globalValMap, valuesMapResource, namespaceSelectorMap, sanitizederror.NewWithError("failed to decode yaml", err)
 		}
 
+		if values.GlobalValues == nil {
+			values.GlobalValues = make(map[string]string)
+			values.GlobalValues["request.operation"] = "CREATE"
+			log.Log.V(3).Info("Defaulting request.operation to CREATE")
+
+		} else {
+			if val, ok := values.GlobalValues["request.operation"]; ok {
+				if val == "" {
+					values.GlobalValues["request.operation"] = "CREATE"
+					log.Log.V(3).Info("Globally request.operation value provided by the user is empty, defaulting it to CREATE", "request.opearation: ", values.GlobalValues)
+				}
+			}
+		}
+
 		globalValMap = values.GlobalValues
 
 		for _, p := range values.Policies {
@@ -303,12 +317,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 						r.Values["request.operation"] = "CREATE"
 						log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 					}
-				} else {
-					if r.Values == nil {
-						r.Values = make(map[string]interface{})
-					}
-					r.Values["request.operation"] = "CREATE"
-					log.Log.V(3).Info("No request.operation found, defaulting it to CREATE", "policy", p.Name)
 				}
 				for variableInFile := range r.Values {
 					if strings.Contains(variableInFile, "request.object") {
@@ -339,6 +347,11 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 
 	if reqObjVars != "" {
 		fmt.Printf(("\nNOTICE: request.object.* variables are automatically parsed from the supplied resource. Ignoring value of variables `%v`.\n"), reqObjVars)
+	}
+
+	if globalValMap != nil {
+		globalValMap["request.operation"] = "CREATE"
+		log.Log.V(3).Info("Defaulting request.operation to CREATE")
 	}
 
 	storePolicies := make([]store.Policy, 0)
