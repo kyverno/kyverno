@@ -133,6 +133,9 @@ func loadVariable(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyC
 }
 
 func loadImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {
+	if err := registryclient.DefaultClient.RefreshKeychainPullSecrets(); err != nil {
+		return fmt.Errorf("unable to load image registry credentials, %w", err)
+	}
 	imageData, err := fetchImageData(logger, entry, ctx)
 	if err != nil {
 		return err
@@ -175,7 +178,7 @@ func fetchImageData(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 
 // FetchImageDataMap fetches image information from the remote registry.
 func fetchImageDataMap(ref string) (interface{}, error) {
-	parsedRef, desc, err := registryclient.Get(ref)
+	desc, err := registryclient.DefaultClient.FetchImageDescriptor(ref)
 	if err != nil {
 		return nil, err
 	}
@@ -201,12 +204,13 @@ func fetchImageDataMap(ref string) (interface{}, error) {
 	if err := json.Unmarshal(rawConfig, &configData); err != nil {
 		return nil, fmt.Errorf("failed to decode config for image reference: %s, error: %v", ref, err)
 	}
+
 	data := map[string]interface{}{
 		"image":         ref,
-		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
-		"registry":      parsedRef.Context().RegistryStr(),
-		"repository":    parsedRef.Context().RepositoryStr(),
-		"identifier":    parsedRef.Identifier(),
+		"resolvedImage": fmt.Sprintf("%s@%s", desc.Ref.Context().Name(), desc.Digest.String()),
+		"registry":      desc.Ref.Context().RegistryStr(),
+		"repository":    desc.Ref.Context().RepositoryStr(),
+		"identifier":    desc.Ref.Identifier(),
 		"manifest":      manifest,
 		"configData":    configData,
 	}
