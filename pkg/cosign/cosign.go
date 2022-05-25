@@ -113,14 +113,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "constructing client options")
 	}
-
-	o, err := registryclient.GetOptions()
-	if err != nil {
-		return nil, errors.Wrap(err, "getting remote options")
-	}
-
-	remoteOpts = append(remoteOpts, remote.WithRemoteOptions(o))
-
+	remoteOpts = append(remoteOpts, registryclient.BuildRemoteOption(registryclient.DefaultClient))
 	cosignOpts := &cosign.CheckOpts{
 		Annotations:        map[string]interface{}{},
 		RegistryClientOpts: remoteOpts,
