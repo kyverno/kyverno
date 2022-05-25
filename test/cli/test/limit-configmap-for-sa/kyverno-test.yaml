@@ -10,6 +10,7 @@ results:
     rule: limit-configmap-for-sa-developer
     resource: any-configmap-name-good
     kind: ConfigMap
+    namespace: any-namespace
     result: fail
   - policy: limit-configmap-for-sa
     rule: limit-configmap-for-sa-developer
