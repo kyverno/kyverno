@@ -43,6 +43,11 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 	policyContext.JSONContext.Checkpoint()
 	defer policyContext.JSONContext.Restore()
 
+	// update image registry secrets
+	if err := registryclient.DefaultClient.RefreshKeychainPullSecrets(); err != nil {
+		logger.Error(err, "failed to update image pull secrets")
+	}
+
 	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
 	for i := range rules {
@@ -206,11 +211,11 @@ func (iv *imageVerifier) handleMutateDigest(digest string, imageInfo apiutils.Im
 	}
 
 	if digest == "" {
-		var err error
-		digest, err = fetchImageDigest(imageInfo.String())
+		desc, err := registryclient.DefaultClient.FetchImageDescriptor(imageInfo.String())
 		if err != nil {
 			return nil, "", err
 		}
+		digest = desc.Digest.String()
 	}
 
 	patch, err := makeAddDigestPatch(imageInfo, digest)
@@ -238,14 +243,6 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool
 	}
 
 	return result
-}
-
-func fetchImageDigest(ref string) (string, error) {
-	_, desc, err := registryclient.Get(ref)
-	if err != nil {
-		return "", err
-	}
-	return desc.Digest.String(), nil
 }
 
 func imageMatches(image string, imagePatterns []string) bool {
