@@ -171,6 +171,9 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if err != nil {
 		return err
 	}
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+		logger.Info("get ur", "object", string(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw))
+	}
 	// if not in any state, try to set it to pending
 	if ur.Status.State == "" {
 		ur = ur.DeepCopy()

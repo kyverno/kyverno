@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -445,42 +447,51 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 	for _, gr := range grs.Items {
 		cp := gr.DeepCopy()
-		ur := &kyvernov1beta1.UpdateRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: "ur-",
-				Namespace:    config.KyvernoNamespace(),
-				Labels:       cp.GetLabels(),
-			},
-			Spec: kyvernov1beta1.UpdateRequestSpec{
-				Type:     kyvernov1beta1.Generate,
-				Policy:   cp.Spec.Policy,
-				Resource: cp.Spec.Resource,
-				Context: kyvernov1beta1.UpdateRequestSpecContext{
-					UserRequestInfo: kyvernov1beta1.RequestInfo{
-						Roles:             cp.Spec.Context.UserRequestInfo.Roles,
-						ClusterRoles:      cp.Spec.Context.UserRequestInfo.ClusterRoles,
-						AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
-					},
-					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
-						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
+		var request *admissionv1.AdmissionRequest
+		if cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest != "" {
+			var r admissionv1.AdmissionRequest
+			if err := json.Unmarshal([]byte(cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest), &r); err == nil {
+				request = &r
+			}
+		}
+		if err == nil {
+			ur := &kyvernov1beta1.UpdateRequest{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "ur-",
+					Namespace:    config.KyvernoNamespace(),
+					Labels:       cp.GetLabels(),
+				},
+				Spec: kyvernov1beta1.UpdateRequestSpec{
+					Type:     kyvernov1beta1.Generate,
+					Policy:   cp.Spec.Policy,
+					Resource: cp.Spec.Resource,
+					Context: kyvernov1beta1.UpdateRequestSpecContext{
+						UserRequestInfo: kyvernov1beta1.RequestInfo{
+							Roles:             cp.Spec.Context.UserRequestInfo.Roles,
+							ClusterRoles:      cp.Spec.Context.UserRequestInfo.ClusterRoles,
+							AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
+						},
+						AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
+							AdmissionRequest: request,
+							Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
+						},
 					},
 				},
-			},
-		}
+			}
 
-		_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
-		if err != nil {
-			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
-			errors = append(errors, err)
-			continue
-		} else {
-			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
-		}
+			_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+			if err != nil {
+				logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
+				errors = append(errors, err)
+				continue
+			} else {
+				logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
+			}
 
-		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
-			errors = append(errors, err)
-			logger.Error(err, "failed to delete GR")
+			if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
+				errors = append(errors, err)
+				logger.Error(err, "failed to delete GR")
+			}
 		}
 	}
 

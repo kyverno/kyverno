@@ -107,6 +107,7 @@ func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.Up
 			},
 			Spec: urSpec,
 		}
+		l.Info("create ur", "object", string(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest.Object.Raw))
 		if new, err := g.client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), &ur, metav1.CreateOptions{}); err != nil {
 			l.V(4).Error(err, "failed to create UpdateRequest, retrying", "name", ur.GetGenerateName(), "namespace", ur.GetNamespace())
 			return err
