@@ -3,7 +3,7 @@ package generate
 // RoleTests is E2E Test Config for Role and RoleBinding
 // TODO:- Clone for Role and RoleBinding
 var RoleTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// RoleName - Name of the Role to be Created
 	RoleName string
@@ -63,7 +63,7 @@ var RoleTests = []struct {
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
 var ClusterRoleTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ClusterRoleName string
@@ -128,7 +128,7 @@ var ClusterRoleTests = []struct {
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var NetworkPolicyGenerateTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -166,7 +166,7 @@ var NetworkPolicyGenerateTests = []struct {
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -207,7 +207,7 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var GenerateSynchronizeFlagTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -248,7 +248,7 @@ var GenerateSynchronizeFlagTests = []struct {
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
 var SourceResourceUpdateReplicationTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ResourceNamespace string
@@ -281,7 +281,7 @@ var SourceResourceUpdateReplicationTests = []struct {
 }
 
 var GeneratePolicyDeletionforCloneTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ResourceNamespace string

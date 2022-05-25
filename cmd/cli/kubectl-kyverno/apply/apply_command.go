@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -146,7 +146,8 @@ func Command() *cobra.Command {
 }
 
 func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool,
+) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(registryAccess)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
@@ -157,7 +158,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	}
 
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
-
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -170,13 +170,13 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
 
-	var dClient client.Interface
+	var dClient dclient.Interface
 	if cluster {
 		restConfig, err := kubernetesConfig.ToRESTConfig()
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}))
+		dClient, err = dclient.NewClient(restConfig, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
@@ -213,8 +213,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	if !mutateLogPathIsDir && mutateLogPath != "" {
 		mutateLogPath = filepath.Clean(mutateLogPath)
 		// Necessary for us to include the file via variable as it is part of the CLI.
-		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600) // #nosec G304
-
+		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
@@ -397,7 +396,6 @@ func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	mutateLogPath = filepath.Clean(mutateLogPath)
 	_, err := os.Stat(mutateLogPath)
-
 	if err != nil {
 		if os.IsNotExist(err) {
 			if !mutateLogPathIsDir {
@@ -409,7 +407,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
 					if os.IsNotExist(err) {
-						errDir := os.MkdirAll(folderPath, 0750)
+						errDir := os.MkdirAll(folderPath, 0o750)
 						if errDir != nil {
 							return sanitizederror.NewWithError("failed to create directory", err)
 						}
@@ -418,8 +416,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 
 				mutateLogPath = filepath.Clean(mutateLogPath)
 				// Necessary for us to create the file via variable as it is part of the CLI.
-				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600) // #nosec G304
-
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0o600) // #nosec G304
 				if err != nil {
 					return sanitizederror.NewWithError("failed to create file", err)
 				}
@@ -429,7 +426,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					return sanitizederror.NewWithError("failed to close file", err)
 				}
 			} else {
-				errDir := os.MkdirAll(mutateLogPath, 0750)
+				errDir := os.MkdirAll(mutateLogPath, 0o750)
 				if errDir != nil {
 					return sanitizederror.NewWithError("failed to create directory", err)
 				}

@@ -6,10 +6,10 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	utils "github.com/kyverno/kyverno/pkg/utils"
@@ -18,8 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewBackgroundContext(dclient dclient.Interface, ur *urkyverno.UpdateRequest,
-	policy kyverno.PolicyInterface,
+func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRequest,
+	policy kyvernov1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
 	namespaceLabels map[string]string,
@@ -105,7 +105,6 @@ func check(admissionRsc, existingRsc *unstructured.Unstructured) bool {
 	if existingRsc == nil {
 		return admissionRsc == nil
 	}
-
 	if admissionRsc.GetName() != existingRsc.GetName() {
 		return false
 	}
