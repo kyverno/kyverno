@@ -724,6 +724,7 @@ func validateMatchRequestTypes(rt kyverno.MatchResources) (string, error) {
 		}
 	}
 	return "", nil
+	
 }
 
 // validateConditions validates all the 'conditions' or 'preconditions' of a rule depending on the corresponding 'condition.key'.
