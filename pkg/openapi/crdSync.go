@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -21,7 +20,7 @@ import (
 )
 
 type crdSync struct {
-	client     *client.Client
+	client     dclient.Interface
 	controller *Controller
 }
 
@@ -53,7 +52,7 @@ var crdDefinitionNew struct {
 }
 
 // NewCRDSync ...
-func NewCRDSync(client *client.Client, controller *Controller) *crdSync {
+func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
 	if controller == nil {
 		panic(fmt.Errorf("nil controller sent into crd sync"))
 	}
@@ -69,7 +68,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 		log.Log.Error(err, "failed to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.DiscoveryClient.DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -87,12 +86,12 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *crdSync) sync() {
-	c.client.DiscoveryClient.DiscoveryCache().Invalidate()
+	c.client.Discovery().DiscoveryCache().Invalidate()
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
-	}).List(context.TODO(), v1.ListOptions{})
+	}).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return
@@ -108,7 +107,7 @@ func (c *crdSync) sync() {
 		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.DiscoveryClient.DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -120,12 +119,12 @@ func (c *crdSync) sync() {
 }
 
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
-	_, apiResourceLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerGroupsAndResources()
+	_, apiResourceLists, err := c.client.Discovery().DiscoveryCache().ServerGroupsAndResources()
 	if err != nil {
 		return errors.Wrapf(err, "fetching API server groups and resources")
 	}
 
-	preferredAPIResourcesLists, err := c.client.DiscoveryClient.DiscoveryCache().ServerPreferredResources()
+	preferredAPIResourcesLists, err := c.client.Discovery().DiscoveryCache().ServerPreferredResources()
 	if err != nil {
 		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
@@ -187,7 +186,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	parsedSchema, err := openapiv2.NewSchema(&schema, compiler.NewContext("schema", &schema, nil))
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
-		if v3valueFound == false {
+		if !v3valueFound {
 			log.Log.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return

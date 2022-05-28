@@ -122,7 +122,7 @@ func Test_ImageVerification(t *testing.T) {
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0),
-						&i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
+						&i.Attestors[0].Entries[0], "keys, certificates, keyless, or a nested attestor is required"),
 				}
 			},
 		},
@@ -132,14 +132,14 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []AttestorSet{
 					{Entries: []Attestor{{
-						StaticKey: &StaticKeyAttestor{},
+						Keys: &StaticKeyAttestor{},
 					}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
-					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("staticKey"),
-						i.Attestors[0].Entries[0].StaticKey, "A key is required"),
+					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keys"),
+						i.Attestors[0].Entries[0].Keys, "A key is required"),
 				}
 			},
 		},
@@ -149,7 +149,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []AttestorSet{
 					{Entries: []Attestor{{
-						StaticKey: &StaticKeyAttestor{Keys: "bla"},
+						Keys: &StaticKeyAttestor{PublicKeys: "bla"},
 					}}},
 				},
 			},

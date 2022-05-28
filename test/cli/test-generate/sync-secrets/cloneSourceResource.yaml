@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: regcred
+  namespace: default
+type: Opaque
+data:
+  password: MWYyZDFlMmU2N2Rm

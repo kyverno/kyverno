@@ -21,7 +21,7 @@ spec:
     - jsonPath: .spec.policy
       name: Policy
       type: string
-    - jsonPath: .spec.type
+    - jsonPath: .spec.requestType
       name: RuleType
       type: string
     - jsonPath: .spec.resource.kind
@@ -144,7 +144,6 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
-                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -171,13 +170,15 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
-                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
                       type: string
                   type: object
                 type: array
+              handler:
+                description: Handler represents the instance ID that handles the UR
+                type: string
               message:
                 description: Specifies request status message.
                 type: string

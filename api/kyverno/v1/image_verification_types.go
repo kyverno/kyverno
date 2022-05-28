@@ -12,7 +12,6 @@ import (
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
-
 	// Image is the image name consisting of the registry address, repository, image, and tag.
 	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// Deprecated. Use ImageReferences instead.
@@ -84,7 +83,6 @@ type ImageVerification struct {
 }
 
 type AttestorSet struct {
-
 	// Count specifies the required number of entries that must match. If the count is null, all entries must match
 	// (a logical AND). If the count is 1, at least one entry must match (a logical OR). If the count contains a
 	// value N, then N must be less than or equal to the size of entries, and at least N entries must match.
@@ -99,10 +97,13 @@ type AttestorSet struct {
 }
 
 type Attestor struct {
-
-	// StaticKey is a set of attributes used to verify an X.509 public key
+	// Keys specifies one or more public keys
 	// +kubebuilder:validation:Optional
-	StaticKey *StaticKeyAttestor `json:"staticKey,omitempty" yaml:"staticKey,omitempty"`
+	Keys *StaticKeyAttestor `json:"keys,omitempty" yaml:"keys,omitempty"`
+
+	// Certificates specifies one or more certificates
+	// +kubebuilder:validation:Optional
+	Certificates *CertificateAttestor `json:"certificates,omitempty" yaml:"certificates,omitempty"`
 
 	// Keyless is a set of attribute used to verify a Sigstore keyless attestor.
 	// See https://github.com/sigstore/cosign/blob/main/KEYLESS.md.
@@ -124,29 +125,38 @@ type Attestor struct {
 }
 
 type StaticKeyAttestor struct {
-
 	// Keys is a set of X.509 public keys used to verify image signatures. The keys can be directly
 	// specified or can be a variable reference to a key specified in a ConfigMap (see
 	// https://kyverno.io/docs/writing-policies/variables/). When multiple keys are specified each
-	// key is processed as a separate staticKey entry (.attestors[*].entries.staticKey) within the set of
+	// key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 	// attestors and the count is applied across the keys.
-	Keys string `json:"key,omitempty" yaml:"key,omitempty"`
+	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
-	// Intermediates is an optional PEM encoded set of certificates that are not trust
-	// anchors, but can be used to form a chain from the leaf certificate to a
-	// root certificate.
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked. If an empty object is provided the public instance of
+	// Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
-	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
+}
 
-	// Roots is an optional set of PEM encoded trusted root certificates.
-	// If not provided, the system roots are used.
+type CertificateAttestor struct {
+	// Certificate is an optional PEM encoded public certificate.
 	// +kubebuilder:validation:Optional
-	Roots string `json:"roots,omitempty" yaml:"roots,omitempty"`
+	Certificate string `json:"cert,omitempty" yaml:"cert,omitempty"`
+
+	// CertificateChain is an optional PEM encoded set of certificates used to verify
+	// +kubebuilder:validation:Optional
+	CertificateChain string `json:"certChain,omitempty" yaml:"certChain,omitempty"`
+
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
+	// Rekor is not checked. If an empty object is provided the public instance of
+	// Rekor (https://rekor.sigstore.dev) is used.
+	// +kubebuilder:validation:Optional
+	Rekor *CTLog `json:"rekor,omitempty" yaml:"rekor,omitempty"`
 }
 
 type KeylessAttestor struct {
-
-	// Rekor provides information of the Rekor transparency log service. If the value is nil,
+	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 	// Rekor is not checked and a root certificate chain is expected instead. If an empty object
 	// is provided the public instance of Rekor (https://rekor.sigstore.dev) is used.
 	// +kubebuilder:validation:Optional
@@ -159,12 +169,6 @@ type KeylessAttestor struct {
 	// Subject is the verified identity used for keyless signing, for example the email address
 	// +kubebuilder:validation:Optional
 	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
-
-	// Intermediates is an optional PEM encoded set of certificates that are not trust
-	// anchors, but can be used to form a chain from the leaf certificate to a
-	// root certificate.
-	// +kubebuilder:validation:Optional
-	Intermediates string `json:"intermediates,omitempty" yaml:"intermediates,omitempty"`
 
 	// Roots is an optional set of PEM encoded trusted root certificates.
 	// If not provided, the system roots are used.
@@ -187,7 +191,6 @@ type CTLog struct {
 // See https://github.com/in-toto/attestation. Kyverno fetches signed attestations from the
 // OCI registry and decodes them into a list of Statements.
 type Attestation struct {
-
 	// PredicateType defines the type of Predicate contained within the Statement.
 	PredicateType string `json:"predicateType,omitempty" yaml:"predicateType,omitempty"`
 
@@ -257,17 +260,24 @@ func validateAttestorSet(as *AttestorSet, path *field.Path) (errs field.ErrorLis
 }
 
 func (a *Attestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if (a.StaticKey != nil && (a.Keyless != nil || a.Attestor != nil)) ||
-		(a.Keyless != nil && (a.StaticKey != nil || a.Attestor != nil)) ||
-		(a.Attestor != nil && (a.StaticKey != nil || a.Keyless != nil)) ||
-		(a.StaticKey == nil && a.Keyless == nil && a.Attestor == nil) {
-		errs = append(errs, field.Invalid(path, a, "One of static key, keyless, or nested attestor is required"))
+	if (a.Keys != nil && (a.Certificates != nil || a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Certificates != nil && (a.Keys != nil || a.Keyless != nil || a.Attestor != nil)) ||
+		(a.Keyless != nil && (a.Certificates != nil || a.Keys != nil || a.Attestor != nil)) ||
+		(a.Attestor != nil && (a.Certificates != nil || a.Keys != nil || a.Keyless != nil)) ||
+		(a.Keys == nil && a.Certificates == nil && a.Keyless == nil && a.Attestor == nil) {
+		errs = append(errs, field.Invalid(path, a, "keys, certificates, keyless, or a nested attestor is required"))
 	}
 
-	if a.StaticKey != nil {
-		staticKeyPath := path.Child("staticKey")
-		staticKeyErrors := a.StaticKey.Validate(staticKeyPath)
+	if a.Keys != nil {
+		staticKeyPath := path.Child("keys")
+		staticKeyErrors := a.Keys.Validate(staticKeyPath)
 		errs = append(errs, staticKeyErrors...)
+	}
+
+	if a.Certificates != nil {
+		certificatesPath := path.Child("certificates")
+		certificatesErrors := a.Certificates.Validate(certificatesPath)
+		errs = append(errs, certificatesErrors...)
 	}
 
 	if a.Keyless != nil {
@@ -301,8 +311,16 @@ func AttestorSetUnmarshal(o *apiextv1.JSON) (*AttestorSet, error) {
 }
 
 func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) {
-	if ska.Keys == "" {
+	if ska.PublicKeys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
+	}
+
+	return errs
+}
+
+func (ca *CertificateAttestor) Validate(path *field.Path) (errs field.ErrorList) {
+	if ca.Certificate == "" && ca.CertificateChain == "" {
+		errs = append(errs, field.Invalid(path, ca, "cert or certChain required"))
 	}
 
 	return errs
@@ -337,8 +355,8 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	}
 
 	if iv.Key != "" {
-		attestor.StaticKey = &StaticKeyAttestor{
-			Keys: iv.Key,
+		attestor.Keys = &StaticKeyAttestor{
+			PublicKeys: iv.Key,
 		}
 	} else if iv.Issuer != "" {
 		attestor.Keyless = &KeylessAttestor{

@@ -9,48 +9,37 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	requestinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
-const workQueueName = "report-request-controller"
-const workQueueRetryLimit = 10
+const (
+	workQueueName       = "report-request-controller"
+	workQueueRetryLimit = 10
+)
 
 // Generator creates report request
 type Generator struct {
-	dclient *dclient.Client
+	dclient dclient.Interface
 
-	reportChangeRequestLister requestlister.ReportChangeRequestLister
+	reportChangeRequestLister kyvernov1alpha2listers.ReportChangeRequestLister
 
-	clusterReportChangeRequestLister requestlister.ClusterReportChangeRequestLister
+	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 
 	// cpolLister can list/get policy from the shared informer's store
-	cpolLister kyvernolister.ClusterPolicyLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
 
 	// polLister can list/get namespace policy from the shared informer's store
-	polLister kyvernolister.PolicyLister
-
-	// returns true if the cluster report request store has been synced at least once
-	reportReqSynced cache.InformerSynced
-
-	// returns true if the namespaced report request store has been synced at at least once
-	clusterReportReqSynced cache.InformerSynced
-
-	// cpolListerSynced returns true if the cluster policy store has been synced at least once
-	cpolListerSynced cache.InformerSynced
-
-	// polListerSynced returns true if the namespace policy store has been synced at least once
-	polListerSynced cache.InformerSynced
+	polLister kyvernov1listers.PolicyLister
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
@@ -61,23 +50,20 @@ type Generator struct {
 }
 
 // NewReportChangeRequestGenerator returns a new instance of report request generator
-func NewReportChangeRequestGenerator(client *policyreportclient.Clientset,
-	dclient *dclient.Client,
-	reportReqInformer requestinformer.ReportChangeRequestInformer,
-	clusterReportReqInformer requestinformer.ClusterReportChangeRequestInformer,
-	cpolInformer kyvernoinformer.ClusterPolicyInformer,
-	polInformer kyvernoinformer.PolicyInformer,
-	log logr.Logger) *Generator {
+func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
+	dclient dclient.Interface,
+	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
+	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
+	log logr.Logger,
+) *Generator {
 	gen := Generator{
 		dclient:                          dclient,
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
-		clusterReportReqSynced:           clusterReportReqInformer.Informer().HasSynced,
 		reportChangeRequestLister:        reportReqInformer.Lister(),
-		reportReqSynced:                  reportReqInformer.Informer().HasSynced,
 		cpolLister:                       cpolInformer.Lister(),
-		cpolListerSynced:                 cpolInformer.Informer().HasSynced,
 		polLister:                        polInformer.Lister(),
-		polListerSynced:                  polInformer.Informer().HasSynced,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
@@ -129,7 +115,7 @@ type Info struct {
 
 type EngineResponseResult struct {
 	Resource response.ResourceSpec
-	Rules    []kyverno.ViolatedRule
+	Rules    []kyvernov1.ViolatedRule
 }
 
 func (i Info) ToKey() string {
@@ -177,10 +163,6 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
-
-	if !cache.WaitForCacheSync(stopCh, gen.reportReqSynced, gen.clusterReportReqSynced, gen.cpolListerSynced, gen.polListerSynced) {
-		logger.Info("failed to sync informer cache")
-	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
@@ -251,7 +233,6 @@ func (gen *Generator) processNextWorkItem() bool {
 		gen.handleErr(err, obj)
 		return nil
 	}(obj)
-
 	if err != nil {
 		logger.Error(err, "failed to process item")
 	}

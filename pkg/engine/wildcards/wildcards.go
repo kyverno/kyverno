@@ -64,7 +64,6 @@ func replaceWildCardChars(s string) string {
 // here, as they are evaluated separately while processing the validation pattern. Anchors
 // on the tags (e.g. "=(kubernetes.io/*)" will be preserved when the values are expanded.
 func ExpandInMetadata(patternMap, resourceMap map[string]interface{}) map[string]interface{} {
-
 	_, patternMetadata := getPatternValue("metadata", patternMap)
 	if patternMetadata == nil {
 		return patternMap

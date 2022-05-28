@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +25,8 @@ import (
 
 // UpdateRequestStatus defines the observed state of UpdateRequest
 type UpdateRequestStatus struct {
+	// Handler represents the instance ID that handles the UR
+	Handler string `json:"handler,omitempty" yaml:"handler,omitempty"`
 
 	// State represents state of the update request.
 	State UpdateRequestState `json:"state" yaml:"state"`
@@ -35,7 +37,7 @@ type UpdateRequestStatus struct {
 
 	// This will track the resources that are updated by the generate Policy.
 	// Will be used during clean up resources.
-	GeneratedResources []v1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
+	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
 }
 
 // +genclient
@@ -43,7 +45,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Policy",type="string",JSONPath=".spec.policy"
-// +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.type"
+// +kubebuilder:printcolumn:name="RuleType",type="string",JSONPath=".spec.requestType"
 // +kubebuilder:printcolumn:name="ResourceKind",type="string",JSONPath=".spec.resource.kind"
 // +kubebuilder:printcolumn:name="ResourceName",type="string",JSONPath=".spec.resource.name"
 // +kubebuilder:printcolumn:name="ResourceNamespace",type="string",JSONPath=".spec.resource.namespace"
@@ -81,7 +83,7 @@ type UpdateRequestSpec struct {
 	Policy string `json:"policy" yaml:"policy"`
 
 	// ResourceSpec is the information to identify the update request.
-	Resource v1.ResourceSpec `json:"resource" yaml:"resource"`
+	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...
 	Context UpdateRequestSpecContext `json:"context" yaml:"context"`

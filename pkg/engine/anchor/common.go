@@ -8,7 +8,7 @@ import (
 // IsAnchor is a function handler
 type IsAnchor func(str string) bool
 
-//IsConditionAnchor checks for condition anchor
+// IsConditionAnchor checks for condition anchor
 func IsConditionAnchor(str string) bool {
 	if len(str) < 2 {
 		return false
@@ -17,7 +17,7 @@ func IsConditionAnchor(str string) bool {
 	return (str[0] == '(' && str[len(str)-1] == ')')
 }
 
-//IsGlobalAnchor checks for global condition anchor
+// IsGlobalAnchor checks for global condition anchor
 func IsGlobalAnchor(str string) bool {
 	left := "<("
 	right := ")"
@@ -30,20 +30,20 @@ func IsGlobalAnchor(str string) bool {
 	return leftMatch && rightMatch
 }
 
-//ContainsCondition returns true, if str is either condition anchor or
+// ContainsCondition returns true, if str is either condition anchor or
 // global condition anchor
 func ContainsCondition(str string) bool {
 	return IsConditionAnchor(str) || IsGlobalAnchor(str)
 }
 
-//IsNegationAnchor checks for negation anchor
+// IsNegationAnchor checks for negation anchor
 func IsNegationAnchor(str string) bool {
 	left := "X("
 	right := ")"
 	if len(str) < len(left)+len(right) {
 		return false
 	}
-	//TODO: trim spaces ?
+	// TODO: trim spaces ?
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
@@ -66,11 +66,11 @@ func IsEqualityAnchor(str string) bool {
 	if len(str) < len(left)+len(right) {
 		return false
 	}
-	//TODO: trim spaces ?
+	// TODO: trim spaces ?
 	return (str[:len(left)] == left && str[len(str)-len(right):] == right)
 }
 
-//IsExistenceAnchor checks for existence anchor
+// IsExistenceAnchor checks for existence anchor
 func IsExistenceAnchor(str string) bool {
 	left := "^("
 	right := ")"

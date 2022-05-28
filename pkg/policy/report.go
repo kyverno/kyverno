@@ -9,8 +9,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -78,7 +78,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 	}
 }
 
-func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error {
+func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister) error {
 	var errors []string
 
 	var gracePeriod int64 = 0
@@ -89,7 +89,7 @@ func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister cha
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -101,7 +101,7 @@ func cleanupReportChangeRequests(pclient *kyvernoclient.Clientset, rcrLister cha
 	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
-func eraseResultsEntries(pclient *kyvernoclient.Clientset, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error {
+func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister) error {
 	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to erase results entries %v", err)
@@ -167,25 +167,13 @@ func (pc *PolicyController) requeuePolicies() {
 func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eventInfos []event.Info) {
 	for _, er := range ers {
 		logger := log.WithValues("policy", er.PolicyResponse.Policy, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
-		logger.V(4).Info("reporting success results for policy")
-
 		if !er.IsFailed() {
-			// generate event on policy for success rules
 			logger.V(4).Info("generating event on policy for success rules")
-			e := event.Info{}
-			kind := "ClusterPolicy"
-			if er.PolicyResponse.Policy.Namespace != "" {
-				kind = "Policy"
-			}
-			e.Kind = kind
-			e.Namespace = er.PolicyResponse.Policy.Namespace
-			e.Name = er.PolicyResponse.Policy.Name
-			e.Reason = event.PolicyApplied.String()
-			e.Source = event.PolicyController
-			e.Message = fmt.Sprintf("rules '%v' successfully applied on resource '%s/%s/%s'", er.GetSuccessRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			eventInfos = append(eventInfos, e)
+			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
+			eventInfos = append(eventInfos, *e)
 		}
 	}
+
 	return eventInfos
 }
 
@@ -198,59 +186,26 @@ func generateFailEvents(log logr.Logger, ers []*response.EngineResponse) (eventI
 
 func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []event.Info {
 	var eventInfos []event.Info
+	logger := log.WithValues("policy", er.PolicyResponse.Policy.Name,
+		"kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace,
+		"name", er.PolicyResponse.Resource.Name)
 
-	logger := log.WithValues("policy", er.PolicyResponse.Policy.Name, "kind", er.PolicyResponse.Resource.Kind, "namespace", er.PolicyResponse.Resource.Namespace, "name", er.PolicyResponse.Resource.Name)
-	logger.V(4).Info("reporting fail results for policy")
-
-	for _, rule := range er.PolicyResponse.Rules {
+	for i, rule := range er.PolicyResponse.Rules {
 		if rule.Status == response.RuleStatusPass {
 			continue
 		}
-		// generate event on resource for each failed rule
-		logger.V(4).Info("generating event on resource")
-		e := event.Info{}
-		e.Kind = er.PolicyResponse.Resource.Kind
-		e.Namespace = er.PolicyResponse.Resource.Namespace
-		e.Name = er.PolicyResponse.Resource.Name
-		e.Reason = event.PolicyViolation.String()
-		e.Source = event.PolicyController
-		e.Message = fmt.Sprintf("policy '%s' (%s) rule '%s' failed. %v", er.PolicyResponse.Policy.Name, rule.Type, rule.Name, rule.Message)
-		eventInfos = append(eventInfos, e)
+
+		eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
+		eventInfos = append(eventInfos, *eventResource)
+
+		eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
+		eventInfos = append(eventInfos, *eventPolicy)
 	}
 
-	if !er.IsFailed() {
-		// generate event on policy for success rules
-		logger.V(4).Info("generating event on policy for success rules")
-		e := event.Info{}
-		kind := "ClusterPolicy"
-		if er.PolicyResponse.Policy.Namespace != "" {
-			kind = "Policy"
-		}
-		e.Kind = kind
-		e.Namespace = er.PolicyResponse.Policy.Namespace
-		e.Name = er.PolicyResponse.Policy.Name
-		e.Reason = event.PolicyApplied.String()
-		e.Source = event.PolicyController
-		e.Message = fmt.Sprintf("rules '%v' successfully applied on resource '%s/%s/%s'", er.GetSuccessRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-		eventInfos = append(eventInfos, e)
+	if len(eventInfos) > 0 {
+		logger.V(4).Info("generating events for policy", "events", eventInfos)
 	}
 
-	if !er.IsSuccessful() {
-		// generate event on policy for failed rules
-		logger.V(4).Info("generating event on policy")
-		e := event.Info{}
-		kind := "ClusterPolicy"
-		if er.PolicyResponse.Policy.Namespace != "" {
-			kind = "Policy"
-		}
-		e.Kind = kind
-		e.Name = er.PolicyResponse.Policy.Name
-		e.Namespace = er.PolicyResponse.Policy.Namespace
-		e.Reason = event.PolicyViolation.String()
-		e.Source = event.PolicyController
-		e.Message = fmt.Sprintf("rules '%v' not satisfied on resource '%s/%s/%s'", er.GetFailedRules(), er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-		eventInfos = append(eventInfos, e)
-	}
 	return eventInfos
 }
 
@@ -268,7 +223,6 @@ func mergePvInfos(infos []policyreport.Info) []policyreport.Info {
 			tmpInfo.Results = append(tmpInfo.Results, info.Results...)
 			aggregatedInfoPerNamespace[info.Namespace] = tmpInfo
 		}
-
 	}
 
 	for _, i := range aggregatedInfoPerNamespace {

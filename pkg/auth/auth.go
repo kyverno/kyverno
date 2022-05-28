@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"reflect"
 
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-//CanIOptions provides utility to check if user has authorization for the given operation
+// CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions struct {
 	namespace string
 	verb      string
 	kind      string
-	client    *client.Client
+	client    dclient.Interface
 }
 
-//NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
+// NewCanI returns a new instance of operation access controller evaluator
+func NewCanI(client dclient.Interface, kind, namespace, verb string) *CanIOptions {
 	return &CanIOptions{
 		namespace: namespace,
 		kind:      kind,
@@ -28,7 +28,7 @@ func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
 	}
 }
 
-//RunAccessCheck checks if the caller can perform the operation
+// RunAccessCheck checks if the caller can perform the operation
 // - operation is a combination of namespace, kind, verb
 // - can only evaluate a single verb
 // - group version resource is determined from the kind using the discovery client REST mapper
@@ -37,7 +37,7 @@ func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
 func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// get GroupVersionResource from RESTMapper
 	// get GVR from kind
-	gvr, err := o.client.DiscoveryClient.GetGVRFromKind(o.kind)
+	gvr, err := o.client.Discovery().GetGVRFromKind(o.kind)
 	if err != nil {
 		return false, fmt.Errorf("failed to get GVR for kind %s", o.kind)
 	}

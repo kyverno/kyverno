@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -62,14 +63,18 @@ var (
 	semverCompare          = "semver_compare"
 	parseJson              = "parse_json"
 	parseYAML              = "parse_yaml"
+	items                  = "items"
+	objectFromLists        = "object_from_lists"
 )
 
-const errorPrefix = "JMESPath function '%s': "
-const invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
-const genericError = errorPrefix + "%s"
-const zeroDivisionError = errorPrefix + "Zero divisor passed"
-const undefinedQuoError = errorPrefix + "Undefined quotient"
-const nonIntModuloError = errorPrefix + "Non-integer argument(s) passed for modulo"
+const (
+	errorPrefix              = "JMESPath function '%s': "
+	invalidArgumentTypeError = errorPrefix + "%d argument is expected of %s type"
+	genericError             = errorPrefix + "%s"
+	zeroDivisionError        = errorPrefix + "Zero divisor passed"
+	undefinedQuoError        = errorPrefix + "Undefined quotient"
+	nonIntModuloError        = errorPrefix + "Non-integer argument(s) passed for modulo"
+)
 
 type FunctionEntry struct {
 	Entry      *gojmespath.FunctionEntry
@@ -100,17 +105,19 @@ func (f *FunctionEntry) String() string {
 func GetFunctions() []*FunctionEntry {
 	return []*FunctionEntry{
 		{
-			Entry: &gojmespath.FunctionEntry{Name: compare,
+			Entry: &gojmespath.FunctionEntry{
+				Name: compare,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
 				},
 				Handler: jpfCompare,
 			},
-			ReturnType: []JpType{JpBool},
+			ReturnType: []JpType{JpNumber},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: equalFold,
+			Entry: &gojmespath.FunctionEntry{
+				Name: equalFold,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -120,7 +127,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpBool},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: replace,
+			Entry: &gojmespath.FunctionEntry{
+				Name: replace,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -132,7 +140,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: replaceAll,
+			Entry: &gojmespath.FunctionEntry{
+				Name: replaceAll,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -143,7 +152,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: toUpper,
+			Entry: &gojmespath.FunctionEntry{
+				Name: toUpper,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -152,7 +162,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: toLower,
+			Entry: &gojmespath.FunctionEntry{
+				Name: toLower,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -161,7 +172,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: trim,
+			Entry: &gojmespath.FunctionEntry{
+				Name: trim,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -171,7 +183,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: split,
+			Entry: &gojmespath.FunctionEntry{
+				Name: split,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -181,7 +194,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpArrayString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: regexReplaceAll,
+			Entry: &gojmespath.FunctionEntry{
+				Name: regexReplaceAll,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString, JpNumber}},
@@ -193,7 +207,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "converts all parameters to string",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: regexReplaceAllLiteral,
+			Entry: &gojmespath.FunctionEntry{
+				Name: regexReplaceAllLiteral,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString, JpNumber}},
@@ -205,7 +220,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "converts all parameters to string",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: regexMatch,
+			Entry: &gojmespath.FunctionEntry{
+				Name: regexMatch,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString, JpNumber}},
@@ -215,7 +231,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpBool},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: patternMatch,
+			Entry: &gojmespath.FunctionEntry{
+				Name: patternMatch,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString, JpNumber}},
@@ -227,7 +244,8 @@ func GetFunctions() []*FunctionEntry {
 		},
 		{
 			// Validates if label (param1) would match pod/host/etc labels (param2)
-			Entry: &gojmespath.FunctionEntry{Name: labelMatch,
+			Entry: &gojmespath.FunctionEntry{
+				Name: labelMatch,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpObject}},
 					{Types: []JpType{JpObject}},
@@ -238,7 +256,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "object arguments must be enclosed in backticks; ex. `{{request.object.spec.template.metadata.labels}}`",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: add,
+			Entry: &gojmespath.FunctionEntry{
+				Name: add,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpAny}},
 					{Types: []JpType{JpAny}},
@@ -248,7 +267,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpAny},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: subtract,
+			Entry: &gojmespath.FunctionEntry{
+				Name: subtract,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpAny}},
 					{Types: []JpType{JpAny}},
@@ -258,7 +278,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpAny},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: multiply,
+			Entry: &gojmespath.FunctionEntry{
+				Name: multiply,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpAny}},
 					{Types: []JpType{JpAny}},
@@ -268,7 +289,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpAny},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: divide,
+			Entry: &gojmespath.FunctionEntry{
+				Name: divide,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpAny}},
 					{Types: []JpType{JpAny}},
@@ -279,7 +301,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "divisor must be non zero",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: modulo,
+			Entry: &gojmespath.FunctionEntry{
+				Name: modulo,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpAny}},
 					{Types: []JpType{JpAny}},
@@ -290,7 +313,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "divisor must be non-zero, arguments must be integers",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: base64Decode,
+			Entry: &gojmespath.FunctionEntry{
+				Name: base64Decode,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -299,7 +323,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: base64Encode,
+			Entry: &gojmespath.FunctionEntry{
+				Name: base64Encode,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -308,7 +333,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: timeSince,
+			Entry: &gojmespath.FunctionEntry{
+				Name: timeSince,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -319,7 +345,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: pathCanonicalize,
+			Entry: &gojmespath.FunctionEntry{
+				Name: pathCanonicalize,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -328,7 +355,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpString},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: truncate,
+			Entry: &gojmespath.FunctionEntry{
+				Name: truncate,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpNumber}},
@@ -339,7 +367,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "length argument must be enclosed in backticks; ex. \"{{request.object.metadata.name | truncate(@, `9`)}}\"",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: semverCompare,
+			Entry: &gojmespath.FunctionEntry{
+				Name: semverCompare,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 					{Types: []JpType{JpString}},
@@ -349,7 +378,8 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpBool},
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: parseJson,
+			Entry: &gojmespath.FunctionEntry{
+				Name: parseJson,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -359,7 +389,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "decodes a valid JSON encoded string to the appropriate type. Opposite of `to_string` function",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: parseYAML,
+			Entry: &gojmespath.FunctionEntry{
+				Name: parseYAML,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
@@ -368,8 +399,32 @@ func GetFunctions() []*FunctionEntry {
 			ReturnType: []JpType{JpAny},
 			Note:       "decodes a valid YAML encoded string to the appropriate type provided it can be represented as JSON",
 		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: items,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpObject}},
+					{Types: []JpType{JpString}},
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpItems,
+			},
+			ReturnType: []JpType{JpArray},
+			Note:       "converts a map to an array of objects where each key:value is an item in the array",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: objectFromLists,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpArray}},
+					{Types: []JpType{JpArray}},
+				},
+				Handler: jpObjectFromLists,
+			},
+			ReturnType: []JpType{JpObject},
+			Note:       "converts a pair of lists containing keys and values to an object",
+		},
 	}
-
 }
 
 func jpfCompare(arguments []interface{}) (interface{}, error) {
@@ -793,6 +848,68 @@ func jpParseYAML(arguments []interface{}) (interface{}, error) {
 	var output interface{}
 	err = json.Unmarshal(jsonData, &output)
 	return output, err
+}
+
+func jpItems(arguments []interface{}) (interface{}, error) {
+	input, ok := arguments[0].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Object")
+	}
+	keyName, ok := arguments[1].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "String")
+	}
+	valName, ok := arguments[2].(string)
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 2, "String")
+	}
+
+	arrayOfObj := make([]map[string]interface{}, 0)
+
+	keys := []string{}
+
+	// Sort the keys so that the output is deterministic
+	for key := range input {
+		keys = append(keys, key)
+	}
+
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		m := make(map[string]interface{})
+		m[keyName] = key
+		m[valName] = input[key]
+		arrayOfObj = append(arrayOfObj, m)
+	}
+
+	return arrayOfObj, nil
+}
+
+func jpObjectFromLists(arguments []interface{}) (interface{}, error) {
+	keys, ok := arguments[0].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "Array")
+	}
+	values, ok := arguments[1].([]interface{})
+	if !ok {
+		return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 1, "Array")
+	}
+
+	output := map[string]interface{}{}
+
+	for i, ikey := range keys {
+		key, err := ifaceToString(ikey)
+		if err != nil {
+			return nil, fmt.Errorf(invalidArgumentTypeError, arguments, 0, "StringArray")
+		}
+		if i < len(values) {
+			output[key] = values[i]
+		} else {
+			output[key] = nil
+		}
+	}
+
+	return output, nil
 }
 
 // InterfaceToString casts an interface to a string type

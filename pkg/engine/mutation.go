@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -81,7 +81,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		ruleCopy := rule.DeepCopy()
 		var patchedResources []unstructured.Unstructured
 		if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
-			targets, err := loadTargets(logger, ruleCopy.Mutation.Targets, policyContext)
+			targets, err := loadTargets(ruleCopy.Mutation.Targets, policyContext, logger)
 			if err != nil {
 				rr := ruleResponse(rule, response.Mutation, err.Error(), response.RuleStatusError, nil)
 				resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *rr)
@@ -95,6 +95,14 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		for _, patchedResource := range patchedResources {
 			if reflect.DeepEqual(patchedResource, unstructured.Unstructured{}) {
 				continue
+			}
+
+			if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
+				policyContext := policyContext.Copy()
+				if err := policyContext.JSONContext.AddTargetResource(patchedResource.Object); err != nil {
+					log.Log.Error(err, "failed to add target resource to the context")
+					continue
+				}
 			}
 
 			logger.V(4).Info("apply rule to resource", "rule", rule.Name, "resource namespace", patchedResource.GetNamespace(), "resource name", patchedResource.GetName())
@@ -131,7 +139,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	return resp
 }
 
-func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
@@ -146,7 +154,7 @@ func mutateResource(rule *kyverno.Rule, ctx *PolicyContext, resource unstructure
 	return ruleResp, mutateResp.PatchedResource
 }
 
-func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
 	foreachList := rule.Mutation.ForEachMutation
 	if foreachList == nil {
 		return nil, resource
@@ -201,7 +209,7 @@ func mutateForEach(rule *kyverno.Rule, ctx *PolicyContext, resource unstructured
 	return r, patchedResource
 }
 
-func mutateElements(name string, foreach kyverno.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
+func mutateElements(name string, foreach kyvernov1.ForEachMutation, ctx *PolicyContext, elements []interface{}, resource unstructured.Unstructured, logger logr.Logger) *mutate.Response {
 	ctx.JSONContext.Checkpoint()
 	defer ctx.JSONContext.Restore()
 
@@ -215,7 +223,8 @@ func mutateElements(name string, foreach kyverno.ForEachMutation, ctx *PolicyCon
 		ctx.JSONContext.Reset()
 		ctx := ctx.Copy()
 		store.SetForeachElement(i)
-		if err := addElementToContext(ctx, e, i, false); err != nil {
+		falseVar := false
+		if err := addElementToContext(ctx, e, i, &falseVar); err != nil {
 			return mutateError(err, fmt.Sprintf("failed to add element to mutate.foreach[%d].context", i))
 		}
 
@@ -261,7 +270,7 @@ func mutateError(err error, message string) *mutate.Response {
 	}
 }
 
-func buildRuleResponse(rule *kyverno.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+func buildRuleResponse(rule *kyvernov1.Rule, mutateResp *mutate.Response, patchedResource *unstructured.Unstructured) *response.RuleResponse {
 	resp := ruleResponse(*rule, response.Mutation, mutateResp.Message, mutateResp.Status, patchedResource)
 	if resp.Status == response.RuleStatusPass {
 		resp.Patches = mutateResp.Patches
@@ -276,15 +285,14 @@ func buildSuccessMessage(r unstructured.Unstructured) string {
 		return "mutated resource"
 	}
 
-	ns := r.GetNamespace()
-	if ns == "" {
+	if r.GetNamespace() == "" {
 		return fmt.Sprintf("mutated %s/%s", r.GetKind(), r.GetName())
 	}
 
 	return fmt.Sprintf("mutated %s/%s in namespace %s", r.GetKind(), r.GetName(), r.GetNamespace())
 }
 
-func startMutateResultResponse(resp *response.EngineResponse, policy kyverno.PolicyInterface, resource unstructured.Unstructured) {
+func startMutateResultResponse(resp *response.EngineResponse, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) {
 	if resp == nil {
 		return
 	}

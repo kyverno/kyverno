@@ -4,9 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	wildcard "github.com/kyverno/go-wildcard"
-
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
@@ -60,7 +59,6 @@ func (in InHandler) validateValueWithStringPattern(key string, value interface{}
 // array of strings (e.g. ["val1", "val2", "val3"].
 func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
 			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
@@ -109,7 +107,6 @@ func (in InHandler) validateValueWithStringSetPattern(key []string, value interf
 // notIn argument if set to true will check for NotIn
 func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {

@@ -40,7 +40,6 @@ type AnyAllConditions struct {
 // ContextEntry adds variables and data sources to a rule Context. Either a
 // ConfigMap reference or a APILookup must be provided.
 type ContextEntry struct {
-
 	// Name is the variable name.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
@@ -92,7 +91,6 @@ type ImageRegistry struct {
 
 // ConfigMapReference refers to a ConfigMap
 type ConfigMapReference struct {
-
 	// Name is the ConfigMap name.
 	Name string `json:"name" yaml:"name"`
 
@@ -105,7 +103,6 @@ type ConfigMapReference struct {
 // used to perform the HTTP GET request and an optional JMESPath used to
 // transform the retrieved JSON data.
 type APICall struct {
-
 	// URLPath is the URL path to be used in the HTTP GET request to the
 	// Kubernetes API server (e.g. "/api/v1/namespaces" or  "/apis/apps/v1/deployments").
 	// The format required is the same format used by the `kubectl get --raw` command.
@@ -213,7 +210,6 @@ type ResourceFilter struct {
 
 // Mutation defines how resource are modified.
 type Mutation struct {
-
 	// Targets defines the target resources to be mutated.
 	// +optional
 	Targets []ResourceSpec `json:"targets,omitempty" yaml:"targets,omitempty"`
@@ -361,7 +357,6 @@ func (d *Deny) SetAnyAllConditions(in apiextensions.JSON) {
 
 // ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 type ForEachValidation struct {
-
 	// List specifies a JMESPath expression that results in one or more elements
 	// to which the validation logic is applied.
 	List string `json:"list,omitempty" yaml:"list,omitempty"`
@@ -449,25 +444,10 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {
-
 	// Namespace specifies source resource namespace.
 	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 
 	// Name specifies name of the resource.
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
-
-type ResourceSpec struct {
-	// APIVersion specifies resource apiVersion.
-	// +optional
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	// Namespace specifies resource namespace.
-	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	// Name specifies the resource name.
-	// +kubebuilder:validation:MaxLength=63
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
