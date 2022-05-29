@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"os"
+	"fmt"
 
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
@@ -33,7 +33,7 @@ func main() {
 	cli.AddCommand(commands...)
 
 	if err := cli.Execute(); err != nil {
-		os.Exit(1)
+		fmt.Printf("Error: %s", err)
 	}
 }
 

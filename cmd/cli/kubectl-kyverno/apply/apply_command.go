@@ -193,7 +193,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	policies, err := common.GetPoliciesFromPaths(fs, policyPaths, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		os.Exit(1)
 	}
 
 	if len(resourcePaths) == 0 && !cluster {
@@ -238,7 +237,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	resources, err = common.GetResourceAccordingToResourcePath(fs, resourcePaths, cluster, mutatedPolicies, dClient, namespace, policyReport, false, "")
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
-		os.Exit(1)
 	}
 
 	if (len(resources) > 1 || len(mutatedPolicies) > 1) && variablesString != "" {
@@ -252,7 +250,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
-			os.Exit(1)
 		}
 		store.SetSubjects(subjectInfo)
 	}

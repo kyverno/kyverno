@@ -350,7 +350,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if len(pathElems) <= 1 {
 			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-			os.Exit(1)
 		}
 
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
@@ -383,7 +382,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		if cloneErr != nil {
 			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			os.Exit(1)
 		}
 
 		policyYamls, err := listYAMLs(fs, gitPathToYamls)
@@ -668,7 +666,7 @@ func getAndComparePatchedResource(path string, enginePatchedResource unstructure
 	var status string
 	patchedResources, err := common.GetPatchedResourceFromPath(fs, path, isGit, policyResourcePath)
 	if err != nil {
-		os.Exit(1)
+		fmt.Printf("Error: %s\n", err)
 	}
 	matched, err := generate.ValidateResourceWithPattern(log.Log, enginePatchedResource.UnstructuredContent(), patchedResources.UnstructuredContent())
 	if err != nil {
@@ -752,7 +750,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoFile, isGit, policyResourcePath)
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
-			os.Exit(1)
 		}
 		store.SetSubjects(subjectInfo)
 	}
@@ -769,7 +766,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-		os.Exit(1)
 	}
 
 	var filteredPolicies = []v1.PolicyInterface{}
@@ -812,7 +808,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
-		os.Exit(1)
 	}
 
 	var filteredResources = []*unstructured.Unstructured{}
