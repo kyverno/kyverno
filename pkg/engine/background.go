@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -57,7 +57,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 	return resp
 }
 
-func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleResponse {
+func filterRule(rule kyvernov1.Rule, policyContext *PolicyContext) *response.RuleResponse {
 	if !rule.HasGenerate() && !rule.IsMutateExisting() {
 		return nil
 	}
@@ -96,7 +96,7 @@ func filterRule(rule kyverno.Rule, policyContext *PolicyContext) *response.RuleR
 				}
 			}
 		}
-
+		logger.V(4).Info("rule not matched", "reason", err.Error())
 		return nil
 	}
 

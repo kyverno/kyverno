@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-//NewAnyInHandler returns handler to manage AnyIn operations
+// NewAnyInHandler returns handler to manage AnyIn operations
 func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AnyInHandler{
 		ctx: ctx,
@@ -20,13 +20,13 @@ func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//AnyInHandler provides implementation to handle AnyIn Operator
+// AnyInHandler provides implementation to handle AnyIn Operator
 type AnyInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AnyIn Operator
+// Evaluate evaluates expression with AnyIn Operator
 func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:

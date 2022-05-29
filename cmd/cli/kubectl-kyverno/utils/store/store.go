@@ -5,10 +5,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
-var Mock, RegistryAccess bool
-var ContextVar Context
-var ForeachElement int
-var Subjects Subject
+var (
+	Mock, RegistryAccess bool
+	ContextVar           Context
+	ForeachElement       int
+	Subjects             Subject
+)
 
 func SetMock(mock bool) {
 	Mock = mock
@@ -28,7 +30,7 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.InitializeLocal()
+		registryclient.DefaultClient.UseLocalKeychain()
 	}
 	RegistryAccess = access
 }

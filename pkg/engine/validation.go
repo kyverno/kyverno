@@ -7,25 +7,24 @@ import (
 	"strings"
 	"time"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/go-logr/logr"
+	gojmespath "github.com/jmespath/go-jmespath"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/pkg/errors"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-
-	"github.com/go-logr/logr"
-	gojmespath "github.com/jmespath/go-jmespath"
-	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"github.com/pkg/errors"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-//Validate applies validation rules from policy on the resource
+// Validate applies validation rules from policy on the resource
 func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	resp = &response.EngineResponse{}
 	startTime := time.Now()
@@ -59,7 +58,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 
 	if reflect.DeepEqual(resp.PatchedResource, unstructured.Unstructured{}) {
 		// for delete requests patched resource will be oldResource since newResource is empty
-		var resource = ctx.NewResource
+		resource := ctx.NewResource
 		if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 			resource = ctx.OldResource
 		}
@@ -123,7 +122,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
-func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) (*response.RuleResponse, error) {
+func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
 	ctxCopy := ctx.Copy()
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
@@ -139,7 +138,7 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) 
 	return processValidationRule(log, ctxCopy, rule), nil
 }
 
-func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *response.RuleResponse {
+func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
 	v := newValidator(log, ctx, rule)
 	if rule.Validation.ForEachValidation != nil {
 		return v.validateForEach()
@@ -165,15 +164,15 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 type validator struct {
 	log              logr.Logger
 	ctx              *PolicyContext
-	rule             *kyverno.Rule
-	contextEntries   []kyverno.ContextEntry
+	rule             *kyvernov1.Rule
+	contextEntries   []kyvernov1.ContextEntry
 	anyAllConditions apiextensions.JSON
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
-	deny             *kyverno.Deny
+	deny             *kyvernov1.Deny
 }
 
-func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
+func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
 	return &validator{
 		log:              log,
@@ -187,7 +186,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 	}
 }
 
-func newForeachValidator(foreach kyverno.ForEachValidation, rule *kyverno.Rule, ctx *PolicyContext, log logr.Logger) *validator {
+func newForeachValidator(foreach kyvernov1.ForEachValidation, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) *validator {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -216,7 +215,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	}
 
-	if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit || store.GetMock()) {
+	if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyvernov1.Audit || store.GetMock()) {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
@@ -257,7 +256,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
-	} else if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyverno.Audit || store.GetMock()) {
+	} else if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyvernov1.Audit || store.GetMock()) {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
@@ -289,7 +288,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
-func (v *validator) validateElements(foreach kyverno.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 	applyCount := 0
@@ -449,7 +448,7 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyverno.Rule, ctx *PolicyContext) bool {
+func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *PolicyContext) bool {
 	err := MatchesResourceDescription(ctx.NewResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
 	if err == nil {
 		return true
@@ -602,7 +601,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 }
 
-func buildAnyPatternErrorMessage(rule *kyverno.Rule, errors []string) string {
+func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
@@ -649,6 +648,6 @@ func (v *validator) substituteDeny() error {
 		return err
 	}
 
-	v.deny = i.(*kyverno.Deny)
+	v.deny = i.(*kyvernov1.Deny)
 	return nil
 }

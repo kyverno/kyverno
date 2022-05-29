@@ -11,13 +11,12 @@ import (
 	"runtime"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/stretchr/testify/assert"
-
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8sRuntime "k8s.io/apimachinery/pkg/runtime"
@@ -63,7 +62,7 @@ type Validation struct {
 
 type Generation struct {
 	// generated resources
-	GeneratedResources []kyverno.ResourceSpec `yaml:"generatedResources"`
+	GeneratedResources []kyvernov1.ResourceSpec `yaml:"generatedResources"`
 	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
@@ -72,13 +71,13 @@ type Generation struct {
 // It assumes that the project directory is 2 levels up. This means if this function is moved
 // it may not work as expected.
 func RootDir() string {
-	_, b, _, _ := runtime.Caller(0)
+	_, b, _, _ := runtime.Caller(0) // nolint:dogsled
 	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
 }
 
-//getRelativePath expects a path relative to project and builds the complete path
+// getRelativePath expects a path relative to project and builds the complete path
 func getRelativePath(path string) string {
 	root := RootDir()
 	return ospath.Join(root, path)
@@ -204,12 +203,12 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	return true
 }
 
-func createNamespace(client client.Interface, ns *unstructured.Unstructured) error {
+func createNamespace(client dclient.Interface, ns *unstructured.Unstructured) error {
 	_, err := client.CreateResource("", "Namespace", "", ns, false)
 	return err
 }
 
-func validateGeneratedResources(t *testing.T, client client.Interface, policy kyverno.ClusterPolicy, namespace string, expected []kyverno.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client dclient.Interface, policy kyvernov1.ClusterPolicy, namespace string, expected []kyvernov1.ResourceSpec) {
 	t.Helper()
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
@@ -358,7 +357,7 @@ func loadPolicyResource(t *testing.T, file string) *unstructured.Unstructured {
 	return resources[0]
 }
 
-func getClient(t *testing.T, files []string) client.Interface {
+func getClient(t *testing.T, files []string) dclient.Interface {
 	t.Helper()
 	var objects []k8sRuntime.Object
 	for _, file := range files {
@@ -367,14 +366,14 @@ func getClient(t *testing.T, files []string) client.Interface {
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := client.NewMockClient(scheme, nil, objects...)
+	c, err := dclient.NewMockClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil
 	}
 	// get GVR from GVK
 	gvrs := getGVRForResources(objects)
-	c.SetDiscovery(client.NewFakeDiscoveryClient(gvrs))
+	c.SetDiscovery(dclient.NewFakeDiscoveryClient(gvrs))
 	t.Log("created mock client with pre-loaded resources")
 	return c
 }
@@ -443,17 +442,17 @@ func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
 	return resources
 }
 
-func loadPolicy(t *testing.T, path string) *kyverno.ClusterPolicy {
+func loadPolicy(t *testing.T, path string) *kyvernov1.ClusterPolicy {
 	t.Helper()
 	t.Logf("loading policy from %s", path)
 	data, err := loadFile(t, path)
 	if err != nil {
 		return nil
 	}
-	var policies []*kyverno.ClusterPolicy
+	var policies []*kyvernov1.ClusterPolicy
 	pBytes := bytes.Split(data, []byte("---"))
 	for _, p := range pBytes {
-		policy := kyverno.ClusterPolicy{}
+		policy := kyvernov1.ClusterPolicy{}
 		pBytes, err := apiyaml.ToJSON(p)
 		if err != nil {
 			t.Error(err)
