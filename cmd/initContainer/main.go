@@ -5,13 +5,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"sync"
 	"time"
 
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
@@ -21,7 +22,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
-	coord "k8s.io/api/coordination/v1"
+	admissionv1 "k8s.io/api/admission/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -225,7 +227,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 		os.Exit(0)
 	}
 
-	lease := coord.Lease{
+	lease := coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kyvernopre-lock",
 		},
@@ -478,26 +480,36 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 
 	for _, gr := range grs.Items {
-		var ur = &urkyverno.UpdateRequest{
+		cp := gr.DeepCopy()
+		var request *admissionv1.AdmissionRequest
+		if cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest != "" {
+			var r admissionv1.AdmissionRequest
+			err := json.Unmarshal([]byte(cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest), &r)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal admission request")
+				errors = append(errors, err)
+				continue
+			}
+		}
+		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace,
 				Labels:       gr.GetLabels(),
 			},
-			Spec: urkyverno.UpdateRequestSpec{
-				Type:     urkyverno.Generate,
+			Spec: kyvernov1beta1.UpdateRequestSpec{
+				Type:     kyvernov1beta1.Generate,
 				Policy:   gr.Spec.Policy,
 				Resource: *gr.Spec.Resource.DeepCopy(),
-				Context: urkyverno.UpdateRequestSpecContext{
-					UserRequestInfo: urkyverno.RequestInfo{
+				Context: kyvernov1beta1.UpdateRequestSpecContext{
+					UserRequestInfo: kyvernov1beta1.RequestInfo{
 						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
 						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
 						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
 					},
-
-					AdmissionRequestInfo: urkyverno.AdmissionRequestInfoObject{
-						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
-						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
+						AdmissionRequest: request,
+						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
 					},
 				},
 			},
