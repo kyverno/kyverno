@@ -117,7 +117,7 @@ type RequestInfo struct {
 // AdmissionRequestInfoObject stores the admission request and operation details
 type AdmissionRequestInfoObject struct {
 	// +optional
-	AdmissionRequest string `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
+	AdmissionRequest *admissionv1.AdmissionRequest `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
 	// +optional
 	Operation admissionv1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
 }
