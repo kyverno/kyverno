@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +44,7 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
 		set[kyvernov1beta1.URMutatetriggerKindLabel] = trigger.GetKind()
 		if trigger.GetAPIVersion() != "" {
-			set[kyvernov1beta1.URMutatetriggerAPIVersionLabel] = trigger.GetAPIVersion()
+			set[kyvernov1beta1.URMutatetriggerAPIVersionLabel] = strings.ReplaceAll(trigger.GetAPIVersion(), "/", "-")
 		}
 	}
 	return set
