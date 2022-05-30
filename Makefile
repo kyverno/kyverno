@@ -376,7 +376,8 @@ install-controller-gen: ## Install controller-gen
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
+	go mod edit -replace=sigs.k8s.io/controller-tools@$(CONTROLLER_GEN_REQ_VERSION)=github.com/eddycharly/controller-tools@704af868d45a3a78448b9a6a2279c12ea96a621e ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
