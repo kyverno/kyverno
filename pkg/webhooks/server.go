@@ -77,7 +77,7 @@ type WebhookServer struct {
 	prGenerator policyreport.GeneratorInterface
 
 	// update request generator
-	urGenerator webhookgenerate.Interface
+	urGenerator webhookgenerate.Generator
 
 	auditHandler AuditHandler
 
@@ -111,7 +111,7 @@ func NewWebhookServer(
 	webhookMonitor *webhookconfig.Monitor,
 	configHandler config.Configuration,
 	prGenerator policyreport.GeneratorInterface,
-	urGenerator webhookgenerate.Interface,
+	urGenerator webhookgenerate.Generator,
 	auditHandler AuditHandler,
 	cleanUp chan<- struct{},
 	log logr.Logger,

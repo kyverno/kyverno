@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -374,15 +373,11 @@ func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.E
 	}
 }
 
-func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Interface, userRequestInfo kyvernov1beta1.RequestInfo,
+func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedUpdateRequest []updateRequestResponse) {
 
-	requestBytes, err := json.Marshal(request)
-	if err != nil {
-		logger.Error(err, "error loading request into context")
-	}
 	admissionRequestInfo := kyvernov1beta1.AdmissionRequestInfoObject{
-		AdmissionRequest: string(requestBytes),
+		AdmissionRequest: request,
 		Operation:        action,
 	}
 

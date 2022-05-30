@@ -16,6 +16,7 @@ import (
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policymutation"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -61,6 +62,9 @@ func (ws *WebhookServer) admissionHandler(filter bool, inner handlers.AdmissionH
 }
 
 func (ws *WebhookServer) policyMutation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	if toggle.AutogenInternals() {
+		return admissionutils.Response(true)
+	}
 	logger := setupLogger(ws.log, "PolicyMutationWebhook", request)
 	policy, oldPolicy, err := admissionutils.GetPolicies(request)
 	if err != nil {

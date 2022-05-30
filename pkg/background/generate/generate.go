@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -96,7 +96,7 @@ func NewGenerateController(
 	return &c, nil
 }
 
-func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
+func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
 	var err error
 	var resource *unstructured.Unstructured
@@ -114,10 +114,11 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 		urAnnotations := ur.Annotations
 
 		if len(urAnnotations) == 0 {
-			urAnnotations = make(map[string]string)
-			urAnnotations["generate.kyverno.io/retry-count"] = "1"
+			urAnnotations = map[string]string{
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]: "1",
+			}
 		} else {
-			if val, ok := urAnnotations["generate.kyverno.io/retry-count"]; ok {
+			if val, ok := urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation]; ok {
 				sleepCountInt64, err := strconv.ParseUint(val, 10, 32)
 				if err != nil {
 					logger.Error(err, "unable to convert retry-count")
@@ -136,12 +137,12 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 				} else {
 					time.Sleep(time.Second * time.Duration(sleepCountInt))
 					incrementedCountString := strconv.Itoa(sleepCountInt)
-					urAnnotations["generate.kyverno.io/retry-count"] = incrementedCountString
+					urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = incrementedCountString
 				}
 
 			} else {
 				time.Sleep(time.Second * 1)
-				urAnnotations["generate.kyverno.io/retry-count"] = "1"
+				urAnnotations[kyvernov1beta1.URGenerateRetryCountAnnotation] = "1"
 			}
 		}
 
@@ -182,7 +183,7 @@ func (c *GenerateController) ProcessUR(ur *urkyverno.UpdateRequest) error {
 
 const doesNotApply = "policy does not apply to resource"
 
-func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur urkyverno.UpdateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
+func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, ur kyvernov1beta1.UpdateRequest, namespaceLabels map[string]string) ([]kyverno.ResourceSpec, bool, error) {
 	logger := c.log.WithValues("name", ur.GetName(), "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
 	logger.V(3).Info("applying generate policy rule")
 
@@ -219,10 +220,10 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		if r.Status != response.RuleStatusPass {
 			logger.V(4).Info("querying all update requests")
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				urkyverno.URGeneratePolicyLabel:          engineResponse.PolicyResponse.Policy.Name,
-				"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
-				"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
-				"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
+				kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
+				kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
+				kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
+				kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
 			}))
 			urList, err := c.urLister.List(selector)
 			if err != nil {
@@ -271,7 +272,7 @@ func (c *GenerateController) cleanupClonedResource(targetSpec kyverno.ResourceSp
 }
 
 // getPolicySpec gets the policy spec from the ClusterPolicy/Policy
-func (c *GenerateController) getPolicySpec(ur urkyverno.UpdateRequest) (kyverno.ClusterPolicy, error) {
+func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyverno.ClusterPolicy, error) {
 	var policy kyverno.ClusterPolicy
 
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
@@ -299,7 +300,7 @@ func (c *GenerateController) getPolicySpec(ur urkyverno.UpdateRequest) (kyverno.
 	}
 }
 
-func updateStatus(statusControl common.StatusControlInterface, ur urkyverno.UpdateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
+func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error, genResources []kyverno.ResourceSpec, precreatedResource bool) error {
 	if err != nil {
 		if _, err := statusControl.Failed(ur.GetName(), err.Error(), genResources); err != nil {
 			return err
@@ -316,7 +317,7 @@ func updateStatus(statusControl common.StatusControlInterface, ur urkyverno.Upda
 	return nil
 }
 
-func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur urkyverno.UpdateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
+func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest, applicableRules []string) (genResources []kyverno.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -398,7 +399,7 @@ func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiv
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyverno.PolicyInterface, ur urkyverno.UpdateRequest) (kyverno.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyverno.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyverno.PolicyInterface, ur kyvernov1beta1.UpdateRequest) (kyverno.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -640,7 +641,7 @@ func getUnstrRule(rule *kyverno.Generation) (*unstructured.Unstructured, error) 
 	return utils.ConvertToUnstructured(ruleData)
 }
 
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur urkyverno.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
 		if err != nil && !apierrors.IsNotFound(err) {

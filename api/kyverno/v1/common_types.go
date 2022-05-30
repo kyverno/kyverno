@@ -457,17 +457,3 @@ type CloneFrom struct {
 	// Name specifies name of the resource.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
-
-type ResourceSpec struct {
-	// APIVersion specifies resource apiVersion.
-	// +optional
-	APIVersion string `json:"apiVersion,omitempty" yaml:"apiVersion,omitempty"`
-	// Kind specifies resource kind.
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	// Namespace specifies resource namespace.
-	// +optional
-	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-	// Name specifies the resource name.
-	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-}
