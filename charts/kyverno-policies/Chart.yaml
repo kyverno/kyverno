@@ -26,4 +26,4 @@ annotations:
     - kind: added
       description: Support for artifacthub.io/changes annotation
     - kind: fixed
-      description: Fix Kyverno version check when image tag  contains registry port number
+      description: Fix Kyverno version check when image tag contains registry port number
