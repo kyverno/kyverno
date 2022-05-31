@@ -59,7 +59,7 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- $version := "" -}}
 {{- with (lookup "apps/v1" "Deployment" .Release.Namespace "kyverno") -}}
   {{- with (first .spec.template.spec.containers) -}}
-    {{- $imageTag := (split ":" .image)._1 -}}
+    {{- $imageTag := (last (splitList ":" .image)) -}}
     {{- $version = trimPrefix "v" $imageTag -}}
   {{- end -}}
 {{- end -}}
