@@ -52,12 +52,15 @@ func evaluateAnyAllConditions(log logr.Logger, ctx context.EvalInterface, condit
 				break
 			}
 		}
+
+		log.Info("no condition passed for 'any' block", "any", anyConditions)
 	}
 
 	// update the allConditionsResult if they are present
 	for _, condition := range allConditions {
 		if !Evaluate(log, ctx, condition) {
 			allConditionsResult = false
+			log.Info("a condition failed in 'all' block", "condition", condition)
 			break
 		}
 	}

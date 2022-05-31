@@ -221,10 +221,10 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 func (h *handlers) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all update requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		kyvernov1beta1.URGeneratePolicyLabel:     engineResponse.PolicyResponse.Policy.Name,
-		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
-		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
-		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
+		kyvernov1beta1.URGeneratePolicyLabel:       engineResponse.PolicyResponse.Policy.Name,
+		kyvernov1beta1.URGenerateResourceNameLabel: engineResponse.PolicyResponse.Resource.Name,
+		kyvernov1beta1.URGenerateResourceKindLabel: engineResponse.PolicyResponse.Resource.Kind,
+		kyvernov1beta1.URGenerateResourceNSLabel:   engineResponse.PolicyResponse.Resource.Namespace,
 	}))
 
 	urList, err := h.urLister.List(selector)

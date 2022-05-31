@@ -30,7 +30,7 @@ func GetForeachElement() int {
 
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.InitializeLocal()
+		registryclient.DefaultClient.UseLocalKeychain()
 	}
 	RegistryAccess = access
 }

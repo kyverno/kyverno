@@ -65,6 +65,7 @@ var (
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
 	imageSignatureRepository     string
+	allowInsecureRegistry        bool
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
 	webhookRegistrationTimeout   time.Duration
@@ -84,6 +85,7 @@ func main() {
 	flag.DurationVar(&policyControllerResyncPeriod, "backgroundScan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
+	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
@@ -154,16 +156,34 @@ func main() {
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+
+	var registryOptions []registryclient.Option
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
 	if imagePullSecrets != "" && len(secrets) > 0 {
 		setupLog.Info("initializing registry credentials", "secrets", secrets)
-		if err := registryclient.Initialize(kubeClient, config.KyvernoNamespace(), "", secrets); err != nil {
-			setupLog.Error(err, "failed to initialize image pull secrets")
-			os.Exit(1)
-		}
+		registryOptions = append(
+			registryOptions,
+			registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets),
+		)
+	}
+
+	if allowInsecureRegistry {
+		setupLog.Info("initializing registry with allowing insecure connections to registries")
+		registryOptions = append(
+			registryOptions,
+			registryclient.WithAllowInsecureRegistry(),
+		)
+	}
+
+	// initialize default registry client with our settings
+	registryclient.DefaultClient, err = registryclient.InitClient(registryOptions...)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize registry client")
+		os.Exit(1)
 	}
 
 	if imageSignatureRepository != "" {
@@ -264,7 +284,7 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		configuration,
 		eventGenerator,
 		reportReqGen,
@@ -279,10 +299,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	urgen := webhookgenerate.NewGenerator(kyvernoClient,
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		stopCh,
-		log.Log.WithName("UpdateRequestGenerator"))
+	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
 
 	urc := background.NewController(
 		kubeClient,
@@ -290,27 +307,22 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		kubeInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
 	)
 
-	grcc, err := generatecleanup.NewController(
+	grcc := generatecleanup.NewController(
 		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("GenerateCleanUpController"),
 	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create generate cleanup controller")
-		os.Exit(1)
-	}
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
@@ -413,7 +425,7 @@ func main() {
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		kyvernoV1beta1.UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		reportReqGen,
 		urgen,
 		eventGenerator,

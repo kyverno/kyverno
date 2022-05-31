@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	admissionv1 "k8s.io/api/admission/v1"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -36,6 +36,7 @@ const (
 )
 
 type Controller interface {
+	// Run starts workers
 	Run(int, <-chan struct{})
 }
 
@@ -46,11 +47,11 @@ type controller struct {
 	kyvernoClient kyvernoclient.Interface
 
 	// listers
-	policyLister  kyvernov1listers.ClusterPolicyLister
-	npolicyLister kyvernov1listers.PolicyLister
-	urLister      kyvernov1beta1listers.UpdateRequestNamespaceLister
-	nsLister      corev1listers.NamespaceLister
-	podLister     corev1listers.PodLister
+	cpolLister kyvernov1listers.ClusterPolicyLister
+	polLister  kyvernov1listers.PolicyLister
+	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
+	nsLister   corev1listers.NamespaceLister
+	podLister  corev1listers.PodLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -64,8 +65,8 @@ func NewController(
 	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	policyInformer kyvernov1informers.ClusterPolicyInformer,
-	npolicyInformer kyvernov1informers.PolicyInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 	podInformer corev1informers.PodInformer,
@@ -76,8 +77,8 @@ func NewController(
 	c := controller{
 		client:        client,
 		kyvernoClient: kyvernoClient,
-		policyLister:  policyInformer.Lister(),
-		npolicyLister: npolicyInformer.Lister(),
+		cpolLister:    cpolInformer.Lister(),
+		polLister:     polInformer.Lister(),
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
 		podLister:     podInformer.Lister(),
@@ -90,14 +91,17 @@ func NewController(
 		UpdateFunc: c.updateUR,
 		DeleteFunc: c.deleteUR,
 	})
-	policyInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.updatePolicy, // We only handle updates to policy
-		// Deletion of policy will be handled by cleanup controller
+	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePolicy,
+		DeleteFunc: c.deletePolicy,
+	})
+	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updatePolicy,
+		DeleteFunc: c.deletePolicy,
 	})
 	return &c
 }
 
-// Run starts workers
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
@@ -186,6 +190,22 @@ func (c *controller) syncUpdateRequest(key string) error {
 			return err
 		}
 	}
+	// try to get the linked policy
+	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
+		if apierrors.IsNotFound(err) {
+			// here only takes care of mutateExisting policies
+			// generate cleanup controller handles policy deletion
+			selector := &metav1.LabelSelector{
+				MatchLabels: common.MutateLabelsSet(ur.Spec.Policy, nil),
+			}
+			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).DeleteCollection(
+				context.TODO(),
+				metav1.DeleteOptions{},
+				metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
+			)
+		}
+		return err
+	}
 	// if in pending state, try to acquire ur and eventually process it
 	if ur.Status.State == kyvernov1beta1.Pending {
 		ur, ok, err := c.acquireUR(ur)
@@ -222,25 +242,39 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	c.queue.Add(key)
 }
 
-func (c *controller) updatePolicy(old, cur interface{}) {
-	oldP := old.(*kyvernov1.ClusterPolicy)
-	curP := cur.(*kyvernov1.ClusterPolicy)
-	if oldP.ResourceVersion == curP.ResourceVersion {
-		return
-	}
-
-	logger.V(4).Info("updating policy", "name", oldP.Name)
-
-	urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(curP.Name)
+func (c *controller) updatePolicy(_, obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
-		logger.Error(err, "failed to update request for policy", "name", curP.Name)
-		return
+		logger.Error(err, "failed to compute policy key")
+	} else {
+		logger.V(4).Info("updating policy", "key", key)
+		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
+		if err != nil {
+			logger.Error(err, "failed to list update requests for policy", "key", key)
+			return
+		}
+		// re-evaluate the UR as the policy was updated
+		for _, ur := range urs {
+			c.enqueueUpdateRequest(ur)
+		}
 	}
+}
 
-	// re-evaluate the UR as the policy was updated
-	for _, ur := range urs {
-		ur.Spec.Context.AdmissionRequestInfo.Operation = admissionv1.Update
-		c.enqueueUpdateRequest(ur)
+func (c *controller) deletePolicy(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(kubeutils.GetObjectWithTombstone(obj))
+	if err != nil {
+		logger.Error(err, "failed to compute policy key")
+	} else {
+		logger.V(4).Info("updating policy", "key", key)
+		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
+		if err != nil {
+			logger.Error(err, "failed to list update requests for policy", "key", key)
+			return
+		}
+		// re-evaluate the UR as the policy was updated
+		for _, ur := range urs {
+			c.enqueueUpdateRequest(ur)
+		}
 	}
 }
 
@@ -273,16 +307,13 @@ func (c *controller) deleteUR(obj interface{}) {
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
+	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl, _ := mutate.NewMutateExistingController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, logger, c.configuration)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.cpolLister, c.polLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
-
 	case kyvernov1beta1.Generate:
-		ctrl, _ := generate.NewGenerateController(c.kyvernoClient, c.client,
-			c.policyLister, c.npolicyLister, c.urLister, c.eventGen, c.nsLister, logger, c.configuration,
-		)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil
@@ -334,4 +365,15 @@ func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.GetName(), metav1.DeleteOptions{})
 	}
 	return nil
+}
+
+func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+	namespace, name, err := cache.SplitMetaNamespaceKey(key)
+	if err != nil {
+		return nil, err
+	}
+	if namespace == "" {
+		return c.cpolLister.Get(name)
+	}
+	return c.polLister.Policies(namespace).Get(key)
 }

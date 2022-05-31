@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -443,28 +445,37 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		logger.Error(err, "failed to list update requests")
 		return err
 	}
-
 	for _, gr := range grs.Items {
+		cp := gr.DeepCopy()
+		var request *admissionv1.AdmissionRequest
+		if cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest != "" {
+			var r admissionv1.AdmissionRequest
+			err := json.Unmarshal([]byte(cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest), &r)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal admission request")
+				errors = append(errors, err)
+				continue
+			}
+		}
 		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
 				Namespace:    config.KyvernoNamespace(),
-				Labels:       gr.GetLabels(),
+				Labels:       cp.GetLabels(),
 			},
 			Spec: kyvernov1beta1.UpdateRequestSpec{
 				Type:     kyvernov1beta1.Generate,
-				Policy:   gr.Spec.Policy,
-				Resource: *gr.Spec.Resource.DeepCopy(),
+				Policy:   cp.Spec.Policy,
+				Resource: cp.Spec.Resource,
 				Context: kyvernov1beta1.UpdateRequestSpecContext{
 					UserRequestInfo: kyvernov1beta1.RequestInfo{
-						Roles:             gr.Spec.Context.UserRequestInfo.DeepCopy().Roles,
-						ClusterRoles:      gr.Spec.Context.UserRequestInfo.DeepCopy().ClusterRoles,
-						AdmissionUserInfo: *gr.Spec.Context.UserRequestInfo.AdmissionUserInfo.DeepCopy(),
+						Roles:             cp.Spec.Context.UserRequestInfo.Roles,
+						ClusterRoles:      cp.Spec.Context.UserRequestInfo.ClusterRoles,
+						AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
 					},
-
 					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: gr.Spec.Context.AdmissionRequestInfo.DeepCopy().AdmissionRequest,
-						Operation:        gr.Spec.Context.AdmissionRequestInfo.DeepCopy().Operation,
+						AdmissionRequest: request,
+						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
 					},
 				},
 			},
