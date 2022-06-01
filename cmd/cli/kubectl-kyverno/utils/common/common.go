@@ -21,6 +21,7 @@ import (
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
@@ -32,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -397,7 +399,7 @@ func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInt
 func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo kyvernov1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
-	printPatchResource bool,
+	printPatchResource bool, ruleToCloneSourceResource map[string]string,
 ) ([]*response.EngineResponse, policyreport.Info, error) {
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
@@ -561,11 +563,17 @@ OuterLoop:
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
 			},
-			JSONContext:     engineContext.NewContext(),
+			JSONContext:     ctx,
 			NamespaceLabels: namespaceLabels,
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
+			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneSourceResource)
+			if err != nil {
+				log.Log.Error(err, "failed to apply generate policy")
+			} else {
+				generateResponse.PolicyResponse.Rules = newRuleResponse
+			}
 			engineResponses = append(engineResponses, generateResponse)
 		}
 		updateResultCounts(policy, generateResponse, resPath, rc)
@@ -995,35 +1003,110 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-// GetPatchedResourceFromPath - get patchedResource from given path
-func GetPatchedResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string) (unstructured.Unstructured, error) {
-	var patchedResourceBytes []byte
-	var patchedResource unstructured.Unstructured
+//GetResourceFromPath - get patchedResource and generatedResource from given path
+func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
+	var resourceBytes []byte
+	var resource unstructured.Unstructured
 	var err error
-
 	if isGit {
 		if len(path) > 0 {
 			filep, fileErr := fs.Open(filepath.Join(policyResourcePath, path))
 			if fileErr != nil {
-				fmt.Printf("Unable to open patchedResource file: %s. \nerror: %s", path, fileErr)
+				fmt.Printf("Unable to open %s file: %s. \nerror: %s", resourceType, path, err)
 			}
-			patchedResourceBytes, err = ioutil.ReadAll(filep)
+			resourceBytes, err = ioutil.ReadAll(filep)
 		}
 	} else {
-		patchedResourceBytes, err = getFileBytes(path)
+		resourceBytes, err = getFileBytes(path)
 	}
 
 	if err != nil {
-		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load patchedResource: %s. \nerror: %s\n----------------------------------------------------------------------\n", path, err)
-		return patchedResource, err
+		fmt.Printf("\n----------------------------------------------------------------------\nfailed to load %s: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourceType, path, err)
+		return resource, err
 	}
 
-	patchedResource, err = GetPatchedResource(patchedResourceBytes)
+	resource, err = GetPatchedAndGeneratedResource(resourceBytes)
 	if err != nil {
-		return patchedResource, err
+		return resource, err
 	}
 
-	return patchedResource, nil
+	return resource, nil
+}
+
+// initializeMockController initializes a basic Generate Controller with a fake dynamic client.
+func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
+	client, err := dclient.NewMockClient(runtime.NewScheme(), nil, objects...)
+	if err != nil {
+		fmt.Printf("Failed to mock dynamic client")
+		return nil, err
+	}
+
+	client.SetDiscovery(dclient.NewFakeDiscoveryClient(nil))
+	c := generate.NewGenerateControllerWithOnlyClient(client)
+	return c, nil
+}
+
+// handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
+func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
+	objects := []runtime.Object{&policyContext.NewResource}
+	var resources = []*unstructured.Unstructured{}
+	for _, rule := range generateResponse.PolicyResponse.Rules {
+		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
+			resourceBytes, err := getFileBytes(path)
+			if err != nil {
+				fmt.Printf("failed to get resource bytes\n")
+			} else {
+				resources, err = GetResource(resourceBytes)
+				if err != nil {
+					fmt.Printf("failed to convert resource bytes to unstructured format\n")
+				}
+			}
+		}
+	}
+
+	for _, res := range resources {
+		objects = append(objects, res)
+	}
+
+	c, err := initializeMockController(objects)
+	if err != nil {
+		fmt.Println("error at controller")
+		return nil, err
+	}
+
+	gr := kyvernov1beta1.UpdateRequest{
+		Spec: kyvernov1beta1.UpdateRequestSpec{
+			Type:   kyvernov1beta1.Generate,
+			Policy: generateResponse.PolicyResponse.Policy.Name,
+			Resource: kyvernov1.ResourceSpec{
+				Kind:       generateResponse.PolicyResponse.Resource.Kind,
+				Namespace:  generateResponse.PolicyResponse.Resource.Namespace,
+				Name:       generateResponse.PolicyResponse.Resource.Name,
+				APIVersion: generateResponse.PolicyResponse.Resource.APIVersion,
+			},
+		},
+	}
+
+	var newRuleResponse []response.RuleResponse
+
+	for _, rule := range generateResponse.PolicyResponse.Rules {
+		genResource, _, err := c.ApplyGeneratePolicy(log.Log, &policyContext, gr, []string{rule.Name})
+		if err != nil {
+			rule.Status = response.RuleStatusError
+			return nil, err
+		}
+
+		unstrGenResource, err := c.GetUnstrResource(genResource[0])
+		if err != nil {
+			rule.Status = response.RuleStatusError
+			return nil, err
+		}
+
+		rule.GeneratedResource = *unstrGenResource
+		newRuleResponse = append(newRuleResponse, rule)
+	}
+
+	return newRuleResponse, nil
 }
 
 // GetUserInfoFromPath - get the request info as user info from a given path
