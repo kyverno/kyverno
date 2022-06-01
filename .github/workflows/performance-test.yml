@@ -1,0 +1,76 @@
+name: CI
+on:
+  push:
+    branches: [ automate_performance_testing ]
+  pull_request:
+    branches: [ automate_performance_testing ]
+
+  workflow_dispatch:
+    inputs:
+      create_cluster:
+        description: 'Create cluster from scratch?'
+        required: true 
+        type: boolean 
+      scales:
+        description: 'Choose the scale to test'
+        required: true
+        type: choice
+        options:
+        - xs
+        - small
+        - medium
+        - large
+        - xl
+        - xxl
+        - xxl
+jobs:
+  automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    if:  ${{ github.event.inputs.create_cluster == 'true' }} 
+    steps:
+      - uses: actions/checkout@v3
+
+      #- name: SCP action
+      #  uses: actions/checkout@v3
+      #- run: |
+      #    scp -i ${{ secrets.KEY }} ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/hello.txt .
+      #    ls
+      
+      - name: setup cluster
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          port: ${{ secrets.PORT }}
+          script: |
+            git clone https://github.com/husnialhamdani/kyvernop.git dir
+            bash ~/dir/setup.sh
+        continue-on-error: true
+
+      - name: run automation
+        timeout-minutes: 40
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+          port: ${{ secrets.PORT }}
+          script: |
+            export EMAILFROM=${{ secrets.EMAILFROM }}
+            export EMAILPASS=${{ secrets.EMAILPASS }}
+            export EMAILTO=${{ secrets.EMAILTO }}
+            cd ~/dir
+            pip install -r requirements.txt
+            /usr/local/go/bin/go mod download
+            /usr/local/go/bin/go run main.go execute --scale ${{ github.event.inputs.scales }}
+            rm -rf ~/dir
+            
+      #- name: storing report
+      #  uses: actions/upload-artifact@v3
+      #  with:
+      #    name: report
+      #    path: report.png
