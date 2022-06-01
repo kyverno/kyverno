@@ -19,19 +19,19 @@ const (
 	annLastRequestTime string = "kyverno.io/last-request-time"
 )
 
-//statusControl controls the webhook status
+// statusControl controls the webhook status
 type statusControl struct {
 	eventGen    event.Interface
 	log         logr.Logger
 	leaseClient coordinationv1.LeaseInterface
 }
 
-//success ...
+// success ...
 func (vc statusControl) success() error {
 	return vc.setStatus("true")
 }
 
-//failure ...
+// failure ...
 func (vc statusControl) failure() error {
 	return vc.setStatus("false")
 }
@@ -102,7 +102,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 		return err
 	}
 
-	//add label to lease
+	// add label to lease
 	label := lease.GetLabels()
 	if len(label) == 0 {
 		label = make(map[string]string)
@@ -123,7 +123,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 	annotation[annLastRequestTime] = string(t)
 	lease.SetAnnotations(annotation)
 
-	//update annotations in lease
+	// update annotations in lease
 	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, lease.GetName(), lease.GetNamespace())

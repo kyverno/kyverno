@@ -1,6 +1,6 @@
 package event
 
-//Reason types of Event Reasons
+// Reason types of Event Reasons
 type Reason int
 
 const (

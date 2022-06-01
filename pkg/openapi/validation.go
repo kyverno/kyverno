@@ -9,7 +9,7 @@ import (
 
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -46,7 +46,7 @@ type Controller struct {
 	kindToAPIVersions concurrentMap
 }
 
-// apiVersions stores all available gvks for a kind, a gvk is "/" seperated string
+// apiVersions stores all available gvks for a kind, a gvk is "/" separated string
 type apiVersions struct {
 	serverPreferredGVK string
 	gvks               []string
@@ -135,8 +135,8 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 }
 
 // ValidatePolicyMutation ...
-func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
-	var kindToRules = make(map[string][]v1.Rule)
+func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
+	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
@@ -378,7 +378,7 @@ func getArrayValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
 }
 
 func getObjectValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
-	var props = make(map[string]interface{})
+	props := make(map[string]interface{})
 	properties := kindSchema.GetProperties().GetAdditionalProperties()
 	if len(properties) == 0 {
 		return props

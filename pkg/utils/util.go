@@ -6,20 +6,19 @@ import (
 	"regexp"
 	"strconv"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/pkg/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
@@ -100,7 +99,7 @@ func compareString(str, name string) bool {
 }
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(discovery client.IDiscovery) bool {
+func CRDsInstalled(discovery dclient.IDiscovery) bool {
 	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
@@ -111,7 +110,7 @@ func CRDsInstalled(discovery client.IDiscovery) bool {
 	return true
 }
 
-func isCRDInstalled(discoveryClient client.IDiscovery, kind string) bool {
+func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 	gvr, err := discoveryClient.GetGVRFromKind(kind)
 	if gvr.Empty() {
 		if err == nil {
@@ -265,7 +264,7 @@ func isVersionHigher(version string, major int, minor int, patch int) (bool, err
 
 // SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
-	var sliceElementsMap = make(map[string]bool, len(slice))
+	sliceElementsMap := make(map[string]bool, len(slice))
 	for _, sliceElement := range slice {
 		sliceElementsMap[sliceElement] = true
 	}
@@ -309,12 +308,12 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return nil, fmt.Errorf("error occurred while marshalling %s: %+v", path, err)
 	}
 
-	var kyvernoOldConditions []kyverno.Condition
+	var kyvernoOldConditions []kyvernov1.Condition
 	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
 		var validConditionOperator bool
 
 		for _, jsonOp := range kyvernoOldConditions {
-			for _, validOp := range kyverno.ConditionOperators {
+			for _, validOp := range kyvernov1.ConditionOperators {
 				if jsonOp.Operator == validOp {
 					validConditionOperator = true
 				}
@@ -328,7 +327,7 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoOldConditions, nil
 	}
 
-	var kyvernoAnyAllConditions kyverno.AnyAllConditions
+	var kyvernoAnyAllConditions kyvernov1.AnyAllConditions
 	if err = json.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
 		// checking if unknown fields exist or not
 		err = unknownFieldChecker(jsonByte, path)

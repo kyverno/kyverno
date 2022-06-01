@@ -6,17 +6,15 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	urkyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/informers"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -26,24 +24,8 @@ const (
 	PolicyReport    = "POLICYREPORT"
 )
 
-// GetNamespaceSelectorsFromGenericInformer - extracting the namespacelabels when generic informer is passed
-func GetNamespaceSelectorsFromGenericInformer(kind, namespaceOfResource string, nsInformer informers.GenericInformer, logger logr.Logger) map[string]string {
-	namespaceLabels := make(map[string]string)
-	if kind != "Namespace" {
-		runtimeNamespaceObj, err := nsInformer.Lister().Get(namespaceOfResource)
-		if err != nil {
-			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
-			return namespaceLabels
-		}
-
-		unstructuredObj := runtimeNamespaceObj.(*unstructured.Unstructured)
-		return unstructuredObj.GetLabels()
-	}
-	return namespaceLabels
-}
-
 // GetNamespaceSelectorsFromNamespaceLister - extract the namespacelabels when namespace lister is passed
-func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister listerv1.NamespaceLister, logger logr.Logger) map[string]string {
+func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, nsLister corev1listers.NamespaceLister, logger logr.Logger) map[string]string {
 	namespaceLabels := make(map[string]string)
 	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
@@ -57,7 +39,7 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 }
 
 // GetNamespaceLabels - from namespace obj
-func GetNamespaceLabels(namespaceObj *v1.Namespace, logger logr.Logger) map[string]string {
+func GetNamespaceLabels(namespaceObj *corev1.Namespace, logger logr.Logger) map[string]string {
 	namespaceObj.Kind = "Namespace"
 	namespaceRaw, err := json.Marshal(namespaceObj)
 	if err != nil {
@@ -97,7 +79,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(policy kyverno.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister urkyvernolister.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
 	for _, rule := range policy.GetSpec().Rules {
 		clone, sync := rule.GetCloneSyncForGenerate()
@@ -108,7 +90,7 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyverno.PolicyInterface, cli
 		logger.V(4).Info("generate policy with clone, remove policy name from label of source resource")
 		generatePolicyWithClone = true
 
-		retryCount := 0
+		var retryCount int
 		for retryCount < 5 {
 			err := updateSourceResource(policy.GetName(), rule, client, logger)
 			if err != nil {
@@ -126,13 +108,13 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyverno.PolicyInterface, cli
 	return generatePolicyWithClone
 }
 
-func updateSourceResource(pName string, rule kyverno.Rule, client dclient.Interface, log logr.Logger) error {
+func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Interface, log logr.Logger) error {
 	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	}
 
-	update := false
+	var update bool
 	labels := obj.GetLabels()
 	update, labels = removePolicyFromLabels(pName, labels)
 	if !update {

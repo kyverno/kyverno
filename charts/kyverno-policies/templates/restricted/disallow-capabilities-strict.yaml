@@ -35,7 +35,9 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with merge (index .Values "policyPreconditions" "require-drop-all") (index .Values "policyPreconditions" $name) }}
+      {{- $preconditions1 :=  merge (index .Values "policyPreconditions" "require-drop-all") (index .Values "policyPreconditions" $name) }}
+      {{- if $preconditions1 }}
+      {{- with $preconditions1 }}
       preconditions:
         {{- if .all }}
         all:
@@ -46,6 +48,13 @@ spec:
         {{- else }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- end }}
+      {{- else }}
+      preconditions:
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
       {{- end }}
       validate:
         message: >-
@@ -68,7 +77,9 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with merge (index .Values "policyPreconditions" "adding-capabilities-strict") (index .Values "policyPreconditions" $name) }}
+      {{- $preconditions2 := merge (index .Values "policyPreconditions" "adding-capabilities-strict") (index .Values "policyPreconditions" $name) }}
+      {{- if $preconditions2 }}
+      {{- with $preconditions2 }}
       preconditions:
         {{- if .all }}
         all:
@@ -79,6 +90,13 @@ spec:
         {{- else }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
+      {{- end }}
+      {{- else }}
+      preconditions:
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
       {{- end }}
       validate:
         message: >-

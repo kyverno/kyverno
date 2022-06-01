@@ -1035,134 +1035,220 @@ func Test_mutate_existing_resources(t *testing.T) {
 		name       string
 		policy     []byte
 		trigger    []byte
-		target     []byte
+		targets    [][]byte
 		targetList string
 		patches    []string
 	}{
 		{
 			name: "test-different-trigger-target",
 			policy: []byte(`{
-        "apiVersion": "kyverno.io/v1",
-        "kind": "ClusterPolicy",
-        "metadata": {
-            "name": "test-post-mutation"
-        },
-        "spec": {
-            "rules": [
-                {
-                    "name": "mutate-deploy-on-configmap-update",
-                    "match": {
-                        "any": [
-                            {
-                                "resources": {
-                                    "kinds": [
-                                        "ConfigMap"
-                                    ],
-                                    "names": [
-                                        "dictionary"
-                                    ],
-                                    "namespaces": [
-                                        "staging"
-                                    ]
-                                }
-                            }
-                        ]
-                    },
-                    "preconditions": {
-                        "any": [
-                            {
-                                "key": "{{ request.object.data.foo }}",
-                                "operator": "Equals",
-                                "value": "bar"
-                            }
-                        ]
-                    },
-                    "mutate": {
-                        "targets": [
-                            {
-                                "apiVersion": "v1",
-                                "kind": "Deployment",
-                                "name": "example-A",
-                                "namespace": "staging"
-                            }
-                        ],
-                        "patchStrategicMerge": {
-                            "metadata": {
-                                "labels": {
-                                    "foo": "bar"
-                                }
-                            }
-                        }
-                    }
-                }
-            ]
-        }
-    }`),
+		        "apiVersion": "kyverno.io/v1",
+		        "kind": "ClusterPolicy",
+		        "metadata": {
+		            "name": "test-post-mutation"
+		        },
+		        "spec": {
+		            "rules": [
+		                {
+		                    "name": "mutate-deploy-on-configmap-update",
+		                    "match": {
+		                        "any": [
+		                            {
+		                                "resources": {
+		                                    "kinds": [
+		                                        "ConfigMap"
+		                                    ],
+		                                    "names": [
+		                                        "dictionary"
+		                                    ],
+		                                    "namespaces": [
+		                                        "staging"
+		                                    ]
+		                                }
+		                            }
+		                        ]
+		                    },
+		                    "preconditions": {
+		                        "any": [
+		                            {
+		                                "key": "{{ request.object.data.foo }}",
+		                                "operator": "Equals",
+		                                "value": "bar"
+		                            }
+		                        ]
+		                    },
+		                    "mutate": {
+		                        "targets": [
+		                            {
+		                                "apiVersion": "v1",
+		                                "kind": "Deployment",
+		                                "name": "example-A",
+		                                "namespace": "staging"
+		                            }
+		                        ],
+		                        "patchStrategicMerge": {
+		                            "metadata": {
+		                                "labels": {
+		                                    "foo": "bar"
+		                                }
+		                            }
+		                        }
+		                    }
+		                }
+		            ]
+		        }
+		    }`),
 			trigger: []byte(`{
-    "apiVersion": "v1",
-    "data": {
-        "foo": "bar"
-    },
-    "kind": "ConfigMap",
-    "metadata": {
-        "name": "dictionary",
-        "namespace": "staging"
-    }
-}`),
-			target: []byte(`{
-    "apiVersion": "apps/v1",
-    "kind": "Deployment",
-    "metadata": {
-        "name": "example-A",
-        "namespace": "staging",
-        "labels": {
-            "app": "nginx"
-        }
-    },
-    "spec": {
-        "replicas": 1,
-        "selector": {
-            "matchLabels": {
-                "app": "nginx"
-            }
-        },
-        "template": {
-            "metadata": {
-                "labels": {
-                    "app": "nginx"
-                }
-            },
-            "spec": {
-                "containers": [
-                    {
-                        "name": "nginx",
-                        "image": "nginx:1.14.2",
-                        "ports": [
-                            {
-                                "containerPort": 80
-                            }
-                        ]
-                    }
-                ]
-            }
-        }
-    }
-}`),
+		    "apiVersion": "v1",
+		    "data": {
+		        "foo": "bar"
+		    },
+		    "kind": "ConfigMap",
+		    "metadata": {
+		        "name": "dictionary",
+		        "namespace": "staging"
+		    }
+		}`),
+			targets: [][]byte{[]byte(`{
+		    "apiVersion": "apps/v1",
+		    "kind": "Deployment",
+		    "metadata": {
+		        "name": "example-A",
+		        "namespace": "staging",
+		        "labels": {
+		            "app": "nginx"
+		        }
+		    },
+		    "spec": {
+		        "replicas": 1,
+		        "selector": {
+		            "matchLabels": {
+		                "app": "nginx"
+		            }
+		        },
+		        "template": {
+		            "metadata": {
+		                "labels": {
+		                    "app": "nginx"
+		                }
+		            },
+		            "spec": {
+		                "containers": [
+		                    {
+		                        "name": "nginx",
+		                        "image": "nginx:1.14.2",
+		                        "ports": [
+		                            {
+		                                "containerPort": 80
+		                            }
+		                        ]
+		                    }
+		                ]
+		            }
+		        }
+		    }
+		}`)},
 			targetList: "DeploymentList",
 			patches:    []string{`{"op":"add","path":"/metadata/labels/foo","value":"bar"}`},
 		},
 		{
 			name: "test-same-trigger-target",
 			policy: []byte(`{
+		        "apiVersion": "kyverno.io/v1",
+		        "kind": "ClusterPolicy",
+		        "metadata": {
+		            "name": "test-post-mutation"
+		        },
+		        "spec": {
+		            "rules": [
+		                {
+		                    "name": "mutate-deploy-on-configmap-update",
+		                    "match": {
+		                        "any": [
+		                            {
+		                                "resources": {
+		                                    "kinds": [
+		                                        "ConfigMap"
+		                                    ],
+		                                    "names": [
+		                                        "dictionary"
+		                                    ],
+		                                    "namespaces": [
+		                                        "staging"
+		                                    ]
+		                                }
+		                            }
+		                        ]
+		                    },
+		                    "preconditions": {
+		                        "any": [
+		                            {
+		                                "key": "{{ request.object.data.foo }}",
+		                                "operator": "Equals",
+		                                "value": "bar"
+		                            }
+		                        ]
+		                    },
+		                    "mutate": {
+		                        "targets": [
+		                            {
+		                                "apiVersion": "v1",
+		                                "kind": "ConfigMap",
+		                                "name": "dictionary",
+		                                "namespace": "staging"
+		                            }
+		                        ],
+		                        "patchStrategicMerge": {
+		                            "metadata": {
+		                                "labels": {
+		                                    "foo": "bar"
+		                                }
+		                            }
+		                        }
+		                    }
+		                }
+		            ]
+		        }
+		    }`),
+			trigger: []byte(`{
+		    "apiVersion": "v1",
+		    "data": {
+		        "foo": "bar"
+		    },
+		    "kind": "ConfigMap",
+		    "metadata": {
+		        "name": "dictionary",
+		        "namespace": "staging"
+		    }
+		}`),
+			targets: [][]byte{[]byte(`{
+		    "apiVersion": "v1",
+		    "data": {
+		        "foo": "bar"
+		    },
+		    "kind": "ConfigMap",
+		    "metadata": {
+		        "name": "dictionary",
+		        "namespace": "staging"
+		    }
+		}`)},
+			targetList: "ComfigMapList",
+			patches:    []string{`{"op":"add","path":"/metadata/labels","value":{"foo":"bar"}}`},
+		},
+		{
+			name: "test-in-place-variable",
+			policy: []byte(`
+      {
         "apiVersion": "kyverno.io/v1",
         "kind": "ClusterPolicy",
         "metadata": {
-            "name": "test-post-mutation"
+            "name": "sync-cms"
         },
         "spec": {
+            "mutateExistingOnPolicyUpdate": false,
             "rules": [
                 {
-                    "name": "mutate-deploy-on-configmap-update",
+                    "name": "concat-cm",
                     "match": {
                         "any": [
                             {
@@ -1171,21 +1257,12 @@ func Test_mutate_existing_resources(t *testing.T) {
                                         "ConfigMap"
                                     ],
                                     "names": [
-                                        "dictionary"
+                                        "cmone"
                                     ],
                                     "namespaces": [
-                                        "staging"
+                                        "foo"
                                     ]
                                 }
-                            }
-                        ]
-                    },
-                    "preconditions": {
-                        "any": [
-                            {
-                                "key": "{{ request.object.data.foo }}",
-                                "operator": "Equals",
-                                "value": "bar"
                             }
                         ]
                     },
@@ -1194,49 +1271,154 @@ func Test_mutate_existing_resources(t *testing.T) {
                             {
                                 "apiVersion": "v1",
                                 "kind": "ConfigMap",
-                                "name": "dictionary",
-                                "namespace": "staging"
+                                "name": "cmtwo",
+                                "namespace": "bar"
                             }
                         ],
                         "patchStrategicMerge": {
-                            "metadata": {
-                                "labels": {
-                                    "foo": "bar"
-                                }
+                            "data": {
+                                "keytwo": "{{@}}-{{request.object.data.keyone}}"
                             }
                         }
                     }
                 }
             ]
         }
-    }`),
-			trigger: []byte(`{
-    "apiVersion": "v1",
-    "data": {
-        "foo": "bar"
-    },
-    "kind": "ConfigMap",
-    "metadata": {
-        "name": "dictionary",
-        "namespace": "staging"
     }
-}`),
-			target: []byte(`{
-    "apiVersion": "v1",
-    "data": {
-        "foo": "bar"
-    },
-    "kind": "ConfigMap",
-    "metadata": {
-        "name": "dictionary",
-        "namespace": "staging"
+`),
+			trigger: []byte(`
+      {
+        "apiVersion": "v1",
+        "data": {
+            "keyone": "valueone"
+        },
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "cmone",
+            "namespace": "foo"
+        }
     }
-}`),
+`),
+			targets: [][]byte{[]byte(`
+      {
+        "apiVersion": "v1",
+        "data": {
+            "keytwo": "valuetwo"
+        },
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "cmtwo",
+            "namespace": "bar"
+        }
+    }
+`)},
 			targetList: "ComfigMapList",
-			patches:    []string{`{"op":"add","path":"/metadata/labels","value":{"foo":"bar"}}`},
+			patches:    []string{`{"op":"replace","path":"/data/keytwo","value":"valuetwo-valueone"}`},
+		},
+		{
+			name: "test-in-place-variable",
+			policy: []byte(`
+      {
+        "apiVersion": "kyverno.io/v1",
+        "kind": "ClusterPolicy",
+        "metadata": {
+            "name": "sync-cms"
+        },
+        "spec": {
+            "mutateExistingOnPolicyUpdate": false,
+            "rules": [
+                {
+                    "name": "concat-cm",
+                    "match": {
+                        "any": [
+                            {
+                                "resources": {
+                                    "kinds": [
+                                        "ConfigMap"
+                                    ],
+                                    "names": [
+                                        "cmone"
+                                    ],
+                                    "namespaces": [
+                                        "foo"
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "mutate": {
+                        "targets": [
+                            {
+                                "apiVersion": "v1",
+                                "kind": "ConfigMap",
+                                "name": "cmtwo",
+                                "namespace": "bar"
+                            },
+                            {
+                                "apiVersion": "v1",
+                                "kind": "ConfigMap",
+                                "name": "cmthree",
+                                "namespace": "bar"
+                            }
+                        ],
+                        "patchStrategicMerge": {
+                            "data": {
+                                "key": "{{@}}-{{request.object.data.keyone}}"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    }
+`),
+			trigger: []byte(`
+      {
+        "apiVersion": "v1",
+        "data": {
+            "keyone": "valueone"
+        },
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "cmone",
+            "namespace": "foo"
+        }
+    }
+`),
+			targets: [][]byte{
+				[]byte(`
+      {
+        "apiVersion": "v1",
+        "data": {
+            "key": "valuetwo"
+        },
+        "kind": "ConfigMap",
+        "metadata": {
+            "name": "cmtwo",
+            "namespace": "bar"
+        }
+    }
+`),
+				[]byte(`
+				      {
+				        "apiVersion": "v1",
+				        "data": {
+				            "key": "valuethree"
+				        },
+				        "kind": "ConfigMap",
+				        "metadata": {
+				            "name": "cmthree",
+				            "namespace": "bar"
+				        }
+				    }
+				`),
+			},
+			targetList: "ComfigMapList",
+			patches:    []string{`{"op":"replace","path":"/data/key","value":"valuetwo-valueone"}`, `{"op":"replace","path":"/data/key","value":"valuethree-valueone"}`},
 		},
 	}
 
+	var policyContext *PolicyContext
 	for _, test := range tests {
 		var policy kyverno.ClusterPolicy
 		err := json.Unmarshal(test.policy, &policy)
@@ -1245,38 +1427,41 @@ func Test_mutate_existing_resources(t *testing.T) {
 		trigger, err := utils.ConvertToUnstructured(test.trigger)
 		assert.NilError(t, err)
 
-		target, err := utils.ConvertToUnstructured(test.target)
-		assert.NilError(t, err)
+		for _, target := range test.targets {
+			target, err := utils.ConvertToUnstructured(target)
+			assert.NilError(t, err)
 
-		ctx := context.NewContext()
-		err = ctx.AddResource(trigger.Object)
-		assert.NilError(t, err)
+			ctx := context.NewContext()
+			err = ctx.AddResource(trigger.Object)
+			assert.NilError(t, err)
 
-		gvrToListKind := map[schema.GroupVersionResource]string{
-			{Group: target.GroupVersionKind().Group, Version: target.GroupVersionKind().Version, Resource: target.GroupVersionKind().Kind}: test.targetList,
+			gvrToListKind := map[schema.GroupVersionResource]string{
+				{Group: target.GroupVersionKind().Group, Version: target.GroupVersionKind().Version, Resource: target.GroupVersionKind().Kind}: test.targetList,
+			}
+
+			objects := []runtime.Object{target}
+			scheme := runtime.NewScheme()
+			dclient, err := client.NewMockClient(scheme, gvrToListKind, objects...)
+			assert.NilError(t, err)
+			dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
+
+			_, err = dclient.GetResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
+			assert.NilError(t, err)
+
+			policyContext = &PolicyContext{
+				Client:      dclient,
+				Policy:      &policy,
+				JSONContext: ctx,
+				NewResource: *trigger,
+			}
 		}
-
-		objects := []runtime.Object{target}
-		scheme := runtime.NewScheme()
-		dclient, err := client.NewMockClient(scheme, gvrToListKind, objects...)
-		assert.NilError(t, err)
-		dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
-
-		_, err = dclient.GetResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName())
-		assert.NilError(t, err)
-
-		policyContext := &PolicyContext{
-			Client:      dclient,
-			Policy:      &policy,
-			JSONContext: ctx,
-			NewResource: *trigger,
-		}
-
 		er := Mutate(policyContext)
 
 		for _, rr := range er.PolicyResponse.Rules {
-			assert.Equal(t, test.patches[0], string(rr.Patches[0]))
-			assert.Equal(t, rr.Status, response.RuleStatusPass, rr.Status)
+			for i, p := range rr.Patches {
+				assert.Equal(t, test.patches[i], string(p), "test %s failed:\nGot %s\nExpected: %s", test.name, rr.Patches[i], test.patches[i])
+				assert.Equal(t, rr.Status, response.RuleStatusPass, rr.Status)
+			}
 		}
 	}
 }

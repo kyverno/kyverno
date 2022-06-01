@@ -1,0 +1,12 @@
+name: deny-all-traffic
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: add-networkpolicy
+    rule: default-deny
+    resource: hello-world-namespace
+    generatedResource: generatedResource.yaml
+    kind: Namespace
+    result: pass

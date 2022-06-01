@@ -16,7 +16,7 @@ import (
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
-//maxRetryCount defines the max deadline count
+// maxRetryCount defines the max deadline count
 const (
 	tickerInterval    time.Duration = 30 * time.Second
 	idleCheckInterval time.Duration = 60 * time.Second
@@ -229,6 +229,5 @@ func skipWebhookCheck(register *Register, logger logr.Logger) bool {
 		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
 		return false
 	}
-
-	return tls.IsKyvernoInRollingUpdate(deploy, logger)
+	return tls.IsKyvernoInRollingUpdate(deploy)
 }

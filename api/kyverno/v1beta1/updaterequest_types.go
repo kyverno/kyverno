@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +37,7 @@ type UpdateRequestStatus struct {
 
 	// This will track the resources that are updated by the generate Policy.
 	// Will be used during clean up resources.
-	GeneratedResources []v1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
+	GeneratedResources []kyvernov1.ResourceSpec `json:"generatedResources,omitempty" yaml:"generatedResources,omitempty"`
 }
 
 // +genclient
@@ -83,7 +83,7 @@ type UpdateRequestSpec struct {
 	Policy string `json:"policy" yaml:"policy"`
 
 	// ResourceSpec is the information to identify the update request.
-	Resource v1.ResourceSpec `json:"resource" yaml:"resource"`
+	Resource kyvernov1.ResourceSpec `json:"resource" yaml:"resource"`
 
 	// Context ...
 	Context UpdateRequestSpecContext `json:"context" yaml:"context"`
@@ -117,7 +117,7 @@ type RequestInfo struct {
 // AdmissionRequestInfoObject stores the admission request and operation details
 type AdmissionRequestInfoObject struct {
 	// +optional
-	AdmissionRequest string `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
+	AdmissionRequest *admissionv1.AdmissionRequest `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
 	// +optional
 	Operation admissionv1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
 }
