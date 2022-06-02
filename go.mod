@@ -59,6 +59,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
+require github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
+
 require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220620025919-87bf46f2b487
