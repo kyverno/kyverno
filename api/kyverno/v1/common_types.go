@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -281,6 +282,25 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
+	// Key is the PEM encoded public key that the yaml manifest is signed with.
+	// +optional
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+
+	// Subject is the verified identity, for example the email address
+	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+
+	// Fields which will be ignored while comparing manifests.
+	// +optional
+	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+
+	// ServiceAccounts which will be allowed without a signature.
+	// +optional
+	SkipUsers ObjectUserBindingList `json:"skipUsers,omitempty" yaml:"skipUsers,omitempty"`
+
+	// Verification configuration such as DryRun mode.
+	// +optional
+	VerifyConfig YamlVerifyConfig `json:"verifyConfig,omitempty" yaml:"verifyConfig,omitempty"`
+
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachValidation []ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
@@ -450,4 +470,16 @@ type CloneFrom struct {
 
 	// Name specifies name of the resource.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+}
+
+type ObjectUserBindingList []ObjectUserBinding
+
+type ObjectUserBinding struct {
+	Objects k8smanifest.ObjectReferenceList `json:"objects,omitempty" yaml:"objects,omitempty"`
+	Users   []string                        `json:"users,omitempty" yaml:"users,omitempty"`
+}
+
+type YamlVerifyConfig struct {
+	EnableDryRun    bool   `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
+	DryRunNamespace string `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
 }

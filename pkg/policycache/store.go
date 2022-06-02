@@ -97,7 +97,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
-		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks bool
+		hasMutate, hasValidate, hasGenerate, hasVerifyImages, hasImagesValidationChecks, hasVerifyYAML bool
 	}
 	kindStates := map[string]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
@@ -121,6 +121,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 				Generate:             sets.NewString(),
 				VerifyImagesMutate:   sets.NewString(),
 				VerifyImagesValidate: sets.NewString(),
+				VerifyYAML:           sets.NewString(),
 			}
 		}
 		m.kindType[kind][Mutate] = set(m.kindType[kind][Mutate], key, state.hasMutate)
@@ -129,6 +130,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 		m.kindType[kind][Generate] = set(m.kindType[kind][Generate], key, state.hasGenerate)
 		m.kindType[kind][VerifyImagesMutate] = set(m.kindType[kind][VerifyImagesMutate], key, state.hasVerifyImages)
 		m.kindType[kind][VerifyImagesValidate] = set(m.kindType[kind][VerifyImagesValidate], key, state.hasVerifyImages && state.hasImagesValidationChecks)
+		m.kindType[kind][VerifyYAML] = set(m.kindType[kind][VerifyYAML], key, state.hasVerifyYAML)
 	}
 }
 
