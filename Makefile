@@ -271,7 +271,7 @@ test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
-	cmd/cli/kubectl-kyverno/kyverno test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+	cmd/cli/kubectl-kyverno/kyverno test https://github.com/prateekpandey14/policies/test
 
 .PHONY: test-cli-local
 test-cli-local: cli
