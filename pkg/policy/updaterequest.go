@@ -2,12 +2,17 @@ package policy
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
+	"math/big"
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -17,6 +22,34 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
+
+func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
+	for _, ur := range urList {
+		if policyKey == ur.Spec.Policy {
+			_, err := common.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+				urLabels := ur.Labels
+				if len(urLabels) == 0 {
+					urLabels = make(map[string]string)
+				}
+				nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
+				if err != nil {
+					logger.Error(err, "failed to generate random interger")
+				}
+				urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
+				ur.SetLabels(urLabels)
+			})
+			if err != nil {
+				logger.Error(err, "failed to update gr", "name", ur.GetName())
+				continue
+			}
+			if _, err := common.UpdateStatus(kyvernoClient, urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
+				logger.Error(err, "failed to set UpdateRequest state to Pending")
+			}
+		}
+	}
+}
+
+//wip- needs to be removed
 
 func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)

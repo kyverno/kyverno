@@ -2,23 +2,17 @@ package policy
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
-	"math/big"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	common "github.com/kyverno/kyverno/pkg/background/common"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -29,7 +23,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -103,7 +96,6 @@ func NewPolicyController(
 	client dclient.Interface,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
-	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
 	prGenerator policyreport.GeneratorInterface,
@@ -142,7 +134,6 @@ func NewPolicyController(
 	pc.npLister = npInformer.Lister()
 
 	pc.nsLister = namespaces.Lister()
-	pc.urLister = urInformer.Lister()
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -479,19 +470,22 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	defer func() {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
+	policy, _ := pc.getPolicy(key)
+	// policy, err := pc.getPolicy(key)
+	// if err != nil {
+	// 	if errors.IsNotFound(err) {
+	// 		return nil
+	// 	}
+	// 	return err
+	// } else {
+	// 	err = pc.updateUR(key, policy)
+	// 	if err != nil {
+	// 		logger.Error(err, "failed to updateUR on Policy update")
+	// 	}
+	// }
 
-	policy, err := pc.getPolicy(key)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	} else {
-		err = pc.updateUR(key, policy)
-		if err != nil {
-			logger.Error(err, "failed to updateUR on Policy update")
-		}
-	}
+	// shift to update request controller 482-493
+
 	pc.processExistingResources(policy)
 	return nil
 }
@@ -517,32 +511,6 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 		list.Items = append(list.Items, mlist.Items...)
 	}
 	return convertlist(list.Items)
-}
-
-func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	for _, ur := range urList {
-		if policyKey == ur.Spec.Policy {
-			_, err := common.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
-				urLabels := ur.Labels
-				if len(urLabels) == 0 {
-					urLabels = make(map[string]string)
-				}
-				nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
-				if err != nil {
-					logger.Error(err, "failed to generate random interger")
-				}
-				urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
-				ur.SetLabels(urLabels)
-			})
-			if err != nil {
-				logger.Error(err, "failed to update gr", "name", ur.GetName())
-				continue
-			}
-			if _, err := common.UpdateStatus(kyvernoClient, urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
-				logger.Error(err, "failed to set UpdateRequest state to Pending")
-			}
-		}
-	}
 }
 
 func missingAutoGenRules(policy kyvernov1.PolicyInterface, log logr.Logger) bool {
