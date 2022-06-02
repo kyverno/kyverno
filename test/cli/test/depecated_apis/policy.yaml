@@ -3,6 +3,7 @@ kind: ClusterPolicy
 metadata:
   name: check-deprecated-api
   annotations:
+    policies.kyverno.io/scored: "false"
     policies.kyverno.io/title: Check deprecated APIs
     policies.kyverno.io/category: Best Practices
     policies.kyverno.io/subject: Kubernetes APIs

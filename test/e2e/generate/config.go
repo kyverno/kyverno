@@ -3,7 +3,7 @@ package generate
 // RoleTests is E2E Test Config for Role and RoleBinding
 // TODO:- Clone for Role and RoleBinding
 var RoleTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// RoleName - Name of the Role to be Created
 	RoleName string
@@ -34,7 +34,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              false,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-1",
 	},
 	{
 		TestName:          "test-role-rolebinding-withsync-without-clone",
@@ -44,7 +44,7 @@ var RoleTests = []struct {
 		Clone:             false,
 		Sync:              true,
 		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		PolicyName:        "gen-role-policy-2",
 	},
 	{
 		TestName:                   "test-role-rolebinding-with-clone",
@@ -57,13 +57,13 @@ var RoleTests = []struct {
 		CloneNamespace:             "default",
 		Sync:                       false,
 		Data:                       roleRoleBindingYamlWithClone,
-		PolicyName:                 "gen-role-policy",
+		PolicyName:                 "gen-role-policy-3",
 	},
 }
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
 var ClusterRoleTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ClusterRoleName string
@@ -98,7 +98,7 @@ var ClusterRoleTests = []struct {
 		Clone:                  false,
 		Sync:                   false,
 		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
+		PolicyName:             "gen-cluster-policy-1",
 	},
 	{
 		TestName:               "test-clusterrole-clusterrolebinding-with-sync-without-clone",
@@ -108,12 +108,12 @@ var ClusterRoleTests = []struct {
 		Clone:                  false,
 		Sync:                   true,
 		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
+		PolicyName:             "gen-cluster-policy-2",
 	},
 	{
 		TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
-		ClusterRoleName:                   "ns-cluster-role",
-		ClusterRoleBindingName:            "ns-cluster-role-binding",
+		ClusterRoleName:                   "cloned-cluster-role",
+		ClusterRoleBindingName:            "cloned-cluster-role-binding",
 		ResourceNamespace:                 "test",
 		Clone:                             true,
 		ClonerClusterRoleName:             "base-cluster-role",
@@ -121,14 +121,14 @@ var ClusterRoleTests = []struct {
 		CloneSourceClusterRoleData:        baseClusterRoleData,
 		CloneSourceClusterRoleBindingData: baseClusterRoleBindingData,
 		Sync:                              false,
-		Data:                              genClusterRoleYamlWithSync,
-		PolicyName:                        "gen-cluster-policy",
+		Data:                              clusterRoleRoleBindingYamlWithClone,
+		PolicyName:                        "gen-cluster-policy-3",
 	},
 }
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var NetworkPolicyGenerateTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -166,7 +166,7 @@ var NetworkPolicyGenerateTests = []struct {
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -207,7 +207,7 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
 var GenerateSynchronizeFlagTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// NetworkPolicyName - Name of the NetworkPolicy to be Created
 	NetworkPolicyName string
@@ -248,7 +248,7 @@ var GenerateSynchronizeFlagTests = []struct {
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
 var SourceResourceUpdateReplicationTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ResourceNamespace string
@@ -281,7 +281,7 @@ var SourceResourceUpdateReplicationTests = []struct {
 }
 
 var GeneratePolicyDeletionforCloneTests = []struct {
-	//TestName - Name of the Test
+	// TestName - Name of the Test
 	TestName string
 	// ClusterRoleName - Name of the ClusterRole to be Created
 	ResourceNamespace string

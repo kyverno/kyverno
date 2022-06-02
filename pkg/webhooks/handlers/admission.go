@@ -14,7 +14,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(*admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
 
 func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -43,7 +43,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			http.Error(writer, "Can't decode body as AdmissionReview", http.StatusExpectationFailed)
 			return
 		}
-		logger = logger.WithName("handlerFunc").WithValues(
+		logger := logger.WithValues(
 			"kind", admissionReview.Request.Kind,
 			"namespace", admissionReview.Request.Namespace,
 			"name", admissionReview.Request.Name,
@@ -54,7 +54,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(admissionReview.Request)
+		adminssionResponse := inner(logger, admissionReview.Request)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -67,30 +67,26 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		if _, err := writer.Write(responseJSON); err != nil {
 			http.Error(writer, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
 		}
-		logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
+		if admissionReview.Request.Kind.Kind == "Lease" {
+			logger.V(6).Info("admission review request processed", "time", time.Since(startTime).String())
+		} else {
+			logger.V(4).Info("admission review request processed", "time", time.Since(startTime).String())
+		}
 	}
 }
 
-func Filter(c config.Interface, inner AdmissionHandler) AdmissionHandler {
-	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
-		return inner(request)
+		return inner(logger, request)
 	}
 }
 
-func Verify(m *webhookconfig.Monitor, logger logr.Logger) AdmissionHandler {
-	return func(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-		logger = logger.WithName("verifyHandler").WithValues(
-			"action", "verify",
-			"kind", request.Kind,
-			"namespace", request.Namespace,
-			"name", request.Name,
-			"operation", request.Operation,
-			"gvk", request.Kind.String(),
-		)
-		logger.V(3).Info("incoming request", "last admission request timestamp", m.Time())
+func Verify(m *webhookconfig.Monitor) AdmissionHandler {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)
 	}
 }

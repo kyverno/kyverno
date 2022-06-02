@@ -9,7 +9,9 @@ policies:
     rules:
       - name: example-configmap-lookup
         values:
-          dictionary.data.env: test
+          dictionary:
+            data:
+              env: test
     resources:
       - name: test-env-test
         values:
@@ -33,9 +35,7 @@ policies:
     rules:
       - name: validate-blk-role-annotation
         values:
-          roles-dictionary.data.allowed-roles: |-
-            app
-            test
+          roles-dictionary.data.allowed-roles: '["app", "test"]'
     resources:
       - name: test-blk-web
         values:
@@ -66,8 +66,12 @@ policies:
           imageData.configData.config.User: ""
       - name: test-pod-with-non-trusted-registry
         values:
-          element.name: "not-kyverno"
-          imageData.registry: "gcr.io"
-          imageData.configData.config.User: ""
+          element:
+            name: "not-kyverno"
+          imageData:
+            registry: "gcr.io"
+            configData:
+              config:
+                User: ""
 globalValues:
   request.mode: dev

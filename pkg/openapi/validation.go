@@ -9,12 +9,11 @@ import (
 
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/utils"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -47,7 +46,7 @@ type Controller struct {
 	kindToAPIVersions concurrentMap
 }
 
-// apiVersions stores all available gvks for a kind, a gvk is "/" seperated string
+// apiVersions stores all available gvks for a kind, a gvk is "/" separated string
 type apiVersions struct {
 	serverPreferredGVK string
 	gvks               []string
@@ -136,12 +135,12 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 }
 
 // ValidatePolicyMutation ...
-func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
-	var kindToRules = make(map[string][]v1.Rule)
+func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
+	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
 			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kubeutils.GetFormatedKind(kind)], rule)
+				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
 		}
 	}
@@ -152,7 +151,7 @@ func (o *Controller) ValidatePolicyMutation(policy v1.PolicyInterface) error {
 		spec.SetRules(rules)
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
-		if resource == nil || len(resource) == 0 {
+		if len(resource) == 0 {
 			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
@@ -184,7 +183,7 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
 		if err != nil {
-			log.Log.V(3).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
+			log.Log.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
 			continue
 		}
 
@@ -301,7 +300,6 @@ func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResou
 	for key, value := range tempKindToAPIVersions {
 		c.kindToAPIVersions.Set(key, value)
 	}
-
 }
 
 func getSchemaDocument() (*openapiv2.Document, error) {
@@ -337,7 +335,6 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 }
 
 func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
-
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
@@ -381,7 +378,7 @@ func getArrayValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
 }
 
 func getObjectValue(kindSchema *openapiv2.Schema, o *Controller) interface{} {
-	var props = make(map[string]interface{})
+	props := make(map[string]interface{})
 	properties := kindSchema.GetProperties().GetAdditionalProperties()
 	if len(properties) == 0 {
 		return props

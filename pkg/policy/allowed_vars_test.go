@@ -400,3 +400,44 @@ func TestNotAllowedVars_VariableFormats(t *testing.T) {
 		}
 	}
 }
+
+func TestNotAllowedVars_Attestations(t *testing.T) {
+	var policyYAML = []byte(`
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: attest-bom
+spec:
+  validationFailureAction: enforce
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail  
+  rules:
+    - name: check-attestations
+      match:
+        resources:
+          kinds:
+            - Pod
+      verifyImages:
+      - imageReferences:
+        - "ghcr.io/test/demo-java-tomcat:*"
+        attestations:
+        - predicateType: "https://cyclonedx.org/BOM/v1"
+        - predicateType: "https://trivy.aquasec.com/scan/v2"
+          conditions:
+          - all:
+            - key: "{{ scanner }}"
+              operator: Equals
+              value: trivy
+        - predicateType: https://example.com/provenance/v1
+`)
+
+	policyJSON, err := yaml.ToJSON(policyYAML)
+	assert.NilError(t, err)
+
+	policy, err := ut.GetPolicy(policyJSON)
+	assert.NilError(t, err)
+
+	err = hasInvalidVariables(policy[0], false)
+	assert.NilError(t, err)
+}

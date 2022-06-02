@@ -1,9 +1,16 @@
 package store
 
-import "github.com/kyverno/kyverno/pkg/registryclient"
+import (
+	"github.com/kyverno/kyverno/pkg/registryclient"
+	rbacv1 "k8s.io/api/rbac/v1"
+)
 
-var Mock, RegistryAccess bool
-var ContextVar Context
+var (
+	Mock, RegistryAccess bool
+	ContextVar           Context
+	ForeachElement       int
+	Subjects             Subject
+)
 
 func SetMock(mock bool) {
 	Mock = mock
@@ -13,9 +20,17 @@ func GetMock() bool {
 	return Mock
 }
 
+func SetForeachElement(foreachElement int) {
+	ForeachElement = foreachElement
+}
+
+func GetForeachElement() int {
+	return ForeachElement
+}
+
 func SetRegistryAccess(access bool) {
 	if access {
-		registryclient.InitializeLocal()
+		registryclient.DefaultClient.UseLocalKeychain()
 	}
 	RegistryAccess = access
 }
@@ -64,6 +79,19 @@ type Policy struct {
 }
 
 type Rule struct {
-	Name   string            `json:"name"`
-	Values map[string]string `json:"values"`
+	Name          string                   `json:"name"`
+	Values        map[string]interface{}   `json:"values"`
+	ForeachValues map[string][]interface{} `json:"foreachValues"`
+}
+
+func SetSubjects(subjects Subject) {
+	Subjects = subjects
+}
+
+func GetSubjects() Subject {
+	return Subjects
+}
+
+type Subject struct {
+	Subject rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
 }

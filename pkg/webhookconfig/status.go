@@ -13,27 +13,25 @@ import (
 	coordinationv1 "k8s.io/client-go/kubernetes/typed/coordination/v1"
 )
 
-var leaseName string = "kyverno"
-var leaseNamespace string = config.KyvernoNamespace
-
 const (
+	leaseName          string = "kyverno"
 	annWebhookStatus   string = "kyverno.io/webhookActive"
 	annLastRequestTime string = "kyverno.io/last-request-time"
 )
 
-//statusControl controls the webhook status
+// statusControl controls the webhook status
 type statusControl struct {
 	eventGen    event.Interface
 	log         logr.Logger
 	leaseClient coordinationv1.LeaseInterface
 }
 
-//success ...
+// success ...
 func (vc statusControl) success() error {
 	return vc.setStatus("true")
 }
 
-//failure ...
+// failure ...
 func (vc statusControl) failure() error {
 	return vc.setStatus("false")
 }
@@ -48,7 +46,7 @@ func newStatusControl(leaseClient coordinationv1.LeaseInterface, eventGen event.
 }
 
 func (vc statusControl) setStatus(status string) error {
-	logger := vc.log.WithValues("name", leaseName, "namespace", leaseNamespace)
+	logger := vc.log.WithValues("name", leaseName, "namespace", config.KyvernoNamespace())
 	var ann map[string]string
 	var err error
 
@@ -90,7 +88,7 @@ func (vc statusControl) setStatus(status string) error {
 func createStatusUpdateEvent(status string, eventGen event.Interface) {
 	e := event.Info{}
 	e.Kind = "Lease"
-	e.Namespace = leaseNamespace
+	e.Namespace = config.KyvernoNamespace()
 	e.Name = leaseName
 	e.Reason = "Update"
 	e.Message = fmt.Sprintf("admission control webhook active status changed to %s", status)
@@ -98,14 +96,13 @@ func createStatusUpdateEvent(status string, eventGen event.Interface) {
 }
 
 func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
-
 	lease, err := vc.leaseClient.Get(context.TODO(), leaseName, metav1.GetOptions{})
 	if err != nil {
 		vc.log.WithName("UpdateLastRequestTimestmap").Error(err, "Lease 'kyverno' not found. Starting clean-up...")
 		return err
 	}
 
-	//add label to lease
+	// add label to lease
 	label := lease.GetLabels()
 	if len(label) == 0 {
 		label = make(map[string]string)
@@ -126,7 +123,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 	annotation[annLastRequestTime] = string(t)
 	lease.SetAnnotations(annotation)
 
-	//update annotations in lease
+	// update annotations in lease
 	_, err = vc.leaseClient.Update(context.TODO(), lease, metav1.UpdateOptions{})
 	if err != nil {
 		return errors.Wrapf(err, "failed to update annotation %s for deployment %s in namespace %s", annLastRequestTime, lease.GetName(), lease.GetNamespace())

@@ -15,7 +15,6 @@ import (
 )
 
 type Interface interface {
-
 	// Run is a blocking call that runs a leader election
 	Run(ctx context.Context)
 
@@ -66,7 +65,6 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 			Identity: id,
 		},
 	)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "error initializing resource lock: %s/%s", namespace, name)
 	}
@@ -111,7 +109,8 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 				}
 				e.log.WithValues("current id", e.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
 			},
-		}}
+		},
+	}
 
 	e.leaderElector, err = leaderelection.NewLeaderElector(e.leaderElectionCfg)
 	if err != nil {

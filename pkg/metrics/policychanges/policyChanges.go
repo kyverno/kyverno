@@ -3,7 +3,7 @@ package policychanges
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -22,11 +22,11 @@ func registerPolicyChangesMetric(
 	}
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
 	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
 		return nil
 	}
 	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
 		return nil
 	}
 	pc.Metrics.PolicyChanges.With(prom.Labels{
@@ -40,7 +40,7 @@ func registerPolicyChangesMetric(
 	return nil
 }
 
-func RegisterPolicy(pc *metrics.PromConfig, policy kyverno.PolicyInterface, policyChangeType PolicyChangeType) error {
+func RegisterPolicy(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface, policyChangeType PolicyChangeType) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

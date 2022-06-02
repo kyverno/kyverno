@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -21,7 +20,6 @@ type MetricsConfigData struct {
 	client        kubernetes.Interface
 	cmName        string
 	metricsConfig MetricsConfig
-	log           logr.Logger
 }
 
 // MetricsConfig stores the config for metrics
@@ -56,13 +54,12 @@ func (mcd *MetricsConfigData) GetMetricsConfigMapName() string {
 }
 
 // NewMetricsConfigData ...
-func NewMetricsConfigData(rclient kubernetes.Interface, log logr.Logger) (*MetricsConfigData, error) {
+func NewMetricsConfigData(rclient kubernetes.Interface) (*MetricsConfigData, error) {
 	cmName := os.Getenv(metricsConfigEnvVar)
 
 	mcd := MetricsConfigData{
 		client: rclient,
 		cmName: cmName,
-		log:    log,
 		metricsConfig: MetricsConfig{
 			metricsRefreshInterval: 0,
 			namespaces: namespacesConfig{
@@ -73,7 +70,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface, log logr.Logger) (*Metri
 	}
 
 	if cmName != "" {
-		kyvernoNamespace := KyvernoNamespace
+		kyvernoNamespace := kyvernoNamespace
 		configMap, err := rclient.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), mcd.cmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while fetching the metrics configmap at %s/%s: %w", kyvernoNamespace, mcd.cmName, err)
@@ -93,7 +90,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface, log logr.Logger) (*Metri
 			}
 		}
 	} else {
-		log.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
+		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
 	}
 
 	return &mcd, nil

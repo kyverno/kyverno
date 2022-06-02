@@ -1,12 +1,16 @@
 package verifyimages
 
-// Namespace Description
-var namespaceYaml = []byte(`
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test-verify-images
-`)
+import "fmt"
+
+func newNamespaceYaml(name string) []byte {
+	ns := fmt.Sprintf(`
+  apiVersion: v1
+  kind: Namespace
+  metadata:
+    name: %s
+  `, name)
+	return []byte(ns)
+}
 
 var tektonTaskCRD = []byte(`
 apiVersion: apiextensions.k8s.io/v1
@@ -17,27 +21,9 @@ spec:
   group: tekton.dev
   preserveUnknownFields: false
   versions:
-  - name: v1alpha1
-    served: true
-    storage: false
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-    subresources:
-      status: {}
   - name: v1beta1
     served: true
     storage: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        x-kubernetes-preserve-unknown-fields: true
-    subresources:
-      status: {}
-  - name: v1
-    served: false
-    storage: false
     schema:
       openAPIV3Schema:
         type: object
@@ -51,14 +37,6 @@ spec:
     - tekton
     - tekton-pipelines
   scope: Namespaced
-  conversion:
-    strategy: Webhook
-    webhook:
-      conversionReviewVersions: ["v1beta1"]
-      clientConfig:
-        service:
-          name: tekton-pipelines-webhook
-          namespace: tekton-pipelines
 `)
 
 var tektonTask = []byte(`
@@ -87,7 +65,7 @@ var kyvernoTaskPolicyWithSimpleExtractor = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: tasks
+  name: tasks-simple
 spec:
   validationFailureAction: enforce
   rules:
@@ -95,7 +73,7 @@ spec:
     match:
       resources:
         kinds:
-        - Task
+        - tekton.dev/v1beta1/Task
     preconditions:
     - key: '{{request.operation}}'
       operator: NotEquals
@@ -116,7 +94,7 @@ var kyvernoTaskPolicyWithComplexExtractor = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: tasks
+  name: tasks-complex
 spec:
   validationFailureAction: enforce
   rules:
@@ -124,7 +102,7 @@ spec:
     match:
       resources:
         kinds:
-        - Task
+        - tekton.dev/v1beta1/Task
     preconditions:
     - key: '{{request.operation}}'
       operator: NotEquals
@@ -148,7 +126,7 @@ var kyvernoTaskPolicyKeyless = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: tasks
+  name: tasks-keyless
 spec:
   validationFailureAction: enforce
   webhookTimeoutSeconds: 30
@@ -157,7 +135,7 @@ spec:
     match:
       resources:
         kinds:
-        - Task
+        - tekton.dev/v1beta1/Task
     preconditions:
     - key: '{{request.operation}}'
       operator: NotEquals
@@ -169,13 +147,42 @@ spec:
     - image: "ghcr.io/*"
       subject: "https://github.com/*"
       issuer: "https://token.actions.githubusercontent.com"
+      required: false
+`)
+
+var kyvernoTaskPolicyKeylessRequired = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: tasks-keyless-required
+spec:
+  validationFailureAction: enforce
+  webhookTimeoutSeconds: 30
+  rules:
+  - name: verify-images
+    match:
+      resources:
+        kinds:
+        - tekton.dev/v1beta1/Task
+    preconditions:
+    - key: '{{request.operation}}'
+      operator: NotEquals
+      value: DELETE
+    imageExtractors:
+      Task:
+        - path: /spec/steps/*/image
+    verifyImages:
+    - image: "ghcr.io/*"
+      subject: "https://github.com/*"
+      issuer: "https://token.actions.githubusercontent.com"
+      required: true
 `)
 
 var kyvernoTaskPolicyWithoutExtractor = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: tasks
+  name: tasks-no-extractor
 spec:
   validationFailureAction: enforce
   rules:
@@ -183,7 +190,7 @@ spec:
     match:
       resources:
         kinds:
-        - Task
+        - tekton.dev/v1beta1/Task
     preconditions:
     - key: '{{request.operation}}'
       operator: NotEquals

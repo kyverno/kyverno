@@ -8,7 +8,7 @@ import (
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 )
 
-//ValidatePattern validates the pattern
+// ValidatePattern validates the pattern
 func ValidatePattern(patternElement interface{}, path string, supportedAnchors []commonAnchors.IsAnchor) (string, error) {
 	switch typedPatternElement := patternElement.(type) {
 	case map[string]interface{}:
@@ -16,12 +16,13 @@ func ValidatePattern(patternElement interface{}, path string, supportedAnchors [
 	case []interface{}:
 		return validateArray(typedPatternElement, path, supportedAnchors)
 	case string, float64, int, int64, bool, nil:
-		//TODO? check operator
+		// TODO: check operator
 		return "", nil
 	default:
 		return path, fmt.Errorf("error at '%s', pattern contains unknown type", path)
 	}
 }
+
 func validateMap(patternMap map[string]interface{}, path string, supportedAnchors []commonAnchors.IsAnchor) (string, error) {
 	// check if anchors are defined
 	for key, value := range patternMap {

@@ -3,7 +3,7 @@
 {{- end }}
 
 {{- if .Values.replicaCount }}
-  {{- if eq .Values.replicaCount 2 }}
+  {{- if eq (int .Values.replicaCount) 2 }}
     {{ fail "Kyverno does not support running with 2 replicas. For a highly-available deployment, select 3 replicas or for standalone select 1 replica." }}
   {{- end }}
 {{- end }}

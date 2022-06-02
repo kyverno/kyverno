@@ -16,5 +16,5 @@ expected:
       rules:
         - name: validate-selinux-options
           type: Validation
-          message: "validation error: SELinux level is required. Rule validate-selinux-options failed at path /spec/containers/0/securityContext/seLinuxOptions/"
+          message: "validation error: SELinux level is required. rule validate-selinux-options failed at path /spec/containers/0/securityContext/seLinuxOptions/"
           status: fail

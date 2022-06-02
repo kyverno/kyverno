@@ -17,15 +17,11 @@ limitations under the License.
 package v1alpha2
 
 import (
-	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient:nonNamespaced
@@ -40,6 +36,8 @@ import (
 // +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=`.summary.error`
 // +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=`.summary.skip`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+
+// ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API
 type ClusterReportChangeRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -55,22 +53,19 @@ type ClusterReportChangeRequest struct {
 
 	// PolicyReportSummary provides a summary of results
 	// +optional
-	Summary report.PolicyReportSummary `json:"summary,omitempty"`
+	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*report.PolicyReportResult `json:"results,omitempty"`
+	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
 }
 
-// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterReportChangeRequestList contains a list of ClusterReportChangeRequest
 type ClusterReportChangeRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ClusterReportChangeRequest `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&ClusterReportChangeRequest{}, &ClusterReportChangeRequestList{})
 }

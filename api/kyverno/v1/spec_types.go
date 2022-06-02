@@ -14,7 +14,7 @@ type ValidationFailureAction string
 const (
 	// Enforce blocks the request on failure
 	Enforce ValidationFailureAction = "enforce"
-	// Audit indicates not to block the request on failure, but report failiures as policy violations
+	// Audit indicates not to block the request on failure, but report failures as policy violations
 	Audit ValidationFailureAction = "audit"
 )
 
@@ -63,6 +63,17 @@ type Spec struct {
 	// After the configured time expires, the admission request may fail, or may simply ignore the policy results,
 	// based on the failure policy. The default timeout is 10s, the value must be between 1 and 30 seconds.
 	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty" yaml:"webhookTimeoutSeconds,omitempty"`
+
+	// MutateExistingOnPolicyUpdate controls if a mutateExisting policy is applied on policy events.
+	// Default value is "false".
+	// +optional
+	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
+	// GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
+	// Defaults to "false" if not specified.
+	// +optional
+	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -112,7 +123,18 @@ func (s *Spec) HasGenerate() bool {
 	return false
 }
 
-// HasVerifyImages checks for image verification rule types
+// HasImagesValidationChecks checks for image verification rules invoked during resource validation
+func (s *Spec) HasImagesValidationChecks() bool {
+	for _, rule := range s.Rules {
+		if rule.HasImagesValidationChecks() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasVerifyImages checks for image verification rules invoked during resource mutation
 func (s *Spec) HasVerifyImages() bool {
 	for _, rule := range s.Rules {
 		if rule.HasVerifyImages() {
@@ -130,6 +152,26 @@ func (s *Spec) BackgroundProcessingEnabled() bool {
 	}
 
 	return *s.Background
+}
+
+// IsMutateExisting checks if the mutate policy applies to existing resources
+func (s *Spec) IsMutateExisting() bool {
+	for _, rule := range s.Rules {
+		if rule.IsMutateExisting() {
+			return true
+		}
+	}
+	return false
+}
+
+// GetMutateExistingOnPolicyUpdate return MutateExistingOnPolicyUpdate set value
+func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
+	return s.MutateExistingOnPolicyUpdate
+}
+
+// IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
+func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
+	return s.GenerateExistingOnPolicyUpdate
 }
 
 // GetFailurePolicy returns the failure policy to be applied
