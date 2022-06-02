@@ -31,8 +31,8 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
-KIND_VERSION=v0.11.1
-KIND_IMAGE?=kindest/node:v1.23.3
+KIND_VERSION=v0.14.0
+KIND_IMAGE?=kindest/node:v1.24.0
 
 ##################################
 # KYVERNO
