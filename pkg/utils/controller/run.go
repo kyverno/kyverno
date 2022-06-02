@@ -15,6 +15,7 @@ type reconcileFunc func(string, string, string) error
 
 func Run(logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
+	defer queue.ShutDown()
 	logger.Info("starting ...")
 	defer logger.Info("shutting down")
 	for i := 0; i < n; i++ {

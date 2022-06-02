@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/background"
-	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	backgroundcontroller "github.com/kyverno/kyverno/pkg/controllers/background"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -314,14 +314,21 @@ func main() {
 		configuration,
 	)
 
-	grcc := generatecleanup.NewController(
-		kubeClient,
-		kyvernoClient,
+	// grcc := generatecleanup.NewController(
+	// 	kubeClient,
+	// 	kyvernoClient,
+	// 	dynamicClient,
+	// 	kyvernoV1.ClusterPolicies(),
+	// 	kyvernoV1.Policies(),
+	// 	kyvernoV1beta1.UpdateRequests(),
+	// 	kubeInformer.Core().V1().Namespaces(),
+	// )
+
+	backgroundController := backgroundcontroller.NewController(
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
 	)
 
 	policyCache := policycache.NewCache()
@@ -449,7 +456,8 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		go grcc.Run(1, stopCh)
+		// go grcc.Run(1, stopCh)
+		go backgroundController.Run(stopCh)
 	}
 
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
