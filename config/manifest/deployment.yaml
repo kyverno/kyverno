@@ -22,6 +22,8 @@ spec:
         app.kubernetes.io/name: kyverno
     spec:
       volumes:
+        - name: tmpfs
+          emptyDir: {}
         - name: sigstore
           emptyDir: {}
       affinity:
@@ -138,6 +140,8 @@ spec:
             successThreshold: 1
           # Failing to provide a writable $TUF_ROOT can cause TUF client initialization to panic
           volumeMounts:
+          - mountPath: /tmp
+            name: tmpfs
           - mountPath: /.sigstore
             name: sigstore
   strategy:

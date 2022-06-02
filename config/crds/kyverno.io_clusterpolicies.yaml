@@ -2046,6 +2046,36 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        ignoreFields:
+                          description: Fields which will be ignored while comparing
+                            manifests.
+                          items:
+                            properties:
+                              fields:
+                                items:
+                                  type: string
+                                type: array
+                              objects:
+                                items:
+                                  properties:
+                                    group:
+                                      type: string
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    version:
+                                      type: string
+                                  type: object
+                                type: array
+                            type: object
+                          type: array
+                        key:
+                          description: Key is the PEM encoded public key that the
+                            yaml manifest is signed with.
+                          type: string
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
@@ -2054,6 +2084,44 @@ spec:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
+                        skipUsers:
+                          description: ServiceAccounts which will be allowed without
+                            a signature.
+                          items:
+                            properties:
+                              objects:
+                                items:
+                                  properties:
+                                    group:
+                                      type: string
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    version:
+                                      type: string
+                                  type: object
+                                type: array
+                              users:
+                                items:
+                                  type: string
+                                type: array
+                            type: object
+                          type: array
+                        subject:
+                          description: Subject is the verified identity, for example
+                            the email address
+                          type: string
+                        verifyConfig:
+                          description: Verification configuration such as DryRun mode.
+                          properties:
+                            disableDryRun:
+                              type: boolean
+                            dryRunNamespace:
+                              type: string
+                          type: object
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures

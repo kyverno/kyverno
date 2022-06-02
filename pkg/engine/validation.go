@@ -94,7 +94,8 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		rule := &rules[i]
 		hasValidate := rule.HasValidate()
 		hasValidateImage := rule.HasImagesValidationChecks()
-		if !hasValidate && !hasValidateImage {
+		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
+		if !hasValidate && !hasValidateImage && !hasYAMLSignatureVerify {
 			continue
 		}
 
@@ -108,10 +109,13 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		startTime := time.Now()
 
 		var ruleResp *response.RuleResponse
-		if hasValidate {
+		// TODO: need to check
+		if hasValidate && !hasYAMLSignatureVerify {
 			ruleResp = processValidationRule(log, ctx, rule)
 		} else if hasValidateImage {
 			ruleResp = processImageValidationRule(log, ctx, rule)
+		} else if hasYAMLSignatureVerify {
+			ruleResp = processYAMLValidationRule(log, ctx, rule)
 		}
 
 		if ruleResp != nil {

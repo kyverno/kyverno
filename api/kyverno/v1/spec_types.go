@@ -145,6 +145,17 @@ func (s *Spec) HasVerifyImages() bool {
 	return false
 }
 
+// HasYAMLSignatureVerify checks for image verification rules invoked during resource mutation
+func (s *Spec) HasYAMLSignatureVerify() bool {
+	for _, rule := range s.Rules {
+		if rule.HasYAMLSignatureVerify() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
