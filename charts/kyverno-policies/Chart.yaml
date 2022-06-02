@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: v2.3.4
-appVersion: v1.6.2
+version: v2.4.0
+appVersion: v1.7.0
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
@@ -25,3 +25,7 @@ annotations:
   artifacthub.io/changes: |
     - kind: added
       description: Support for artifacthub.io/changes annotation
+    - kind: fixed
+      description: Fix Kyverno version check when image tag contains registry port number
+    - kind: fixed
+      description: Ensure preconditions are present with default values

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"os"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -445,6 +447,16 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	}
 	for _, gr := range grs.Items {
 		cp := gr.DeepCopy()
+		var request *admissionv1.AdmissionRequest
+		if cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest != "" {
+			var r admissionv1.AdmissionRequest
+			err := json.Unmarshal([]byte(cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest), &r)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal admission request")
+				errors = append(errors, err)
+				continue
+			}
+		}
 		ur := &kyvernov1beta1.UpdateRequest{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: "ur-",
@@ -462,7 +474,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 						AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
 					},
 					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
-						AdmissionRequest: cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest,
+						AdmissionRequest: request,
 						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
 					},
 				},

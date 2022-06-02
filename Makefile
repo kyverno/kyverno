@@ -31,8 +31,8 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
-KIND_VERSION=v0.11.1
-KIND_IMAGE?=kindest/node:v1.23.3
+KIND_VERSION=v0.14.0
+KIND_IMAGE?=kindest/node:v1.24.0
 
 ##################################
 # KYVERNO
@@ -267,7 +267,7 @@ test-clean: ## Clean tests cache
 	go clean -testcache ./...
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-test-case-selector-flag test-cli-registry
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
@@ -280,6 +280,10 @@ test-cli-local: cli
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
+
+.PHONY: test-cli-local-generate
+test-cli-local-generate: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-generate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli
@@ -372,7 +376,8 @@ install-controller-gen: ## Install controller-gen
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
+	go mod edit -replace=sigs.k8s.io/controller-tools@$(CONTROLLER_GEN_REQ_VERSION)=github.com/eddycharly/controller-tools@704af868d45a3a78448b9a6a2279c12ea96a621e ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen

@@ -227,7 +227,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 	}
 
 	// Apply the generate rule on resource
-	return c.applyGeneratePolicy(logger, policyContext, ur, applicableRules)
+	return c.ApplyGeneratePolicy(logger, policyContext, ur, applicableRules)
 }
 
 // cleanupClonedResource deletes cloned resource if sync is not enabled for the clone policy
@@ -301,7 +301,7 @@ func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1
 	return nil
 }
 
-func (c *GenerateController) applyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest, applicableRules []string) (genResources []kyvernov1.ResourceSpec, processExisting bool, err error) {
+func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext *engine.PolicyContext, ur kyvernov1beta1.UpdateRequest, applicableRules []string) (genResources []kyvernov1.ResourceSpec, processExisting bool, err error) {
 	// Get the response as the actions to be performed on the resource
 	// - - substitute values
 	policy := policyContext.Policy
@@ -388,7 +388,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 	var err error
 	var mode ResourceMode
 	var noGenResource kyvernov1.ResourceSpec
-	genUnst, err := getUnstrRule(rule.Generation.DeepCopy())
+	genUnst, err := GetUnstrRule(rule.Generation.DeepCopy())
 	if err != nil {
 		return noGenResource, err
 	}
@@ -614,7 +614,7 @@ const (
 	Update = "UPDATE"
 )
 
-func getUnstrRule(rule *kyvernov1.Generation) (*unstructured.Unstructured, error) {
+func GetUnstrRule(rule *kyvernov1.Generation) (*unstructured.Unstructured, error) {
 	ruleData, err := json.Marshal(rule)
 	if err != nil {
 		return nil, err
@@ -622,6 +622,36 @@ func getUnstrRule(rule *kyvernov1.Generation) (*unstructured.Unstructured, error
 	return utils.ConvertToUnstructured(ruleData)
 }
 
+func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) error {
+	kind, _, namespace, apiVersion, err := getResourceInfo(resource.Object)
+	if err != nil {
+		return err
+	}
+
+	_, err = c.client.CreateResource(apiVersion, kind, namespace, resource, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// NewGenerateControllerWithOnlyClient returns an instance of Controller with only the client.
+func NewGenerateControllerWithOnlyClient(client dclient.Interface) *GenerateController {
+	c := GenerateController{
+		client: client,
+	}
+	return &c
+}
+
+// GetUnstrResource converts ResourceSpec object to type Unstructured
+func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.ResourceSpec) (*unstructured.Unstructured, error) {
+	resource, err := c.client.GetResource(genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
+	if err != nil {
+		return nil, err
+	}
+	return resource, nil
+}
 func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
