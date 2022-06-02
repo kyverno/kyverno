@@ -314,18 +314,9 @@ func main() {
 		configuration,
 	)
 
-	// grcc := generatecleanup.NewController(
-	// 	kubeClient,
-	// 	kyvernoClient,
-	// 	dynamicClient,
-	// 	kyvernoV1.ClusterPolicies(),
-	// 	kyvernoV1.Policies(),
-	// 	kyvernoV1beta1.UpdateRequests(),
-	// 	kubeInformer.Core().V1().Namespaces(),
-	// )
-
 	backgroundController := backgroundcontroller.NewController(
 		dynamicClient,
+		kyvernoClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
@@ -456,7 +447,6 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
 		go prgen.Run(1, stopCh)
-		// go grcc.Run(1, stopCh)
 		go backgroundController.Run(stopCh)
 	}
 
