@@ -2,13 +2,13 @@ package generate
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/ginkgo"
@@ -17,9 +17,9 @@ import (
 
 func setup(t *testing.T) {
 	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	// if os.Getenv("E2E") == "" {
+	// 	t.Skip("Skipping E2E Test")
+	// }
 }
 
 func createClient() *e2e.E2EClient {
@@ -81,7 +81,7 @@ func createClusteredResource(t *testing.T, client *e2e.E2EClient, resource resou
 	result, err := client.CreateClusteredResource(resource.gvr, &u)
 	Expect(err).NotTo(HaveOccurred())
 	t.Cleanup(func() {
-		deleteResources(client, expectedResource{resource.gvr, result.GetNamespace(), result.GetName()})
+		deleteResources(client, expected(resource.gvr, result.GetNamespace(), result.GetName()))
 	})
 	return result
 }
@@ -93,7 +93,7 @@ func createNamespacedResource(t *testing.T, client *e2e.E2EClient, resource reso
 	result, err := client.CreateNamespacedResource(resource.gvr, resource.ns, &u)
 	Expect(err).NotTo(HaveOccurred())
 	t.Cleanup(func() {
-		deleteResources(client, expectedResource{resource.gvr, result.GetNamespace(), result.GetName()})
+		deleteResources(client, expected(resource.gvr, result.GetNamespace(), result.GetName()))
 	})
 	return result
 }
@@ -112,28 +112,88 @@ func createResources(t *testing.T, client *e2e.E2EClient, resources ...resource)
 	}
 }
 
+func getClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string) *unstructured.Unstructured {
+	By(fmt.Sprintf("Getting %s : %s", gvr.String(), name))
+	r, err := client.GetClusteredResource(gvr, name)
+	Expect(err).NotTo(HaveOccurred())
+	return r
+}
+
+func getNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string) *unstructured.Unstructured {
+	By(fmt.Sprintf("Getting %s : %s/%s", gvr.String(), ns, name))
+	r, err := client.GetNamespacedResource(gvr, ns, name)
+	Expect(err).NotTo(HaveOccurred())
+	return r
+}
+
+func getResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string) *unstructured.Unstructured {
+	if ns != "" {
+		return getNamespacedResource(client, gvr, ns, name)
+	} else {
+		return getClusteredResource(client, gvr, name)
+	}
+}
+
+func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
+	r := getClusteredResource(client, gvr, name)
+	Expect(m(r)).To(Succeed())
+	By(fmt.Sprintf("Updating %s : %s", gvr.String(), name))
+	r, err := client.UpdateClusteredResource(gvr, r)
+	Expect(err).NotTo(HaveOccurred())
+	return r
+}
+
+func updateNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
+	r := getNamespacedResource(client, gvr, ns, name)
+	Expect(m(r)).To(Succeed())
+	By(fmt.Sprintf("Updating %s : %s/%s", gvr.String(), ns, name))
+	r, err := client.UpdateNamespacedResource(gvr, ns, r)
+	Expect(err).NotTo(HaveOccurred())
+	return r
+}
+
+func updateResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
+	if ns != "" {
+		return updateNamespacedResource(client, gvr, ns, name, m)
+	} else {
+		return updateClusteredResource(client, gvr, name, m)
+	}
+}
+
 func expectClusteredResource(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Expecting %s : %s", resource.gvr.String(), resource.name))
+	var r *unstructured.Unstructured
 	err := e2e.GetWithRetry(1*time.Second, 30, func() error {
-		_, err := client.GetClusteredResource(resource.gvr, resource.name)
+		get, err := client.GetClusteredResource(resource.gvr, resource.name)
 		if err != nil {
 			return err
 		}
+		r = get
 		return nil
 	})
 	Expect(err).NotTo(HaveOccurred())
+	Expect(r).NotTo(BeNil())
+	for _, v := range resource.validate {
+		v(r)
+	}
 }
 
 func expectNamespacedResource(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Expecting %s : %s/%s", resource.gvr.String(), resource.ns, resource.name))
+	var r *unstructured.Unstructured
 	err := e2e.GetWithRetry(1*time.Second, 30, func() error {
-		_, err := client.GetNamespacedResource(resource.gvr, resource.ns, resource.name)
+		get, err := client.GetNamespacedResource(resource.gvr, resource.ns, resource.name)
 		if err != nil {
 			return err
 		}
+		r = get
 		return nil
 	})
 	Expect(err).NotTo(HaveOccurred())
+	Expect(r).NotTo(BeNil())
+	for _, v := range resource.validate {
+		v(r)
+	}
 }
 
 func expectResource(client *e2e.E2EClient, resource expectedResource) {
@@ -173,5 +233,30 @@ func expectResourceNotExists(client *e2e.E2EClient, resource expectedResource) {
 func expectResourcesNotExist(client *e2e.E2EClient, resources ...expectedResource) {
 	for _, resource := range resources {
 		expectResourceNotExists(client, resource)
+	}
+}
+
+type testCaseStep func(*e2e.E2EClient) error
+
+type resourceExpectation func(resource *unstructured.Unstructured)
+
+func stepDeleteResource(gvr schema.GroupVersionResource, ns string, name string) testCaseStep {
+	return func(client *e2e.E2EClient) error {
+		deleteResource(client, expected(gvr, ns, name))
+		return nil
+	}
+}
+
+func stepExpectResource(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) testCaseStep {
+	return func(client *e2e.E2EClient) error {
+		expectResource(client, expected(gvr, ns, name, validate...))
+		return nil
+	}
+}
+
+func stepUpateResource(gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) testCaseStep {
+	return func(client *e2e.E2EClient) error {
+		updateResource(client, gvr, ns, name, m)
+		return nil
 	}
 }
