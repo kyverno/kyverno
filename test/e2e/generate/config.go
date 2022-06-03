@@ -154,37 +154,22 @@ var ClusterRoleTests = []struct {
 var NetworkPolicyGenerateTests = []struct {
 	// TestName - Name of the Test
 	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// PolicyName - Name of the Policy
-	PolicyName string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
+	// ClusterPolicy - ClusterPolicy yaml file
+	ClusterPolicy resource
+	// SourceResources - Source resources yaml files
+	SourceResources []resource
+	// TriggerResource - Trigger resource yaml files
+	TriggerResource resource
+	// ExpectedResources - Expected resources to pass the test
+	ExpectedResources []expectedResource
 }{
 	{
-		TestName:          "test-generate-policy-for-namespace-with-label",
-		NetworkPolicyName: "allow-dns",
-		ResourceNamespace: "test",
-		PolicyName:        "add-networkpolicy",
-		Clone:             false,
-		Sync:              true,
-		Data:              genNetworkPolicyYaml,
+		TestName:        "test-generate-policy-for-namespace-with-label",
+		ClusterPolicy:   clusteredResource(clPolGVR, genNetworkPolicyYaml),
+		TriggerResource: clusteredResource(nsGVR, namespaceWithLabelYaml),
+		ExpectedResources: []expectedResource{
+			{npGVR, "test", "allow-dns"},
+		},
 	},
 }
 
