@@ -3,6 +3,7 @@ package generate
 import (
 	"errors"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -18,9 +19,9 @@ import (
 
 func setup(t *testing.T) {
 	RegisterTestingT(t)
-	// if os.Getenv("E2E") == "" {
-	// 	t.Skip("Skipping E2E Test")
-	// }
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
 }
 
 func createClient() *e2e.E2EClient {
