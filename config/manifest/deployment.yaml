@@ -137,6 +137,7 @@ spec:
             failureThreshold: 4
             successThreshold: 1
           # Failing to provide a writable $TUF_ROOT can cause TUF client initialization to panic
+          volumeMounts:
           - mountPath: /.sigstore
             name: sigstore
   strategy:
