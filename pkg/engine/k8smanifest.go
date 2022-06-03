@@ -70,7 +70,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 		return false, errMsg, err
 	}
 
-	logger.V(2).Info("verifying manifest...", adreq.Namespace, adreq.Kind, adreq.Name, adreq.UserInfo.Username)
+	logger.V(2).Info("verifying manifest...", adreq.Namespace, adreq.Kind.Kind, adreq.Name, adreq.UserInfo.Username)
 
 	// allow dryrun request
 	if *adreq.DryRun {
@@ -84,10 +84,12 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	// signature verification
 	// prepare verifyResource option
 	vo := &k8smanifest.VerifyResourceOption{}
+	// adding default ignoreFields from
+	// github.com/sigstore/k8s-manifest-sigstore/blob/main/pkg/k8smanifest/resources/default-config.yaml
 	vo = k8smanifest.AddDefaultConfig(vo)
 	// adding default ignoreFields from pkg/engine/resources/default-config.yaml
 	vo = addDefaultConfig(vo)
-	// add ignoreFields from Policy
+	// adding ignoreFields from Policy
 	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
 
 	// dryrun setting
@@ -99,18 +101,30 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	}
 	// key setting
 	// prepare tmpDir to save pubkey file
-	tmpDir, err := ioutil.TempDir("", string(adreq.UID))
-	if err != nil {
-		return false, "", errors.New(fmt.Sprintf("failed to make temp dir; %s; %s", tmpDir, err))
-	}
-	defer os.RemoveAll(tmpDir)
+	// tmpDir, err := ioutil.TempDir("", string(adreq.UID))
+	// if err != nil {
+	// 	return false, "", errors.New(fmt.Sprintf("failed to make temp dir; %s; %s", tmpDir, err))
+	// }
+	// defer os.RemoveAll(tmpDir)
+	// if ecdsaPub != "" { // keyed
+	// 	keyPath, err := convertToLocalFilePath(tmpDir, ecdsaPub)
+	// 	if err != nil {
+	// 		return false, err.Error(), err
+	// 	}
+	// 	vo.KeyPath = keyPath
+	// }
+
 	if ecdsaPub != "" { // keyed
-		keyPath, err := convertToLocalFilePath(tmpDir, ecdsaPub)
+		// prepare env variable for pubkey
+		pubkeyEnv := fmt.Sprintf("SIGNATURE_ENV_KEY%s", string(adreq.UID))
+		err = os.Setenv(pubkeyEnv, ecdsaPub)
 		if err != nil {
-			return false, err.Error(), err
+			return false, "", errors.New(fmt.Sprintf("failed to set env variable; %s; %s", pubkeyEnv, err))
 		}
-		vo.KeyPath = keyPath
+		defer os.Unsetenv(pubkeyEnv)
+		vo.KeyPath = fmt.Sprintf("env://%s", pubkeyEnv)
 	}
+
 	if subject != "" { // keyless
 		vo.Signers = append(vo.Signers, subject)
 	}
