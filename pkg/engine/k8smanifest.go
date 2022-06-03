@@ -74,7 +74,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 
 	// allow dryrun request
 	if *adreq.DryRun {
-		return true, "Allowed because of DryRun request", nil
+		return true, "allowed because of DryRun request", nil
 	}
 	// check skipping user
 	if Match(skipUsers, resource, adreq.UserInfo.Username) {
