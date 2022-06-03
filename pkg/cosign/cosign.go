@@ -14,6 +14,7 @@ import (
 	"github.com/in-toto/in-toto-golang/in_toto"
 	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
@@ -72,7 +73,15 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	signatures, bundleVerified, err := client.VerifyImageSignatures(context.Background(), ref, cosignOpts)
+	var (
+		signatures     []oci.Signature
+		bundleVerified bool
+	)
+
+	tracing.DoInSpan(context.Background(), "cosign", "verify_image_signatures", func(ctx context.Context) {
+		signatures, bundleVerified, err = client.VerifyImageSignatures(ctx, ref, cosignOpts)
+	})
+
 	if err != nil {
 		logger.Info("image verification failed", "error", err.Error())
 		return nil, err
@@ -248,7 +257,13 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
-	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
+	var signatures []oci.Signature
+	var bundleVerified bool
+
+	tracing.DoInSpan(context.Background(), "cosign_operations", "verify_image_signatures", func(ctx context.Context) {
+		signatures, bundleVerified, err = client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
+	})
+
 	if err != nil {
 		msg := err.Error()
 		logger.Info("failed to fetch attestations", "error", msg)

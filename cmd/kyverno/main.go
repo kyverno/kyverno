@@ -33,6 +33,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -40,7 +41,6 @@ import (
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -61,6 +61,10 @@ var (
 	genWorkers                   int
 	profile                      bool
 	disableMetricsExport         bool
+	enableTracing                bool
+	otel                         string
+	otelCollector                string
+	transportCreds               string
 	autoUpdateWebhooks           bool
 	policyControllerResyncPeriod time.Duration
 	imagePullSecrets             string
@@ -81,6 +85,10 @@ func main() {
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true', to enable exposing the metrics.")
+	flag.BoolVar(&enableTracing, "enableTracing", false, "Set this flag to 'true', to enable exposing traces.")
+	flag.StringVar(&otel, "otelConfig", "prometheus", "Set this flag to 'grpc', to enable exporting metrics to an Opentelemetry Collector. The default collector is set to \"prometheus\"")
+	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
+	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate to be be used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
 	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
 	flag.DurationVar(&policyControllerResyncPeriod, "backgroundScan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
@@ -136,7 +144,7 @@ func main() {
 	}
 
 	var metricsServerMux *http.ServeMux
-	var promConfig *metrics.PromConfig
+	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
 		addr := ":" + profilePort
@@ -256,22 +264,49 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Metrics Configuration
 	if !disableMetricsExport {
-		promConfig, err = metrics.NewPromConfig(metricsConfigData)
-		if err != nil {
-			setupLog.Error(err, "failed to setup Prometheus metric configuration")
-			os.Exit(1)
-		}
-		metricsServerMux = http.NewServeMux()
-		metricsServerMux.Handle("/metrics", promhttp.HandlerFor(promConfig.MetricsRegistry, promhttp.HandlerOpts{Timeout: 10 * time.Second}))
-		metricsAddr := ":" + metricsPort
-		go func() {
-			setupLog.Info("enabling metrics service", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				setupLog.Error(err, "failed to enable metrics service", "address", metricsAddr)
+		if otel == "grpc" {
+			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
+			metricsAddr := ":" + metricsPort
+			setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+
+			endpoint := otelCollector + metricsAddr
+			metricsConfig, err = metrics.NewOTLPGRPCConfig(
+				endpoint,
+				metricsConfigData,
+				transportCreds,
+				kubeClient,
+				log.Log.WithName("Metrics"),
+			)
+
+			if err != nil {
+				setupLog.Error(err, "Failed to enable metrics", "address", ":4317")
 				os.Exit(1)
 			}
-		}()
+		} else if otel == "prometheus" {
+			// Prometheus Server will serve metrics on metrics-port
+			metricsAddr := ":" + metricsPort
+			setupLog.Info("enabling prometheus metrics", "address", metricsAddr)
+			metricsConfig, metricsServerMux, err = metrics.NewPrometheusConfig(metricsConfigData, log.Log.WithName("Metrics"))
+			go func() {
+				setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+				if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+					setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
+					os.Exit(1)
+				}
+			}()
+		}
+	}
+
+	// Tracing Configuration
+	if enableTracing {
+		setupLog.Info("Enabling tracing for Kyverno...")
+		err = tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
+		if err != nil {
+			setupLog.Error(err, "Failed to enable tracing for Kyverno")
+			os.Exit(1)
+		}
 	}
 
 	// POLICY CONTROLLER
@@ -292,7 +327,7 @@ func main() {
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
-		promConfig,
+		metricsConfig,
 	)
 	if err != nil {
 		setupLog.Error(err, "Failed to create policy controller")
@@ -337,7 +372,7 @@ func main() {
 		log.Log.WithName("ValidateAuditHandler"),
 		configuration,
 		dynamicClient,
-		promConfig,
+		metricsConfig,
 	)
 
 	certRenewer, err := tls.NewCertRenewer(
@@ -420,7 +455,7 @@ func main() {
 		dynamicClient,
 		kyvernoClient,
 		configuration,
-		promConfig,
+		metricsConfig,
 		policyCache,
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
