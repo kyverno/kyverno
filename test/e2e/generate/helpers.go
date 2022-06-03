@@ -136,8 +136,10 @@ func getResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, nam
 
 func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
 	r := getClusteredResource(client, gvr, name)
+	version := r.GetResourceVersion()
 	Expect(m(r)).To(Succeed())
 	By(fmt.Sprintf("Updating %s : %s", gvr.String(), name))
+	r.SetResourceVersion(version)
 	r, err := client.UpdateClusteredResource(gvr, r)
 	Expect(err).NotTo(HaveOccurred())
 	return r
@@ -145,8 +147,10 @@ func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResou
 
 func updateNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
 	r := getNamespacedResource(client, gvr, ns, name)
+	version := r.GetResourceVersion()
 	Expect(m(r)).To(Succeed())
 	By(fmt.Sprintf("Updating %s : %s/%s", gvr.String(), ns, name))
+	r.SetResourceVersion(version)
 	r, err := client.UpdateNamespacedResource(gvr, ns, r)
 	Expect(err).NotTo(HaveOccurred())
 	return r
@@ -212,14 +216,20 @@ func expectResources(client *e2e.E2EClient, resources ...expectedResource) {
 
 func expectClusteredResourceNotExists(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Expecting not exists %s : %s", resource.gvr.String(), resource.name))
-	_, err := client.GetClusteredResource(resource.gvr, resource.name)
-	Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	err := e2e.GetWithRetry(1*time.Second, 15, func() error {
+		_, err := client.GetClusteredResource(resource.gvr, resource.name)
+		return err
+	})
+	Expect(err).To(HaveOccurred())
 }
 
 func expectNamespacedResourceNotExists(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Expecting not exists %s : %s/%s", resource.gvr.String(), resource.ns, resource.name))
-	_, err := client.GetNamespacedResource(resource.gvr, resource.ns, resource.name)
-	Expect(apierrors.IsNotFound(err)).To(BeTrue())
+	err := e2e.GetWithRetry(1*time.Second, 15, func() error {
+		_, err := client.GetClusteredResource(resource.gvr, resource.name)
+		return err
+	})
+	Expect(err).To(HaveOccurred())
 }
 
 func expectResourceNotExists(client *e2e.E2EClient, resource expectedResource) {
@@ -257,6 +267,13 @@ func stepExpectResource(gvr schema.GroupVersionResource, ns string, name string,
 func stepUpateResource(gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) testCaseStep {
 	return func(client *e2e.E2EClient) error {
 		updateResource(client, gvr, ns, name, m)
+		return nil
+	}
+}
+
+func stepResourceNotFound(gvr schema.GroupVersionResource, ns string, name string) testCaseStep {
+	return func(client *e2e.E2EClient) error {
+		expectResourceNotExists(client, expected(gvr, ns, name))
 		return nil
 	}
 }

@@ -1,9 +1,12 @@
 package generate
 
 import (
+	"time"
+
 	"github.com/kyverno/kyverno/test/e2e"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/gomega"
 )
@@ -73,9 +76,7 @@ func expected(gvr schema.GroupVersionResource, ns string, name string, validate 
 	return expectedResource{existing(gvr, ns, name), validate}
 }
 
-// RoleTests is E2E Test Config for Role and RoleBinding
-// TODO:- Clone for Role and RoleBinding
-var RoleTests = []struct {
+type testCase struct {
 	// TestName - Name of the Test
 	TestName string
 	// ClusterPolicy - ClusterPolicy yaml file
@@ -86,7 +87,13 @@ var RoleTests = []struct {
 	TriggerResource resource
 	// ExpectedResources - Expected resources to pass the test
 	ExpectedResources []expectedResource
-}{
+	// Steps - Test case steps
+	Steps []testCaseStep
+}
+
+// RoleTests is E2E Test Config for Role and RoleBinding
+// TODO:- Clone for Role and RoleBinding
+var RoleTests = []testCase{
 	{
 		TestName:        "test-role-rolebinding-without-clone",
 		ClusterPolicy:   clusteredResource(clPolGVR, roleRoleBindingYamlWithSync),
@@ -121,18 +128,7 @@ var RoleTests = []struct {
 }
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
-var ClusterRoleTests = []struct {
-	// TestName - Name of the Test
-	TestName string
-	// ClusterPolicy - ClusterPolicy yaml file
-	ClusterPolicy resource
-	// SourceResources - Source resources yaml files
-	SourceResources []resource
-	// TriggerResource - Trigger resource yaml files
-	TriggerResource resource
-	// ExpectedResources - Expected resources to pass the test
-	ExpectedResources []expectedResource
-}{
+var ClusterRoleTests = []testCase{
 	{
 		TestName:        "test-clusterrole-clusterrolebinding-without-clone",
 		ClusterPolicy:   clusteredResource(clPolGVR, genClusterRoleYamlWithSync),
@@ -167,18 +163,7 @@ var ClusterRoleTests = []struct {
 }
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var NetworkPolicyGenerateTests = []struct {
-	// TestName - Name of the Test
-	TestName string
-	// ClusterPolicy - ClusterPolicy yaml file
-	ClusterPolicy resource
-	// SourceResources - Source resources yaml files
-	SourceResources []resource
-	// TriggerResource - Trigger resource yaml files
-	TriggerResource resource
-	// ExpectedResources - Expected resources to pass the test
-	ExpectedResources []expectedResource
-}{
+var NetworkPolicyGenerateTests = []testCase{
 	{
 		TestName:        "test-generate-policy-for-namespace-with-label",
 		ClusterPolicy:   clusteredResource(clPolGVR, genNetworkPolicyYaml),
@@ -190,43 +175,39 @@ var NetworkPolicyGenerateTests = []struct {
 }
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
-	// TestName - Name of the Test
-	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// GeneratePolicyName - Name of the Policy to be Created/Updated
-	GeneratePolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	UpdateData []byte
-}{
+var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []testCase{
 	{
-		TestName:           "test-generate-policy-for-namespace-label-actions",
-		ResourceNamespace:  "test",
-		NetworkPolicyName:  "allow-dns",
-		GeneratePolicyName: "add-networkpolicy",
-		Clone:              false,
-		Sync:               true,
-		Data:               genNetworkPolicyYaml,
-		UpdateData:         updatGenNetworkPolicyYaml,
+		TestName:        "test-generate-policy-for-namespace-label-actions",
+		ClusterPolicy:   clusteredResource(clPolGVR, genNetworkPolicyYaml),
+		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
+		ExpectedResources: []expectedResource{
+			expected(npGVR, "test", "allow-dns"),
+		},
+		Steps: []testCaseStep{
+			stepResourceNotFound(npGVR, "test", "allow-dns"),
+			stepUpateResource(nsGVR, "", "test", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "metadata", "labels")
+				if err != nil {
+					return err
+				}
+				element["security"] = "standard"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "metadata", "labels")
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns"),
+			stepUpateResource(clPolGVR, "", "add-networkpolicy", func(resource *unstructured.Unstructured) error {
+				return yaml.Unmarshal(updatGenNetworkPolicyYaml, resource)
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
+				// TODO: this sucks
+				time.Sleep(time.Second * 50)
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
+				element, found, err := unstructured.NestedMap(resource.UnstructuredContent(), "spec")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(found).To(BeTrue())
+				Expect(loopElement(false, element)).To(BeTrue())
+			}),
+		},
 	},
 }
 
@@ -305,18 +286,7 @@ var SourceResourceUpdateReplicationTests = []struct {
 	},
 }
 
-var GeneratePolicyDeletionforCloneTests = []struct {
-	// TestName - Name of the Test
-	TestName      string
-	ClusterPolicy resource
-	// SourceResources - Source resources yaml files
-	SourceResources []resource
-	// TriggerResource - Trigger resource yaml files
-	TriggerResource resource
-	// ExpectedResources - Expected resources to pass the test
-	ExpectedResources []expectedResource
-	Steps             []testCaseStep
-}{
+var GeneratePolicyDeletionforCloneTests = []testCase{
 	{
 		TestName:      "test-clone-source-resource-update-replication",
 		ClusterPolicy: clusteredResource(clPolGVR, genCloneConfigMapPolicyYaml),
