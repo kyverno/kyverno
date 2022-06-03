@@ -116,7 +116,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 
 	if ecdsaPub != "" { // keyed
 		// prepare env variable for pubkey
-		pubkeyEnv := fmt.Sprintf("SIGNATURE_ENV_KEY%s", string(adreq.UID))
+		pubkeyEnv := fmt.Sprintf("_PK_%s", string(adreq.UID))
 		err = os.Setenv(pubkeyEnv, ecdsaPub)
 		if err != nil {
 			return false, "", errors.New(fmt.Sprintf("failed to set env variable; %s; %s", pubkeyEnv, err))
