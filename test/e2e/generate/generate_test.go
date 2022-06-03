@@ -3,7 +3,6 @@ package generate
 import (
 	"errors"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -16,389 +15,98 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	// Cluster Policy GVR
-	clPolGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
-
-	// Namespace GVR
-	nsGVR = e2e.GetGVR("", "v1", "namespaces")
-
-	// ClusterRole GVR
-	crGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterroles")
-
-	// ClusterRoleBinding GVR
-	crbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterrolebindings")
-
-	// Role GVR
-	rGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "roles")
-
-	// RoleBinding GVR
-	rbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "rolebindings")
-
-	// ConfigMap GVR
-	cmGVR = e2e.GetGVR("", "v1", "configmaps")
-
-	// NetworkPolicy GVR
-	npGVR = e2e.GetGVR("networking.k8s.io", "v1", "networkpolicies")
-
-	// ClusterPolicy Namespace
-	clPolNS = ""
-
-	// NetworkPolicy Namespace
-	npPolNS = ""
-)
-
 func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	setup(t)
 
-	// ====== Range Over ClusterRoleTests ==================
 	for _, tests := range ClusterRoleTests {
 		t.Run(tests.TestName, func(t *testing.T) {
-			e2eClient, err := e2e.NewE2EClient()
-			Expect(err).To(BeNil())
+			e2eClient := createClient()
 
 			t.Cleanup(func() {
-				By("Cleaning Cluster Policies")
-				_ = e2eClient.CleanClusterPolicies(clPolGVR)
-
-				// If Clone is true Clear Source Resource and Recreate
-				if tests.Clone {
-					By("Clone = true, Deleting Source ClusterRole and ClusterRoleBinding")
-					// Delete ClusterRole to be cloned
-					_ = e2eClient.DeleteClusteredResource(crGVR, tests.ClonerClusterRoleName)
-					// Delete ClusterRoleBinding to be cloned
-					_ = e2eClient.DeleteClusteredResource(crbGVR, tests.ClonerClusterRoleBindingName)
-				}
-
-				// Clear Namespace
-				By(fmt.Sprintf("Deleting Namespace : %s\n", tests.ResourceNamespace))
-				_ = e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
-
-				// Wait Till Deletion of Namespace
-				err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-					_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
-					if err != nil {
-						return nil
-					}
-					return fmt.Errorf("failed to delete namespace: %v", err)
-				})
-				Expect(err).NotTo(HaveOccurred())
+				deleteResources(e2eClient, tests.ExpectedResources...)
 			})
 
-			By(fmt.Sprintf("Test to generate ClusterRole and ClusterRoleBinding : %s", tests.TestName))
-			By(fmt.Sprintf("synchronize = %v\t clone = %v", tests.Sync, tests.Clone))
+			// sanity check
+			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
 
-			// ======== Create ClusterRole Policy =============
-			By(fmt.Sprintf("Creating Generate Role Policy: %s", tests.PolicyName))
-			_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
-			Expect(err).NotTo(HaveOccurred())
+			// create policy
+			policy := createResource(t, e2eClient, tests.ClusterPolicy)
+			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
 
-			err = commonE2E.PolicyCreated(tests.PolicyName)
-			Expect(err).NotTo(HaveOccurred())
+			// create source resources
+			createResources(t, e2eClient, tests.SourceResources...)
 
-			// == If Clone is true Create Source Resources ======
-			if tests.Clone {
-				By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-				// Create ClusterRole to be cloned
-				_, err := e2eClient.CreateClusteredResourceYaml(crGVR, tests.CloneSourceClusterRoleData)
-				Expect(err).NotTo(HaveOccurred())
-				// Create ClusterRoleBinding to be cloned
-				_, err = e2eClient.CreateClusteredResourceYaml(crbGVR, tests.CloneSourceClusterRoleBindingData)
-				Expect(err).NotTo(HaveOccurred())
-			}
+			// create trigger
+			createResource(t, e2eClient, tests.TriggerResource)
 
-			// =================================================
-
-			// ======= Create Namespace ==================
-			By(fmt.Sprintf("Creating Namespace which triggers generate %s \n", tests.ResourceNamespace))
-			_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
-			Expect(err).NotTo(HaveOccurred())
-
-			// Wait Till Creation of Namespace
-			err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-				_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			// ======== Verify ClusterRole Creation =====
-			By("Verifying ClusterRole")
-
-			// Wait Till Creation of ClusterRole
-			err = e2e.GetWithRetry(1*time.Second, 30, func() error {
-				_, err := e2eClient.GetClusteredResource(crGVR, tests.ClusterRoleName)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// ============================================
-
-			// ======= Verify ClusterRoleBinding Creation ========
-			By("Verifying ClusterRoleBinding")
-			err = e2e.GetWithRetry(1*time.Second, 30, func() error {
-				_, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
-				if err != nil {
-					return err
-				}
-				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			rbRes, err := e2eClient.GetClusteredResource(crbGVR, tests.ClusterRoleBindingName)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(rbRes.GetName()).To(Equal(tests.ClusterRoleBindingName))
-			// ============================================
+			// verify expected resources
+			expectResources(e2eClient, tests.ExpectedResources...)
 		})
 	}
 }
 
 func Test_Role_RoleBinding_Sets(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
-	// Generate E2E Client ==================
-	e2eClient, err := e2e.NewE2EClient()
-	Expect(err).To(BeNil())
-	// ======================================
+	setup(t)
 
-	// ====== Range Over RuleTest ==================
 	for _, tests := range RoleTests {
-		By(fmt.Sprintf("Test to generate Role and RoleBinding : %s", tests.TestName))
-		By(fmt.Sprintf("synchronize = %v\t clone = %v", tests.Sync, tests.Clone))
+		t.Run(tests.TestName, func(t *testing.T) {
+			e2eClient := createClient()
 
-		// ======= CleanUp Resources =====
-		By("Cleaning Cluster Policies")
-		_ = e2eClient.CleanClusterPolicies(clPolGVR)
+			t.Cleanup(func() {
+				deleteResources(e2eClient, tests.ExpectedResources...)
+			})
 
-		// Clear Namespace
-		By(fmt.Sprintf("Deleting Namespace : %s", tests.ResourceNamespace))
-		_ = e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
+			// sanity check
+			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
 
-		// If Clone is true Clear Source Resource and Recreate
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Deleting Source Role and RoleBinding from Clone Namespace : %s", tests.CloneNamespace))
-			// Delete Role to be cloned
-			_ = e2eClient.DeleteNamespacedResource(rGVR, tests.CloneNamespace, tests.RoleName)
-			// Delete RoleBinding to be cloned
-			_ = e2eClient.DeleteNamespacedResource(rbGVR, tests.CloneNamespace, tests.RoleBindingName)
-		}
+			// create policy
+			policy := createResource(t, e2eClient, tests.ClusterPolicy)
+			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
 
-		// Wait Till Deletion of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return fmt.Errorf("failed to delete namespace: %v", err)
+			// create source resources
+			createResources(t, e2eClient, tests.SourceResources...)
+
+			// create trigger
+			createResource(t, e2eClient, tests.TriggerResource)
+
+			// verify expected resources
+			expectResources(e2eClient, tests.ExpectedResources...)
 		})
-		Expect(err).NotTo(HaveOccurred())
-
-		// ======== Create Role Policy =============
-		By(fmt.Sprintf("\nCreating Generate Role Policy %s", tests.PolicyName))
-		_, err = e2eClient.CreateNamespacedResourceYaml(clPolGVR, clPolNS, tests.PolicyName, tests.Data)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = commonE2E.PolicyCreated(tests.PolicyName)
-		Expect(err).NotTo(HaveOccurred())
-
-		// ============================================
-
-		// === If Clone is true Create Source Resources ==
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Creating Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_, err := e2eClient.CreateNamespacedResourceYaml(rGVR, tests.CloneNamespace, "", tests.CloneSourceRoleData)
-			Expect(err).NotTo(HaveOccurred())
-			_, err = e2eClient.CreateNamespacedResourceYaml(rbGVR, tests.CloneNamespace, "", tests.CloneSourceRoleBindingData)
-			Expect(err).NotTo(HaveOccurred())
-		}
-		// ================================================
-
-		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which triggers generate %s", clPolNS))
-		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceYaml)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Wait Till Creation of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		// ======== Verify Role Creation =====
-		By(fmt.Sprintf("Verifying Role in the Namespace : %s", tests.ResourceNamespace))
-		// Wait Till Creation of Role
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		rRes, err := e2eClient.GetNamespacedResource(rGVR, tests.ResourceNamespace, tests.RoleName)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(rRes.GetName()).To(Equal(tests.RoleName))
-		// ============================================
-
-		// ======= Verify RoleBinding Creation ========
-		By(fmt.Sprintf("Verifying RoleBinding in the Namespace : %s", tests.ResourceNamespace))
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(rbGVR, tests.ResourceNamespace, tests.RoleBindingName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		rbRes, err := e2eClient.GetNamespacedResource(rbGVR, tests.ResourceNamespace, tests.RoleBindingName)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(rbRes.GetName()).To(Equal(tests.RoleBindingName))
-		// ============================================
-
-		// ======= CleanUp Resources =====
-		_ = e2eClient.CleanClusterPolicies(clPolGVR)
-
-		// === If Clone is true Delete Source Resources ==
-		if tests.Clone {
-			By(fmt.Sprintf("Clone = true, Deleting Cloner Resources in Namespace : %s", tests.CloneNamespace))
-			_ = e2eClient.DeleteNamespacedResource(rGVR, tests.CloneNamespace, tests.RoleName)
-			_ = e2eClient.DeleteNamespacedResource(rbGVR, tests.CloneNamespace, tests.RoleBindingName)
-		}
-
-		// Clear Namespace
-		_ = e2eClient.DeleteClusteredResource(nsGVR, tests.ResourceNamespace)
-
-		// Wait Till Deletion of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, tests.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return fmt.Errorf("failed to delete namespace: %v", err)
-		})
-		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
-		if err != nil {
-			By(err.Error())
-		}
-
-		By(fmt.Sprintf("Test %s Completed \n\n\n", tests.TestName))
 	}
 }
 
 func Test_Generate_NetworkPolicy(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
-	// Generate E2E Client ==================
-	e2eClient, err := e2e.NewE2EClient()
-	Expect(err).To(BeNil())
-	// ======================================
+	setup(t)
 
-	// ====== Range Over RuleTest ==================
-	for _, test := range NetworkPolicyGenerateTests {
-		By(fmt.Sprintf("Test to generate NetworkPolicy : %s", test.TestName))
-		By(fmt.Sprintf("synchronize = %v\t clone = %v", test.Sync, test.Clone))
+	for _, tests := range NetworkPolicyGenerateTests {
+		t.Run(tests.TestName, func(t *testing.T) {
+			e2eClient := createClient()
 
-		// ======= CleanUp Resources =====
-		By("Cleaning Cluster Policies")
-		_ = e2eClient.CleanClusterPolicies(clPolGVR)
+			t.Cleanup(func() {
+				deleteResources(e2eClient, tests.ExpectedResources...)
+			})
 
-		// Clear Namespace
-		By(fmt.Sprintf("Deleting Namespace : %s", test.ResourceNamespace))
-		_ = e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
+			// sanity check
+			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
 
-		// Wait Till Deletion of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("deleting Namespace")
+			// create policy
+			policy := createResource(t, e2eClient, tests.ClusterPolicy)
+			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
+
+			// create source resources
+			createResources(t, e2eClient, tests.SourceResources...)
+
+			// create trigger
+			createResource(t, e2eClient, tests.TriggerResource)
+
+			// verify expected resources
+			expectResources(e2eClient, tests.ExpectedResources...)
 		})
-		Expect(err).NotTo(HaveOccurred())
-
-		// ======== Create Generate NetworkPolicy Policy =============
-		By("Creating Generate NetworkPolicy Policy")
-		_, err := e2eClient.CreateNamespacedResourceYaml(clPolGVR, npPolNS, test.PolicyName, test.Data)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = commonE2E.PolicyCreated(test.PolicyName)
-		Expect(err).NotTo(HaveOccurred())
-
-		// ======= Create Namespace ==================
-		By(fmt.Sprintf("Creating Namespace which triggers generate %s", npPolNS))
-		_, err = e2eClient.CreateClusteredResourceYaml(nsGVR, namespaceWithLabelYaml)
-		Expect(err).NotTo(HaveOccurred())
-
-		// Wait Till Creation of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		// ======== NetworkPolicy Creation =====
-		By(fmt.Sprintf("Verifying NetworkPolicy in the Namespace : %s", test.ResourceNamespace))
-
-		// Wait Till Creation of NetworkPolicy
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		npRes, err := e2eClient.GetNamespacedResource(npGVR, test.ResourceNamespace, test.NetworkPolicyName)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(npRes.GetName()).To(Equal(test.NetworkPolicyName))
-		// ============================================
-
-		// ======= CleanUp Resources =====
-		_ = e2eClient.CleanClusterPolicies(clPolGVR)
-
-		// Clear Namespace
-		_ = e2eClient.DeleteClusteredResource(nsGVR, test.ResourceNamespace)
-
-		// Wait Till Deletion of Namespace
-		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
-			_, err := e2eClient.GetClusteredResource(nsGVR, test.ResourceNamespace)
-			if err != nil {
-				return nil
-			}
-			return errors.New("deleting Namespace")
-		})
-		Expect(err).NotTo(HaveOccurred())
-
-		By(fmt.Sprintf("Test %s Completed \n\n\n", test.TestName))
 	}
 }
 
 func Test_Generate_Namespace_Label_Actions(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	setup(t)
 
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
@@ -590,10 +298,8 @@ func loopElement(found bool, elementObj interface{}) bool {
 }
 
 func Test_Generate_Synchronize_Flag(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	setup(t)
+
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -776,10 +482,8 @@ func Test_Generate_Synchronize_Flag(t *testing.T) {
 }
 
 func Test_Source_Resource_Update_Replication(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	setup(t)
+
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
@@ -985,10 +689,8 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 }
 
 func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
-	RegisterTestingT(t)
-	if os.Getenv("E2E") == "" {
-		t.Skip("Skipping E2E Test")
-	}
+	setup(t)
+
 	// Generate E2E Client ==================
 	e2eClient, err := e2e.NewE2EClient()
 	Expect(err).To(BeNil())
