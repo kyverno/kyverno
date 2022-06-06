@@ -22,23 +22,17 @@ data:
   excludeUsername: {{ join "," .Values.config.excludeUsername | quote }}
   {{- end -}}
   {{- if or .Values.config.webhooks }}
-    {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list "kyverno") }}
-    {{- $webhooks := list }}
-    {{- range .Values.config.webhooks }}
-      {{- $new := dict }}
-      {{- if .objectSelector }}
-        {{ $new = . }}
-      {{- else }}
-        {{- if $.Values.excludeKyvernoNamespace }}
-          {{- $match := (append .namespaceSelector.matchExpressions $excludeDefault )}}
-          {{- $new = dict "namespaceSelector" (dict "matchExpressions" $match) }}
-        {{- else }}
-          {{- $new = . }}
-        {{- end }}
+    {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
+    {{- $newWebhook := list }}
+    {{- range $webhook := .Values.config.webhooks }}
+      {{- $namespaceSelector := default dict $webhook.namespaceSelector }}
+      {{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
+      {{- if $.Values.excludeKyvernoNamespace }}
+        {{- $namespaceSelector = dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
       {{- end }}
-      {{- $webhooks = append $webhooks $new }}
+      {{- $newWebhook = merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $namespaceSelector) }}
     {{- end }}
-  webhooks: {{ $webhooks | toJson | quote }}
+  webhooks: {{ $newWebhook | toJson | quote }}
   {{- else if .Values.excludeKyvernoNamespace }}
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
