@@ -32,3 +32,5 @@ annotations:
       description: Allow defining imagePullSecrets
     - kind: fixed
       description: Replica count handling
+    - kind: changed
+      description: Use cluster role aggregation
