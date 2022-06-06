@@ -30,8 +30,7 @@ data:
         {{ $new = . }}
       {{- else }}
         {{- if $.Values.excludeKyvernoNamespace }}
-          {{- $match := .namespaceSelector.matchExpressions }}
-          {{- $match = (append $match $excludeDefault )}}
+          {{- $match := (append .namespaceSelector.matchExpressions $excludeDefault )}}
           {{- $new = dict "namespaceSelector" (dict "matchExpressions" $match) }}
         {{- else }}
           {{- $new = . }}
