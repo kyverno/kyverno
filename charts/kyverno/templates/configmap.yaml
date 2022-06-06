@@ -17,7 +17,7 @@ data:
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "," .Values.config.excludeUsername | quote }}
   {{- end -}}
-  {{- if or .Values.config.webhooks }}
+  {{- if .Values.config.webhooks }}
   webhooks: {{ include "kyverno.webhooks" . | quote }}
   {{- else if .Values.excludeKyvernoNamespace }}
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
