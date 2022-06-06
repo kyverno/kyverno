@@ -132,14 +132,11 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- range $webhook := .Values.config.webhooks }}
   {{- $namespaceSelector := default dict $webhook.namespaceSelector }}
   {{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
-  {{- if $.Values.excludeKyvernoNamespace }}
-    {{- $namespaceSelector = dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- if not (empty (omit $webhook "namespaceSelector")) }}
+    {{- $newWebhook = append $newWebhook (omit $webhook "namespaceSelector") }}
   {{- end }}
-  {{- if (empty (omit $webhook "namespaceSelector")) }}
-    {{- $newWebhook = list (dict "namespaceSelector" $namespaceSelector)}}
-  {{- else }}
-    {{- $newWebhook = list (omit $webhook "namespaceSelector") (dict "namespaceSelector" $namespaceSelector) }}
-  {{- end }}
+  {{- $newWebhook = append $newWebhook (dict "namespaceSelector" $newNamespaceSelector)}}
 {{- end }}
 {{- $newWebhook | toJson }}
 {{- end }}
