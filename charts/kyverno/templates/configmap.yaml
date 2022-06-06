@@ -19,6 +19,8 @@ data:
   {{- end -}}
   {{- if .Values.config.webhooks }}
   webhooks: {{ .Values.config.webhooks  | toJson | quote }}
+  {{- else }}
+  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"In","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
   {{- if .Values.config.generateSuccessEvents }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}
