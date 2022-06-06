@@ -212,6 +212,10 @@ generatecontrollerExtraResources:
 # - ResourceA
 # - ResourceB
 
+# -- Exclude Kyverno namespace
+# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+excludeKyvernoNamespace: true
+
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
@@ -222,7 +226,6 @@ config:
   - '[*,kube-system,*]'
   - '[*,kube-public,*]'
   - '[*,kube-node-lease,*]'
-  - '[*,{{ include "kyverno.namespace" . }},*]'
   - '[Node,*,*]'
   - '[APIService,*,*]'
   - '[TokenReview,*,*]'

@@ -9,7 +9,11 @@ metadata:
 data:
   # resource types to be skipped by kyverno policy engine
   {{- if .Values.config.resourceFilters }}
-  resourceFilters: {{ tpl (join "" .Values.config.resourceFilters) . | quote }}
+    {{- $resourceFilters := .Values.config.resourceFilters }}
+    {{- if .Values.excludeKyvernoNamespace }}
+      {{- $resourceFilters = prepend .Values.config.resourceFilters (printf "[*,%s,*]" (include "kyverno.namespace" .)) }}
+    {{- end }}
+  resourceFilters: {{ tpl (join "" $resourceFilters) . | quote }}
   {{- end -}}
   {{- if .Values.config.excludeGroupRole }}
   excludeGroupRole: {{ join "," .Values.config.excludeGroupRole | quote }}
@@ -17,9 +21,26 @@ data:
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "," .Values.config.excludeUsername | quote }}
   {{- end -}}
-  {{- if .Values.config.webhooks }}
-  webhooks: {{ .Values.config.webhooks  | toJson | quote }}
-  {{- else }}
+  {{- if or .Values.config.webhooks }}
+    {{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list "kyverno") }}
+    {{- $webhooks := list }}
+    {{- range .Values.config.webhooks }}
+      {{- $new := dict }}
+      {{- if .objectSelector }}
+        {{ $new = . }}
+      {{- else }}
+        {{- if $.Values.excludeKyvernoNamespace }}
+          {{- $match := .namespaceSelector.matchExpressions }}
+          {{- $match = (append $match $excludeDefault )}}
+          {{- $new = dict "namespaceSelector" (dict "matchExpressions" $match) }}
+        {{- else }}
+          {{- $new = . }}
+        {{- end }}
+      {{- end }}
+      {{- $webhooks = append $webhooks $new }}
+    {{- end }}
+  webhooks: {{ $webhooks | toJson | quote }}
+  {{- else if .Values.excludeKyvernoNamespace }}
   webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
   {{- if .Values.config.generateSuccessEvents }}
