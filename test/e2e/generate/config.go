@@ -178,77 +178,87 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []testCase{
 }
 
 // NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var GenerateSynchronizeFlagTests = []struct {
-	// TestName - Name of the Test
-	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// GeneratePolicyName - Name of the Policy to be Created/Updated
-	GeneratePolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	UpdateData []byte
-}{
+var GenerateSynchronizeFlagTests = []testCase{
 	{
-		TestName:           "test-generate-policy-for-namespace-with-label",
-		NetworkPolicyName:  "allow-dns",
-		GeneratePolicyName: "add-networkpolicy",
-		ResourceNamespace:  "test",
-		Clone:              false,
-		Sync:               true,
-		Data:               genNetworkPolicyYaml,
-		UpdateData:         updateSynchronizeInGeneratePolicyYaml,
+		TestName:        "test-generate-policy-for-namespace-with-label",
+		ClusterPolicy:   clusteredResource(clPolGVR, genNetworkPolicyYaml),
+		TriggerResource: clusteredResource(nsGVR, namespaceWithLabelYaml),
+		ExpectedResources: []expectedResource{
+			expected(npGVR, "test", "allow-dns"),
+		},
+		Steps: []testCaseStep{
+			// Test: when synchronize flag is set to true in the policy and someone deletes the generated resource, kyverno generates back the resource
+			stepDeleteResource(npGVR, "test", "allow-dns"),
+			stepExpectResource(npGVR, "test", "allow-dns"),
+			// Test: change synchronize to false in the policy, the label in generated resource should be updated to policy.kyverno.io/synchronize: disable
+			stepUpateResource(clPolGVR, "", "add-networkpolicy", func(resource *unstructured.Unstructured) error {
+				return yaml.Unmarshal(updateSynchronizeInGeneratePolicyYaml, resource)
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
+				// TODO: this sucks
+				time.Sleep(time.Second * 30)
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
+				labels := resource.GetLabels()
+				Expect(labels["policy.kyverno.io/synchronize"]).To(Equal("disable"))
+			}),
+			// Test: with synchronize is false, one should be able to delete the generated resource
+			stepDeleteResource(npGVR, "test", "allow-dns"),
+			stepResourceNotFound(npGVR, "test", "allow-dns"),
+		},
 	},
 }
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
-var SourceResourceUpdateReplicationTests = []struct {
-	// TestName - Name of the Test
-	TestName string
-	// ClusterRoleName - Name of the ClusterRole to be Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy - ([]byte{})
-	Data []byte
-	// ConfigMapName - name of configMap
-	ConfigMapName string
-	// CloneSourceConfigMapData - Source ConfigMap Yaml
-	CloneSourceConfigMapData []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
-}{
+var SourceResourceUpdateReplicationTests = []testCase{
 	{
-		TestName:                 "test-clone-source-resource-update-replication",
-		ResourceNamespace:        "test",
-		Clone:                    true,
-		Sync:                     true,
-		Data:                     genCloneConfigMapPolicyYaml,
-		ConfigMapName:            "game-demo",
-		CloneNamespace:           "default",
-		CloneSourceConfigMapData: cloneSourceResource,
-		PolicyName:               "generate-policy",
+		TestName:      "test-clone-source-resource-update-replication",
+		ClusterPolicy: clusteredResource(clPolGVR, genCloneConfigMapPolicyYaml),
+		SourceResources: []resource{
+			namespacedResource(cmGVR, "default", cloneSourceResource),
+		},
+		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
+		ExpectedResources: []expectedResource{
+			expected(cmGVR, "test", "game-demo"),
+		},
+		Steps: []testCaseStep{
+			// Test: when a source clone resource is updated, the same changes should be replicated in the generated resource
+			stepUpateResource(cmGVR, "default", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "5"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				// TODO: this sucks
+				time.Sleep(time.Second * 15)
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(element["initial_lives"]).To(Equal("5"))
+			}),
+			// Test: when a generated resource is edited with some conflicting changes (with respect to the clone source resource or generate data), kyverno will regenerate the resource
+			stepUpateResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "15"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				// TODO: this sucks
+				time.Sleep(time.Second * 50)
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(element["initial_lives"]).To(Equal("5"))
+			}),
+		},
 	},
 }
 
