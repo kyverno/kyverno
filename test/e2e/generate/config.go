@@ -5,7 +5,6 @@ import (
 
 	"github.com/kyverno/kyverno/test/e2e"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
 
 	. "github.com/onsi/gomega"
@@ -42,39 +41,6 @@ var (
 	// NetworkPolicy Namespace
 	npPolNS = ""
 )
-
-type resource struct {
-	gvr schema.GroupVersionResource
-	ns  string
-	raw []byte
-}
-
-func clusteredResource(gvr schema.GroupVersionResource, raw []byte) resource {
-	return resource{gvr, "", raw}
-}
-
-func namespacedResource(gvr schema.GroupVersionResource, ns string, raw []byte) resource {
-	return resource{gvr, ns, raw}
-}
-
-type existingResource struct {
-	gvr  schema.GroupVersionResource
-	ns   string
-	name string
-}
-
-func existing(gvr schema.GroupVersionResource, ns string, name string) existingResource {
-	return existingResource{gvr, ns, name}
-}
-
-type expectedResource struct {
-	existingResource
-	validate []func(*unstructured.Unstructured)
-}
-
-func expected(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) expectedResource {
-	return expectedResource{existing(gvr, ns, name), validate}
-}
 
 type testCase struct {
 	// TestName - Name of the Test

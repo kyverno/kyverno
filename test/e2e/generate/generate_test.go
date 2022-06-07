@@ -15,128 +15,56 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
+func runTestCases(t *testing.T, testCases ...testCase) {
 	setup(t)
 
-	for _, tests := range ClusterRoleTests {
-		t.Run(tests.TestName, func(t *testing.T) {
+	for _, test := range testCases {
+		t.Run(test.TestName, func(t *testing.T) {
 			e2eClient := createClient()
 
 			t.Cleanup(func() {
-				deleteResources(e2eClient, tests.ExpectedResources...)
+				deleteResources(e2eClient, test.ExpectedResources...)
 			})
 
 			// sanity check
-			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
+			expectResourcesNotExist(e2eClient, test.ExpectedResources...)
 
 			// create policy
-			policy := createResource(t, e2eClient, tests.ClusterPolicy)
+			policy := createResource(t, e2eClient, test.ClusterPolicy)
 			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
 
 			// create source resources
-			createResources(t, e2eClient, tests.SourceResources...)
+			createResources(t, e2eClient, test.SourceResources...)
 
 			// create trigger
-			createResource(t, e2eClient, tests.TriggerResource)
+			createResource(t, e2eClient, test.TriggerResource)
 
-			// verify expected resources
-			expectResources(e2eClient, tests.ExpectedResources...)
-		})
-	}
-}
+			time.Sleep(time.Second * 5)
 
-func Test_Role_RoleBinding_Sets(t *testing.T) {
-	setup(t)
-
-	for _, tests := range RoleTests {
-		t.Run(tests.TestName, func(t *testing.T) {
-			e2eClient := createClient()
-
-			t.Cleanup(func() {
-				deleteResources(e2eClient, tests.ExpectedResources...)
-			})
-
-			// sanity check
-			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
-
-			// create policy
-			policy := createResource(t, e2eClient, tests.ClusterPolicy)
-			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
-
-			// create source resources
-			createResources(t, e2eClient, tests.SourceResources...)
-
-			// create trigger
-			createResource(t, e2eClient, tests.TriggerResource)
-
-			// verify expected resources
-			expectResources(e2eClient, tests.ExpectedResources...)
-		})
-	}
-}
-
-func Test_Generate_NetworkPolicy(t *testing.T) {
-	setup(t)
-
-	for _, tests := range NetworkPolicyGenerateTests {
-		t.Run(tests.TestName, func(t *testing.T) {
-			e2eClient := createClient()
-
-			t.Cleanup(func() {
-				deleteResources(e2eClient, tests.ExpectedResources...)
-			})
-
-			// sanity check
-			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
-
-			// create policy
-			policy := createResource(t, e2eClient, tests.ClusterPolicy)
-			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
-
-			// create source resources
-			createResources(t, e2eClient, tests.SourceResources...)
-
-			// create trigger
-			createResource(t, e2eClient, tests.TriggerResource)
-
-			// verify expected resources
-			expectResources(e2eClient, tests.ExpectedResources...)
-		})
-	}
-}
-
-func Test_Generate_Namespace_Label_Actions(t *testing.T) {
-	setup(t)
-
-	for _, tests := range GenerateNetworkPolicyOnNamespaceWithoutLabelTests {
-		t.Run(tests.TestName, func(t *testing.T) {
-			e2eClient := createClient()
-
-			t.Cleanup(func() {
-				deleteResources(e2eClient, tests.ExpectedResources...)
-			})
-
-			// sanity check
-			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
-
-			// create policy
-			policy := createResource(t, e2eClient, tests.ClusterPolicy)
-			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
-
-			// create source resources
-			createResources(t, e2eClient, tests.SourceResources...)
-
-			// create trigger
-			createResource(t, e2eClient, tests.TriggerResource)
-
-			for _, step := range tests.Steps {
+			for _, step := range test.Steps {
 				Expect(step(e2eClient)).To(Succeed())
 			}
 
 			// verify expected resources
-			expectResources(e2eClient, tests.ExpectedResources...)
+			expectResources(e2eClient, test.ExpectedResources...)
 		})
 	}
+}
+
+func Test_ClusterRole_ClusterRoleBinding_Sets(t *testing.T) {
+	runTestCases(t, ClusterRoleTests...)
+}
+
+func Test_Role_RoleBinding_Sets(t *testing.T) {
+	runTestCases(t, RoleTests...)
+}
+
+func Test_Generate_NetworkPolicy(t *testing.T) {
+	runTestCases(t, NetworkPolicyGenerateTests...)
+}
+
+func Test_Generate_Namespace_Label_Actions(t *testing.T) {
+	runTestCases(t, GenerateNetworkPolicyOnNamespaceWithoutLabelTests...)
 }
 
 func loopElement(found bool, elementObj interface{}) bool {
@@ -560,37 +488,5 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 }
 
 func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
-	setup(t)
-
-	for _, tests := range GeneratePolicyDeletionforCloneTests {
-		t.Run(tests.TestName, func(t *testing.T) {
-			e2eClient := createClient()
-
-			t.Cleanup(func() {
-				deleteResources(e2eClient, tests.ExpectedResources...)
-			})
-
-			// sanity check
-			expectResourcesNotExist(e2eClient, tests.ExpectedResources...)
-
-			// create policy
-			policy := createResource(t, e2eClient, tests.ClusterPolicy)
-			Expect(commonE2E.PolicyCreated(policy.GetName())).To(Succeed())
-
-			// create source resources
-			createResources(t, e2eClient, tests.SourceResources...)
-
-			// create trigger
-			createResource(t, e2eClient, tests.TriggerResource)
-
-			time.Sleep(time.Second * 5)
-
-			for _, step := range tests.Steps {
-				Expect(step(e2eClient)).To(Succeed())
-			}
-
-			// verify expected resources
-			expectResources(e2eClient, tests.ExpectedResources...)
-		})
-	}
+	runTestCases(t, GeneratePolicyDeletionforCloneTests...)
 }

@@ -15,6 +15,39 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type resource struct {
+	gvr schema.GroupVersionResource
+	ns  string
+	raw []byte
+}
+
+func clusteredResource(gvr schema.GroupVersionResource, raw []byte) resource {
+	return resource{gvr, "", raw}
+}
+
+func namespacedResource(gvr schema.GroupVersionResource, ns string, raw []byte) resource {
+	return resource{gvr, ns, raw}
+}
+
+type existingResource struct {
+	gvr  schema.GroupVersionResource
+	ns   string
+	name string
+}
+
+func existing(gvr schema.GroupVersionResource, ns string, name string) existingResource {
+	return existingResource{gvr, ns, name}
+}
+
+type expectedResource struct {
+	existingResource
+	validate []func(*unstructured.Unstructured)
+}
+
+func expected(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) expectedResource {
+	return expectedResource{existing(gvr, ns, name), validate}
+}
+
 func setup(t *testing.T) {
 	RegisterTestingT(t)
 	// if os.Getenv("E2E") == "" {
