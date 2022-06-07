@@ -280,6 +280,32 @@ func expectResourcesNotExist(client *e2e.E2EClient, resources ...expectedResourc
 	}
 }
 
+func expectClusteredResourceNotFound(client *e2e.E2EClient, resource expectedResource) {
+	By(fmt.Sprintf("Expecting not found %s : %s", resource.gvr.String(), resource.name))
+	_, err := client.GetClusteredResource(resource.gvr, resource.name)
+	Expect(apierrors.IsNotFound(err)).To(BeTrue())
+}
+
+func expectNamespacedResourceNotFound(client *e2e.E2EClient, resource expectedResource) {
+	By(fmt.Sprintf("Expecting not found %s : %s/%s", resource.gvr.String(), resource.ns, resource.name))
+	_, err := client.GetClusteredResource(resource.gvr, resource.name)
+	Expect(apierrors.IsNotFound(err)).To(BeTrue())
+}
+
+func expectResourceNotFound(client *e2e.E2EClient, resource expectedResource) {
+	if resource.ns != "" {
+		expectNamespacedResourceNotFound(client, resource)
+	} else {
+		expectClusteredResourceNotFound(client, resource)
+	}
+}
+
+func expectResourcesNotFound(client *e2e.E2EClient, resources ...expectedResource) {
+	for _, resource := range resources {
+		expectResourceNotFound(client, resource)
+	}
+}
+
 type testCaseStep func(*e2e.E2EClient) error
 
 type resourceExpectation func(resource *unstructured.Unstructured)

@@ -22,7 +22,7 @@ func runTestCases(t *testing.T, testCases ...testCase) {
 			})
 
 			// sanity check
-			expectResourcesNotExist(e2eClient, test.ExpectedResources...)
+			expectResourcesNotFound(e2eClient, test.ExpectedResources...)
 
 			// create source resources
 			createResources(t, e2eClient, test.SourceResources...)
