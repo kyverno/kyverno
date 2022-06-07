@@ -2,6 +2,7 @@ package generate
 
 import (
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -50,9 +51,9 @@ func expected(gvr schema.GroupVersionResource, ns string, name string, validate 
 
 func setup(t *testing.T) {
 	RegisterTestingT(t)
-	// if os.Getenv("E2E") == "" {
-	// 	t.Skip("Skipping E2E Test")
-	// }
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
 }
 
 func createClient() *e2e.E2EClient {

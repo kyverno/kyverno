@@ -34,12 +34,6 @@ var (
 
 	// NetworkPolicy GVR
 	npGVR = e2e.GetGVR("networking.k8s.io", "v1", "networkpolicies")
-
-	// ClusterPolicy Namespace
-	clPolNS = ""
-
-	// NetworkPolicy Namespace
-	npPolNS = ""
 )
 
 type testCase struct {
@@ -165,7 +159,7 @@ var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []testCase{
 			}),
 			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
 				// TODO: this sucks
-				time.Sleep(time.Second * 50)
+				time.Sleep(time.Second * 30)
 			}),
 			stepExpectResource(npGVR, "test", "allow-dns", func(resource *unstructured.Unstructured) {
 				element, found, err := unstructured.NestedMap(resource.UnstructuredContent(), "spec")
@@ -251,7 +245,7 @@ var SourceResourceUpdateReplicationTests = []testCase{
 			}),
 			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
 				// TODO: this sucks
-				time.Sleep(time.Second * 50)
+				time.Sleep(time.Second * 30)
 			}),
 			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
 				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
