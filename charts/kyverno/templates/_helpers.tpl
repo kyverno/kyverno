@@ -133,10 +133,7 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
   {{- $namespaceSelector := default dict $webhook.namespaceSelector }}
   {{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
   {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
-  {{- if not (empty (omit $webhook "namespaceSelector")) }}
-    {{- $newWebhook = append $newWebhook (omit $webhook "namespaceSelector") }}
-  {{- end }}
-  {{- $newWebhook = append $newWebhook (dict "namespaceSelector" $newNamespaceSelector)}}
+  {{- $newWebhook = append $newWebhook (merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector)) }}
 {{- end }}
 {{- $newWebhook | toJson }}
 {{- end }}
