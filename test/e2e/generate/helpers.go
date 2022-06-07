@@ -22,31 +22,53 @@ type resource struct {
 	raw []byte
 }
 
-func clusteredResource(gvr schema.GroupVersionResource, raw []byte) resource {
-	return resource{gvr, "", raw}
-}
-
-func namespacedResource(gvr schema.GroupVersionResource, ns string, raw []byte) resource {
+func clustered(gvr schema.GroupVersionResource, raw []byte) resource { return resource{gvr, "", raw} }
+func namespaced(gvr schema.GroupVersionResource, ns string, raw []byte) resource {
 	return resource{gvr, ns, raw}
 }
+func resources(resources ...resource) []resource { return resources }
+func role(ns string, raw []byte) resource        { return namespaced(rGVR, ns, raw) }
+func roleBinding(ns string, raw []byte) resource { return namespaced(rbGVR, ns, raw) }
+func configMap(ns string, raw []byte) resource   { return namespaced(cmGVR, ns, raw) }
+func clusterPolicy(raw []byte) resource          { return clustered(clPolGVR, raw) }
+func clusterRole(raw []byte) resource            { return clustered(crGVR, raw) }
+func clusterRoleBinding(raw []byte) resource     { return clustered(crbGVR, raw) }
+func namespace(raw []byte) resource              { return clustered(nsGVR, raw) }
 
-type existingResource struct {
+type _id struct {
 	gvr  schema.GroupVersionResource
 	ns   string
 	name string
 }
 
-func existing(gvr schema.GroupVersionResource, ns string, name string) existingResource {
-	return existingResource{gvr, ns, name}
+func id(gvr schema.GroupVersionResource, ns string, name string) _id {
+	return _id{gvr, ns, name}
 }
+
+func idRole(ns, name string) _id           { return id(rGVR, ns, name) }
+func idRoleBinding(ns, name string) _id    { return id(rbGVR, ns, name) }
+func idConfigMap(ns, name string) _id      { return id(cmGVR, ns, name) }
+func idNetworkPolicy(ns, name string) _id  { return id(npGVR, ns, name) }
+func idClusterRole(name string) _id        { return id(crGVR, "", name) }
+func idClusterRoleBinding(name string) _id { return id(crbGVR, "", name) }
+
+type resourceExpectation func(resource *unstructured.Unstructured)
 
 type expectedResource struct {
-	existingResource
-	validate []func(*unstructured.Unstructured)
+	_id
+	validate []resourceExpectation
 }
 
-func expected(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) expectedResource {
-	return expectedResource{existing(gvr, ns, name), validate}
+func expected(gvr schema.GroupVersionResource, ns string, name string, validate ...resourceExpectation) expectedResource {
+	return expectedResource{id(gvr, ns, name), validate}
+}
+
+func expectations(expectations ...expectedResource) []expectedResource {
+	return expectations
+}
+
+func expectation(id _id, expectations ...resourceExpectation) expectedResource {
+	return expectedResource{id, expectations}
 }
 
 func setup(t *testing.T) {
@@ -308,7 +330,12 @@ func expectResourcesNotFound(client *e2e.E2EClient, resources ...expectedResourc
 
 type testCaseStep func(*e2e.E2EClient) error
 
-type resourceExpectation func(resource *unstructured.Unstructured)
+func stepBy(by string) testCaseStep {
+	return func(*e2e.E2EClient) error {
+		By(by)
+		return nil
+	}
+}
 
 func stepDeleteResource(gvr schema.GroupVersionResource, ns string, name string) testCaseStep {
 	return func(client *e2e.E2EClient) error {
@@ -317,9 +344,27 @@ func stepDeleteResource(gvr schema.GroupVersionResource, ns string, name string)
 	}
 }
 
-func stepExpectResource(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) testCaseStep {
+func stepExpectResource(gvr schema.GroupVersionResource, ns, name string, validate ...resourceExpectation) testCaseStep {
 	return func(client *e2e.E2EClient) error {
 		expectResource(client, expected(gvr, ns, name, validate...))
+		return nil
+	}
+}
+
+func stepWaitResource(gvr schema.GroupVersionResource, ns, name string, sleepInterval time.Duration, retryCount int, predicate func(*unstructured.Unstructured) bool) testCaseStep {
+	return func(client *e2e.E2EClient) error {
+		By(fmt.Sprintf("Waiting %s : %s/%s", gvr.String(), ns, name))
+		err := e2e.GetWithRetry(sleepInterval, retryCount, func() error {
+			get, err := client.GetNamespacedResource(gvr, ns, name)
+			if err != nil {
+				return err
+			}
+			if !predicate(get) {
+				return fmt.Errorf("predicate didn't validate: %s, %s/%s", gvr.String(), ns, name)
+			}
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
 		return nil
 	}
 }
