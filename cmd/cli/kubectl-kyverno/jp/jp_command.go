@@ -15,6 +15,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+var applyHelp = `
+For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ 
+`
+
 // Command returns jp command
 func Command() *cobra.Command {
 	var compact, unquoted, ast, listFunctions bool
@@ -23,6 +27,7 @@ func Command() *cobra.Command {
 		Use:          "jp",
 		Short:        "Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions",
 		SilenceUsage: true,
+		Example:      applyHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if listFunctions {
 				printFunctionList()
@@ -111,7 +116,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&unquoted, "unquoted", "u", false, "If the final result is a string, it will be printed without quotes")
 	cmd.Flags().BoolVar(&ast, "ast", false, "Only print the AST of the parsed expression.  Do not rely on this output, only useful for debugging purposes")
 	cmd.Flags().StringVarP(&exprFile, "expr-file", "e", "", "Read JMESPath expression from the specified file")
-	cmd.Flags().StringVarP(&filename, "filename", "f", "", "Read input JSON from a file instead of stdin")
+	cmd.Flags().StringVarP(&filename, "filename", "f", "", "Accepts input as JSON file or YAML file instead of stdin")
 	return cmd
 }
 
