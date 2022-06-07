@@ -2,7 +2,10 @@ package generate
 
 import (
 	"github.com/kyverno/kyverno/test/e2e"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
+	. "github.com/onsi/gomega"
 )
 
 var (
@@ -51,10 +54,23 @@ func namespacedResource(gvr schema.GroupVersionResource, ns string, raw []byte) 
 	return resource{gvr, ns, raw}
 }
 
-type expectedResource struct {
+type existingResource struct {
 	gvr  schema.GroupVersionResource
 	ns   string
 	name string
+}
+
+func existing(gvr schema.GroupVersionResource, ns string, name string) existingResource {
+	return existingResource{gvr, ns, name}
+}
+
+type expectedResource struct {
+	existingResource
+	validate []func(*unstructured.Unstructured)
+}
+
+func expected(gvr schema.GroupVersionResource, ns string, name string, validate ...func(*unstructured.Unstructured)) expectedResource {
+	return expectedResource{existing(gvr, ns, name), validate}
 }
 
 // RoleTests is E2E Test Config for Role and RoleBinding
@@ -76,8 +92,8 @@ var RoleTests = []struct {
 		ClusterPolicy:   clusteredResource(clPolGVR, roleRoleBindingYamlWithSync),
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{rGVR, "test", "ns-role"},
-			{rbGVR, "test", "ns-role-binding"},
+			expected(rGVR, "test", "ns-role"),
+			expected(rbGVR, "test", "ns-role-binding"),
 		},
 	},
 	{
@@ -85,8 +101,8 @@ var RoleTests = []struct {
 		ClusterPolicy:   clusteredResource(clPolGVR, roleRoleBindingYamlWithSync),
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{rGVR, "test", "ns-role"},
-			{rbGVR, "test", "ns-role-binding"},
+			expected(rGVR, "test", "ns-role"),
+			expected(rbGVR, "test", "ns-role-binding"),
 		},
 	},
 	{
@@ -98,8 +114,8 @@ var RoleTests = []struct {
 		},
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{rGVR, "test", "ns-role"},
-			{rbGVR, "test", "ns-role-binding"},
+			expected(rGVR, "test", "ns-role"),
+			expected(rbGVR, "test", "ns-role-binding"),
 		},
 	},
 }
@@ -122,8 +138,8 @@ var ClusterRoleTests = []struct {
 		ClusterPolicy:   clusteredResource(clPolGVR, genClusterRoleYamlWithSync),
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{crGVR, "", "ns-cluster-role"},
-			{crbGVR, "", "ns-cluster-role-binding"},
+			expected(crGVR, "", "ns-cluster-role"),
+			expected(crbGVR, "", "ns-cluster-role-binding"),
 		},
 	},
 	{
@@ -131,8 +147,8 @@ var ClusterRoleTests = []struct {
 		ClusterPolicy:   clusteredResource(clPolGVR, genClusterRoleYamlWithSync),
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{crGVR, "", "ns-cluster-role"},
-			{crbGVR, "", "ns-cluster-role-binding"},
+			expected(crGVR, "", "ns-cluster-role"),
+			expected(crbGVR, "", "ns-cluster-role-binding"),
 		},
 	},
 	{
@@ -144,8 +160,8 @@ var ClusterRoleTests = []struct {
 		},
 		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
 		ExpectedResources: []expectedResource{
-			{crGVR, "", "cloned-cluster-role"},
-			{crbGVR, "", "cloned-cluster-role-binding"},
+			expected(crGVR, "", "cloned-cluster-role"),
+			expected(crbGVR, "", "cloned-cluster-role-binding"),
 		},
 	},
 }
@@ -168,7 +184,7 @@ var NetworkPolicyGenerateTests = []struct {
 		ClusterPolicy:   clusteredResource(clPolGVR, genNetworkPolicyYaml),
 		TriggerResource: clusteredResource(nsGVR, namespaceWithLabelYaml),
 		ExpectedResources: []expectedResource{
-			{npGVR, "test", "allow-dns"},
+			expected(npGVR, "test", "allow-dns"),
 		},
 	},
 }
@@ -291,33 +307,47 @@ var SourceResourceUpdateReplicationTests = []struct {
 
 var GeneratePolicyDeletionforCloneTests = []struct {
 	// TestName - Name of the Test
-	TestName string
-	// ClusterRoleName - Name of the ClusterRole to be Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy - ([]byte{})
-	Data []byte
-	// ConfigMapName - name of configMap
-	ConfigMapName string
-	// CloneSourceConfigMapData - Source ConfigMap Yaml
-	CloneSourceConfigMapData []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
+	TestName      string
+	ClusterPolicy resource
+	// SourceResources - Source resources yaml files
+	SourceResources []resource
+	// TriggerResource - Trigger resource yaml files
+	TriggerResource resource
+	// ExpectedResources - Expected resources to pass the test
+	ExpectedResources []expectedResource
+	Steps             []testCaseStep
 }{
 	{
-		TestName:                 "test-clone-source-resource-update-replication",
-		ResourceNamespace:        "test",
-		Clone:                    true,
-		Sync:                     true,
-		Data:                     genCloneConfigMapPolicyYaml,
-		ConfigMapName:            "game-demo",
-		CloneNamespace:           "default",
-		CloneSourceConfigMapData: cloneSourceResource,
-		PolicyName:               "generate-policy",
+		TestName:      "test-clone-source-resource-update-replication",
+		ClusterPolicy: clusteredResource(clPolGVR, genCloneConfigMapPolicyYaml),
+		SourceResources: []resource{
+			namespacedResource(cmGVR, "default", cloneSourceResource),
+		},
+		TriggerResource: clusteredResource(nsGVR, namespaceYaml),
+		ExpectedResources: []expectedResource{
+			expected(cmGVR, "test", "game-demo"),
+		},
+		Steps: []testCaseStep{
+			// delete policy -> generated resource still exists
+			stepDeleteResource(clPolGVR, "", "generate-policy"),
+			stepExpectResource(cmGVR, "test", "game-demo"),
+			// update source -> generated resource not updated
+			stepUpateResource(cmGVR, "default", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "5"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(element["initial_lives"]).To(Equal("2"))
+			}),
+			// deleted source -> generated resource not deleted
+			stepDeleteResource(cmGVR, "default", "game-demo"),
+			stepExpectResource(cmGVR, "test", "game-demo"),
+		},
 	},
 }
