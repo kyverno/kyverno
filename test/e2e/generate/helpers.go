@@ -239,8 +239,6 @@ func expectResourcesNotExist(client *e2e.E2EClient, resources ...expectedResourc
 
 type testCaseStep func(*e2e.E2EClient) error
 
-type resourceExpectation func(resource *unstructured.Unstructured)
-
 func stepDeleteResource(gvr schema.GroupVersionResource, ns string, name string) testCaseStep {
 	return func(client *e2e.E2EClient) error {
 		deleteResource(client, expected(gvr, ns, name))
