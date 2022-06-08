@@ -2118,10 +2118,10 @@ spec:
                         verifyConfig:
                           description: Verification configuration such as DryRun mode.
                           properties:
-                            disableDryRun:
-                              type: boolean
                             dryRunNamespace:
                               type: string
+                            enableDryRun:
+                              type: boolean
                           type: object
                       type: object
                     verifyImages:
