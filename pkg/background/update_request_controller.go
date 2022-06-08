@@ -21,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,12 +35,13 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-// wip- adding handlers for add and delete
-// similar to update
-
 const (
 	maxRetries = 10
 )
+
+type policyuse struct {
+	pcontroller policy.PolicyController
+}
 
 type Controller interface {
 	// Run starts workers
@@ -98,10 +100,12 @@ func NewController(
 		DeleteFunc: c.deleteUR,
 	})
 	cpolInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPolicy,
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
 	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.addPolicy,
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
@@ -177,32 +181,6 @@ func (c *controller) handleErr(err error, key interface{}) {
 
 	logger.Error(err, "failed to process update request", "key", key)
 	c.queue.Forget(key)
-}
-
-func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	for _, ur := range urList {
-		if policyKey == ur.Spec.Policy {
-			_, err := common.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
-				urLabels := ur.Labels
-				if len(urLabels) == 0 {
-					urLabels = make(map[string]string)
-				}
-				nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
-				if err != nil {
-					logger.Error(err, "failed to generate random interger")
-				}
-				urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
-				ur.SetLabels(urLabels)
-			})
-			if err != nil {
-				logger.Error(err, "failed to update gr", "name", ur.GetName())
-				continue
-			}
-			if _, err := common.UpdateStatus(kyvernoClient, urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
-				logger.Error(err, "failed to set UpdateRequest state to Pending")
-			}
-		}
-	}
 }
 
 func (c *controller) syncUpdateRequest(key string) error {
@@ -288,6 +266,24 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	}
 	logger.V(5).Info("enqueued update request", "ur", key)
 	c.queue.Add(key)
+}
+
+func (c *controller) addPolicy(obj interface{}) {
+	key, err := cache.MetaNamespaceKeyFunc(obj)
+	if err != nil {
+		logger.Error(err, "failed to compute policy key")
+	} else {
+		logger.V(4).Info("adding policy", "key", key)
+		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
+		if err != nil {
+			logger.Error(err, "failed to list update requests for policy", "key", key)
+			return
+		}
+		// re-evaluate the UR as the policy was updated
+		for _, ur := range urs {
+			c.enqueueUpdateRequest(ur)
+		}
+	}
 }
 
 func (c *controller) updatePolicy(_, obj interface{}) {
@@ -424,4 +420,30 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 		return c.cpolLister.Get(name)
 	}
 	return c.polLister.Policies(namespace).Get(key)
+}
+
+func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
+	for _, ur := range urList {
+		if policyKey == ur.Spec.Policy {
+			_, err := common.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
+				urLabels := ur.Labels
+				if len(urLabels) == 0 {
+					urLabels = make(map[string]string)
+				}
+				nBig, err := rand.Int(rand.Reader, big.NewInt(100000))
+				if err != nil {
+					logger.Error(err, "failed to generate random interger")
+				}
+				urLabels["policy-update"] = fmt.Sprintf("revision-count-%d", nBig.Int64())
+				ur.SetLabels(urLabels)
+			})
+			if err != nil {
+				logger.Error(err, "failed to update gr", "name", ur.GetName())
+				continue
+			}
+			if _, err := common.UpdateStatus(kyvernoClient, urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
+				logger.Error(err, "failed to set UpdateRequest state to Pending")
+			}
+		}
+	}
 }

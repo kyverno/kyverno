@@ -23,6 +23,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -470,19 +471,20 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	defer func() {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
-	policy, _ := pc.getPolicy(key)
-	// policy, err := pc.getPolicy(key)
-	// if err != nil {
-	// 	if errors.IsNotFound(err) {
-	// 		return nil
-	// 	}
-	// 	return err
-	// } else {
-	// 	err = pc.updateUR(key, policy)
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to updateUR on Policy update")
-	// 	}
-	// }
+	//policy, _ := pc.getPolicy(key)
+	policy, err := pc.getPolicy(key)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	} else {
+		err = pc.updateUR(key, policy)
+		if err != nil {
+			logger.Error(err, "failed to updateUR on Policy update")
+		}
+	}
 
 	// shift to update request controller 482-493
 
@@ -498,7 +500,7 @@ func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, er
 	return pc.npLister.Policies(namespace).Get(key)
 }
 
-func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
+func GenerateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
 	kinds := fetchUniqueKinds(rule)
