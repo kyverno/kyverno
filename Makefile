@@ -481,4 +481,4 @@ kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
 		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=false}
-	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	# helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies

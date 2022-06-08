@@ -190,33 +190,34 @@ func getResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, nam
 	}
 }
 
-func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
+func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string, m func(*unstructured.Unstructured) error) {
 	r := getClusteredResource(client, gvr, name)
 	version := r.GetResourceVersion()
 	Expect(m(r)).To(Succeed())
 	By(fmt.Sprintf("Updating %s : %s", gvr.String(), name))
 	r.SetResourceVersion(version)
-	r, err := client.UpdateClusteredResource(gvr, r)
+	_, err := client.UpdateClusteredResource(gvr, r)
 	Expect(err).NotTo(HaveOccurred())
-	return r
 }
 
-func updateNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
-	r := getNamespacedResource(client, gvr, ns, name)
-	version := r.GetResourceVersion()
-	Expect(m(r)).To(Succeed())
-	By(fmt.Sprintf("Updating %s : %s/%s", gvr.String(), ns, name))
-	r.SetResourceVersion(version)
-	r, err := client.UpdateNamespacedResource(gvr, ns, r)
+func updateNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) {
+	err := e2e.GetWithRetry(1*time.Second, 15, func() error {
+		r := getNamespacedResource(client, gvr, ns, name)
+		version := r.GetResourceVersion()
+		Expect(m(r)).To(Succeed())
+		By(fmt.Sprintf("Updating %s : %s/%s", gvr.String(), ns, name))
+		r.SetResourceVersion(version)
+		_, err := client.UpdateNamespacedResource(gvr, ns, r)
+		return err
+	})
 	Expect(err).NotTo(HaveOccurred())
-	return r
 }
 
-func updateResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) *unstructured.Unstructured {
+func updateResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string, m func(*unstructured.Unstructured) error) {
 	if ns != "" {
-		return updateNamespacedResource(client, gvr, ns, name, m)
+		updateNamespacedResource(client, gvr, ns, name, m)
 	} else {
-		return updateClusteredResource(client, gvr, name, m)
+		updateClusteredResource(client, gvr, name, m)
 	}
 }
 
