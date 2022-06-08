@@ -93,7 +93,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
 
 	// dryrun setting
-	vo.DisableDryRun = verifyConfig.DisableDryRun
+	vo.DisableDryRun = !verifyConfig.EnableDryRun
 	if verifyConfig.DryRunNamespace != "" {
 		vo.DryRunNamespace = verifyConfig.DryRunNamespace
 	} else {

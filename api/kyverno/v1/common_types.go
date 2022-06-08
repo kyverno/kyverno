@@ -480,6 +480,6 @@ type ObjectUserBinding struct {
 }
 
 type YamlVerifyConfig struct {
-	DisableDryRun   bool   `json:"disableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
+	EnableDryRun    bool   `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
 	DryRunNamespace string `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
 }
