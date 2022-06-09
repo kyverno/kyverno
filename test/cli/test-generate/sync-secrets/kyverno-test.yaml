@@ -1,0 +1,13 @@
+name: sync-secrets
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: sync-secrets
+    rule: sync-image-pull-secret
+    resource: hello-world-namespace
+    generatedResource: generatedResource.yaml
+    cloneSourceResource: cloneSourceResource.yaml
+    kind: Namespace
+    result: pass

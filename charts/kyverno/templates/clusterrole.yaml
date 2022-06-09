@@ -2,6 +2,18 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      {{- include "kyverno.matchLabels" . | nindent 6 }}
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   name: {{ template "kyverno.fullname" . }}:userinfo
   labels: {{ include "kyverno.labels" . | nindent 4 }}
     app: kyverno
@@ -33,6 +45,8 @@ rules:
     - clusterpolicies/status
     - generaterequests
     - generaterequests/status
+    - updaterequests
+    - updaterequests/status
     - reportchangerequests
     - reportchangerequests/status
     - clusterreportchangerequests

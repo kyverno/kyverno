@@ -215,6 +215,39 @@ subjects:
   namespace: kyverno
 `)
 
+// Cluster Policy to clone ClusterRole and ClusterRoleBinding
+var clusterRoleRoleBindingYamlWithClone = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "gen-cluster-policy-3"
+spec:
+  background: false
+  rules:
+  - name: "gen-role"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRole
+        name: "cloned-cluster-role"
+        synchronize: true
+        clone:
+          name: "base-cluster-role"
+  - name: "gen-role-binding"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRoleBinding
+        name: "cloned-cluster-role-binding"
+        synchronize: true
+        clone:
+            name: "base-cluster-role-binding"
+`)
+
 var genNetworkPolicyYaml = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -222,6 +255,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -261,6 +295,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -300,6 +335,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:

@@ -41,7 +41,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.(map[string]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("Pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
+			return path, fmt.Errorf("pattern and resource have different structures. Path: %s. Expected %T, found %T", path, patternElement, resourceElement)
 		}
 		return validateMap(log, typedResourceElement, typedPatternElement, originPattern, path)
 	// array
@@ -49,7 +49,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("Validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
+			return path, fmt.Errorf("validation rule failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path)
 	// elementary values
@@ -87,8 +87,8 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 // If validateResourceElement detects array element inside resource and pattern trees, it goes to validateArray
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string) (string, error) {
-	if 0 == len(patternArray) {
-		return path, fmt.Errorf("Pattern Array empty")
+	if len(patternArray) == 0 {
+		return path, fmt.Errorf("pattern Array empty")
 	}
 
 	switch patternArray[0].(type) {
@@ -109,7 +109,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 				}
 			}
 		} else {
-			return "", fmt.Errorf("Validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
+			return "", fmt.Errorf("validate Array failed, array length mismatch, resource Array len is %d and pattern Array len is %d", len(resourceArray), len(patternArray))
 		}
 	}
 	return "", nil

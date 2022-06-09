@@ -2,6 +2,18 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
+  name: kyverno
+  labels:
+    app: kyverno
+aggregationRule:
+  clusterRoleSelectors:
+  - matchLabels:
+      app: kyverno
+rules: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
   labels:
     app: kyverno
   name: kyverno:policies
@@ -15,6 +27,8 @@ rules:
   - clusterpolicies/status
   - generaterequests
   - generaterequests/status
+  - updaterequests
+  - updaterequests/status
   - reportchangerequests
   - reportchangerequests/status
   - clusterreportchangerequests

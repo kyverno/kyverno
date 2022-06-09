@@ -2,10 +2,21 @@ package common
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
 
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+type Object interface {
+	GetName() string
+	GetNamespace() string
+	GetKind() string
+	GetAPIVersion() string
+}
 
 func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured.Unstructured) {
 	// add managedBY label if not defined
@@ -21,6 +32,35 @@ func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured
 
 	// update the labels
 	unstr.SetLabels(labels)
+}
+
+func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	set := pkglabels.Set{
+		kyvernov1beta1.URMutatePolicyLabel: policyKey,
+	}
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	if !isNil {
+		set[kyvernov1beta1.URMutateTriggerNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URMutateTriggerNSLabel] = trigger.GetNamespace()
+		set[kyvernov1beta1.URMutatetriggerKindLabel] = trigger.GetKind()
+		if trigger.GetAPIVersion() != "" {
+			set[kyvernov1beta1.URMutatetriggerAPIVersionLabel] = strings.ReplaceAll(trigger.GetAPIVersion(), "/", "-")
+		}
+	}
+	return set
+}
+
+func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	set := pkglabels.Set{
+		kyvernov1beta1.URGeneratePolicyLabel: policyKey,
+	}
+	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
+	if !isNil {
+		set[kyvernov1beta1.URGenerateResourceNameLabel] = trigger.GetName()
+		set[kyvernov1beta1.URGenerateResourceNSLabel] = trigger.GetNamespace()
+		set[kyvernov1beta1.URGenerateResourceKindLabel] = trigger.GetKind()
+	}
+	return set
 }
 
 func managedBy(labels map[string]string) {

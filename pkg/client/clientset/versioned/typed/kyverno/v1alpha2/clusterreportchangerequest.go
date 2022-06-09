@@ -22,7 +22,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"

@@ -1,81 +1,43 @@
 package common
 
 import (
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 )
 
-//StatusControlInterface provides interface to update status subresource
+// StatusControlInterface provides interface to update status subresource
 type StatusControlInterface interface {
-	Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error
-	Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
-	Skip(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error
+	Failed(name string, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error)
+	Success(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error)
+	Skip(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error)
 }
 
-// StatusControl is default implementaation of GRStatusControlInterface
-type StatusControl struct {
-	Client kyvernoclient.Interface
+// statusControl is default implementaation of GRStatusControlInterface
+type statusControl struct {
+	client   kyvernoclient.Interface
+	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 }
 
-//Failed sets gr status.state to failed with message
-func (sc StatusControl) Failed(gr kyverno.GenerateRequest, message string, genResources []kyverno.ResourceSpec) error {
-	patch := jsonutils.NewPatch(
-		"/status",
-		"replace",
-		&kyverno.GenerateRequestStatus{
-			State:              kyverno.Failed,
-			Message:            message,
-			GeneratedResources: genResources, // Update Generated Resources
-		},
-	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
-		return err
+func NewStatusControl(client kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister) StatusControlInterface {
+	return &statusControl{
+		client:   client,
+		urLister: urLister,
 	}
-	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Failed))
-	return nil
 }
 
-// Success sets the gr status.state to completed and clears message
-func (sc StatusControl) Success(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
-	patch := jsonutils.NewPatch(
-		"/status",
-		"replace",
-		&kyverno.GenerateRequestStatus{
-			State:              kyverno.Completed,
-			Message:            "",
-			GeneratedResources: genResources, // Update Generated Resources
-		},
-	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
-		return err
-	}
-	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Completed))
-	return nil
+// Failed sets ur status.state to failed with message
+func (sc *statusControl) Failed(name, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+	return UpdateStatus(sc.client, sc.urLister, name, kyvernov1beta1.Failed, message, genResources)
 }
 
-// Success sets the gr status.state to completed and clears message
-func (sc StatusControl) Skip(gr kyverno.GenerateRequest, genResources []kyverno.ResourceSpec) error {
-	patch := jsonutils.NewPatch(
-		"/status",
-		"replace",
-		&kyverno.GenerateRequestStatus{
-			State:              kyverno.Skip,
-			Message:            "",
-			GeneratedResources: genResources, // Update Generated Resources
-		},
-	)
-	_, err := PatchGenerateRequest(&gr, patch, sc.Client, "status")
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to patch generate request status", "name", gr.Name)
-		return err
-	}
-	log.Log.V(3).Info("updated generate request status", "name", gr.Name, "status", string(kyverno.Skip))
-	return nil
+// Success sets the ur status.state to completed and clears message
+func (sc *statusControl) Success(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+	return UpdateStatus(sc.client, sc.urLister, name, kyvernov1beta1.Completed, "", genResources)
+}
+
+// Success sets the ur status.state to completed and clears message
+func (sc *statusControl) Skip(name string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+	return UpdateStatus(sc.client, sc.urLister, name, kyvernov1beta1.Skip, "", genResources)
 }

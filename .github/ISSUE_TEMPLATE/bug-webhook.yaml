@@ -15,7 +15,10 @@ body:
       options:
         - 1.4.x
         - 1.5.x
-        - 1.6.x
+        - 1.6.0
+        - 1.6.1
+        - 1.6.2
+        - 1.7.0
     validations:
       required: true
   - type: dropdown
@@ -28,6 +31,7 @@ body:
         - 1.21.x
         - 1.22.x
         - 1.23.x
+        - 1.24.x
     validations:
       required: true
   - type: dropdown
@@ -57,7 +61,7 @@ body:
         - Validate
         - Mutate
         - Generate
-        - imageVerify
+        - verifyImages
         - Other
     validations:
       required: true

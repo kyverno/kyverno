@@ -7,9 +7,6 @@ fullnameOverride:
 # -- Namespace the chart deploys to
 namespace:
 
-# -- Mode for Kyverno installation
-mode: standalone
-
 # -- Additional labels
 customLabels: {}
 
@@ -58,8 +55,8 @@ testImage:
   # Defaults to image.pullPolicy if omitted
   pullPolicy:
 
-# -- Desired number of pods
-replicaCount: 0
+# -- (int) Desired number of pods
+replicaCount: ~
 
 # -- Additional labels to add to each pod
 podLabels: {}
@@ -215,6 +212,10 @@ generatecontrollerExtraResources:
 # - ResourceA
 # - ResourceB
 
+# -- Exclude Kyverno namespace
+# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+excludeKyvernoNamespace: true
+
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
@@ -263,15 +264,17 @@ config:
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
+  # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
-    # Exlude namespaces
+    # Exclude namespaces
     # - namespaceSelector:
     #     matchExpressions:
-    #     - key: environment
-    #       operator: In
+    #     - key: kubernetes.io/metadata.name
+    #       operator: NotIn
     #       values:
-    #         - prod
-    # Exlude objects
+    #         - kube-system
+    #         - kyverno
+    # Exclude objects
     # - objectSelector:
     #     matchExpressions:
     #     - key: webhooks.kyverno.io/exclude
@@ -353,7 +356,7 @@ serviceMonitor:
 # 2) Provide your own CA and cert.
 #    In this case, you will need to create a certificate with a specific name and data structure.
 #    As long as you follow the naming scheme, it will be automatically picked up.
-#    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entry named rootCA.crt)
+#    kyverno-svc.(namespace).svc.kyverno-tls-ca (with data entries named tls.key and tls.crt)
 #    kyverno-svc.kyverno.svc.kyverno-tls-pair (with data entries named tls.key and tls.crt)
 # 3) Let Helm generate a self signed cert, by setting createSelfSignedCert true
 # If letting Kyverno create its own CA or providing your own, make createSelfSignedCert is false
@@ -384,3 +387,6 @@ webhooksCleanup:
   enable: false
   # -- `kubectl` image to run commands for deleting webhooks.
   image: bitnami/kubectl:latest
+
+# -- A writable volume to use for the TUF root initialization
+tufRootMountPath: /.sigstore

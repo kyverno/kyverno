@@ -6,12 +6,32 @@ import (
 	"reflect"
 
 	wildcard "github.com/kyverno/go-wildcard"
-	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+type ImageExtractorConfigs map[string][]ImageExtractorConfig
+
+type ImageExtractorConfig struct {
+	// Path is the path to the object containing the image field in a custom resource.
+	// It should be slash-separated. Each slash-separated key must be a valid YAML key or a wildcard '*'.
+	// Wildcard keys are expanded in case of arrays or objects.
+	Path string `json:"path" yaml:"path"`
+	// Value is an optional name of the field within 'path' that points to the image URI.
+	// This is useful when a custom 'key' is also defined.
+	// +optional
+	Value string `json:"value,omitempty" yaml:"value,omitempty"`
+	// Name is the entry the image will be available under 'images.<name>' in the context.
+	// If this field is not defined, image entries will appear under 'images.custom'.
+	// +optional
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+	// Key is an optional name of the field within 'path' that will be used to uniquely identify an image.
+	// Note - this field MUST be unique.
+	// +optional
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+}
 
 // Rule defines a validation, mutation, or generation control for matching resources.
 // Each rules contains a match declaration to select resources, and an optional exclude
@@ -40,7 +60,7 @@ type Rule struct {
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
 	// +optional
-	ImageExtractors kube.ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
+	ImageExtractors ImageExtractorConfigs `json:"imageExtractors,omitempty" yaml:"imageExtractors,omitempty"`
 
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
@@ -64,7 +84,7 @@ type Rule struct {
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages []*ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -77,6 +97,17 @@ func (r *Rule) HasVerifyImages() bool {
 	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
+// HasImagesValidationChecks checks whether the verifyImages rule has validation checks
+func (r *Rule) HasImagesValidationChecks() bool {
+	for _, v := range r.VerifyImages {
+		if v.VerifyDigest || v.Required {
+			return true
+		}
+	}
+
+	return false
+}
+
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
 	return !reflect.DeepEqual(r.Validation, Validation{})
@@ -85,6 +116,25 @@ func (r *Rule) HasValidate() bool {
 // HasGenerate checks for generate rule
 func (r *Rule) HasGenerate() bool {
 	return !reflect.DeepEqual(r.Generation, Generation{})
+}
+
+// IsMutateExisting checks if the mutate rule applies to existing resources
+func (r *Rule) IsMutateExisting() bool {
+	return r.Mutation.Targets != nil
+}
+
+// IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
+func (r *Rule) GetCloneSyncForGenerate() (clone bool, sync bool) {
+	if !r.HasGenerate() {
+		return
+	}
+
+	if r.Generation.Clone.Name != "" {
+		clone = true
+	}
+
+	sync = r.Generation.Synchronize
+	return
 }
 
 func (r *Rule) GetAnyAllConditions() apiextensions.JSON {
@@ -116,8 +166,8 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 	return errs
 }
 
-// ValidateMathExcludeConflict checks if the resultant of match and exclude block is not an empty set
-func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorList) {
+// ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
+func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
 	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
 		return errs
 	}
@@ -284,7 +334,7 @@ func (r *Rule) ValidateMathExcludeConflict(path *field.Path) (errs field.ErrorLi
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
-	errs = append(errs, r.ValidateMathExcludeConflict(path)...)
+	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	return errs

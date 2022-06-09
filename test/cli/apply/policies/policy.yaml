@@ -22,3 +22,35 @@ spec:
         spec:
           containers:
           - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: drop-all-capabilities
+  annotations:
+    policies.kyverno.io/scored: "false"
+spec:
+  validationFailureAction: audit
+  rules:
+    - name: require-drop-all
+      match:
+        any:
+        - resources:
+            kinds:
+              - Pod
+      preconditions:
+        all:
+        - key: "{{ request.operation }}"
+          operator: NotEquals
+          value: DELETE
+      validate:
+        message: >-
+          Containers must drop `ALL` capabilities.
+        foreach:
+          - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+            deny:
+              conditions:
+                all:
+                - key: ALL
+                  operator: AnyNotIn
+                  value: "{{ element.securityContext.capabilities.drop || '' }}"

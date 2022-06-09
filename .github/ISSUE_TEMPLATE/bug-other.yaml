@@ -15,7 +15,10 @@ body:
       options:
         - 1.4.x
         - 1.5.x
-        - 1.6.x
+        - 1.6.0
+        - 1.6.1
+        - 1.6.2
+        - 1.7.0
     validations:
       required: true
   - type: textarea
