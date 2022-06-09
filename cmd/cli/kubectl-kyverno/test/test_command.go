@@ -313,6 +313,8 @@ type testFilter struct {
 	enabled  bool
 }
 
+var ftable = []*Table{}
+
 func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
@@ -460,8 +462,10 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	}
 
 	fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
+	fmt.Printf("\n")
 
 	if rc.Fail > 0 {
+		printFailedTestResult()
 		os.Exit(1)
 	}
 	os.Exit(0)
@@ -1042,6 +1046,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			res.Result = boldYellow.Sprintf("Not found")
 			rc.Fail++
 			table = append(table, res)
+			ftable = append(ftable, res)
 			continue
 		}
 
@@ -1062,6 +1067,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
 			res.Result = boldRed.Sprintf("Fail")
 			rc.Fail++
+			ftable = append(ftable, res)
 		}
 
 		table = append(table, res)
@@ -1081,4 +1087,24 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 	fmt.Printf("\n")
 	printer.Print(table)
 	return nil
+}
+func printFailedTestResult() {
+	printer := tableprinter.New(os.Stdout)
+	for i, v := range ftable {
+		v.ID = i + 1
+	}
+	fmt.Printf("Aggregated Failed Test Cases : ")
+	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+	printer.CenterSeparator = "│"
+	printer.ColumnSeparator = "│"
+	printer.RowSeparator = "─"
+	printer.RowCharLimit = 300
+	printer.RowLengthTitle = func(rowsLength int) bool {
+		return rowsLength > 10
+	}
+
+	printer.HeaderBgColor = tablewriter.BgBlackColor
+	printer.HeaderFgColor = tablewriter.FgGreenColor
+	fmt.Printf("\n")
+	printer.Print(ftable)
 }
