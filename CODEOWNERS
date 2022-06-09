@@ -6,7 +6,8 @@
 /pkg/openapi @vyankyGH
 /pkg/policycache @vyankyGH
 /pkg/policy/validate @vyankyGH
-/test @vyankyGH
+/test @vyankyGH @chipzoller
+/docs @chipzoller
 /pkg/cosign @samj1912
 /pkg/engine @samj1912
 /pkg/kyverno @samj1912
