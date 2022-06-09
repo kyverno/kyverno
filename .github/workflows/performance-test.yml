@@ -1,4 +1,4 @@
-name: CI
+name: performance-test
 on:
   push:
     branches: [ automate_performance_testing ]
@@ -11,10 +11,12 @@ on:
         description: 'Create cluster from scratch?'
         required: true 
         type: boolean 
+        default: true
       scales:
         description: 'Choose the scale to test'
         required: true
         type: choice
+        default: large
         options:
         - xs
         - small
@@ -22,20 +24,14 @@ on:
         - large
         - xl
         - xxl
-        - xxl
+        - xxxl
 jobs:
   automation:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 10
     if:  ${{ github.event.inputs.create_cluster == 'true' }} 
     steps:
       - uses: actions/checkout@v3
-
-      #- name: SCP action
-      #  uses: actions/checkout@v3
-      #- run: |
-      #    scp -i ${{ secrets.KEY }} ${{ secrets.USERNAME }}@${{ secrets.HOST }}:~/hello.txt .
-      #    ls
       
       - name: setup cluster
         uses: appleboy/ssh-action@master
@@ -44,21 +40,22 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
-          port: ${{ secrets.PORT }}
+          port: 22
           script: |
-            git clone https://github.com/husnialhamdani/kyvernop.git dir
+            ls
+            git clone https://github.com/kyverno/performance-testing.git dir
             bash ~/dir/setup.sh
         continue-on-error: true
 
       - name: run automation
-        timeout-minutes: 40
+        timeout-minutes: 70
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.KEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
-          port: ${{ secrets.PORT }}
+          port: 22
           script: |
             export EMAILFROM=${{ secrets.EMAILFROM }}
             export EMAILPASS=${{ secrets.EMAILPASS }}
@@ -67,10 +64,22 @@ jobs:
             pip install -r requirements.txt
             /usr/local/go/bin/go mod download
             /usr/local/go/bin/go run main.go execute --scale ${{ github.event.inputs.scales }}
+            git config user.name github-actions
+            git config user.email github-actions@github.com
+            git remote set-url origin git@github.com:kyverno/performance-testing.git
+            git add ~/dir/report.png
+            git commit -m "push report.png"
+            git push   
             rm -rf ~/dir
             
-      #- name: storing report
+      - name: storing report
+        uses: actions/upload-artifact@v3
+        with:
+          name: report
+          path: report.png
+
+      #- name: storing heap file
       #  uses: actions/upload-artifact@v3
       #  with:
-      #    name: report
-      #    path: report.png
+      #    name: heap
+      #    path: heap.pprof
