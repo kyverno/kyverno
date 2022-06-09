@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/config"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
 	"go.opentelemetry.io/otel/attribute"
@@ -41,7 +40,7 @@ type MetricsConfig struct {
 	admissionReviewDurationMetric syncfloat64.Histogram
 
 	// config
-	Config *config.MetricsConfigData
+	Config *kconfig.MetricsConfigData
 	Log    logr.Logger
 }
 
@@ -90,7 +89,7 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 }
 
 func NewOTLPGRPCConfig(endpoint string,
-	metricsConfigData *config.MetricsConfigData,
+	metricsConfigData *kconfig.MetricsConfigData,
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
@@ -164,7 +163,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	return m, nil
 }
 
-func NewPrometheusConfig(metricsConfigData *config.MetricsConfigData,
+func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
 	log logr.Logger,
 ) (*MetricsConfig, *http.ServeMux, error) {
 	config := prometheus.Config{}
