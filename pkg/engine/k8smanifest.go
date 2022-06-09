@@ -21,7 +21,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const DefaultAnnotationKeyDomain = "cosign.sigstore.dev/"
+const DefaultAnnotationKeyDomain = "cosign.sigstore.dev"
+const GPGAnnotationKeyDomain = "verify-manifest.kyverno.io"
+const GPGSignatureAnnotationKey = "verify-manifest.kyverno.io/signature"
 const DefaultDryRunNamespace = ""
 
 //go:embed resources/default-config.yaml
@@ -99,6 +101,15 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	} else {
 		vo.DryRunNamespace = config.KyvernoNamespace()
 	}
+
+	// signature type
+	annotations := resource.GetAnnotations()
+	_, ok := annotations[GPGSignatureAnnotationKey]
+	if ok {
+		// GPG signature
+		vo.AnnotationConfig.AnnotationKeyDomain = GPGAnnotationKeyDomain
+	}
+
 	// key setting
 	// prepare tmpDir to save pubkey file
 	// tmpDir, err := ioutil.TempDir("", string(adreq.UID))
