@@ -278,10 +278,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	urgen := webhookgenerate.NewGenerator(kyvernoClient,
-		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
-		stopCh,
-		log.Log.WithName("UpdateRequestGenerator"))
+	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoInformer.Kyverno().V1beta1().UpdateRequests())
 
 	urc := background.NewController(
 		kubeClient,

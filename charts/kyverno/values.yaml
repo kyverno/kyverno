@@ -212,6 +212,10 @@ generatecontrollerExtraResources:
 # - ResourceA
 # - ResourceB
 
+# -- Exclude Kyverno namespace
+# Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
+excludeKyvernoNamespace: true
+
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
@@ -260,15 +264,16 @@ config:
   # -- Defines the `namespaceSelector` in the webhook configurations.
   # Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element
   # will be forwarded to the webhook configurations.
+  # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
     # Exclude namespaces
     # - namespaceSelector:
     #     matchExpressions:
     #     - key: kubernetes.io/metadata.name
-    #       operator: In
+    #       operator: NotIn
     #       values:
     #         - kube-system
-            # - kyverno
+    #         - kyverno
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
