@@ -183,6 +183,9 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
 				cosignOpts.RootCerts = fulcio.GetRoots()
+				if cosignOpts.RootCerts == nil {
+					return nil, fmt.Errorf("failed to initialize roots")
+				}
 			}
 		}
 	}
