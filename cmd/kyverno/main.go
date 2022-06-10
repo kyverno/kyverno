@@ -379,11 +379,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := cosign.Init(); err != nil {
-		setupLog.Error(err, "initialization failed")
-		os.Exit(1)
-	}
-
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
 	// - reports the results based on the response from the policy engine:
