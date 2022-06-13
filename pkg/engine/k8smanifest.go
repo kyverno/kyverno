@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -21,9 +22,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+const DefaultAnnotationKey = "cosign.sigstore.dev/signature"
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev"
-const GPGAnnotationKeyDomain = "verify-manifest.kyverno.io"
-const GPGSignatureAnnotationKey = "verify-manifest.kyverno.io/signature"
+const DefaultAnnotationMessage = "signature"
 const DefaultDryRunNamespace = ""
 
 //go:embed resources/default-config.yaml
@@ -38,7 +39,7 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 }
 
 func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
-	verified, reason, err := verifyManifest(ctx, rule.Validation.Key, rule.Validation.Subject, rule.Validation.IgnoreFields, rule.Validation.SkipUsers, rule.Validation.VerifyConfig, logger)
+	verified, reason, err := verifyManifest(ctx, rule.Validation.Manifest, logger)
 	logger.V(4).Info("verifyManifest result:", verified, reason)
 	if err != nil {
 		return ruleError(rule, response.Validation, "failed to verify manifest", err)
@@ -51,7 +52,7 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
 }
 
-func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject string, ignoreFields k8smanifest.ObjectFieldBindingList, skipUsers kyvernov1.ObjectUserBindingList, verifyConfig kyvernov1.YamlVerifyConfig, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext.Query("request")
 	if err != nil {
@@ -79,7 +80,7 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 		return true, "allowed because of DryRun request", nil
 	}
 	// check skipping user
-	if Match(skipUsers, resource, adreq.UserInfo.Username) {
+	if Match(verifyRule.SkipUsers, resource, adreq.UserInfo.Username) {
 		return true, "allowed by skipObjects rule", nil
 	}
 
@@ -92,22 +93,37 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	// adding default ignoreFields from pkg/engine/resources/default-config.yaml
 	vo = addDefaultConfig(vo)
 	// adding ignoreFields from Policy
-	vo.IgnoreFields = append(vo.IgnoreFields, ignoreFields...)
+	vo.IgnoreFields = append(vo.IgnoreFields, verifyRule.IgnoreFields...)
 
 	// dryrun setting
-	vo.DisableDryRun = !verifyConfig.EnableDryRun
-	if verifyConfig.DryRunNamespace != "" {
-		vo.DryRunNamespace = verifyConfig.DryRunNamespace
+	vo.DisableDryRun = !verifyRule.VerifyConfig.EnableDryRun
+	if verifyRule.VerifyConfig.DryRunNamespace != "" {
+		vo.DryRunNamespace = verifyRule.VerifyConfig.DryRunNamespace
 	} else {
 		vo.DryRunNamespace = config.KyvernoNamespace()
 	}
 
 	// signature type
 	annotations := resource.GetAnnotations()
-	_, ok := annotations[GPGSignatureAnnotationKey]
-	if ok {
-		// GPG signature
-		vo.AnnotationConfig.AnnotationKeyDomain = GPGAnnotationKeyDomain
+	sigTypes := verifyRule.VerifyConfig.SignatureTypes
+	if sigTypes != nil {
+		for i, st := range sigTypes {
+			if i < 1 {
+				_, ok := annotations[st.SignatureAnnotation]
+				if ok {
+					domainMsg := strings.Split(st.SignatureAnnotation, "/")
+					vo.AnnotationConfig.AnnotationKeyDomain = domainMsg[0]
+					if domainMsg[1] != DefaultAnnotationMessage {
+						vo.AnnotationConfig.MessageBaseName = domainMsg[1]
+					}
+				}
+			} else {
+				_, ok := annotations[st.SignatureAnnotation]
+				if ok {
+					vo.AnnotationConfig.AdditionalSignatureKeysForVerify = append(vo.AnnotationConfig.AdditionalSignatureKeysForVerify, st.SignatureAnnotation)
+				}
+			}
+		}
 	}
 
 	// key setting
@@ -125,39 +141,71 @@ func verifyManifest(policyContext *PolicyContext, ecdsaPub string, subject strin
 	// 	vo.KeyPath = keyPath
 	// }
 
-	if ecdsaPub != "" { // keyed
-		// prepare env variable for pubkey
-		pubkeyEnv := fmt.Sprintf("_PK_%s", string(adreq.UID))
-		err = os.Setenv(pubkeyEnv, ecdsaPub)
-		if err != nil {
-			return false, "", errors.New(fmt.Sprintf("failed to set env variable; %s; %s", pubkeyEnv, err))
+	// verify
+	verified := false
+	reason := "failed to verify signature; no signature found."
+	if verifyRule.Keys != nil { // keyed
+		signres := []string{}
+		for i, key := range verifyRule.Keys {
+			if key.Mandatory {
+				// prepare env variable for pubkey
+				pubkeyEnv := fmt.Sprintf("_PK_%s_%d", string(adreq.UID), i)
+				err = os.Setenv(pubkeyEnv, key.Key)
+				if err != nil {
+					return false, "", errors.New(fmt.Sprintf("failed to set env variable; %s; %s", pubkeyEnv, err))
+				}
+				defer os.Unsetenv(pubkeyEnv)
+				keyPath := fmt.Sprintf("env://%s", pubkeyEnv)
+				vo.KeyPath = keyPath
+				result, err := k8smanifest.VerifyResource(resource, vo)
+				if err != nil {
+					// handle the error
+					return false, err.Error(), err
+				}
+				if !result.Verified {
+					if result.Diff != nil && result.Diff.Size() > 0 {
+						reason = fmt.Sprintf("failed to verify signature. diff found: %s", result.Diff.String())
+					} else if result.Signer != "" {
+						reason = fmt.Sprintf(" no signer matches with this resource. signed by %s", result.Signer)
+					}
+					return result.Verified, reason, nil
+				}
+				if result.Verified {
+					signres = append(signres, result.Signer)
+				}
+			}
+			// verification success.
+			signersStr := strings.Join(signres, ",")
+			return true, fmt.Sprintf("singed by a valid signer: %s", signersStr), nil
 		}
-		defer os.Unsetenv(pubkeyEnv)
-		vo.KeyPath = fmt.Sprintf("env://%s", pubkeyEnv)
-	}
-
-	if subject != "" { // keyless
-		vo.Signers = append(vo.Signers, subject)
-	}
-
-	result, err := k8smanifest.VerifyResource(resource, vo)
-	if err != nil {
-		// handle the error
-		return false, err.Error(), err
-	}
-	if result.Verified {
-		// verification success.
-		return result.Verified, fmt.Sprintf("singed by a valid signer: %s", result.Signer), nil
-	} else {
-		// verification failure. you can check the detail of the verification by the `result` variable.
-		reason := "failed to verify signature; no signature found."
+	} else if verifyRule.Keyless.Subjects != nil { // keyless
+		vo.Signers = append(vo.Signers, verifyRule.Keyless.Subjects...)
+		result, err := k8smanifest.VerifyResource(resource, vo)
+		verified = result.Verified
+		if err != nil {
+			// handle the error
+			return false, err.Error(), err
+		}
 		if result.Diff != nil && result.Diff.Size() > 0 {
 			reason = fmt.Sprintf("failed to verify signature. diff found: %s", result.Diff.String())
 		} else if result.Signer != "" {
 			reason = fmt.Sprintf(" no signer matches with this resource. signed by %s", result.Signer)
 		}
-		return result.Verified, reason, nil
+	} else if verifyRule.SignatureRef.ImageRef != "" {
+		vo.ImageRef = verifyRule.SignatureRef.ImageRef
+		result, err := k8smanifest.VerifyResource(resource, vo)
+		verified = result.Verified
+		if err != nil {
+			// handle the error
+			return false, err.Error(), err
+		}
+		if result.Diff != nil && result.Diff.Size() > 0 {
+			reason = fmt.Sprintf("failed to verify signature. diff found: %s", result.Diff.String())
+		} else if result.Signer != "" {
+			reason = fmt.Sprintf(" no signer matches with this resource. signed by %s", result.Signer)
+		}
 	}
+	return verified, reason, nil
 }
 
 func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {

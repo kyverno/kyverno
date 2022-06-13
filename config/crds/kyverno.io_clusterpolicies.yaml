@@ -2046,36 +2046,118 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        ignoreFields:
-                          description: Fields which will be ignored while comparing
-                            manifests.
-                          items:
-                            properties:
-                              fields:
-                                items:
+                        manifest:
+                          description: Manifest specifies conditions for manifest
+                            verification
+                          properties:
+                            ignoreFields:
+                              description: Fields which will be ignored while comparing
+                                manifests.
+                              items:
+                                properties:
+                                  fields:
+                                    items:
+                                      type: string
+                                    type: array
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
+                              type: array
+                            keyless:
+                              description: Subject condition that the yaml manifest
+                                is signed with.
+                              properties:
+                                subject:
+                                  description: Subject is the verified identity, for
+                                    example the email address
+                                  items:
+                                    type: string
+                                  type: array
+                              type: object
+                            keys:
+                              description: Public key condition that the yaml manifest
+                                is signed with.
+                              items:
+                                properties:
+                                  key:
+                                    description: Key is the PEM encoded public key
+                                      that the yaml manifest is signed with.
+                                    type: string
+                                  mandatory:
+                                    description: whether the yaml manifest must be
+                                      signed with the key
+                                    type: boolean
+                                type: object
+                              type: array
+                            signatureRef:
+                              properties:
+                                imageRef:
                                   type: string
-                                type: array
-                              objects:
-                                items:
-                                  properties:
-                                    group:
+                              type: object
+                            skipUsers:
+                              description: ServiceAccounts which will be allowed without
+                                a signature.
+                              items:
+                                properties:
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  users:
+                                    items:
                                       type: string
-                                    kind:
-                                      type: string
-                                    name:
-                                      type: string
-                                    namespace:
-                                      type: string
-                                    version:
-                                      type: string
-                                  type: object
-                                type: array
-                            type: object
-                          type: array
-                        key:
-                          description: Key is the PEM encoded public key that the
-                            yaml manifest is signed with.
-                          type: string
+                                    type: array
+                                type: object
+                              type: array
+                            verifyConfig:
+                              description: Verification configuration such as DryRun
+                                mode.
+                              properties:
+                                dryRunNamespace:
+                                  type: string
+                                enableDryRun:
+                                  type: boolean
+                                signatureTypes:
+                                  items:
+                                    properties:
+                                      OCIImagePathAnnotation:
+                                        type: string
+                                      messageAnnotation:
+                                        type: string
+                                      signatureAnnotation:
+                                        type: string
+                                      type:
+                                        description: type is signature type e.g. gpg,
+                                          cosign
+                                        type: string
+                                    type: object
+                                  type: array
+                              type: object
+                          type: object
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
@@ -2084,44 +2166,6 @@ spec:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
-                        skipUsers:
-                          description: ServiceAccounts which will be allowed without
-                            a signature.
-                          items:
-                            properties:
-                              objects:
-                                items:
-                                  properties:
-                                    group:
-                                      type: string
-                                    kind:
-                                      type: string
-                                    name:
-                                      type: string
-                                    namespace:
-                                      type: string
-                                    version:
-                                      type: string
-                                  type: object
-                                type: array
-                              users:
-                                items:
-                                  type: string
-                                type: array
-                            type: object
-                          type: array
-                        subject:
-                          description: Subject is the verified identity, for example
-                            the email address
-                          type: string
-                        verifyConfig:
-                          description: Verification configuration such as DryRun mode.
-                          properties:
-                            dryRunNamespace:
-                              type: string
-                            enableDryRun:
-                              type: boolean
-                          type: object
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures

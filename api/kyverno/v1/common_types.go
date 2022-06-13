@@ -282,24 +282,9 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
-	// Key is the PEM encoded public key that the yaml manifest is signed with.
+	// Manifest specifies conditions for manifest verification
 	// +optional
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
-
-	// Subject is the verified identity, for example the email address
-	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
-
-	// Fields which will be ignored while comparing manifests.
-	// +optional
-	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
-
-	// ServiceAccounts which will be allowed without a signature.
-	// +optional
-	SkipUsers ObjectUserBindingList `json:"skipUsers,omitempty" yaml:"skipUsers,omitempty"`
-
-	// Verification configuration such as DryRun mode.
-	// +optional
-	VerifyConfig YamlVerifyConfig `json:"verifyConfig,omitempty" yaml:"verifyConfig,omitempty"`
+	Manifest Manifest `json:"manifest,omitempty" yaml:"manifest,omitempty"`
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
@@ -472,6 +457,43 @@ type CloneFrom struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
+type Manifest struct {
+	// Public key condition that the yaml manifest is signed with.
+	// +optional
+	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
+
+	// Subject condition that the yaml manifest is signed with.
+	// +optional
+	Keyless Keyless `json:"keyless,omitempty" yaml:"keyless,omitempty"`
+
+	SignatureRef SignatureRef `json:"signatureRef,omitempty" yaml:"signatureRef,omitempty"`
+	// Fields which will be ignored while comparing manifests.
+	// +optional
+	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+
+	// ServiceAccounts which will be allowed without a signature.
+	// +optional
+	SkipUsers ObjectUserBindingList `json:"skipUsers,omitempty" yaml:"skipUsers,omitempty"`
+
+	// Verification configuration such as DryRun mode.
+	// +optional
+	VerifyConfig YamlVerifyConfig `json:"verifyConfig,omitempty" yaml:"verifyConfig,omitempty"`
+}
+
+type Key struct {
+	// Key is the PEM encoded public key that the yaml manifest is signed with.
+	// +optional
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// whether the yaml manifest must be signed with the key
+	Mandatory bool `json:"mandatory,omitempty" yaml:"mandatory,omitempty"`
+	// SignatureType  SignatureType `json:"signatureType,omitempty" yaml:"signatureType,omitempty"`
+}
+
+type Keyless struct {
+	// Subject is the verified identity, for example the email address
+	Subjects []string `json:"subject,omitempty" yaml:"subject,omitempty"`
+}
+
 type ObjectUserBindingList []ObjectUserBinding
 
 type ObjectUserBinding struct {
@@ -479,7 +501,21 @@ type ObjectUserBinding struct {
 	Users   []string                        `json:"users,omitempty" yaml:"users,omitempty"`
 }
 
+type SignatureRef struct {
+	ImageRef string `json:"imageRef,omitempty" yaml:"imageRef,omitempty"`
+	// SignatureType  SignatureType `json:"signatureType,omitempty" yaml:"signatureType,omitempty"`
+}
+
+type SignatureType struct {
+	// type is signature type e.g. gpg, cosign
+	Type                   string `json:"type,omitempty" yaml:"type,omitempty"`
+	MessageAnnotation      string `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
+	SignatureAnnotation    string `json:"signatureAnnotation,omitempty" yaml:"signatureAnnotation,omitempty"`
+	OCIImagePathAnnotation string `json:"OCIImagePathAnnotation,omitempty" yaml:"OCIImagePathAnnotation,omitempty"`
+}
+
 type YamlVerifyConfig struct {
-	EnableDryRun    bool   `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
-	DryRunNamespace string `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
+	EnableDryRun    bool            `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
+	DryRunNamespace string          `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
+	SignatureTypes  []SignatureType `json:"signatureTypes,omitempty" yaml:"signatureTypes,omitempty"`
 }
