@@ -117,6 +117,10 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
 	}
 
+	if verifyRule.SignatureRef.ImageRef != "" {
+		vo.ImageRef = verifyRule.SignatureRef.ImageRef
+	}
+
 	// key setting
 	// prepare tmpDir to save pubkey file
 	// tmpDir, err := ioutil.TempDir("", string(adreq.UID))

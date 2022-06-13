@@ -460,7 +460,7 @@ type CloneFrom struct {
 type Manifests struct {
 	// Verify key condition that the yaml manifest is signed with.
 	// +optional
-	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
+	Keys []string `json:"keys,omitempty" yaml:"keys,omitempty"`
 
 	// KeyOperation should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
 	// +optional
