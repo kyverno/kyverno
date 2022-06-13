@@ -99,7 +99,7 @@ func (r *Rule) HasVerifyImages() bool {
 
 // HasYAMLSignatureVerify checks for validate rule
 func (r Rule) HasYAMLSignatureVerify() bool {
-	return (r.Validation.Manifest.Keys != nil || r.Validation.Manifest.Keyless.Subjects != nil)
+	return (r.Validation.Manifest.Keys != nil || r.Validation.Manifest.Subjects != nil)
 }
 
 // HasImagesValidationChecks checks whether the verifyImages rule has validation checks

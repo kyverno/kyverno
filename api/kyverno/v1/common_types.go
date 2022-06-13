@@ -460,11 +460,11 @@ type CloneFrom struct {
 type Manifest struct {
 	// Public key condition that the yaml manifest is signed with.
 	// +optional
-	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
+	Keys []string `json:"keys,omitempty" yaml:"keys,omitempty"`
 
-	// Subject condition that the yaml manifest is signed with.
+	// Subject is the verified identity, for example the email address
 	// +optional
-	Keyless Keyless `json:"keyless,omitempty" yaml:"keyless,omitempty"`
+	Subjects []string `json:"subjects,omitempty" yaml:"subjects,omitempty"`
 
 	SignatureRef SignatureRef `json:"signatureRef,omitempty" yaml:"signatureRef,omitempty"`
 	// Fields which will be ignored while comparing manifests.
@@ -480,20 +480,6 @@ type Manifest struct {
 	VerifyConfig YamlVerifyConfig `json:"verifyConfig,omitempty" yaml:"verifyConfig,omitempty"`
 }
 
-type Key struct {
-	// Key is the PEM encoded public key that the yaml manifest is signed with.
-	// +optional
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
-	// whether the yaml manifest must be signed with the key
-	Mandatory bool `json:"mandatory,omitempty" yaml:"mandatory,omitempty"`
-	// SignatureType  SignatureType `json:"signatureType,omitempty" yaml:"signatureType,omitempty"`
-}
-
-type Keyless struct {
-	// Subject is the verified identity, for example the email address
-	Subjects []string `json:"subject,omitempty" yaml:"subject,omitempty"`
-}
-
 type ObjectUserBindingList []ObjectUserBinding
 
 type ObjectUserBinding struct {
@@ -503,19 +489,15 @@ type ObjectUserBinding struct {
 
 type SignatureRef struct {
 	ImageRef string `json:"imageRef,omitempty" yaml:"imageRef,omitempty"`
-	// SignatureType  SignatureType `json:"signatureType,omitempty" yaml:"signatureType,omitempty"`
-}
-
-type SignatureType struct {
-	// type is signature type e.g. gpg, cosign
-	Type                   string `json:"type,omitempty" yaml:"type,omitempty"`
-	MessageAnnotation      string `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
-	SignatureAnnotation    string `json:"signatureAnnotation,omitempty" yaml:"signatureAnnotation,omitempty"`
-	OCIImagePathAnnotation string `json:"OCIImagePathAnnotation,omitempty" yaml:"OCIImagePathAnnotation,omitempty"`
 }
 
 type YamlVerifyConfig struct {
-	EnableDryRun    bool            `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
-	DryRunNamespace string          `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
-	SignatureTypes  []SignatureType `json:"signatureTypes,omitempty" yaml:"signatureTypes,omitempty"`
+	EnableDryRun           bool     `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
+	DryRunNamespace        string   `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
+	MessageAnnotation      string   `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
+	SignatureAnnotations   []string `json:"signatureAnnotations,omitempty" yaml:"signatureAnnotation,omitempty"`
+	OCIImagePathAnnotation string   `json:"OCIImagePathAnnotation,omitempty" yaml:"OCIImagePathAnnotation,omitempty"`
+	// Validate logic should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
+	// +optional
+	ValidateLogic string `json:"validateLogic,omitempty" yaml:"validateLogic,omitempty"`
 }
