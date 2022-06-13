@@ -276,6 +276,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		finalReason := strings.Join(failReasosn, ";")
 		return verified, finalReason, nil
 	}
+	return verified, reason, nil
 }
 
 func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
