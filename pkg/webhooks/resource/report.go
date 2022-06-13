@@ -26,7 +26,7 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked bool, lo
 
 				if !blocked {
 					e := event.NewResourceViolationEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
-					events = append(events, *e)
+					events = append(events, e)
 				}
 			}
 		} else {

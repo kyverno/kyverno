@@ -70,13 +70,16 @@ func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineRespons
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) *Info {
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
 	policyName := engineResponse.Policy.GetName()
 	status := ruleResp.Status.String()
-	msg := fmt.Sprintf("policy %s/%s %s: %s", policyName, ruleResp.Name, status, ruleResp.Message)
+	name := ruleResp.Name
+	message := ruleResp.Message
+	// msg := fmt.Sprintf("policy %s/%s %s: %s", policyName, name, status, message)
+	msg := "policy " + policyName + "/" + name + " " + status + ": " + message
 	resource := engineResponse.GetResourceSpec()
 
-	return &Info{
+	return Info{
 		Kind:      resource.Kind,
 		Name:      resource.Name,
 		Namespace: resource.Namespace,
