@@ -210,32 +210,26 @@ func (gen *Generator) processNextWorkItem() bool {
 		return false
 	}
 
-	err := func(obj interface{}) error {
-		defer gen.queue.Done(obj)
-		var keyHash string
-		var ok bool
+	defer gen.queue.Done(obj)
+	var keyHash string
+	var ok bool
 
-		if keyHash, ok = obj.(string); !ok {
-			gen.queue.Forget(obj)
-			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
-			return nil
-		}
-
-		// lookup data store
-		info := gen.dataStore.lookup(keyHash)
-		if reflect.DeepEqual(info, Info{}) {
-			gen.queue.Forget(obj)
-			logger.V(4).Info("empty key")
-			return nil
-		}
-
-		err := gen.syncHandler(info)
-		gen.handleErr(err, obj)
-		return nil
-	}(obj)
-	if err != nil {
-		logger.Error(err, "failed to process item")
+	if keyHash, ok = obj.(string); !ok {
+		gen.queue.Forget(obj)
+		logger.Info("incorrect type; expecting type 'string'", "obj", obj)
+		return true
 	}
+
+	// lookup data store
+	info := gen.dataStore.lookup(keyHash)
+	if reflect.DeepEqual(info, Info{}) {
+		gen.queue.Forget(obj)
+		logger.V(4).Info("empty key")
+		return true
+	}
+
+	err := gen.syncHandler(info)
+	gen.handleErr(err, obj)
 
 	return true
 }
