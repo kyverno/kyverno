@@ -94,7 +94,7 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
-	if v.Key != "" || v.Subject != "" {
+	if v.Manifest.Keys != nil || v.Manifest.Subjects != nil {
 		count++
 	}
 

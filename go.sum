@@ -2171,10 +2171,8 @@ github.com/sigstore/cosign v1.9.1-0.20220615165628-e4bc4a95743b h1:cSYS67SkD5Hkc
 github.com/sigstore/cosign v1.9.1-0.20220615165628-e4bc4a95743b/go.mod h1:FFQQJi3N8W144S1BWOIl1icl9Ig+bWAKSpOSUG1pnb4=
 github.com/sigstore/fulcio v0.1.2-0.20220114150912-86a2036f9bc7 h1:XE7A9lJ+wYhmUFBWYTaw3Ph943zHB4iBYd5R0SX0ZOA=
 github.com/sigstore/fulcio v0.1.2-0.20220114150912-86a2036f9bc7/go.mod h1:ANQivY/lfOp9hN92S813LEthkm/kit96hzeIF3SNoZA=
-github.com/sigstore/k8s-manifest-sigstore v0.2.1-0.20220531032541-61bc1864a5fc h1:97K4tX5ueHuCJHlCUsDcPLqSbDfQ7mJY4GYYLf81pXs=
-github.com/sigstore/k8s-manifest-sigstore v0.2.1-0.20220531032541-61bc1864a5fc/go.mod h1:qyLRjrv9eLZu1q6PdotiUqwG2/mD0Yd4Zl97Wwkp50M=
-github.com/sigstore/k8s-manifest-sigstore v0.2.1-0.20220603065539-3d9f86ccfb45 h1:LFHOWTenqdf04In6K9dEdgHPKhQ+/N4JZNNrhxfit1U=
-github.com/sigstore/k8s-manifest-sigstore v0.2.1-0.20220603065539-3d9f86ccfb45/go.mod h1:qyLRjrv9eLZu1q6PdotiUqwG2/mD0Yd4Zl97Wwkp50M=
+github.com/sigstore/k8s-manifest-sigstore v0.3.0 h1:6Lx0V10dIcxnuXKD07dAzfgEX2C519EaUDK8f9eqNII=
+github.com/sigstore/k8s-manifest-sigstore v0.3.0/go.mod h1:qyLRjrv9eLZu1q6PdotiUqwG2/mD0Yd4Zl97Wwkp50M=
 github.com/sigstore/rekor v0.2.1-0.20210714185543-38d532d5c0b1/go.mod h1:cL9B3+/gp3BG+/bhkSHBA3MQZMten5xM6BhJYd5b5zU=
 github.com/sigstore/rekor v0.4.1-0.20220114213500-23f583409af3 h1:mbqXrm8YZXN/cJMGeBkgPnswtfrOxDE1f7QZdJ+POQE=
 github.com/sigstore/rekor v0.4.1-0.20220114213500-23f583409af3/go.mod h1:u9clLqaVjqV9pExVL1XkM37dGyMCOX/LMocS9nsnWDY=
