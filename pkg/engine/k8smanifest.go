@@ -22,9 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const DefaultAnnotationKey = "cosign.sigstore.dev/signature"
+const DefaultSignatureAnnotationKey = "cosign.sigstore.dev/signature"
+const DefaultMessageAnnotationKey = "cosign.sigstore.dev/message"
 const DefaultAnnotationKeyDomain = "cosign.sigstore.dev"
-const DefaultAnnotationMessage = "signature"
+const DefaultSignatureAnnotationMessage = "signature"
+const DefaultMessageAnnotationMessage = "message"
 const DefaultDryRunNamespace = ""
 const ValidateLogicMustAll = "mustAll"
 const ValidateLogicAtLeastOne = "atLeastOne"
@@ -106,22 +108,28 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest,
 	}
 
 	// signature annotation
-	annotations := resource.GetAnnotations()
+	// set default annotation domain
+	msgAnnotation := verifyRule.VerifyConfig.MessageAnnotation
+	defaultDomain := DefaultAnnotationKeyDomain
+	if msgAnnotation != "" && msgAnnotation != DefaultMessageAnnotationKey {
+		msgAnnotationArray := strings.Split(msgAnnotation, "/")
+		defaultDomain = msgAnnotationArray[0]
+		msg := msgAnnotationArray[1]
+		if msg != DefaultMessageAnnotationMessage {
+			vo.AnnotationConfig.MessageBaseName = msg
+		}
+		if defaultDomain != DefaultAnnotationKeyDomain {
+			vo.AnnotationConfig.AnnotationKeyDomain = defaultDomain
+		}
+	}
+
 	sigAnnotations := verifyRule.VerifyConfig.SignatureAnnotations
+	annotations := resource.GetAnnotations()
 	if sigAnnotations != nil {
-		for i, annotation := range sigAnnotations {
-			if i < 1 {
-				_, ok := annotations[annotation]
-				if ok {
-					domainMsg := strings.Split(annotation, "/")
-					vo.AnnotationConfig.AnnotationKeyDomain = domainMsg[0]
-					if domainMsg[1] != DefaultAnnotationMessage {
-						vo.AnnotationConfig.MessageBaseName = domainMsg[1]
-					}
-				}
-			} else {
-				_, ok := annotations[annotation]
-				if ok {
+		for _, annotation := range sigAnnotations {
+			_, ok := annotations[annotation]
+			if ok {
+				if annotation != fmt.Sprintf("%s/%s", defaultDomain, DefaultSignatureAnnotationMessage) {
 					vo.AnnotationConfig.AdditionalSignatureKeysForVerify = append(vo.AnnotationConfig.AdditionalSignatureKeysForVerify, annotation)
 				}
 			}
@@ -240,9 +248,14 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest,
 	verified := false
 	reason := "failed to verify signature; no signature found."
 	if verifyRule.Subjects != nil { // keyless
+		_ = os.Setenv("COSIGN_EXPERIMENTAL", "1")
+		defer os.Unsetenv("COSIGN_EXPERIMENTAL")
 		vo.Signers = append(vo.Signers, verifyRule.Subjects...)
 		result, err := k8smanifest.VerifyResource(resource, vo)
+		resBytes, _ := json.Marshal(result)
+		logger.V(2).Info("verify result:", string(resBytes))
 		if err != nil {
+			logger.V(2).Info("verifyResoource return err;", err.Error())
 			// handle the error
 			return false, err.Error(), err
 		}
