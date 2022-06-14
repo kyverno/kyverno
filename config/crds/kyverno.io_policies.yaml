@@ -2069,6 +2069,18 @@ spec:
                           description: Manifest specifies conditions for manifest
                             verification
                           properties:
+                            annotationDomain:
+                              description: AnnotationDomain is custom domain of annotation
+                                for message nad signature. Default is "cosign.sigstore.dev".
+                              type: string
+                            dryRun:
+                              description: DryRun configuration
+                              properties:
+                                dryRunNamespace:
+                                  type: string
+                                enable:
+                                  type: boolean
+                              type: object
                             ignoreFields:
                               description: Fields which will be ignored while comparing
                                 manifests.
@@ -2095,17 +2107,29 @@ spec:
                                     type: array
                                 type: object
                               type: array
+                            keyOperation:
+                              description: KeyOperation should be set mustAll or atLeastOne.
+                                Defaults to "atLeastOne" if not specified.
+                              type: string
                             keys:
-                              description: Public key condition that the yaml manifest
+                              description: Verify key condition that the yaml manifest
                                 is signed with.
                               items:
-                                type: string
+                                properties:
+                                  key:
+                                    description: Public key condition that the yaml
+                                      manifest is signed with.
+                                    type: string
+                                  subject:
+                                    description: Subject is the verified identity,
+                                      for example the email address
+                                    type: string
+                                type: object
                               type: array
-                            signatureRef:
-                              properties:
-                                imageRef:
-                                  type: string
-                              type: object
+                            resourceBundleRef:
+                              description: ResourceBundleRef is an image reference
+                                in OCI registry
+                              type: string
                             skipUsers:
                               description: ServiceAccounts which will be allowed without
                                 a signature.
@@ -2132,34 +2156,6 @@ spec:
                                     type: array
                                 type: object
                               type: array
-                            subjects:
-                              description: Subject is the verified identity, for example
-                                the email address
-                              items:
-                                type: string
-                              type: array
-                            verifyConfig:
-                              description: Verification configuration such as DryRun
-                                mode.
-                              properties:
-                                dryRunNamespace:
-                                  type: string
-                                enableDryRun:
-                                  type: boolean
-                                messageAnnotation:
-                                  type: string
-                                ociImagePathAnnotation:
-                                  type: string
-                                signatureAnnotations:
-                                  items:
-                                    type: string
-                                  type: array
-                                validateLogic:
-                                  description: Validate logic should be set mustAll
-                                    or atLeastOne. Defaults to "atLeastOne" if not
-                                    specified.
-                                  type: string
-                              type: object
                           type: object
                         message:
                           description: Message specifies a custom message to be displayed
