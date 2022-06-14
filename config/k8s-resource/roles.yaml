@@ -29,6 +29,7 @@ rules:
     - update
     - watch
 # ---
+# # Additional permission is required to enable DryRun.
 # apiVersion: rbac.authorization.k8s.io/v1
 # kind: Role
 # metadata:
