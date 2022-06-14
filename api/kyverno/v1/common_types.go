@@ -458,15 +458,22 @@ type CloneFrom struct {
 }
 
 type Manifest struct {
-	// Public key condition that the yaml manifest is signed with.
+	// Verify key condition that the yaml manifest is signed with.
 	// +optional
-	Keys []string `json:"keys,omitempty" yaml:"keys,omitempty"`
+	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
 
-	// Subject is the verified identity, for example the email address
+	// KeyOperation should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
 	// +optional
-	Subjects []string `json:"subjects,omitempty" yaml:"subjects,omitempty"`
+	KeyOperation string `json:"keyOperation,omitempty" yaml:"keyOperation,omitempty"`
 
-	SignatureRef SignatureRef `json:"signatureRef,omitempty" yaml:"signatureRef,omitempty"`
+	// ResourceBundleRef is an image reference in OCI registry
+	// +optional
+	ResourceBundleRef string `json:"resourceBundleRef,omitempty" yaml:"resourceBundleRef,omitempty"`
+
+	// AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+	// +optional
+	AnnotationDomain string `json:"annotationDomain,omitempty" yaml:"annotationDomain,omitempty"`
+
 	// Fields which will be ignored while comparing manifests.
 	// +optional
 	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
@@ -475,9 +482,23 @@ type Manifest struct {
 	// +optional
 	SkipUsers ObjectUserBindingList `json:"skipUsers,omitempty" yaml:"skipUsers,omitempty"`
 
-	// Verification configuration such as DryRun mode.
+	// DryRun configuration
 	// +optional
-	VerifyConfig YamlVerifyConfig `json:"verifyConfig,omitempty" yaml:"verifyConfig,omitempty"`
+	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
+}
+
+type Key struct {
+	// Public key condition that the yaml manifest is signed with.
+	// +optional
+	Key string `json:"key,omitempty" yaml:"key,omitempty"`
+	// Subject is the verified identity, for example the email address
+	// +optional
+	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+}
+
+type DryRunOption struct {
+	Enable          bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
+	DryRunNamespace string `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
 }
 
 type ObjectUserBindingList []ObjectUserBinding
@@ -485,19 +506,4 @@ type ObjectUserBindingList []ObjectUserBinding
 type ObjectUserBinding struct {
 	Objects k8smanifest.ObjectReferenceList `json:"objects,omitempty" yaml:"objects,omitempty"`
 	Users   []string                        `json:"users,omitempty" yaml:"users,omitempty"`
-}
-
-type SignatureRef struct {
-	ImageRef string `json:"imageRef,omitempty" yaml:"imageRef,omitempty"`
-}
-
-type YamlVerifyConfig struct {
-	EnableDryRun           bool     `json:"enableDryRun,omitempty" yaml:"enableDryRun,omitempty"`
-	DryRunNamespace        string   `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
-	MessageAnnotation      string   `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
-	SignatureAnnotations   []string `json:"signatureAnnotations,omitempty" yaml:"signatureAnnotation,omitempty"`
-	OCIImagePathAnnotation string   `json:"ociImagePathAnnotation,omitempty" yaml:"ociImagePathAnnotation,omitempty"`
-	// Validate logic should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
-	// +optional
-	ValidateLogic string `json:"validateLogic,omitempty" yaml:"validateLogic,omitempty"`
 }
