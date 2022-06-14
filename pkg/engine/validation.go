@@ -95,7 +95,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 		hasValidate := rule.HasValidate()
 		hasValidateImage := rule.HasImagesValidationChecks()
 		hasYAMLSignatureVerify := rule.HasYAMLSignatureVerify()
-		if !hasValidate && !hasValidateImage && !hasYAMLSignatureVerify {
+		if !hasValidate && !hasValidateImage {
 			continue
 		}
 

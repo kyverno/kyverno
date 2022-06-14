@@ -496,7 +496,7 @@ type YamlVerifyConfig struct {
 	DryRunNamespace        string   `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
 	MessageAnnotation      string   `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
 	SignatureAnnotations   []string `json:"signatureAnnotations,omitempty" yaml:"signatureAnnotation,omitempty"`
-	OCIImagePathAnnotation string   `json:"OCIImagePathAnnotation,omitempty" yaml:"OCIImagePathAnnotation,omitempty"`
+	OCIImagePathAnnotation string   `json:"ociImagePathAnnotation,omitempty" yaml:"ociImagePathAnnotation,omitempty"`
 	// Validate logic should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
 	// +optional
 	ValidateLogic string `json:"validateLogic,omitempty" yaml:"validateLogic,omitempty"`

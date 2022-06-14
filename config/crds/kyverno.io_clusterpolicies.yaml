@@ -2123,13 +2123,13 @@ spec:
                               description: Verification configuration such as DryRun
                                 mode.
                               properties:
-                                OCIImagePathAnnotation:
-                                  type: string
                                 dryRunNamespace:
                                   type: string
                                 enableDryRun:
                                   type: boolean
                                 messageAnnotation:
+                                  type: string
+                                ociImagePathAnnotation:
                                   type: string
                                 signatureAnnotations:
                                   items:
