@@ -2076,31 +2076,11 @@ spec:
                                     type: array
                                 type: object
                               type: array
-                            keyless:
-                              description: Subject condition that the yaml manifest
-                                is signed with.
-                              properties:
-                                subject:
-                                  description: Subject is the verified identity, for
-                                    example the email address
-                                  items:
-                                    type: string
-                                  type: array
-                              type: object
                             keys:
                               description: Public key condition that the yaml manifest
                                 is signed with.
                               items:
-                                properties:
-                                  key:
-                                    description: Key is the PEM encoded public key
-                                      that the yaml manifest is signed with.
-                                    type: string
-                                  mandatory:
-                                    description: whether the yaml manifest must be
-                                      signed with the key
-                                    type: boolean
-                                type: object
+                                type: string
                               type: array
                             signatureRef:
                               properties:
@@ -2133,29 +2113,33 @@ spec:
                                     type: array
                                 type: object
                               type: array
+                            subjects:
+                              description: Subject is the verified identity, for example
+                                the email address
+                              items:
+                                type: string
+                              type: array
                             verifyConfig:
                               description: Verification configuration such as DryRun
                                 mode.
                               properties:
+                                OCIImagePathAnnotation:
+                                  type: string
                                 dryRunNamespace:
                                   type: string
                                 enableDryRun:
                                   type: boolean
-                                signatureTypes:
+                                messageAnnotation:
+                                  type: string
+                                signatureAnnotations:
                                   items:
-                                    properties:
-                                      OCIImagePathAnnotation:
-                                        type: string
-                                      messageAnnotation:
-                                        type: string
-                                      signatureAnnotation:
-                                        type: string
-                                      type:
-                                        description: type is signature type e.g. gpg,
-                                          cosign
-                                        type: string
-                                    type: object
+                                    type: string
                                   type: array
+                                validateLogic:
+                                  description: Validate logic should be set mustAll
+                                    or atLeastOne. Defaults to "atLeastOne" if not
+                                    specified.
+                                  type: string
                               type: object
                           type: object
                         message:

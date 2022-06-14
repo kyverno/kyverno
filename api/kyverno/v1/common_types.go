@@ -492,7 +492,7 @@ type SignatureRef struct {
 }
 
 type YamlVerifyConfig struct {
-	EnableDryRun           bool     `json:"enableDryRun,omitempty" yaml:"disableDryRun,omitempty"`
+	EnableDryRun           bool     `json:"enableDryRun,omitempty" yaml:"enableDryRun,omitempty"`
 	DryRunNamespace        string   `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
 	MessageAnnotation      string   `json:"messageAnnotation,omitempty" yaml:"messageAnnotation,omitempty"`
 	SignatureAnnotations   []string `json:"signatureAnnotations,omitempty" yaml:"signatureAnnotation,omitempty"`
