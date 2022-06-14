@@ -8,6 +8,20 @@ ignoreFields:
     - spec.restartPolicy
     - spec.schedulerName
     - spec.terminationGracePeriodSeconds
+    - metadata.labels.app.kubernetes.io/instance
+    - metadata.managedFields.*
+    - metadata.resourceVersion
+    - metadata.selfLink
+    - metadata.annotations.control-plane.alpha.kubernetes.io/leader
+    - metadata.annotations.kubectl.kubernetes.io/last-applied-configuration
+    - metadata.finalizers*
+    - metadata.annotations.namespace
+    - metadata.annotations.deprecated.daemonset.template.generation
+    - metadata.creationTimestamp
+    - metadata.uid
+    - metadata.generation
+    - status
+    - metadata.annotations.deployment.kubernetes.io/revision
     objects:
     - kind: '*'
   - fields:
@@ -37,3 +51,30 @@ ignoreFields:
     - spec.names.listKind
     objects:
     - kind: CustomResourceDefinition
+  - fields:
+    - spec.ports.*.nodePort
+    - spec.clusterIP
+    - spec.clusterIPs.0
+    - spec.sessionAffinity
+    - spec.type
+    - spec.ipFamilies.*
+    - spec.ipFamilyPolicy
+    - spec.internalTrafficPolicy
+    objects:
+    - kind: Service
+  - fields:
+    - metadata.annotations.pod-policies.kyverno.io/autogen-controllers
+    - spec.failurePolicy
+    - spec.rules.*.match.any.0.resources.kinds.*
+    - spec.rules.*.name
+    - spec.rules.*.validate.message
+    - spec.rules.*.validate.deny.conditions.all.*
+    - spec.background
+    objects:
+    - kind: ClusterPolicy
+    - kind: Policy
+  - fields:
+    - secrets.*.name
+    - imagePullSecrets.*.name
+    objects:
+    - kind: ServiceAccount
