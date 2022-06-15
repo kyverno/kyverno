@@ -2081,6 +2081,98 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
+                        manifest:
+                          description: Manifest specifies conditions for manifest
+                            verification
+                          properties:
+                            annotationDomain:
+                              description: AnnotationDomain is custom domain of annotation
+                                for message nad signature. Default is "cosign.sigstore.dev".
+                              type: string
+                            dryRun:
+                              description: DryRun configuration
+                              properties:
+                                dryRunNamespace:
+                                  type: string
+                                enable:
+                                  type: boolean
+                              type: object
+                            ignoreFields:
+                              description: Fields which will be ignored while comparing
+                                manifests.
+                              items:
+                                properties:
+                                  fields:
+                                    items:
+                                      type: string
+                                    type: array
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
+                              type: array
+                            keyOperation:
+                              description: KeyOperation should be set mustAll or atLeastOne.
+                                Defaults to "atLeastOne" if not specified.
+                              type: string
+                            keys:
+                              description: Verify key condition that the yaml manifest
+                                is signed with.
+                              items:
+                                properties:
+                                  key:
+                                    description: Public key condition that the yaml
+                                      manifest is signed with.
+                                    type: string
+                                  subject:
+                                    description: Subject is the verified identity,
+                                      for example the email address
+                                    type: string
+                                type: object
+                              type: array
+                            resourceBundleRef:
+                              description: ResourceBundleRef is an image reference
+                                in OCI registry
+                              type: string
+                            skipUsers:
+                              description: ServiceAccounts which will be allowed without
+                                a signature.
+                              items:
+                                properties:
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  users:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
+                          type: object
                         message:
                           description: Message specifies a custom message to be displayed
                             on failure.
@@ -10283,6 +10375,104 @@ spec:
                           description: Name is a label to identify the rule, It must
                             be unique within the policy.
                           maxLength: 63
+                                x-kubernetes-preserve-unknown-fields: true
+                            type: object
+                          type: array
+                        manifest:
+                          description: Manifest specifies conditions for manifest
+                            verification
+                          properties:
+                            annotationDomain:
+                              description: AnnotationDomain is custom domain of annotation
+                                for message nad signature. Default is "cosign.sigstore.dev".
+                              type: string
+                            dryRun:
+                              description: DryRun configuration
+                              properties:
+                                dryRunNamespace:
+                                  type: string
+                                enable:
+                                  type: boolean
+                              type: object
+                            ignoreFields:
+                              description: Fields which will be ignored while comparing
+                                manifests.
+                              items:
+                                properties:
+                                  fields:
+                                    items:
+                                      type: string
+                                    type: array
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                type: object
+                              type: array
+                            keyOperation:
+                              description: KeyOperation should be set mustAll or atLeastOne.
+                                Defaults to "atLeastOne" if not specified.
+                              type: string
+                            keys:
+                              description: Verify key condition that the yaml manifest
+                                is signed with.
+                              items:
+                                properties:
+                                  key:
+                                    description: Public key condition that the yaml
+                                      manifest is signed with.
+                                    type: string
+                                  subject:
+                                    description: Subject is the verified identity,
+                                      for example the email address
+                                    type: string
+                                type: object
+                              type: array
+                            resourceBundleRef:
+                              description: ResourceBundleRef is an image reference
+                                in OCI registry
+                              type: string
+                            skipUsers:
+                              description: ServiceAccounts which will be allowed without
+                                a signature.
+                              items:
+                                properties:
+                                  objects:
+                                    items:
+                                      properties:
+                                        group:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                        version:
+                                          type: string
+                                      type: object
+                                    type: array
+                                  users:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
+                          type: object
+                        message:
+                          description: Message specifies a custom message to be displayed
+                            on failure.
                           type: string
                         preconditions:
                           description: 'Preconditions are used to determine if a policy
