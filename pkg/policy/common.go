@@ -43,7 +43,7 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 }
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
+	resourceList, err := pc.Client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
 		return nil
@@ -80,7 +80,7 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
+	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.ConfigHandler, log)
 	return resourceMap
 }
 
@@ -102,7 +102,7 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Ru
 		}
 	}
 	// Skip the filtered resources
-	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
+	if pc.ConfigHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
 		return false
 	}
 
