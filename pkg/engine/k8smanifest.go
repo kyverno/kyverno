@@ -117,8 +117,8 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
 	}
 
-	if verifyRule.SignatureRef.ImageRef != "" {
-		vo.ImageRef = verifyRule.SignatureRef.ImageRef
+	if verifyRule.ResourceBundleRef != "" {
+		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
 	}
 
 	// key setting
