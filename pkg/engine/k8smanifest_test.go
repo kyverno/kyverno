@@ -313,10 +313,301 @@ var invalid_adreq = `{
     }
 }`
 
+var multi_sig_resource = `{
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cosign.sigstore.dev/message": "H4sIAAAAAAAA/yyKzQrCQAwG7/sU3wsUFMGf3MSzUFC8h22QxXY3JKHg20sXb8PMsJaXmJdWCes+fUqdCA+xtWRJiwRPHEwJqLwIIcRj8H92lbwlbRa+wdCRcN4lAFBr0XKbCc/b2E2wvSXGPl0Op2MCXGbJ0Yz6wKqE+/eqmn4BAAD//3vEXUSaAAAA",
+        "cosign.sigstore.dev/signature": "MEUCIQDpI/7Ncl8iJJ/Kc8JlL5FLbePZprMSRRjvXYlaybjU2wIgaPYh93JMerk2L+vTOwQ4pYlZ43Eq86QnQ8wuKPXmnWE="
+      },
+      "name": "test-service"
+    },
+    "spec": {
+      "ports": [
+        {
+          "port": 80,
+          "protocol": "TCP",
+          "targetPort": 9376
+        }
+      ],
+      "selector": {
+        "app": "MyApp"
+      }
+    }
+  }`
+
+var multi_sig_adreq = `{
+    "clusterRoles": null,
+    "dryRun": false,
+    "kind": {
+        "group": "",
+        "kind": "Service",
+        "version": "v1"
+    },
+    "name": "test-service",
+    "namespace": "test-ns",
+    "object": {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "annotations": {
+                "cosign.sigstore.dev/message": "H4sIAAAAAAAA/yyKzQrCQAwG7/sU3wsUFMGf3MSzUFC8h22QxXY3JKHg20sXb8PMsJaXmJdWCes+fUqdCA+xtWRJiwRPHEwJqLwIIcRj8H92lbwlbRa+wdCRcN4lAFBr0XKbCc/b2E2wvSXGPl0Op2MCXGbJ0Yz6wKqE+/eqmn4BAAD//3vEXUSaAAAA",
+                "cosign.sigstore.dev/signature": "MEUCIQDpI/7Ncl8iJJ/Kc8JlL5FLbePZprMSRRjvXYlaybjU2wIgaPYh93JMerk2L+vTOwQ4pYlZ43Eq86QnQ8wuKPXmnWE="
+            },
+            "creationTimestamp": "2022-06-16T07:15:34Z",
+            "managedFields": [
+                {
+                    "apiVersion": "v1",
+                    "fieldsType": "FieldsV1",
+                    "fieldsV1": {
+                        "f:metadata": {
+                            "f:annotations": {
+                                ".": {},
+                                "f:cosign.sigstore.dev/message": {},
+                                "f:cosign.sigstore.dev/signature": {}
+                            }
+                        },
+                        "f:spec": {
+                            "f:internalTrafficPolicy": {},
+                            "f:ports": {
+                                ".": {},
+                                "k:{\"port\":80,\"protocol\":\"TCP\"}": {
+                                    ".": {},
+                                    "f:port": {},
+                                    "f:protocol": {},
+                                    "f:targetPort": {}
+                                }
+                            },
+                            "f:selector": {},
+                            "f:sessionAffinity": {},
+                            "f:type": {}
+                        }
+                    },
+                    "manager": "kubectl-create",
+                    "operation": "Update",
+                    "time": "2022-06-16T07:15:34Z"
+                }
+            ],
+            "name": "test-service",
+            "namespace": "test-ns",
+            "uid": "7011a06e-50cb-46b8-bf88-40582294d2b2"
+        },
+        "spec": {
+            "clusterIP": "10.96.122.111",
+            "clusterIPs": [
+                "10.96.122.111"
+            ],
+            "internalTrafficPolicy": "Cluster",
+            "ipFamilies": [
+                "IPv4"
+            ],
+            "ipFamilyPolicy": "SingleStack",
+            "ports": [
+                {
+                    "port": 80,
+                    "protocol": "TCP",
+                    "targetPort": 9376
+                }
+            ],
+            "selector": {
+                "app": "MyApp"
+            },
+            "sessionAffinity": "None",
+            "type": "ClusterIP"
+        },
+        "status": {
+            "loadBalancer": {}
+        }
+    },
+    "oldObject": null,
+    "operation": "CREATE",
+    "options": {
+        "apiVersion": "meta.k8s.io/v1",
+        "fieldManager": "kubectl-create",
+        "fieldValidation": "Strict",
+        "kind": "CreateOptions"
+    },
+    "requestKind": {
+        "group": "",
+        "kind": "Service",
+        "version": "v1"
+    },
+    "requestResource": {
+        "group": "",
+        "resource": "services",
+        "version": "v1"
+    },
+    "resource": {
+        "group": "",
+        "resource": "services",
+        "version": "v1"
+    },
+    "roles": null,
+    "uid": "cb2aed81-39ca-43c0-b565-0621b9a5d38c",
+    "userInfo": {
+        "groups": [
+            "system:masters",
+            "system:authenticated"
+        ],
+        "username": "kubernetes-admin"
+    }
+}`
+
+var multi_sig2_resource = `{
+    "apiVersion": "v1",
+    "kind": "Service",
+    "metadata": {
+      "annotations": {
+        "cosign.sigstore.dev/message": "H4sIAAAAAAAA/yyKzQrCQAwG7/sU3wsUFMGf3MSzUFC8h22QxXY3JKHg20sXb8PMsJaXmJdWCes+fUqdCA+xtWRJiwRPHEwJqLwIIcRj8H92lbwlbRa+wdCRcN4lAFBr0XKbCc/b2E2wvSXGPl0Op2MCXGbJ0Yz6wKqE+/eqmn4BAAD//3vEXUSaAAAA",
+        "cosign.sigstore.dev/signature": "MEUCIQDpI/7Ncl8iJJ/Kc8JlL5FLbePZprMSRRjvXYlaybjU2wIgaPYh93JMerk2L+vTOwQ4pYlZ43Eq86QnQ8wuKPXmnWE=",
+        "cosign.sigstore.dev/signature_1": "MEMCICxbOY2HKophxyUVxhBOAJo+kt+WYleDttBCVFrmA/7PAh8lgr5u3d2rFM8gSTBEYgzRzXIwAZEByrpq0SVRwqq7"
+      },
+      "name": "test-service"
+    },
+    "spec": {
+      "ports": [
+        {
+          "port": 80,
+          "protocol": "TCP",
+          "targetPort": 9376
+        }
+      ],
+      "selector": {
+        "app": "MyApp"
+      }
+    }
+  }`
+
+var multi_sig2_adreq = `{
+    "clusterRoles": null,
+    "dryRun": false,
+    "kind": {
+        "group": "",
+        "kind": "Service",
+        "version": "v1"
+    },
+    "name": "test-service",
+    "namespace": "test-ns",
+    "object": {
+        "apiVersion": "v1",
+        "kind": "Service",
+        "metadata": {
+            "annotations": {
+                "cosign.sigstore.dev/message": "H4sIAAAAAAAA/yyKzQrCQAwG7/sU3wsUFMGf3MSzUFC8h22QxXY3JKHg20sXb8PMsJaXmJdWCes+fUqdCA+xtWRJiwRPHEwJqLwIIcRj8H92lbwlbRa+wdCRcN4lAFBr0XKbCc/b2E2wvSXGPl0Op2MCXGbJ0Yz6wKqE+/eqmn4BAAD//3vEXUSaAAAA",
+                "cosign.sigstore.dev/signature": "MEUCIQDpI/7Ncl8iJJ/Kc8JlL5FLbePZprMSRRjvXYlaybjU2wIgaPYh93JMerk2L+vTOwQ4pYlZ43Eq86QnQ8wuKPXmnWE=",
+                "cosign.sigstore.dev/signature_1": "MEMCICxbOY2HKophxyUVxhBOAJo+kt+WYleDttBCVFrmA/7PAh8lgr5u3d2rFM8gSTBEYgzRzXIwAZEByrpq0SVRwqq7"
+            },
+            "creationTimestamp": "2022-06-16T07:16:23Z",
+            "managedFields": [
+                {
+                    "apiVersion": "v1",
+                    "fieldsType": "FieldsV1",
+                    "fieldsV1": {
+                        "f:metadata": {
+                            "f:annotations": {
+                                ".": {},
+                                "f:cosign.sigstore.dev/message": {},
+                                "f:cosign.sigstore.dev/signature": {},
+                                "f:cosign.sigstore.dev/signature_1": {}
+                            }
+                        },
+                        "f:spec": {
+                            "f:internalTrafficPolicy": {},
+                            "f:ports": {
+                                ".": {},
+                                "k:{\"port\":80,\"protocol\":\"TCP\"}": {
+                                    ".": {},
+                                    "f:port": {},
+                                    "f:protocol": {},
+                                    "f:targetPort": {}
+                                }
+                            },
+                            "f:selector": {},
+                            "f:sessionAffinity": {},
+                            "f:type": {}
+                        }
+                    },
+                    "manager": "kubectl-create",
+                    "operation": "Update",
+                    "time": "2022-06-16T07:16:23Z"
+                }
+            ],
+            "name": "test-service",
+            "namespace": "test-ns",
+            "uid": "3e146f89-bd8a-4738-a7d4-41c5872d18ad"
+        },
+        "spec": {
+            "clusterIP": "10.96.223.193",
+            "clusterIPs": [
+                "10.96.223.193"
+            ],
+            "internalTrafficPolicy": "Cluster",
+            "ipFamilies": [
+                "IPv4"
+            ],
+            "ipFamilyPolicy": "SingleStack",
+            "ports": [
+                {
+                    "port": 80,
+                    "protocol": "TCP",
+                    "targetPort": 9376
+                }
+            ],
+            "selector": {
+                "app": "MyApp"
+            },
+            "sessionAffinity": "None",
+            "type": "ClusterIP"
+        },
+        "status": {
+            "loadBalancer": {}
+        }
+    },
+    "oldObject": null,
+    "operation": "CREATE",
+    "options": {
+        "apiVersion": "meta.k8s.io/v1",
+        "fieldManager": "kubectl-create",
+        "fieldValidation": "Strict",
+        "kind": "CreateOptions"
+    },
+    "requestKind": {
+        "group": "",
+        "kind": "Service",
+        "version": "v1"
+    },
+    "requestResource": {
+        "group": "",
+        "resource": "services",
+        "version": "v1"
+    },
+    "resource": {
+        "group": "",
+        "resource": "services",
+        "version": "v1"
+    },
+    "roles": null,
+    "uid": "8a2891d0-351a-4363-92e4-0c99b10e5f26",
+    "userInfo": {
+        "groups": [
+            "system:masters",
+            "system:authenticated"
+        ],
+        "username": "kubernetes-admin"
+    }
+}`
+
 const ecdsaPub = `-----BEGIN PUBLIC KEY-----
 MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
 BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
 -----END PUBLIC KEY-----`
+
+const ecdsaPub2 = `-----BEGIN PUBLIC KEY-----
+MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE8uGVnyDWPPlB7M5KOHRzxzPHtAy
+FdGxexVrR4YqO1pRViKxmD9oMu4I7K/4sM51nbH65ycB2uRiDfIdRoV/+A==
+-----END PUBLIC KEY-----
+`
 
 func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	policyContext := buildContext(t, test_policy, signed_resource, "")
@@ -366,15 +657,38 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	assert.Equal(t, verified, false)
 }
 
-func Test_VerifyManifest_MustAll(t *testing.T) {
-	policyContext := buildContext(t, test_policy, signed_resource, "")
+func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
+	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
 	var request *v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(signed_adreq), &request)
+	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifest{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
+	})
+	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
+		Key: ecdsaPub2,
+	})
+	verifyRule.KeyOperation = "mustAll"
+	logger := buildLogger(policyContext)
+	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
+	assert.NilError(t, err)
+	assert.Equal(t, verified, false)
+}
+
+func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
+	policyContext := buildContext(t, test_policy, multi_sig2_resource, "")
+	var request *v1.AdmissionRequest
+	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
+	policyContext.JSONContext.AddRequest(request)
+	policyContext.Policy.SetName("test-policy")
+	verifyRule := kyvernov1.Manifest{}
+	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
+		Key: ecdsaPub,
+	})
+	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
+		Key: ecdsaPub2,
 	})
 	verifyRule.KeyOperation = "mustAll"
 	logger := buildLogger(policyContext)
@@ -384,14 +698,17 @@ func Test_VerifyManifest_MustAll(t *testing.T) {
 }
 
 func Test_VerifyManifest_AtLeastOne(t *testing.T) {
-	policyContext := buildContext(t, test_policy, signed_resource, "")
+	policyContext := buildContext(t, test_policy, multi_sig_resource, "")
 	var request *v1.AdmissionRequest
-	_ = json.Unmarshal([]byte(signed_adreq), &request)
+	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifest{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
+	})
+	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
+		Key: ecdsaPub2,
 	})
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
