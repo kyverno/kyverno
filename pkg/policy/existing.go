@@ -20,11 +20,11 @@ import (
 )
 
 func (pc *PolicyController) processExistingResources(policy kyvernov1.PolicyInterface) {
-	logger := pc.Log.WithValues("policy", policy.GetName())
+	logger := pc.log.WithValues("policy", policy.GetName())
 	logger.V(4).Info("applying policy to existing resources")
 
 	// Parse through all the resources drops the cache after configured rebuild time
-	pc.Rm.Drop()
+	pc.rm.Drop()
 
 	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
@@ -62,29 +62,29 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyIn
 }
 
 func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyResults.ProcessEngineResponse(pc.PromConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
+	if err := policyResults.ProcessEngineResponse(pc.promConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ProcessEngineResponse(pc.PromConfig, policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ProcessEngineResponse(pc.promConfig, policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
 func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
-	if !pc.Rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
+	if !pc.rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
 	}
 
-	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.NsLister, logger)
-	engineResponse := applyPolicy(policy, resource, logger, pc.ConfigHandler.GetExcludeGroupRole(), pc.Client, namespaceLabels)
+	namespaceLabels := common.GetNamespaceSelectorsFromNamespaceLister(resource.GetKind(), resource.GetNamespace(), pc.nsLister, logger)
+	engineResponse := applyPolicy(policy, resource, logger, pc.configHandler.GetExcludeGroupRole(), pc.client, namespaceLabels)
 	engineResponses = append(engineResponses, engineResponse...)
 
 	// post-processing, register the resource as processed
-	pc.Rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
+	pc.rm.RegisterResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion())
 
 	return
 }
@@ -204,16 +204,16 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 func (pc *PolicyController) processExistingKinds(kinds []string, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, logger logr.Logger) {
 	for _, kind := range kinds {
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
-		_, err := pc.Rm.GetScope(kind)
+		_, err := pc.rm.GetScope(kind)
 		if err != nil {
 			gv, k := kubeutils.GetKindFromGVK(kind)
 			if !strings.Contains(k, "*") {
-				resourceSchema, _, err := pc.Client.Discovery().FindResource(gv, k)
+				resourceSchema, _, err := pc.client.Discovery().FindResource(gv, k)
 				if err != nil {
 					logger.Error(err, "failed to find resource", "kind", k)
 					continue
 				}
-				pc.Rm.RegisterScope(k, resourceSchema.Namespaced)
+				pc.rm.RegisterScope(k, resourceSchema.Namespaced)
 			}
 		}
 

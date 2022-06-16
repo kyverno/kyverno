@@ -21,11 +21,11 @@ import (
 
 func (pc *PolicyController) report(engineResponses []*response.EngineResponse, logger logr.Logger) {
 	eventInfos := generateFailEvents(logger, engineResponses)
-	pc.EventGen.Add(eventInfos...)
+	pc.eventGen.Add(eventInfos...)
 
-	if pc.ConfigHandler.GetGenerateSuccessEvents() {
+	if pc.configHandler.GetGenerateSuccessEvents() {
 		successEventInfos := generateSuccessEvents(logger, engineResponses)
-		pc.EventGen.Add(successEventInfos...)
+		pc.eventGen.Add(successEventInfos...)
 	}
 
 	pvInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
@@ -34,25 +34,25 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 	// we can merge pvInfos into a single object to reduce update frequency (throttling request) on RCR
 	infos := mergePvInfos(pvInfos)
 	for _, info := range infos {
-		pc.PrGenerator.Add(info)
+		pc.prGenerator.Add(info)
 		logger.V(4).Info("added a request to RCR generator", "key", info.ToKey())
 	}
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
 func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh <-chan struct{}) {
-	logger := pc.Log.WithName("forceReconciliation")
-	ticker := time.NewTicker(pc.ReconcilePeriod)
+	logger := pc.log.WithName("forceReconciliation")
+	ticker := time.NewTicker(pc.reconcilePeriod)
 
 	for {
 		select {
 		case <-ticker.C:
-			logger.Info("performing the background scan", "scan interval", pc.ReconcilePeriod.String())
-			if err := pc.PolicyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
-			if err := pc.PolicyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
+			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
 				logger.Error(err, "continue reconciling policy reports")
 			}
 
@@ -60,12 +60,12 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
-			if err := pc.PolicyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
 			if erase {
-				if err := pc.PolicyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
+				if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
 				}
 			}
@@ -141,8 +141,8 @@ func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyrep
 }
 
 func (pc *PolicyController) requeuePolicies() {
-	logger := pc.Log.WithName("requeuePolicies")
-	if cpols, err := pc.PLister.List(labels.Everything()); err == nil {
+	logger := pc.log.WithName("requeuePolicies")
+	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
 		for _, cpol := range cpols {
 			if !pc.canBackgroundProcess(cpol) {
 				continue
@@ -152,7 +152,7 @@ func (pc *PolicyController) requeuePolicies() {
 	} else {
 		logger.Error(err, "unable to list ClusterPolicies")
 	}
-	if pols, err := pc.NpLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
+	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
 		for _, p := range pols {
 			if !pc.canBackgroundProcess(p) {
 				continue

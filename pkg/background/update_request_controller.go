@@ -24,9 +24,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policy"
 	pol "github.com/kyverno/kyverno/pkg/policy"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,10 +44,6 @@ import (
 const (
 	maxRetries = 10
 )
-
-type policyuse struct {
-	pcontroller pol.PolicyController
-}
 
 type Controller interface {
 	// Run starts workers
@@ -150,22 +145,6 @@ func (c *controller) processNextWorkItem() bool {
 	err := c.syncUpdateRequest(key.(string))
 	c.handleErr(err, key)
 	return true
-}
-
-// Refactor update request controller to handle policy delete events #3884
-func sync() {
-	// policy, err := pc.getPolicy(key)
-	// if err != nil {
-	// 	if errors.IsNotFound(err) {
-	// 		return nil
-	// 	}
-	// 	return err
-	// } else {
-	// 	err = pc.updateUR(key, policy)
-	// 	if err != nil {
-	// 		logger.Error(err, "failed to updateUR on Policy update")
-	// 	}
-	// }
 }
 
 func (c *controller) handleErr(err error, key interface{}) {
@@ -273,60 +252,6 @@ func (c *controller) enqueueUpdateRequest(obj interface{}) {
 	}
 	logger.V(5).Info("enqueued update request", "ur", key)
 	c.queue.Add(key)
-}
-
-func (c *controller) addPolicy(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("adding policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			c.enqueueUpdateRequest(ur)
-		}
-	}
-}
-
-func (c *controller) updatePolicy(_, obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(obj)
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("updating policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			c.enqueueUpdateRequest(ur)
-		}
-	}
-}
-
-func (c *controller) deletePolicy(obj interface{}) {
-	key, err := cache.MetaNamespaceKeyFunc(kubeutils.GetObjectWithTombstone(obj))
-	if err != nil {
-		logger.Error(err, "failed to compute policy key")
-	} else {
-		logger.V(4).Info("updating policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			c.enqueueUpdateRequest(ur)
-		}
-	}
 }
 
 func (c *controller) addUR(obj interface{}) {
@@ -455,8 +380,8 @@ func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1list
 	}
 }
 
-func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.PolicyController) error {
-	logger := pc.Log.WithName("updateUR").WithName(policyKey)
+func (c *controller) updateURs(policyKey string, policy kyvernov1.PolicyInterface) error {
+	logger = logger.WithName("updateUR").WithName(policyKey)
 
 	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 		logger.V(4).Info("skip policy application on policy event", "policyKey", policyKey, "mutateExiting", policy.GetSpec().MutateExistingOnPolicyUpdate, "generateExisting", policy.GetSpec().IsGenerateExistingOnPolicyUpdate())
@@ -466,9 +391,9 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 	logger.Info("update URs on policy event")
 
 	var errors []error
-	mutateURs := listMutateURs(policyKey, nil, pc)
-	generateURs := listGenerateURs(policyKey, nil, pc)
-	updateUR(pc.KyvernoClient, pc.UrLister.UpdateRequests(config.KyvernoNamespace()), policyKey, append(mutateURs, generateURs...), pc.Log.WithName("updateUR"))
+	mutateURs := c.listMutateURs(policyKey, nil)
+	generateURs := c.listGenerateURs(policyKey, nil)
+	updateUR(c.kyvernoClient, c.urLister, policyKey, append(mutateURs, generateURs...), logger.WithName("updateUR"))
 
 	for _, rule := range policy.GetSpec().Rules {
 		var ruleType kyvernov1beta1.RequestType
@@ -476,9 +401,9 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 		if rule.IsMutateExisting() {
 			ruleType = kyvernov1beta1.Mutate
 
-			triggers := pol.GenerateTriggers(pc.Client, rule, pc.Log)
+			triggers := pol.GenerateTriggers(c.client, rule, logger)
 			for _, trigger := range triggers {
-				murs := listMutateURs(policyKey, trigger, pc)
+				murs := c.listMutateURs(policyKey, trigger)
 
 				if murs != nil {
 					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+trigger.GetName())
@@ -487,24 +412,24 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 
 				logger.Info("creating new UR for mutate")
 				ur := newUR(policy, trigger, ruleType)
-				skip, err := handleUpdateRequest(ur, trigger, rule, policy, pc)
+				skip, err := c.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
-					pc.Log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+					logger.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 					continue
 				}
 				if skip {
 					continue
 				}
-				pc.Log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+				logger.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 			}
 		}
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 			ruleType = kyvernov1beta1.Generate
-			triggers := pol.GenerateTriggers(pc.Client, rule, pc.Log)
+			triggers := pol.GenerateTriggers(c.client, rule, logger)
 			for _, trigger := range triggers {
-				gurs := listGenerateURs(policyKey, trigger, pc)
+				gurs := c.listGenerateURs(policyKey, trigger)
 
 				if gurs != nil {
 					logger.V(4).Info("UR was created", "rule", rule.Name, "rule type", ruleType, "trigger", trigger.GetNamespace()+"/"+trigger.GetName())
@@ -512,9 +437,9 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 				}
 
 				ur := newUR(policy, trigger, ruleType)
-				skip, err := handleUpdateRequest(ur, trigger, rule, policy, pc)
+				skip, err := c.handleUpdateRequest(ur, trigger, rule, policy)
 				if err != nil {
-					pc.Log.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+					logger.Error(err, "failed to create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 						"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 					errors = append(errors, err)
 					continue
@@ -524,7 +449,7 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 					continue
 				}
 
-				pc.Log.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
+				logger.V(4).Info("successfully created UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule type", ruleType,
 					"target", fmt.Sprintf("%s/%s/%s/%s", trigger.GetAPIVersion(), trigger.GetKind(), trigger.GetNamespace(), trigger.GetName()))
 			}
 			err := engineutils.CombineErrors(errors)
@@ -534,24 +459,24 @@ func updateURs(policyKey string, policy kyvernov1.PolicyInterface, pc *pol.Polic
 	return nil
 }
 
-func listMutateURs(policyKey string, trigger *unstructured.Unstructured, pc *policy.PolicyController) []*kyvernov1beta1.UpdateRequest {
-	mutateURs, err := pc.UrLister.List(labels.SelectorFromSet(common.MutateLabelsSet(policyKey, trigger)))
+func (c *controller) listMutateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
+	mutateURs, err := c.urLister.List(labels.SelectorFromSet(common.MutateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		logger.Error(err, "failed to list update request for mutate policy")
 	}
 	return mutateURs
 }
 
-func listGenerateURs(policyKey string, trigger *unstructured.Unstructured, pc *pol.PolicyController) []*kyvernov1beta1.UpdateRequest {
-	generateURs, err := pc.UrLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
+func (c *controller) listGenerateURs(policyKey string, trigger *unstructured.Unstructured) []*kyvernov1beta1.UpdateRequest {
+	generateURs, err := c.urLister.List(labels.SelectorFromSet(common.GenerateLabelsSet(policyKey, trigger)))
 	if err != nil {
 		logger.Error(err, "failed to list update request for generate policy")
 	}
 	return generateURs
 }
 
-func handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface, pc *pol.PolicyController) (skip bool, err error) {
-	policyContext, _, err := common.NewBackgroundContext(pc.Client, ur, policy, triggerResource, pc.ConfigHandler, nil, pc.Log)
+func (c *controller) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+	policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, triggerResource, c.configuration, nil, logger)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
 	}
@@ -563,12 +488,12 @@ func handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unst
 
 	for _, ruleResponse := range engineResponse.PolicyResponse.Rules {
 		if ruleResponse.Status != response.RuleStatusPass {
-			pc.Log.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
+			logger.Error(err, "can not create new UR on policy update", "policy", policy.GetName(), "rule", rule.Name, "rule.Status", ruleResponse.Status)
 			continue
 		}
 
-		pc.Log.Info("creating new UR for generate")
-		_, err := pc.KyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		logger.Info("creating new UR for generate")
+		_, err := c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
 		if err != nil {
 			return false, err
 		}
