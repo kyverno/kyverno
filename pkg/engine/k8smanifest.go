@@ -62,6 +62,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest,
 		return false, fmt.Sprintf("failed to get a request from policyContext: %s", err.Error()), err
 	}
 	reqByte, _ := json.Marshal(request)
+	fmt.Println("@@@@ ", string(reqByte))
 	var adreq *v1.AdmissionRequest
 	err = json.Unmarshal(reqByte, &adreq)
 	if err != nil {
@@ -357,7 +358,7 @@ func (self VerifyResultMustAll) makeFinalResult() (bool, string, error) {
 	} else {
 		// verification failed
 		failReason := strings.Join(self.Reasons, ";")
-		reason := fmt.Sprintf("%d out of %d verification failed; %s", failCount, len(self.Results), failReason)
+		reason := fmt.Sprintf("%d out of %d failed verification; %s", failCount, len(self.Results), failReason)
 		return false, reason, nil
 	}
 }
