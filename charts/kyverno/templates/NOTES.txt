@@ -9,7 +9,7 @@ Thank you for installing {{ .Chart.Name }}! Your release is named {{ .Release.Na
 ⚠️  WARNING: Setting replicas count below 3 means Kyverno is not running in high availability mode.
 {{- end }}
 
-💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/installation/#security-vs-operability to understand the risks.
+💡 Note: There is a trade-off when deciding which approach to take regarding Namespace exclusions. Please see the documentation at https://kyverno.io/docs/installation/#security-vs-operability to understand the risks.
 
 {{- if semverCompare "<1.21.0" .Capabilities.KubeVersion.Version }}
 ⚠️  WARNING: The minimal Kubernetes version officially supported by Kyverno is 1.21. Earlier versions are untested and Kyverno is not guaranteed to work with Kubernetes {{ .Capabilities.KubeVersion.Version }}.
