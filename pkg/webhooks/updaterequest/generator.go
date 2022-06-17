@@ -71,10 +71,11 @@ func (g *generator) applyResource(policyName string, urSpec kyvernov1beta1.Updat
 func (g *generator) tryApplyResource(policyName string, urSpec kyvernov1beta1.UpdateRequestSpec) error {
 	l := logger.WithValues("ruleType", urSpec.Type, "kind", urSpec.Resource.Kind, "name", urSpec.Resource.Name, "namespace", urSpec.Resource.Namespace)
 	var queryLabels labels.Set
+
 	if urSpec.Type == kyvernov1beta1.Mutate {
-		queryLabels = common.MutateLabelsSet(urSpec.Policy, urSpec.Resource)
+		queryLabels = common.MutateLabelsSet(policyName, urSpec.Resource)
 	} else if urSpec.Type == kyvernov1beta1.Generate {
-		queryLabels = common.GenerateLabelsSet(urSpec.Policy, urSpec.Resource)
+		queryLabels = common.GenerateLabelsSet(policyName, urSpec.Resource)
 	}
 	urList, err := g.urLister.List(labels.SelectorFromSet(queryLabels))
 	if err != nil {
