@@ -284,7 +284,7 @@ type Validation struct {
 
 	// Manifest specifies conditions for manifest verification
 	// +optional
-	Manifest Manifest `json:"manifest,omitempty" yaml:"manifest,omitempty"`
+	Manifests Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
@@ -457,7 +457,7 @@ type CloneFrom struct {
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
 
-type Manifest struct {
+type Manifests struct {
 	// Verify key condition that the yaml manifest is signed with.
 	// +optional
 	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
@@ -497,8 +497,8 @@ type Key struct {
 }
 
 type DryRunOption struct {
-	Enable          bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
-	DryRunNamespace string `json:"dryRunNamespace,omitempty" yaml:"dryRunNamespace,omitempty"`
+	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 }
 
 type ObjectUserBindingList []ObjectUserBinding

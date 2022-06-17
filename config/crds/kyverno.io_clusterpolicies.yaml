@@ -2064,7 +2064,7 @@ spec:
                                 x-kubernetes-preserve-unknown-fields: true
                             type: object
                           type: array
-                        manifest:
+                        manifests:
                           description: Manifest specifies conditions for manifest
                             verification
                           properties:
@@ -2075,10 +2075,10 @@ spec:
                             dryRun:
                               description: DryRun configuration
                               properties:
-                                dryRunNamespace:
-                                  type: string
                                 enable:
                                   type: boolean
+                                namespace:
+                                  type: string
                               type: object
                             ignoreFields:
                               description: Fields which will be ignored while comparing

@@ -42,7 +42,7 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 }
 
 func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
-	verified, reason, err := verifyManifest(ctx, rule.Validation.Manifest, logger)
+	verified, reason, err := verifyManifest(ctx, rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(2).Info("verifyManifest return err: %s", err.Error())
 		return ruleError(rule, response.Validation, "failed to verify manifest", err)
@@ -55,7 +55,7 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext.Query("request")
 	if err != nil {
@@ -101,8 +101,8 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifest,
 
 	// dryrun setting
 	vo.DisableDryRun = !verifyRule.DryRunOption.Enable
-	if verifyRule.DryRunOption.DryRunNamespace != "" {
-		vo.DryRunNamespace = verifyRule.DryRunOption.DryRunNamespace
+	if verifyRule.DryRunOption.Namespace != "" {
+		vo.DryRunNamespace = verifyRule.DryRunOption.Namespace
 	} else {
 		vo.DryRunNamespace = config.KyvernoNamespace()
 	}

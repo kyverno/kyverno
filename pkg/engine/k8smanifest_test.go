@@ -615,7 +615,7 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
@@ -631,7 +631,7 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
@@ -647,7 +647,7 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
@@ -663,7 +663,7 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
@@ -683,7 +683,7 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
@@ -703,7 +703,7 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifest{}
+	verifyRule := kyvernov1.Manifests{}
 	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
 		Key: ecdsaPub,
 	})
