@@ -198,7 +198,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 			selector := &metav1.LabelSelector{
 				MatchLabels: common.MutateLabelsSet(ur.Spec.Policy, nil),
 			}
-			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).DeleteCollection(
+			return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).DeleteCollection(
 				context.TODO(),
 				metav1.DeleteOptions{},
 				metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
