@@ -1,0 +1,27 @@
+# Additional permission is required to enable DryRun.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: manifest-verify-dry-run
+  namespace: kyverno
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - '*'
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: manifest-verify-dry-run
+  namespace: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: manifest-verify-dry-run
+subjects:
+- kind: ServiceAccount
+  name: kyverno-service-account
+  namespace: kyverno
