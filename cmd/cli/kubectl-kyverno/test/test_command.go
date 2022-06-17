@@ -737,6 +737,7 @@ func getAndCompareResource(path string, engineResource unstructured.Unstructured
 
 	userResource, err := common.GetResourceFromPath(fs, path, isGit, policyResourcePath, resourceType)
 	if err != nil {
+		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
 	}
 	matched, err := generate.ValidateResourceWithPattern(log.Log, engineResource.UnstructuredContent(), userResource.UnstructuredContent())
