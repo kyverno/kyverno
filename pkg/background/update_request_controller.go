@@ -66,6 +66,8 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
+	policyqueue workqueue.RateLimitingInterface
+
 	eventGen      event.Interface
 	configuration config.Configuration
 }

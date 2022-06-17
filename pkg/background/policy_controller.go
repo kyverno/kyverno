@@ -18,9 +18,7 @@ func (c *controller) addPolicy(obj interface{}) {
 			logger.Error(err, "failed to list update requests for policy", "key", key)
 			return
 		}
-		if c.sync(key) != nil {
-			// how to deal with errors here if necessary?
-		}
+		c.sync(key)
 		// re-evaluate the UR as the policy was added
 		for _, ur := range urs {
 			c.enqueueUpdateRequest(ur)
@@ -39,9 +37,7 @@ func (c *controller) updatePolicy(_, obj interface{}) {
 			logger.Error(err, "failed to list update requests for policy", "key", key)
 			return
 		}
-		if c.sync(key) != nil {
-			// how to deal with errors here if necessary?
-		}
+		c.sync(key)
 		// re-evaluate the UR as the policy was updated
 		for _, ur := range urs {
 			c.enqueueUpdateRequest(ur)
@@ -61,9 +57,7 @@ func (c *controller) deletePolicy(obj interface{}) {
 			logger.Error(err, "failed to list update requests for policy", "key", key)
 			return
 		}
-		if c.sync(key) != nil {
-			// how to deal with errors here if necessary?
-		}
+		c.sync(key)
 		// re-evaluate the UR as the policy was updated
 		for _, ur := range urs {
 			c.enqueueUpdateRequest(ur)
@@ -86,3 +80,13 @@ func (c *controller) sync(key string) error {
 		return nil
 	}
 }
+
+// //enqueue
+// func (c *controller) enqueuePolicy(policy kyvernov1.PolicyInterface) {
+// 	key, err := cache.MetaNamespaceKeyFunc(policy)
+// 	if err != nil {
+// 		logger.Error(err, "failed to enqueue policy")
+// 		return
+// 	}
+// 	c.policyqueue.Add(key)
+// }
