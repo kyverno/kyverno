@@ -117,6 +117,10 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
 	}
 
+	if verifyRule.ResourceBundleRef != "" {
+		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
+	}
+
 	// key setting
 	// prepare tmpDir to save pubkey file
 	// tmpDir, err := ioutil.TempDir("", string(adreq.UID))
@@ -276,6 +280,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		finalReason := strings.Join(failReasosn, ";")
 		return verified, finalReason, nil
 	}
+	return verified, reason, nil
 }
 
 func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
