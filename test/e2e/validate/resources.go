@@ -2,14 +2,6 @@ package validate
 
 import "fmt"
 
-// Namespace Description
-var namespaceYaml = []byte(`
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: test-validate
-`)
-
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
   apiVersion: v1

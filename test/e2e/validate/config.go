@@ -7,6 +7,10 @@ import (
 
 // FluxValidateTests is E2E Test Config for validation
 var FluxValidateTests = []struct {
+	// TestDescription - Description of the Test
+	TestDescription string
+	// PolicyName - Name of the Policy
+	PolicyName string
 	// TestName - Name of the Test
 	TestName string
 	// PolicyRaw - The Yaml file of the ClusterPolicy
@@ -19,14 +23,18 @@ var FluxValidateTests = []struct {
 	MustSucceed bool
 }{
 	{
+		TestDescription:   "checks validation policy",
 		TestName:          "test-validate-with-flux-and-variable-substitution-2043",
+		PolicyName:        "flux-multi-tenancy",
 		PolicyRaw:         kyverno_2043_policy,
 		ResourceRaw:       kyverno_2043_FluxKustomization,
 		ResourceNamespace: "test-validate",
 		MustSucceed:       false,
 	},
 	{
+		TestDescription:   "checks validation policy",
 		TestName:          "test-validate-with-flux-and-variable-substitution-2241",
+		PolicyName:        "flux-multi-tenancy",
 		PolicyRaw:         kyverno_2241_policy,
 		ResourceRaw:       kyverno_2241_FluxKustomization,
 		ResourceNamespace: "test-validate",
@@ -60,7 +68,7 @@ var ValidateTests = []struct {
 		PolicyName:        "drop-cap-net-raw",
 		PolicyRaw:         kyverno_2345_policy,
 		ResourceName:      "test",
-		ResourceNamespace: "test-validate1",
+		ResourceNamespace: "test-validate",
 		ResourceGVR:       podGVR,
 		ResourceRaw:       kyverno_2345_resource,
 		MustSucceed:       false,

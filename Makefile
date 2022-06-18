@@ -310,6 +310,7 @@ test-e2e:
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
+	go test ./test/e2e/validate -v
 	$(eval export E2E="")
 
 test-e2e-local:
@@ -320,6 +321,7 @@ test-e2e-local:
 	go test ./test/e2e/metrics -v
 	go test ./test/e2e/mutate -v
 	go test ./test/e2e/generate -v
+	go test ./test/e2e/validate -v
 	kill  $!
 	$(eval export E2E="")
 
