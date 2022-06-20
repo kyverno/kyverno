@@ -254,6 +254,32 @@ entries:
       artifacthub.io/changes: |
         - "Allow defining imagePullSecrets"
     apiVersion: v1
+    appVersion: v1.6.3
+    created: "2022-06-20T07:04:36.856282772Z"
+    description: Kubernetes Native Policy Management
+    digest: e48b4d0e205eddbb8511ad1f9a54f1d53f7297047d31fc2ea3b7a7bc64092851
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-v2.3.4.tgz
+    version: v2.3.4
+  - annotations:
+      artifacthub.io/changes: |
+        - "Allow defining imagePullSecrets"
+    apiVersion: v1
     appVersion: v1.6.2
     created: "2022-04-21T05:16:57.521593345Z"
     description: Kubernetes Native Policy Management
@@ -3345,4 +3371,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-06-20T07:04:31.248499394Z"
+generated: "2022-06-20T07:04:36.853328632Z"
