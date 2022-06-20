@@ -2512,6 +2512,32 @@ entries:
       artifacthub.io/changes: |
         - "Do not evaluate `foreach` policies on DELETE"
     apiVersion: v1
+    appVersion: v1.6.3
+    created: "2022-06-20T07:04:31.250346087Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 28353bdb0e038b0a91720a0cd63d7a1219e064dd4cd8c3acd9178d92a9d538bd
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.3.5.tgz
+    version: v2.3.5
+  - annotations:
+      artifacthub.io/changes: |
+        - "Do not evaluate `foreach` policies on DELETE"
+    apiVersion: v1
     appVersion: v1.6.2
     created: "2022-04-25T14:43:04.111120494Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -3319,4 +3345,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-06-17T10:10:49.678181727Z"
+generated: "2022-06-20T07:04:31.248499394Z"
