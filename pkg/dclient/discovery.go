@@ -21,6 +21,7 @@ type IDiscovery interface {
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
+	DiscoveryInterface() discovery.DiscoveryInterface
 }
 
 // serverPreferredResources stores the cachedClient instance for discovery client
@@ -30,6 +31,10 @@ type serverPreferredResources struct {
 
 // DiscoveryCache gets the discovery client cache
 func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return c.cachedClient
+}
+
+func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }
 
@@ -56,6 +61,7 @@ func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 // OpenAPISchema returns the API server OpenAPI schema document
 func (c serverPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
+
 }
 
 // GetGVRFromKind get the Group Version Resource from kind
