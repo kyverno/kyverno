@@ -142,6 +142,14 @@ func (c *controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
+	keypol, quitpol := c.policyqueue.Get()
+	if quitpol {
+		return false
+	} else {
+		defer c.queue.Done(key)
+		err := c.syncPolicy(keypol.(string))
+		c.handleErr(err, keypol)
+	}
 
 	defer c.queue.Done(key)
 	err := c.syncUpdateRequest(key.(string))
