@@ -327,29 +327,29 @@ type VerifyResultMustAll struct {
 	Reasons []string
 }
 
-func (self VerifyResultMustAll) addResult(result *k8smanifest.VerifyResourceResult) VerifyResultMustAll {
-	self.Results = append(self.Results, result.Verified)
-	self.Signers = append(self.Signers, result.Signer)
+func (vresult VerifyResultMustAll) addResult(newRes *k8smanifest.VerifyResourceResult) VerifyResultMustAll {
+	vresult.Results = append(vresult.Results, newRes.Verified)
+	vresult.Signers = append(vresult.Signers, newRes.Signer)
 	failMsg := "failed to verify signature; no signature found."
-	if result.Diff != nil && result.Diff.Size() > 0 {
-		failMsg = fmt.Sprintf("diff found: %s", result.Diff.String())
-	} else if result.Signer != "" {
-		failMsg = fmt.Sprintf("no signer matches with this resource. signed by %s", result.Signer)
+	if newRes.Diff != nil && newRes.Diff.Size() > 0 {
+		failMsg = fmt.Sprintf("diff found: %s", newRes.Diff.String())
+	} else if newRes.Signer != "" {
+		failMsg = fmt.Sprintf("no signer matches with this resource. signed by %s", newRes.Signer)
 	}
-	self.Reasons = append(self.Reasons, failMsg)
-	return self
+	vresult.Reasons = append(vresult.Reasons, failMsg)
+	return vresult
 }
 
-func (self VerifyResultMustAll) addErrResult(err error) VerifyResultMustAll {
-	self.Reasons = append(self.Reasons, err.Error())
-	self.Results = append(self.Results, false)
-	return self
+func (vresult VerifyResultMustAll) addErrResult(err error) VerifyResultMustAll {
+	vresult.Reasons = append(vresult.Reasons, err.Error())
+	vresult.Results = append(vresult.Results, false)
+	return vresult
 }
 
-func (self VerifyResultMustAll) makeFinalResult() (bool, string, error) {
+func (vresult VerifyResultMustAll) makeFinalResult() (bool, string, error) {
 	finalRes := true
 	failCount := 0
-	for _, r := range self.Results {
+	for _, r := range vresult.Results {
 		if !r {
 			finalRes = false
 			failCount += 1
@@ -357,12 +357,12 @@ func (self VerifyResultMustAll) makeFinalResult() (bool, string, error) {
 	}
 	if finalRes {
 		// verification success.
-		signersStr := strings.Join(self.Signers, ",")
+		signersStr := strings.Join(vresult.Signers, ",")
 		return true, fmt.Sprintf("singed by a valid signer: %s", signersStr), nil
 	} else {
 		// verification failed
-		failReason := strings.Join(self.Reasons, ";")
-		reason := fmt.Sprintf("%d out of %d failed verification; %s", failCount, len(self.Results), failReason)
+		failReason := strings.Join(vresult.Reasons, ";")
+		reason := fmt.Sprintf("%d out of %d failed verification; %s", failCount, len(vresult.Results), failReason)
 		return false, reason, nil
 	}
 }
