@@ -160,7 +160,7 @@ imagePullSecrets: {}
 resources:
   # -- Pod resource limits
   limits:
-    memory: 384Mi
+    memory: 512Mi
   # -- Pod resource requests
   requests:
     cpu: 100m
