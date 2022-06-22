@@ -17,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	k8smnfutil "github.com/sigstore/k8s-manifest-sigstore/pkg/util"
-	v1 "k8s.io/api/admission/v1"
+	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -42,12 +42,12 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 }
 
 func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
-	verified, reason, err := verifyManifest(ctx, rule.Validation.Manifests, logger)
+	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
-		logger.V(2).Info("verifyManifest return err: %s", err.Error())
+		logger.V(2).Info(fmt.Sprintf("verifyManifest return err: %s", err.Error()))
 		return ruleError(rule, response.Validation, "failed to verify manifest", err)
 	}
-	logger.V(2).Info("verifyManifest result: verified %s; %s", strconv.FormatBool(verified), reason)
+	logger.V(2).Info(fmt.Sprintf("verifyManifest result: verified %s; %s", strconv.FormatBool(verified), reason))
 	if !verified {
 		return ruleResponse(*rule, response.Validation, reason, response.RuleStatusFail, nil)
 	}
@@ -62,7 +62,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		return false, fmt.Sprintf("failed to get a request from policyContext: %s", err.Error()), err
 	}
 	reqByte, _ := json.Marshal(request)
-	var adreq *v1.AdmissionRequest
+	var adreq *admissionv1.AdmissionRequest
 	err = json.Unmarshal(reqByte, &adreq)
 	if err != nil {
 		return false, fmt.Sprintf("failed to unmarshal a request from requestByte: %s", err.Error()), err
@@ -76,7 +76,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		return false, errMsg, err
 	}
 
-	logger.V(2).Info("verifying manifest...", adreq.Namespace, adreq.Kind.Kind, adreq.Name, adreq.UserInfo.Username)
+	logger.V(4).Info("verifying manifest...", adreq.Namespace, adreq.Kind.Kind, adreq.Name, adreq.UserInfo.Username)
 
 	// allow dryrun request
 	if *adreq.DryRun {
@@ -117,10 +117,6 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
 	}
 
-	if verifyRule.ResourceBundleRef != "" {
-		vo.ResourceBundleRef = verifyRule.ResourceBundleRef
-	}
-
 	// key setting
 	// prepare tmpDir to save pubkey file
 	// tmpDir, err := ioutil.TempDir("", string(adreq.UID))
@@ -140,12 +136,12 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	mustAll := false
 	if verifyRule.KeyOperation != "" {
 		if verifyRule.KeyOperation == ValidateLogicMustAll {
-			logger.V(2).Info("keyOperation is set mustAll. All signature should be verified.")
+			logger.V(4).Info("keyOperation is set mustAll. All signature should be verified.")
 			mustAll = true
 		} else if verifyRule.KeyOperation == ValidateLogicAtLeastOne {
 			mustAll = false
 		} else {
-			logger.V(2).Info("warning: unexpected value for key operation.", verifyRule.KeyOperation)
+			logger.V(4).Info("warning: unexpected value for key operation.", verifyRule.KeyOperation)
 		}
 	}
 
@@ -175,15 +171,15 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 				defer os.Unsetenv(pubkeyEnv)
 				keyPath := fmt.Sprintf("env://%s", pubkeyEnv)
 				vo.KeyPath = keyPath
-				logger.V(2).Info("verifying resource. key:", keyPath)
+				logger.V(4).Info("verifying resource. key:", keyPath)
 				result, err := k8smanifest.VerifyResource(resource, vo)
 				if err != nil {
-					logger.V(2).Info("verifyResoource return err;", err.Error())
+					logger.V(4).Info("verifyResoource return err;", err.Error())
 					vresults = vresults.addErrResult(err)
 					continue
 				}
 				resBytes, _ := json.Marshal(result)
-				logger.V(2).Info("verify result:", string(resBytes))
+				logger.V(4).Info("verify result:", string(resBytes))
 				vresults = vresults.addResult(result)
 			}
 		}
@@ -195,17 +191,16 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 				vo.Signers = k8smanifest.SignerList{sub}
 				result, err := k8smanifest.VerifyResource(resource, vo)
 				if err != nil {
-					logger.V(2).Info("verifyResoource return err;", err.Error())
+					logger.V(4).Info("verifyResoource return err;", err.Error())
 					vresults = vresults.addErrResult(err)
 					continue
 				}
 				resBytes, _ := json.Marshal(result)
-				logger.V(2).Info("verify result:", string(resBytes))
+				logger.V(4).Info("verify result:", string(resBytes))
 				vresults = vresults.addResult(result)
 			}
 		}
 		return vresults.makeFinalResult()
-
 	} else { // atLeastOne
 		verified := false
 		failReasosn := []string{}
@@ -228,11 +223,11 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 			}
 			result, err := k8smanifest.VerifyResource(resource, vo)
 			if err != nil {
-				logger.V(2).Info("verifyResoource return err;", err.Error())
+				logger.V(4).Info("verifyResoource return err;", err.Error())
 				failReasosn = append(failReasosn, err.Error())
 			} else {
 				resBytes, _ := json.Marshal(result)
-				logger.V(2).Info("verify result:", string(resBytes))
+				logger.V(4).Info("verify result:", string(resBytes))
 				verified = result.Verified
 				if verified {
 					// verification success.
@@ -256,11 +251,11 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 			vo.Signers = append(vo.Signers, subjects...)
 			result, err := k8smanifest.VerifyResource(resource, vo)
 			if err != nil {
-				logger.V(2).Info("verifyResoource return err;", err.Error())
+				logger.V(4).Info("verifyResoource return err;", err.Error())
 				failReasosn = append(failReasosn, err.Error())
 			} else {
 				resBytes, _ := json.Marshal(result)
-				logger.V(2).Info("verify result:", string(resBytes))
+				logger.V(4).Info("verify result:", string(resBytes))
 				verified = result.Verified
 				if verified {
 					// verification success.
@@ -280,7 +275,6 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		finalReason := strings.Join(failReasosn, ";")
 		return verified, finalReason, nil
 	}
-	return verified, reason, nil
 }
 
 func addConfig(vo, defaultConfig *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {

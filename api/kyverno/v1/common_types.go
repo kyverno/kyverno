@@ -284,7 +284,7 @@ type Validation struct {
 
 	// Manifest specifies conditions for manifest verification
 	// +optional
-	Manifests Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
+	Manifests *Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
 
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
