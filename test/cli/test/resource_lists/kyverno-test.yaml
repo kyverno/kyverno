@@ -1,0 +1,19 @@
+name: resource-lists
+policies:
+  -  policy.yaml
+resources:
+  -  resource.yaml
+results:
+  - policy: resource-lists
+    rule: require-image-tag
+    resources: 
+    - myapp-pod1
+    - myapp-pod2
+    kind: Pod
+    result: pass
+  - policy: resource-lists
+    rule: validate-image-tag
+    resources: 
+    - myapp-pod3
+    kind: Pod
+    result: pass 
