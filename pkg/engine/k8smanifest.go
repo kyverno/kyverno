@@ -21,14 +21,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-const DefaultSignatureAnnotationKey = "cosign.sigstore.dev/signature"
-const DefaultMessageAnnotationKey = "cosign.sigstore.dev/message"
-const DefaultAnnotationKeyDomain = "cosign.sigstore.dev"
-const DefaultSignatureAnnotationMessage = "signature"
-const DefaultMessageAnnotationMessage = "message"
-const DefaultDryRunNamespace = ""
-const ValidateLogicMustAll = "mustAll"
-const ValidateLogicAtLeastOne = "atLeastOne"
+const (
+	DefaultSignatureAnnotationKey     = "cosign.sigstore.dev/signature"
+	DefaultMessageAnnotationKey       = "cosign.sigstore.dev/message"
+	DefaultAnnotationKeyDomain        = "cosign.sigstore.dev"
+	DefaultSignatureAnnotationMessage = "signature"
+	DefaultMessageAnnotationMessage   = "message"
+	DefaultDryRunNamespace            = ""
+	ValidateLogicMustAll              = "mustAll"
+	ValidateLogicAtLeastOne           = "atLeastOne"
+)
 
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
