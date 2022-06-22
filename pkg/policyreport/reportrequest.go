@@ -192,7 +192,7 @@ func (gen Generator) ResetMapper(ns string) {
 
 // InvalidateMapper reset map entries
 func (gen Generator) InvalidateMapper() {
-	for ns, _ := range gen.changeRequestMapper.ConcurrentMap.Items() {
+	for ns := range gen.changeRequestMapper.ConcurrentMap.Items() {
 		gen.changeRequestMapper.ConcurrentMap.Remove(ns)
 	}
 }

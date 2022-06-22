@@ -715,7 +715,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 
 				polr.Results = []policyreportv1alpha2.PolicyReportResult{}
 				polr.Summary = policyreportv1alpha2.PolicyReportSummary{}
-				if g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+				if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 					return fmt.Errorf("failed to erase policy report results: %v", err)
 				}
 				return nil
@@ -741,7 +741,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 
 				cpolr.Results = []policyreportv1alpha2.PolicyReportResult{}
 				cpolr.Summary = policyreportv1alpha2.PolicyReportSummary{}
-				if g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+				if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 					return fmt.Errorf("failed to erase cluster policy report results: %v", err)
 				}
 				return nil
