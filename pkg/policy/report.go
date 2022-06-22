@@ -53,7 +53,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
-			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
+			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, nil); err != nil {
 				logger.Error(err, "continue reconciling policy reports")
 			}
 
@@ -67,7 +67,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			}
 
 			if erase {
-				if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries); err != nil {
+				if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, nil); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
 				}
 			}
@@ -88,8 +88,17 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests,
 				map[string]string{policyreport.ResourceLabelNamespace: ns}); err != nil {
 				logger.Error(err, "failed to cleanup report change requests for the given namespace", "namespace", ns)
+			} else {
+				logger.V(3).Info("cleaned up report change requests for the given namespace", "namespace", ns)
 			}
+
 			changeRequestMapperNamespace[ns] = false
+
+			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, info.Namespace); err != nil {
+				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+			} else {
+				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+			}
 
 			pc.prGenerator.ResetMapper(ns)
 			pc.requeuePolicies()
@@ -127,13 +136,48 @@ func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyve
 	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
-func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister) error {
+func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error {
 	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to erase results entries %v", err)
 	}
 
 	var errors []string
+	var polrName string
+
+	if ns != nil {
+		polrName = policyreport.GeneratePolicyReportName(*ns)
+		if polrName != "" {
+			polr, err := reportLister.PolicyReports(*ns).Get(polrName)
+			if err != nil {
+				errors = append(errors, err.Error())
+			}
+
+			polr.Results = []v1alpha2.PolicyReportResult{}
+			polr.Summary = v1alpha2.PolicyReportSummary{}
+			if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
+			}
+
+		} else {
+			cpolr, err := clusterReportLister.Get(polrName)
+			if err != nil {
+				errors = append(errors, err.Error())
+			}
+
+			cpolr.Results = []v1alpha2.PolicyReportResult{}
+			cpolr.Summary = v1alpha2.PolicyReportSummary{}
+			if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+				errors = append(errors, fmt.Sprintf("%s/%s: %v", cpolr.Kind, cpolr.Name, err))
+			}
+		}
+
+		if len(errors) == 0 {
+			return nil
+		}
+
+		return fmt.Errorf("failed to erase results entries for report %s: %v", polrName, strings.Join(errors, ";"))
+	}
 
 	if polrs, err := reportLister.List(selector); err != nil {
 		errors = append(errors, err.Error())

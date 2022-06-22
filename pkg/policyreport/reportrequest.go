@@ -68,6 +68,7 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
+	changeRequestLimit int,
 	log logr.Logger,
 ) *Generator {
 	gen := Generator{
@@ -80,7 +81,7 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
-		changeRequestLimit:               3000,
+		changeRequestLimit:               changeRequestLimit,
 		CleanupChangeRequest:             make(chan ReconcileInfo, 10),
 		log:                              log,
 	}

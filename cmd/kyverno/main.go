@@ -68,6 +68,7 @@ var (
 	allowInsecureRegistry        bool
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
+	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
@@ -91,6 +92,8 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
+	flag.IntVar(&changeRequestLimit, "changeRequestLimit", 100, "Configure the maximum count for report change requests.")
+
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -201,6 +204,7 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		changeRequestLimit,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 

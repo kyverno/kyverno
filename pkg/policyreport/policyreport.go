@@ -17,20 +17,20 @@ import (
 
 type PolicyReportEraser interface {
 	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error
-	EraseResultsEntries(erase EraseResultsEntries) error
+	EraseResultsEntries(erase EraseResultsEntries, ns *string) error
 }
 
 type (
 	CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error
-	EraseResultsEntries         = func(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister) error
+	EraseResultsEntries         = func(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error
 )
 
 func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error {
 	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister, labels)
 }
 
-func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries) error {
-	return erase(g.pclient, g.reportLister, g.clusterReportLister)
+func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries, ns *string) error {
+	return erase(g.pclient, g.reportLister, g.clusterReportLister, ns)
 }
 
 type deletedResource struct {

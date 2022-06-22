@@ -706,6 +706,9 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 			if strings.Contains(err.Error(), resourceExhaustedErr) {
 				annotations := polr.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
 				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag to generate report per policy"
 				polr.SetAnnotations(annotations)
 
@@ -732,6 +735,9 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			if strings.Contains(err.Error(), resourceExhaustedErr) {
 				annotations := cpolr.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
 				annotations[inactiveLabelKey] = "Unable to update cluster policy report due to resourceExhausted error, please enable the flag to generate report per policy"
 				cpolr.SetAnnotations(annotations)
 
