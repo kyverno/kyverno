@@ -331,7 +331,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 
-	new, aggregatedRequests, err := g.aggregateReports(namespace)
+	new, aggregatedRequests, policyName, err := g.aggregateReports(namespace)
 	if err != nil {
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
@@ -345,7 +345,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	}
 
 	var old interface{}
-	if old, err = g.createReportIfNotPresent(namespace, new, aggregatedRequests); err != nil {
+	if old, err = g.createReportIfNotPresent(namespace, policyName, new, aggregatedRequests); err != nil {
 		return aggregatedRequests, err
 	}
 
@@ -365,7 +365,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 
 // createReportIfNotPresent creates cluster / policyReport if not present
 // return the existing report if exist
-func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
+func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string, new *unstructured.Unstructured, aggregatedRequests interface{}) (report interface{}, err error) {
 	log := g.log.WithName("createReportIfNotPresent")
 	obj, hasDuplicate, err := updateResults(new.UnstructuredContent(), new.UnstructuredContent(), nil)
 	if hasDuplicate && err != nil {
@@ -407,7 +407,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace string, new *unstru
 			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-		report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
+		report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace) + "-" + policyName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {
@@ -531,6 +531,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 func (g *ReportGenerator) aggregateReports(namespace string) (
 	report *unstructured.Unstructured,
 	aggregatedRequests interface{},
+	policyName string,
 	err error,
 ) {
 	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace())
@@ -542,17 +543,17 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
 		requests, err := g.clusterReportChangeRequestLister.List(selector)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
+			return nil, nil, "", fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(nil, kyvernoNamespace, requests); err != nil {
-			return nil, nil, fmt.Errorf("unable to merge ClusterReportChangeRequests results: %v", err)
+		if report, aggregatedRequests, policyName, err = mergeRequests(nil, kyvernoNamespace, requests); err != nil {
+			return nil, nil, policyName, fmt.Errorf("unable to merge ClusterReportChangeRequests results: %v", err)
 		}
 	} else {
 		ns, err := g.nsLister.Get(namespace)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return nil, nil, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
+				return nil, nil, policyName, fmt.Errorf("unable to get namespace %s: %v", namespace, err)
 			}
 			// Namespace is deleted, create a fake ns to clean up RCRs
 			ns = new(corev1.Namespace)
@@ -564,20 +565,20 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
+			return nil, nil, policyName, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(ns, kyvernoNamespace, requests); err != nil {
-			return nil, nil, fmt.Errorf("unable to merge results: %v", err)
+		if report, aggregatedRequests, policyName, err = mergeRequests(ns, kyvernoNamespace, requests); err != nil {
+			return nil, nil, policyName, fmt.Errorf("unable to merge results: %v", err)
 		}
 	}
 
-	return report, aggregatedRequests, nil
+	return report, aggregatedRequests, policyName, nil
 }
 
-func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, string, error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
-
+	var policyName string
 	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
 		aggregatedRequests := []*kyvernov1alpha2.ClusterReportChangeRequest{}
 		for _, request := range requests {
@@ -588,6 +589,7 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{})
 				results = append(results, request.Results...)
 			}
 			aggregatedRequests = append(aggregatedRequests, request)
+			policyName = request.Labels[policyLabel]
 		}
 
 		report := &policyreportv1alpha2.ClusterPolicyReport{
@@ -597,12 +599,14 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{})
 
 		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(report)
 		if err != nil {
-			return nil, aggregatedRequests, err
+			return nil, aggregatedRequests, policyName, err
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, nil, kyvernoNs)
-		return req, aggregatedRequests, nil
+
+		setReport(req, ns, kyvernoNs, policyName)
+
+		return req, aggregatedRequests, policyName, nil
 	}
 
 	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ReportChangeRequest); ok {
@@ -615,6 +619,8 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{})
 				results = append(results, request.Results...)
 			}
 			aggregatedRequests = append(aggregatedRequests, request)
+
+			policyName = request.Labels[policyLabel]
 		}
 
 		report := &policyreportv1alpha2.PolicyReport{
@@ -624,19 +630,20 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, requestsGeneral interface{})
 
 		obj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(report)
 		if err != nil {
-			return nil, aggregatedRequests, err
+			return nil, aggregatedRequests, policyName, err
 		}
 
 		req := &unstructured.Unstructured{Object: obj}
-		setReport(req, ns, kyvernoNs)
 
-		return req, aggregatedRequests, nil
+		setReport(req, ns, kyvernoNs, policyName)
+
+		return req, aggregatedRequests, policyName, nil
 	}
 
-	return nil, nil, nil
+	return nil, nil, policyName, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace) {
+func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace, policyname string) {
 	reportUnstructured.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
@@ -655,12 +662,12 @@ func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *cor
 	}
 
 	if ns == nil {
-		reportUnstructured.SetName(GeneratePolicyReportName(""))
+		reportUnstructured.SetName(GeneratePolicyReportName("") + "-" + policyname)
 		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
+	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname)
 	reportUnstructured.SetNamespace(ns.GetName())
 	reportUnstructured.SetKind("PolicyReport")
 }
