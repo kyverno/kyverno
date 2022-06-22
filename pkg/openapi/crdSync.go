@@ -91,7 +91,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 }
 
 func (c *crdSync) sync() {
-	//c.client.Discovery().DiscoveryCache().Invalidate()
+	c.client.Discovery().DiscoveryCache().Invalidate()
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
@@ -112,7 +112,7 @@ func (c *crdSync) sync() {
 		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().OpenAPISchema()
+	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
