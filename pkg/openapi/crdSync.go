@@ -112,7 +112,7 @@ func (c *crdSync) sync() {
 		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
