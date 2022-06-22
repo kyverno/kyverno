@@ -284,7 +284,6 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		//kyvernoV1beta1.UpdateRequests(),
 		configuration,
 		eventGenerator,
 		reportReqGen,

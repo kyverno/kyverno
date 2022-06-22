@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	//"github.com/kyverno/kyverno/pkg/background"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
