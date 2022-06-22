@@ -442,7 +442,7 @@ func main() {
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
 		go prgen.Run(1, stopCh)
 		go grcc.Run(1, stopCh)
 	}

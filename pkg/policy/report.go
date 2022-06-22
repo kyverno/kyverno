@@ -40,15 +40,16 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh <-chan struct{}) {
+func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanupChangeRequest <-chan string, stopCh <-chan struct{}) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
+	changeRequestMapperNamespace := make(map[string]bool)
 	for {
 		select {
 		case <-ticker.C:
 			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
@@ -60,7 +61,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests); err != nil {
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
@@ -72,24 +73,43 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, stopCh 
 
 			pc.requeuePolicies()
 
+		case ns := <-cleanupChangeRequest:
+			if exist := changeRequestMapperNamespace[ns]; exist {
+				continue
+			}
+
+			changeRequestMapperNamespace[ns] = true
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests,
+				map[string]string{policyreport.ResourceLabelNamespace: ns}); err != nil {
+				logger.Error(err, "failed to cleanup report change requests for the given namespace", "namespace", ns)
+			}
+			changeRequestMapperNamespace[ns] = false
+
+			pc.prGenerator.Reset(ns)
+			pc.requeuePolicies()
+
 		case <-stopCh:
 			return
 		}
 	}
 }
 
-func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister) error {
+func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error {
 	var errors []string
 
 	var gracePeriod int64 = 0
 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 
-	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	selector := &metav1.LabelSelector{
+		MatchLabels: labels,
+	}
+
+	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}

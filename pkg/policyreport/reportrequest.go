@@ -17,6 +17,7 @@ import (
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	cmap "github.com/orcaman/concurrent-map"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -27,6 +28,8 @@ const (
 	workQueueRetryLimit = 10
 )
 
+type concurrentMap struct{ cmap.ConcurrentMap }
+
 // Generator creates report request
 type Generator struct {
 	dclient dclient.Interface
@@ -34,6 +37,9 @@ type Generator struct {
 	reportChangeRequestLister kyvernov1alpha2listers.ReportChangeRequestLister
 
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
+
+	// changeRequestMapper stores the change requests' count per namespace
+	changeRequestMapper concurrentMap
 
 	// cpolLister can list/get policy from the shared informer's store
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -45,6 +51,12 @@ type Generator struct {
 	dataStore *dataStore
 
 	requestCreator creator
+
+	// changeRequestLimit defines the max count for change requests (per namespace for RCR / cluster-wide for CRCR)
+	changeRequestLimit int
+
+	// CleanupChangeRequest signals the policy report controller to cleanup change requests
+	CleanupChangeRequest chan string
 
 	log logr.Logger
 }
@@ -62,11 +74,14 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		dclient:                          dclient,
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
 		reportChangeRequestLister:        reportReqInformer.Lister(),
+		changeRequestMapper:              newChangeRequestMapper(),
 		cpolLister:                       cpolInformer.Lister(),
 		polLister:                        polInformer.Lister(),
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
+		changeRequestLimit:               3000,
+		CleanupChangeRequest:             make(chan string, 10),
 		log:                              log,
 	}
 
@@ -139,9 +154,15 @@ func (i Info) GetRuleLength() int {
 	return l
 }
 
+func parseKeyHash(keyHash string) (policyName, ns string) {
+	keys := strings.Split(keyHash, "/")
+	return keys[0], keys[1]
+}
+
 // GeneratorInterface provides API to create PVs
 type GeneratorInterface interface {
 	Add(infos ...Info)
+	Reset(string)
 }
 
 func (gen *Generator) enqueue(info Info) {
@@ -153,8 +174,14 @@ func (gen *Generator) enqueue(info Info) {
 // Add queues a policy violation create request
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
+		gen.changeRequestMapper.increase(info.Namespace)
 		gen.enqueue(info)
 	}
+}
+
+// Reset resets the change request mapper for the given namespace
+func (gen Generator) Reset(ns string) {
+	gen.changeRequestMapper.ConcurrentMap.Set(ns, 0)
 }
 
 // Run starts the workers
@@ -188,6 +215,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	if err == nil {
 		gen.queue.Forget(key)
 		gen.dataStore.delete(keyHash)
+		gen.changeRequestMapper.decrease(keyHash)
 		return
 	}
 
@@ -201,6 +229,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
 	gen.dataStore.delete(keyHash)
+	gen.changeRequestMapper.decrease(keyHash)
 }
 
 func (gen *Generator) processNextWorkItem() bool {
@@ -210,32 +239,35 @@ func (gen *Generator) processNextWorkItem() bool {
 		return false
 	}
 
-	err := func(obj interface{}) error {
-		defer gen.queue.Done(obj)
-		var keyHash string
-		var ok bool
+	defer gen.queue.Done(obj)
+	var keyHash string
+	var ok bool
 
-		if keyHash, ok = obj.(string); !ok {
-			gen.queue.Forget(obj)
-			logger.Info("incorrect type; expecting type 'string'", "obj", obj)
-			return nil
-		}
-
-		// lookup data store
-		info := gen.dataStore.lookup(keyHash)
-		if reflect.DeepEqual(info, Info{}) {
-			gen.queue.Forget(obj)
-			logger.V(4).Info("empty key")
-			return nil
-		}
-
-		err := gen.syncHandler(info)
-		gen.handleErr(err, obj)
-		return nil
-	}(obj)
-	if err != nil {
-		logger.Error(err, "failed to process item")
+	if keyHash, ok = obj.(string); !ok {
+		logger.Info("incorrect type; expecting type 'string'", "obj", obj)
+		gen.handleErr(nil, obj)
+		return true
 	}
+
+	// lookup data store
+	info := gen.dataStore.lookup(keyHash)
+	if reflect.DeepEqual(info, Info{}) {
+		logger.V(4).Info("empty key")
+		gen.handleErr(nil, obj)
+		return true
+	}
+
+	count, ok := gen.changeRequestMapper.Get(info.Namespace)
+	if ok && count.(int) > gen.changeRequestLimit {
+		logger.Info("change requests exceeds the threshold, pause creations of change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
+		gen.CleanupChangeRequest <- info.Namespace
+		gen.queue.Forget(obj)
+		gen.dataStore.delete(keyHash)
+		return true
+	}
+
+	err := gen.syncHandler(info)
+	gen.handleErr(err, obj)
 
 	return true
 }
@@ -270,4 +302,27 @@ func hasResultsChanged(old, new map[string]interface{}) bool {
 	}
 
 	return !reflect.DeepEqual(oldRes, newRes)
+}
+
+func newChangeRequestMapper() concurrentMap {
+	return concurrentMap{cmap.New()}
+}
+
+func (m concurrentMap) increase(ns string) {
+	count, ok := m.Get(ns)
+	if ok {
+		m.Set(ns, count.(int)+1)
+	} else {
+		m.Set(ns, 1)
+	}
+}
+
+func (m concurrentMap) decrease(keyHash string) {
+	_, ns := parseKeyHash(keyHash)
+	count, ok := m.Get(ns)
+	if ok {
+		m.Set(ns, count.(int)-1)
+	} else {
+		m.Set(ns, 0)
+	}
 }

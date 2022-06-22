@@ -16,17 +16,17 @@ import (
 )
 
 type PolicyReportEraser interface {
-	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error
+	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error
 	EraseResultsEntries(erase EraseResultsEntries) error
 }
 
 type (
-	CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister) error
+	CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error
 	EraseResultsEntries         = func(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister) error
 )
 
-func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error {
-	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister)
+func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error {
+	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister, labels)
 }
 
 func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries) error {
@@ -52,7 +52,7 @@ func buildLabelForDeletedResource(labels, annotations map[string]string) *delete
 	return &deletedResource{
 		kind: kind,
 		name: name,
-		ns:   labels[resourceLabelNamespace],
+		ns:   labels[ResourceLabelNamespace],
 	}
 }
 

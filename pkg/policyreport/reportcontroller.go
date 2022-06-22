@@ -120,7 +120,7 @@ func generateCacheKey(changeRequest interface{}) string {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
 
-		ns := label[resourceLabelNamespace]
+		ns := label[ResourceLabelNamespace]
 		if ns == "" {
 			ns = "default"
 		}
@@ -540,7 +540,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, resourceLabelNamespace: namespace}))
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
