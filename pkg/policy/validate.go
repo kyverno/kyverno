@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -104,7 +103,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	clusterResources := sets.NewString()
 	if !mock && namespaced {
 		// Get all the cluster type kind supported by cluster
-		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
+		res, err := client.Discovery().DiscoveryCache().ServerPreferredResources()
 		if err != nil {
 			return nil, err
 		}
