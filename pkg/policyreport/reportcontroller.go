@@ -40,6 +40,10 @@ const (
 
 	LabelSelectorKey   = "managed-by"
 	LabelSelectorValue = "kyverno"
+
+	deletedPolicyKey = "deletedpolicy"
+
+	resourceExhaustedErr = "ResourceExhausted"
 )
 
 var LabelSelector = &metav1.LabelSelector{
@@ -104,8 +108,6 @@ func NewReportGenerator(
 
 	return gen, nil
 }
-
-const deletedPolicyKey string = "deletedpolicy"
 
 // the key of queue can be
 // - <namespace name> for the resource
@@ -311,16 +313,24 @@ func (g *ReportGenerator) handleErr(err error, key interface{}, aggregatedReques
 // otherwise it updates policyReport
 func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{}, err error) {
 	g.log.V(4).Info("syncing policy report", "key", key)
+	namespace := key
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		g.log.V(4).Info("sync policy report on policy deletion")
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 
-	namespace := key
 	new, aggregatedRequests, err := g.aggregateReports(namespace)
 	if err != nil {
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
+	}
+
+	report, err := g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
+	if err == nil {
+		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
+			g.log.Info("got resourceExhausted error, please opt-in to generate report per policy")
+			return aggregatedRequests, nil
+		}
 	}
 
 	var old interface{}
@@ -694,6 +704,22 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 			return fmt.Errorf("error converting to PolicyReport: %v", err)
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				annotations := polr.GetAnnotations()
+				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag to generate report per policy"
+				polr.SetAnnotations(annotations)
+
+				labels := polr.GetLabels()
+				labels[inactiveLabelKey] = inactiveLabelVal
+				polr.SetLabels(labels)
+
+				polr.Results = []policyreportv1alpha2.PolicyReportResult{}
+				polr.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				if g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed to erase policy report results: %v", err)
+				}
+				return nil
+			}
 			return fmt.Errorf("failed to update PolicyReport: %v", err)
 		}
 	}
@@ -704,6 +730,22 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 			return fmt.Errorf("error converting to ClusterPolicyReport: %v", err)
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				annotations := cpolr.GetAnnotations()
+				annotations[inactiveLabelKey] = "Unable to update cluster policy report due to resourceExhausted error, please enable the flag to generate report per policy"
+				cpolr.SetAnnotations(annotations)
+
+				labels := cpolr.GetLabels()
+				labels[inactiveLabelKey] = inactiveLabelVal
+				cpolr.SetLabels(labels)
+
+				cpolr.Results = []policyreportv1alpha2.PolicyReportResult{}
+				cpolr.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				if g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed to erase cluster policy report results: %v", err)
+				}
+				return nil
+			}
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
 		}
 	}

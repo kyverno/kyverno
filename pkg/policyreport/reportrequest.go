@@ -56,7 +56,7 @@ type Generator struct {
 	changeRequestLimit int
 
 	// CleanupChangeRequest signals the policy report controller to cleanup change requests
-	CleanupChangeRequest chan string
+	CleanupChangeRequest chan ReconcileInfo
 
 	log logr.Logger
 }
@@ -81,11 +81,16 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		dataStore:                        newDataStore(),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		changeRequestLimit:               3000,
-		CleanupChangeRequest:             make(chan string, 10),
+		CleanupChangeRequest:             make(chan ReconcileInfo, 10),
 		log:                              log,
 	}
 
 	return &gen
+}
+
+type ReconcileInfo struct {
+	Erase     bool
+	Namespace *string
 }
 
 // NewDataStore returns an instance of data store
@@ -162,7 +167,8 @@ func parseKeyHash(keyHash string) (policyName, ns string) {
 // GeneratorInterface provides API to create PVs
 type GeneratorInterface interface {
 	Add(infos ...Info)
-	Reset(string)
+	ResetMapper(string)
+	InvalidateMapper()
 }
 
 func (gen *Generator) enqueue(info Info) {
@@ -179,9 +185,16 @@ func (gen *Generator) Add(infos ...Info) {
 	}
 }
 
-// Reset resets the change request mapper for the given namespace
-func (gen Generator) Reset(ns string) {
+// ResetMapper resets the change request mapper for the given namespace
+func (gen Generator) ResetMapper(ns string) {
 	gen.changeRequestMapper.ConcurrentMap.Set(ns, 0)
+}
+
+// InvalidateMapper reset map entries
+func (gen Generator) InvalidateMapper() {
+	for ns, _ := range gen.changeRequestMapper.ConcurrentMap.Items() {
+		gen.changeRequestMapper.ConcurrentMap.Remove(ns)
+	}
 }
 
 // Run starts the workers
@@ -260,7 +273,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	count, ok := gen.changeRequestMapper.Get(info.Namespace)
 	if ok && count.(int) > gen.changeRequestLimit {
 		logger.Info("change requests exceeds the threshold, pause creations of change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
-		gen.CleanupChangeRequest <- info.Namespace
+		gen.CleanupChangeRequest <- ReconcileInfo{Namespace: &(info.Namespace)}
 		gen.queue.Forget(obj)
 		gen.dataStore.delete(keyHash)
 		return true

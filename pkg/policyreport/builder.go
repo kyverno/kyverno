@@ -36,6 +36,9 @@ const (
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
 
+	inactiveLabelKey string = "kyverno.io/report.status"
+	inactiveLabelVal string = "inactive"
+
 	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
 )

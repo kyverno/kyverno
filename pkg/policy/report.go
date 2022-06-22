@@ -40,7 +40,7 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanupChangeRequest <-chan string, stopCh <-chan struct{}) {
+func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
@@ -58,6 +58,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			}
 
 			pc.requeuePolicies()
+			pc.prGenerator.InvalidateMapper()
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
@@ -73,7 +74,12 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 
 			pc.requeuePolicies()
 
-		case ns := <-cleanupChangeRequest:
+		case info := <-cleanupChangeRequest:
+			if info.Namespace == nil {
+				continue
+			}
+
+			ns := *info.Namespace
 			if exist := changeRequestMapperNamespace[ns]; exist {
 				continue
 			}
@@ -85,7 +91,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			}
 			changeRequestMapperNamespace[ns] = false
 
-			pc.prGenerator.Reset(ns)
+			pc.prGenerator.ResetMapper(ns)
 			pc.requeuePolicies()
 
 		case <-stopCh:
