@@ -216,6 +216,7 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
+		reportReqGen.CleanupChangeRequest,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {

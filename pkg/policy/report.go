@@ -58,7 +58,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			}
 
 			pc.requeuePolicies()
-			pc.prGenerator.InvalidateMapper()
+			pc.prGenerator.MapperInvalidate()
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
@@ -100,7 +100,11 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
 			}
 
-			pc.prGenerator.ResetMapper(ns)
+			if info.MapperInactive {
+				pc.prGenerator.MapperInactive(ns)
+			} else {
+				pc.prGenerator.MapperReset(ns)
+			}
 			pc.requeuePolicies()
 
 		case <-stopCh:
@@ -150,7 +154,7 @@ func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyrep
 		if polrName != "" {
 			polr, err := reportLister.PolicyReports(*ns).Get(polrName)
 			if err != nil {
-				errors = append(errors, err.Error())
+				return fmt.Errorf("failed to erase results entries for PolicyReport %s: %v", polrName, err)
 			}
 
 			polr.Results = []v1alpha2.PolicyReportResult{}
@@ -158,7 +162,6 @@ func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyrep
 			if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
 			}
-
 		} else {
 			cpolr, err := clusterReportLister.Get(polrName)
 			if err != nil {
@@ -168,7 +171,7 @@ func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyrep
 			cpolr.Results = []v1alpha2.PolicyReportResult{}
 			cpolr.Summary = v1alpha2.PolicyReportSummary{}
 			if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
-				errors = append(errors, fmt.Sprintf("%s/%s: %v", cpolr.Kind, cpolr.Name, err))
+				return fmt.Errorf("failed to erase results entries for ClusterPolicyReport %s: %v", polrName, err)
 			}
 		}
 

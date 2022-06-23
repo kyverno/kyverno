@@ -74,6 +74,8 @@ type ReportGenerator struct {
 	// if send true, the reports' results will be erased, this is used to recover from the invalid records
 	ReconcileCh chan bool
 
+	cleanupChangeRequest chan<- ReconcileInfo
+
 	log logr.Logger
 }
 
@@ -86,6 +88,7 @@ func NewReportGenerator(
 	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
 	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
 	namespace corev1informers.NamespaceInformer,
+	cleanupChangeRequest chan<- ReconcileInfo,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
@@ -97,6 +100,7 @@ func NewReportGenerator(
 		clusterReportReqInformer: clusterReportReqInformer,
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
 		ReconcileCh:              make(chan bool, 10),
+		cleanupChangeRequest:     cleanupChangeRequest,
 		log:                      log,
 	}
 
@@ -705,6 +709,8 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				g.log.V(4).Info("got ResourceExhausted error, cleanning up change requests and erasing report results")
+
 				annotations := polr.GetAnnotations()
 				if annotations == nil {
 					annotations = make(map[string]string)
@@ -721,6 +727,8 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 					return fmt.Errorf("failed to erase policy report results: %v", err)
 				}
+				ns := new.GetNamespace()
+				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 				return nil
 			}
 			return fmt.Errorf("failed to update PolicyReport: %v", err)
@@ -734,6 +742,8 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				g.log.V(4).Info("got ResourceExhausted error, cleanning up change requests and erasing report results")
+
 				annotations := cpolr.GetAnnotations()
 				if annotations == nil {
 					annotations = make(map[string]string)
@@ -750,6 +760,8 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
 					return fmt.Errorf("failed to erase cluster policy report results: %v", err)
 				}
+				ns := ""
+				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 				return nil
 			}
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)

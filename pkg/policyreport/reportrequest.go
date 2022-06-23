@@ -90,8 +90,8 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 }
 
 type ReconcileInfo struct {
-	Erase     bool
-	Namespace *string
+	Namespace      *string
+	MapperInactive bool
 }
 
 // NewDataStore returns an instance of data store
@@ -168,8 +168,9 @@ func parseKeyHash(keyHash string) (policyName, ns string) {
 // GeneratorInterface provides API to create PVs
 type GeneratorInterface interface {
 	Add(infos ...Info)
-	ResetMapper(string)
-	InvalidateMapper()
+	MapperReset(string)
+	MapperInactive(string)
+	MapperInvalidate()
 }
 
 func (gen *Generator) enqueue(info Info) {
@@ -181,18 +182,30 @@ func (gen *Generator) enqueue(info Info) {
 // Add queues a policy violation create request
 func (gen *Generator) Add(infos ...Info) {
 	for _, info := range infos {
+		count, ok := gen.changeRequestMapper.ConcurrentMap.Get(info.Namespace)
+		if ok && count == -1 {
+			gen.log.V(6).Info("inactive policy report, skip creating report change request", "namespace", info.Namespace)
+			continue
+		}
+
 		gen.changeRequestMapper.increase(info.Namespace)
 		gen.enqueue(info)
 	}
 }
 
-// ResetMapper resets the change request mapper for the given namespace
-func (gen Generator) ResetMapper(ns string) {
+// MapperReset resets the change request mapper for the given namespace
+func (gen Generator) MapperReset(ns string) {
 	gen.changeRequestMapper.ConcurrentMap.Set(ns, 0)
 }
 
-// InvalidateMapper reset map entries
-func (gen Generator) InvalidateMapper() {
+// MapperInactive sets the change request mapper for the given namespace to -1
+// which indicates the report is inactive
+func (gen Generator) MapperInactive(ns string) {
+	gen.changeRequestMapper.ConcurrentMap.Set(ns, -1)
+}
+
+// MapperInvalidate reset map entries
+func (gen Generator) MapperInvalidate() {
 	for ns := range gen.changeRequestMapper.ConcurrentMap.Items() {
 		gen.changeRequestMapper.ConcurrentMap.Remove(ns)
 	}
@@ -272,12 +285,14 @@ func (gen *Generator) processNextWorkItem() bool {
 	}
 
 	count, ok := gen.changeRequestMapper.Get(info.Namespace)
-	if ok && count.(int) > gen.changeRequestLimit {
-		logger.Info("change requests exceeds the threshold, pause creations of change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
-		gen.CleanupChangeRequest <- ReconcileInfo{Namespace: &(info.Namespace)}
-		gen.queue.Forget(obj)
-		gen.dataStore.delete(keyHash)
-		return true
+	if ok {
+		if count.(int) > gen.changeRequestLimit {
+			logger.Info("change requests exceeds the threshold, pause creations of change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
+			gen.CleanupChangeRequest <- ReconcileInfo{Namespace: &(info.Namespace), MapperInactive: false}
+			gen.queue.Forget(obj)
+			gen.dataStore.delete(keyHash)
+			return true
+		}
 	}
 
 	err := gen.syncHandler(info)
@@ -324,7 +339,7 @@ func newChangeRequestMapper() concurrentMap {
 
 func (m concurrentMap) increase(ns string) {
 	count, ok := m.Get(ns)
-	if ok {
+	if ok && count != -1 {
 		m.Set(ns, count.(int)+1)
 	} else {
 		m.Set(ns, 1)
@@ -334,7 +349,7 @@ func (m concurrentMap) increase(ns string) {
 func (m concurrentMap) decrease(keyHash string) {
 	_, ns := parseKeyHash(keyHash)
 	count, ok := m.Get(ns)
-	if ok {
+	if ok && count.(int) > 0 {
 		m.Set(ns, count.(int)-1)
 	} else {
 		m.Set(ns, 0)
