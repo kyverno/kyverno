@@ -95,6 +95,7 @@ func NewController(
 		nsLister:      namespaceInformer.Lister(),
 		podLister:     podInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		policyqueue:   workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		eventGen:      eventGen,
 		configuration: dynamicConfig,
 	}
@@ -146,7 +147,7 @@ func (c *controller) processNextWorkItem() bool {
 	if quitpol {
 		return false
 	} else {
-		defer c.queue.Done(key)
+		defer c.policyqueue.Done(key)
 		err := c.syncPolicy(keypol.(string))
 		c.handleErr(err, keypol)
 	}
