@@ -128,6 +128,8 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.worker, time.Second, stopCh)
 	}
 
+	go c.run(2, stopCh)
+
 	<-stopCh
 }
 
@@ -143,15 +145,6 @@ func (c *controller) processNextWorkItem() bool {
 	if quit {
 		return false
 	}
-	keypol, quitpol := c.policyqueue.Get()
-	if quitpol {
-		return false
-	} else {
-		defer c.policyqueue.Done(key)
-		err := c.syncPolicy(keypol.(string))
-		c.handleErr(err, keypol)
-	}
-
 	defer c.queue.Done(key)
 	err := c.syncUpdateRequest(key.(string))
 	c.handleErr(err, key)
