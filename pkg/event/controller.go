@@ -148,30 +148,24 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 }
 
 func (gen *Generator) processNextWorkItem() bool {
-	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
 	}
 
-	err := func(obj interface{}) error {
-		defer gen.queue.Done(obj)
-		var key Info
-		var ok bool
+	defer gen.queue.Done(obj)
 
-		if key, ok = obj.(Info); !ok {
-			gen.queue.Forget(obj)
-			logger.Info("Incorrect type; expected type 'info'", "obj", obj)
-			return nil
-		}
-		err := gen.syncHandler(key)
-		gen.handleErr(err, obj)
-		return nil
-	}(obj)
-	if err != nil {
-		logger.Error(err, "failed to process next work item")
+	var key Info
+	var ok bool
+	if key, ok = obj.(Info); !ok {
+		gen.queue.Forget(obj)
+		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
+
+	err := gen.syncHandler(key)
+	gen.handleErr(err, obj)
+
 	return true
 }
 
