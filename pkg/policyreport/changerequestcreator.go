@@ -146,29 +146,39 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	mergedCRCR := &unstructured.Unstructured{}
+	mergedCRCR := make(map[string]*unstructured.Unstructured)
 	mergedRCR := make(map[string]*unstructured.Unstructured)
 	size = len(c.queue)
 
 	for _, uid := range c.queue {
 		if unstr, ok := c.CRCRCache.Get(uid); ok {
 			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
+
+				policyName := crcr.GetLabels()[policyLabel]
+				mergedPolicyCRCR, ok := mergedCRCR[policyName]
+				if !ok {
+					mergedPolicyCRCR = &unstructured.Unstructured{}
+				}
+
 				if isDeleteRequest(crcr) {
-					if !reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-						results = append(results, mergedCRCR)
-						mergedCRCR = &unstructured.Unstructured{}
+					if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+						results = append(results, mergedPolicyCRCR)
+						mergedCRCR[policyName] = &unstructured.Unstructured{}
 					}
 
 					results = append(results, crcr)
 				} else {
-					if reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-						mergedCRCR = crcr
+
+					if reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+						mergedCRCR[policyName] = crcr
 						continue
 					}
 
-					if ok := merge(mergedCRCR, crcr); !ok {
-						results = append(results, mergedCRCR)
-						mergedCRCR = crcr
+					if ok := merge(mergedPolicyCRCR, crcr); !ok {
+						results = append(results, mergedPolicyCRCR)
+						mergedCRCR[policyName] = crcr
+					} else {
+						mergedCRCR[policyName] = mergedPolicyCRCR
 					}
 				}
 			}
@@ -177,8 +187,8 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
-				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
-				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
+				policyName := rcr.GetLabels()[policyLabel]
+				mergedNamespacedRCR, ok := mergedRCR[policyName]
 				if !ok {
 					mergedNamespacedRCR = &unstructured.Unstructured{}
 				}
@@ -186,29 +196,31 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 				if isDeleteRequest(rcr) {
 					if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
 						results = append(results, mergedNamespacedRCR)
-						mergedRCR[resourceNS] = &unstructured.Unstructured{}
+						mergedRCR[policyName] = &unstructured.Unstructured{}
 					}
 
 					results = append(results, rcr)
 				} else {
 					if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-						mergedRCR[resourceNS] = rcr
+						mergedRCR[policyName] = rcr
 						continue
 					}
 
 					if ok := merge(mergedNamespacedRCR, rcr); !ok {
 						results = append(results, mergedNamespacedRCR)
-						mergedRCR[resourceNS] = rcr
+						mergedRCR[policyName] = rcr
 					} else {
-						mergedRCR[resourceNS] = mergedNamespacedRCR
+						mergedRCR[policyName] = mergedNamespacedRCR
 					}
 				}
 			}
 		}
 	}
 
-	if !reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-		results = append(results, mergedCRCR)
+	for _, mergedPolicyCRCR := range mergedCRCR {
+		if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+			results = append(results, mergedPolicyCRCR)
+		}
 	}
 
 	for _, mergedNamespacedRCR := range mergedRCR {
