@@ -156,7 +156,7 @@ metadata:
     app: kyverno
 rules:
 - apiGroups:
-  - "*"
+  - ""
   resources:
   - events
   verbs:
