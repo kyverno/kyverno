@@ -78,6 +78,15 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
+	// clusterPolicySynced returns true if the cluster policy shared informer has synced at least once
+	clusterPolicySynced cache.InformerSynced
+	// policySynced returns true if the policy shared informer has synced at least once
+	policySynced cache.InformerSynced
+	// urSynced returns true if the update request shared informer has synced at least once
+	urSynced cache.InformerSynced
+	// nsSynced returns true if the namespace shared informer has synced at least once
+	nsSynced cache.InformerSynced
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -140,9 +149,13 @@ func NewPolicyController(
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
-
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
+
+	pc.clusterPolicySynced = pInformer.Informer().HasSynced
+	pc.policySynced = npInformer.Informer().HasSynced
+	pc.urSynced = urInformer.Informer().HasSynced
+	pc.nsSynced = namespaces.Informer().HasSynced
 
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
@@ -413,6 +426,10 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("PolicyController", stopCh, pc.clusterPolicySynced, pc.policySynced, pc.nsSynced, pc.urSynced) {
+		return
+	}
 
 	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,

@@ -64,6 +64,17 @@ type ReportGenerator struct {
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 	nsLister                         corev1listers.NamespaceLister
 
+	// clusterReportSynced returns true if the cluster report shared informer has synced at least once
+	clusterReportSynced cache.InformerSynced
+	// reportSynced returns true if the report shared informer has synced at least once
+	reportSynced cache.InformerSynced
+	// reportReqSync returns true if the report change request shared informer has synced at least once
+	reportReqSync cache.InformerSynced
+	// clusterReportReqSynced returns true if the cluster report change request shared informer has synced at least once
+	clusterReportReqSynced cache.InformerSynced
+	// nsSynced returns true if the namespace shared informer has synced at least once
+	nsSynced cache.InformerSynced
+
 	queue workqueue.RateLimitingInterface
 
 	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
@@ -101,6 +112,12 @@ func NewReportGenerator(
 	gen.clusterReportChangeRequestLister = clusterReportReqInformer.Lister()
 	gen.reportChangeRequestLister = reportReqInformer.Lister()
 	gen.nsLister = namespace.Lister()
+
+	gen.clusterReportSynced = clusterReportInformer.Informer().HasSynced
+	gen.reportSynced = reportInformer.Informer().HasSynced
+	gen.reportReqSync = reportReqInformer.Informer().HasSynced
+	gen.clusterReportReqSynced = clusterReportInformer.Informer().HasSynced
+	gen.nsSynced = namespace.Informer().HasSynced
 
 	return gen, nil
 }
@@ -230,6 +247,10 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("PolicyReportGenerator", stopCh, g.clusterReportSynced, g.reportSynced, g.clusterReportReqSynced, g.reportReqSync, g.nsSynced) {
+		return
+	}
 
 	g.reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{

@@ -24,6 +24,7 @@ import (
 	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -52,6 +53,13 @@ type auditHandler struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	nsLister  corev1listers.NamespaceLister
 
+	// rbSynced returns true if the role binding shared informer has synced at least once
+	rbSynced cache.InformerSynced
+	// crbSynced returns true if the cluster role binding shared informer has synced at least once
+	crbSynced cache.InformerSynced
+	// nsSynced returns true if the namespace shared informer has synced at least once
+	nsSynced cache.InformerSynced
+
 	log           logr.Logger
 	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
@@ -76,6 +84,9 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 		rbLister:      rbInformer.Lister(),
 		crbLister:     crbInformer.Lister(),
 		nsLister:      namespaces.Lister(),
+		rbSynced:      rbInformer.Informer().HasSynced,
+		crbSynced:     crbInformer.Informer().HasSynced,
+		nsSynced:      namespaces.Informer().HasSynced,
 		log:           log,
 		prGenerator:   prGenerator,
 		configHandler: dynamicConfig,
@@ -96,6 +107,10 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 		utilruntime.HandleCrash()
 		h.log.V(4).Info("shutting down")
 	}()
+
+	if !cache.WaitForNamedCacheSync("ValidateAuditHandler", stopCh, h.crbSynced, h.rbSynced, h.nsSynced) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(h.runWorker, time.Second, stopCh)

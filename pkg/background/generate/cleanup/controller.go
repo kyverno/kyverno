@@ -53,6 +53,15 @@ type controller struct {
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister corev1listers.NamespaceLister
 
+	// cpolSynced returns true if the cluster policy shared informer has synced at least once
+	cpolSynced cache.InformerSynced
+	// polSynced returns true if the policy shared informer has synced at least once
+	polSynced cache.InformerSynced
+	// urSynced returns true if the update request shared informer has synced at least once
+	urSynced cache.InformerSynced
+	// nsSynced returns true if the namespace shared informer has synced at least once
+	nsSynced cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 }
@@ -76,6 +85,10 @@ func NewController(
 		npLister:      npInformer.Lister(),
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		nsLister:      namespaceInformer.Lister(),
+		cpolSynced:    pInformer.Informer().HasSynced,
+		polSynced:     npInformer.Informer().HasSynced,
+		urSynced:      urInformer.Informer().HasSynced,
+		nsSynced:      namespaceInformer.Informer().HasSynced,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 	}
 }
@@ -85,6 +98,11 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("generate-request-cleanup", stopCh, c.cpolSynced, c.polSynced, c.urSynced, c.nsSynced) {
+		return
+	}
+
 	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
 	})

@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -40,6 +41,15 @@ type Generator struct {
 
 	// polLister can list/get namespace policy from the shared informer's store
 	polLister kyvernov1listers.PolicyLister
+
+	// nsSynced returns true if the report change request shared informer has synced at least once
+	reportChangeRequestSynced cache.InformerSynced
+	// clusterReportChangeRequestSynced returns true if the cluster report change request shared informer has synced at least once
+	clusterReportChangeRequestSynced cache.InformerSynced
+	// cpolSynced returns true if the cluster policy shared informer has synced at least once
+	cpolSynced cache.InformerSynced
+	// polSynced returns true if the policy shared informer has synced at least once
+	polSynced cache.InformerSynced
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
@@ -69,6 +79,11 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		log:                              log,
 	}
+
+	gen.clusterReportChangeRequestSynced = clusterReportReqInformer.Informer().HasSynced
+	gen.reportChangeRequestSynced = reportReqInformer.Informer().HasSynced
+	gen.cpolSynced = cpolInformer.Informer().HasSynced
+	gen.polSynced = polInformer.Informer().HasSynced
 
 	return &gen
 }
@@ -163,6 +178,10 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("requestCreator", stopCh, gen.clusterReportChangeRequestSynced, gen.reportChangeRequestSynced, gen.cpolSynced, gen.polSynced) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)
