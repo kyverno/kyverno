@@ -28,6 +28,7 @@ const (
 
 	// the following labels are used to list rcr / crcr
 	resourceLabelNamespace string = "kyverno.io/resource.namespace"
+	policyLabel            string = "kyverno.io/policy-name"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
 	deletedLabelRule       string = "kyverno.io/delete.rule"
 
@@ -206,6 +207,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 
 	obj.SetLabels(map[string]string{
 		resourceLabelNamespace: info.Namespace,
+		policyLabel:            info.PolicyName,
 		appVersion:             version.BuildVersion,
 	})
 }
