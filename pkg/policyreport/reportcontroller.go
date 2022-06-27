@@ -332,7 +332,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	report, err := g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
-			g.log.Info("got resourceExhausted error, please opt-in to generate report per policy")
+			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
 			return aggregatedRequests, nil
 		}
 	}
@@ -715,7 +715,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag to generate report per policy"
+				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate report per policy"
 				polr.SetAnnotations(annotations)
 
 				labels := polr.GetLabels()
@@ -748,7 +748,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[inactiveLabelKey] = "Unable to update cluster policy report due to resourceExhausted error, please enable the flag to generate report per policy"
+				annotations[inactiveLabelKey] = "Unable to update cluster policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate report per policy"
 				cpolr.SetAnnotations(annotations)
 
 				labels := cpolr.GetLabels()
