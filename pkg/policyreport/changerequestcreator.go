@@ -153,7 +153,6 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 	for _, uid := range c.queue {
 		if unstr, ok := c.CRCRCache.Get(uid); ok {
 			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
-
 				policyName := crcr.GetLabels()[policyLabel]
 				mergedPolicyCRCR, ok := mergedCRCR[policyName]
 				if !ok {
@@ -168,7 +167,6 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 					results = append(results, crcr)
 				} else {
-
 					if reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
 						mergedCRCR[policyName] = crcr
 						continue

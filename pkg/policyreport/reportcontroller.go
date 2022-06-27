@@ -341,6 +341,15 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
+	deleteResources := getDeletedResources(aggregatedRequests)
+	if len(deleteResources) != 0 {
+		for _, dr := range deleteResources {
+			if err := g.updateReportsForDeletedResource(dr.name, new, aggregatedRequests); err != nil {
+				return aggregatedRequests, err
+			}
+		}
+	}
+
 	report, err := g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
@@ -349,9 +358,12 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		}
 	}
 
+	// Delete changes request does not have the policyName label set
 	var old interface{}
-	if old, err = g.createReportIfNotPresent(namespace, policyName, new, aggregatedRequests); err != nil {
-		return aggregatedRequests, err
+	if policyName != "" {
+		if old, err = g.createReportIfNotPresent(namespace, policyName, new, aggregatedRequests); err != nil {
+			return aggregatedRequests, err
+		}
 	}
 
 	if old == nil {
@@ -783,6 +795,62 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 	}
 
 	g.log.V(3).Info("successfully updated policy report", "kind", new.GetKind(), "namespace", new.GetNamespace(), "name", new.GetName())
+	return
+}
+
+func (g *ReportGenerator) updateReportsForDeletedResource(resName string, new *unstructured.Unstructured, aggregatedRequests interface{}) (err error) {
+	if _, ok := aggregatedRequests.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
+		cpolrs, err := g.clusterReportLister.List(labels.Everything())
+		if err != nil {
+			return fmt.Errorf("failed to list clusterPolicyReport %v", err)
+		}
+		for _, cpolr := range cpolrs {
+			newRes := []policyreportv1alpha2.PolicyReportResult{}
+			for _, result := range cpolr.Results {
+				if len(result.Resources) != 0 {
+					for _, res := range result.Resources {
+						if res.Name != resName {
+							newRes = append(newRes, result)
+						}
+					}
+				}
+			}
+			cpolr.Results = newRes
+			cpolr.Summary = calculateSummary(newRes)
+			gv := policyreportv1alpha2.SchemeGroupVersion
+			cpolr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterPolicyReport"})
+			if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("failed to update clusterPolicyReport %s %v", cpolr.Name, err)
+			}
+		}
+	} else {
+		polrs, err := g.reportLister.List(labels.Everything())
+		if err != nil {
+			return fmt.Errorf("failed to list clusterPolicyReport %v", err)
+		}
+		for _, polr := range polrs {
+			newRes1 := []policyreportv1alpha2.PolicyReportResult{}
+			for _, result := range polr.Results {
+				if len(result.Resources) != 0 {
+					for _, res := range result.Resources {
+						if res.Name != resName {
+							newRes1 = append(newRes1, result)
+						}
+					}
+				}
+			}
+			polr.Results = newRes1
+			polr.Summary = calculateSummary(newRes1)
+			gv := policyreportv1alpha2.SchemeGroupVersion
+
+			polr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"})
+
+			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+				return fmt.Errorf("failed to update clusterPolicyReport %s %v", polr.Name, err)
+			}
+		}
+	}
+
 	return
 }
 
