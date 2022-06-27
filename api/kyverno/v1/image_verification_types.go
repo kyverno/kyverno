@@ -69,18 +69,18 @@ type ImageVerification struct {
 	// MutateDigest enables replacement of image tags with digests.
 	// Defaults to true.
 	// +kubebuilder:default=true
-	// +kubebuilder:validation:Required
-	MutateDigest bool `json:"mutateDigest,omitempty" yaml:"mutateDigest,omitempty"`
+	// +kubebuilder:validation:Optional
+	MutateDigest bool `json:"mutateDigest" yaml:"mutateDigest"`
 
 	// VerifyDigest validates that images have a digest.
 	// +kubebuilder:default=true
-	// +kubebuilder:validation:Required
-	VerifyDigest bool `json:"verifyDigest,omitempty" yaml:"verifyDigest,omitempty"`
+	// +kubebuilder:validation:Optional
+	VerifyDigest bool `json:"verifyDigest" yaml:"verifyDigest"`
 
 	// Required validates that images are verified i.e. have matched passed a signature or attestation check.
 	// +kubebuilder:default=true
-	// +kubebuilder:validation:Required
-	Required bool `json:"required,omitempty" yaml:"required,omitempty"`
+	// +kubebuilder:validation:Optional
+	Required bool `json:"required" yaml:"required"`
 }
 
 type AttestorSet struct {
@@ -209,30 +209,21 @@ type Attestation struct {
 
 // Validate implements programmatic validation
 func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
-	if iv.Image == "" && len(iv.ImageReferences) == 0 {
+	copy := iv.Convert()
+
+	if len(copy.ImageReferences) == 0 {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasKey := iv.Key != ""
-	hasIssuer := iv.Issuer != ""
-	hasSubject := iv.Subject != ""
-	hasRoots := iv.Roots != ""
-	hasKeyless := hasIssuer || hasSubject || hasRoots
-	hasAttestors := len(iv.Attestors) > 0
+	hasAttestors := len(copy.Attestors) > 0
+	hasAttestations := len(copy.Attestations) > 0
 
-	if (hasKey && (hasKeyless || hasAttestors)) ||
-		(hasKeyless && (hasKey || hasAttestors)) ||
-		(hasAttestors && (hasKey || hasKeyless)) ||
-		(!hasKey && !hasKeyless && !hasAttestors) {
-		errs = append(errs, field.Invalid(path, iv, "Either a static key, keyless, or an attestor is required"))
-	}
-
-	if len(iv.Attestors) > 1 {
-		errs = append(errs, field.Invalid(path, iv, "Only one attestor is currently supported"))
+	if hasAttestations && !hasAttestors {
+		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
 	}
 
 	attestorsPath := path.Child("attestors")
-	for i, as := range iv.Attestors {
+	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
 	}
@@ -346,15 +337,18 @@ func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
 }
 
 func (iv *ImageVerification) Convert() *ImageVerification {
-	if len(iv.ImageReferences) > 0 || len(iv.Attestors) > 0 {
+	if iv.Image == "" && iv.Key == "" && iv.Issuer == "" {
 		return iv
 	}
 
 	copy := iv.DeepCopy()
-	copy.Attestations = iv.Attestations
+	copy.Image = ""
+	copy.Issuer = ""
+	copy.Subject = ""
+	copy.Roots = ""
 
 	if iv.Image != "" {
-		copy.ImageReferences = []string{iv.Image}
+		copy.ImageReferences = append(copy.ImageReferences, iv.Image)
 	}
 
 	attestor := Attestor{
@@ -376,5 +370,6 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 	attestorSet := AttestorSet{}
 	attestorSet.Entries = append(attestorSet.Entries, attestor)
 	copy.Attestors = append(copy.Attestors, attestorSet)
+	copy.Attestations = iv.Attestations
 	return copy
 }

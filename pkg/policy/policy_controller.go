@@ -485,10 +485,6 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	policy, err := pc.getPolicy(key)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// here only takes care of mutateExisting policies
-			// generate cleanup controller handles policy deletion
-			mutateURs := pc.listMutateURs(key, nil)
-			deleteUR(pc.kyvernoClient, key, mutateURs, logger)
 			return nil
 		}
 		return err
@@ -498,23 +494,16 @@ func (pc *PolicyController) syncPolicy(key string) error {
 			logger.Error(err, "failed to updateUR on Policy update")
 		}
 	}
-
 	pc.processExistingResources(policy)
 	return nil
 }
 
-func (pc *PolicyController) getPolicy(key string) (policy kyvernov1.PolicyInterface, err error) {
+func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 	namespace, key, isNamespacedPolicy := ParseNamespacedPolicy(key)
 	if !isNamespacedPolicy {
 		return pc.pLister.Get(key)
 	}
-
-	nsPolicy, err := pc.npLister.Policies(namespace).Get(key)
-	if err == nil && nsPolicy != nil {
-		policy = nsPolicy
-	}
-
-	return
+	return pc.npLister.Policies(namespace).Get(key)
 }
 
 func generateTriggers(client client.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
@@ -530,17 +519,6 @@ func generateTriggers(client client.Interface, rule kyvernov1.Rule, log logr.Log
 		list.Items = append(list.Items, mlist.Items...)
 	}
 	return convertlist(list.Items)
-}
-
-func deleteUR(kyvernoClient kyvernoclient.Interface, policyKey string, grList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	for _, v := range grList {
-		if policyKey == v.Spec.Policy {
-			err := kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
-			if err != nil && !errors.IsNotFound(err) {
-				logger.Error(err, "failed to delete ur", "name", v.GetName())
-			}
-		}
-	}
 }
 
 func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
