@@ -395,6 +395,15 @@ func main() {
 		webhookCfg.UpdateWebhookChan <- true
 	}
 
+	if splitPolicyReport {
+		setupLog.Info("cleanup old policy reports", "splitPolicyReport", splitPolicyReport)
+		err = policyreport.CleanupPolicyReport(kyvernoClient)
+		if err != nil {
+			setupLog.Error(err, "failed to delete old reports")
+			os.Exit(1)
+		}
+	}
+
 	// leader election context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

@@ -443,7 +443,6 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 		}
 	} else {
 
-		log.V(2).Info("creating clusterpolicyReport>>>>>>>>>>>>>>>1", "splitPolicyReport", g.splitPolicyReport)
 		if g.splitPolicyReport {
 			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace) + "-" + policyName)
 		} else {
@@ -457,7 +456,6 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 						return nil, fmt.Errorf("failed to convert to ClusterPolicyReport: %v", err)
 					}
 
-					log.V(2).Info("creating clusterpolicyReport>>>>>>2", "splitPolicyReport", g.splitPolicyReport)
 					if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), cpolr, metav1.CreateOptions{}); err != nil {
 						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
 					}
@@ -527,6 +525,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
+
 	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
@@ -562,6 +561,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 		gv := policyreportv1alpha2.SchemeGroupVersion
 		gvk := schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"}
 		r.SetGroupVersionKind(gvk)
+
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Update(context.TODO(), r, metav1.UpdateOptions{}); err != nil {
 			return fmt.Errorf("failed to update PolicyReport %s %v", r.GetName(), err)
 		}

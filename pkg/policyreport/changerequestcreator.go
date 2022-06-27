@@ -117,7 +117,6 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-
 			requests := []*unstructured.Unstructured{}
 			var size int
 			if c.splitPolicyReport {
@@ -188,7 +187,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
-				resourceNS := rcr.GetLabels()[resourceLabelNamespace]
+				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
 				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
 				if !ok {
 					mergedNamespacedRCR = &unstructured.Unstructured{}
