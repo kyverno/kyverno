@@ -314,7 +314,7 @@ func main() {
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		kubeInformer.Core().V1().Pods(),
+		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
 	)
