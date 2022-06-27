@@ -67,6 +67,8 @@ type ReportGenerator struct {
 	reportChangeRequestLister        kyvernov1alpha2listers.ReportChangeRequestLister
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 	nsLister                         corev1listers.NamespaceLister
+	// splitPolicyReport enable/disable the PolicyReport split-up per policy feature
+	splitPolicyReport bool
 
 	informersSynced []cache.InformerSynced
 
@@ -91,6 +93,7 @@ func NewReportGenerator(
 	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
 	namespace corev1informers.NamespaceInformer,
 	cleanupChangeRequest chan<- ReconcileInfo,
+	splitPolicyReport bool,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
@@ -101,6 +104,7 @@ func NewReportGenerator(
 		reportReqInformer:        reportReqInformer,
 		clusterReportReqInformer: clusterReportReqInformer,
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
+		splitPolicyReport:        splitPolicyReport,
 		ReconcileCh:              make(chan bool, 10),
 		cleanupChangeRequest:     cleanupChangeRequest,
 		log:                      log,
@@ -120,7 +124,7 @@ func NewReportGenerator(
 // - <namespace name> for the resource
 // - "" for cluster wide resource
 // - "deletedpolicy/policyName/ruleName(optional)" for a deleted policy or rule
-func generateCacheKey(changeRequest interface{}) string {
+func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 	if request, ok := changeRequest.(*kyvernov1alpha2.ReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
@@ -133,17 +137,24 @@ func generateCacheKey(changeRequest interface{}) string {
 		if ns == "" {
 			ns = "default"
 		}
-		policy = label[policyLabel]
-		return strings.Join([]string{ns, policy}, "/")
+		if g.splitPolicyReport {
+			policy = label[policyLabel]
+			return strings.Join([]string{ns, policy}, "/")
+		} else {
+			return ns
+		}
 	} else if request, ok := changeRequest.(*kyvernov1alpha2.ClusterReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
 		rule := label[deletedLabelRule]
 		if rule != "" || policy != "" {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
-		} else {
+		}
+		if g.splitPolicyReport {
 			policy = label[policyLabel]
 			return strings.Join([]string{"", policy}, "/")
+		} else {
+			return ""
 		}
 	}
 	return ""
@@ -173,7 +184,7 @@ func (g *ReportGenerator) addReportChangeRequest(obj interface{}) {
 		return
 	}
 
-	key := generateCacheKey(obj)
+	key := g.generateCacheKey(obj)
 	g.queue.Add(key)
 }
 
@@ -189,7 +200,7 @@ func (g *ReportGenerator) updateReportChangeRequest(old interface{}, cur interfa
 		return
 	}
 
-	key := generateCacheKey(cur)
+	key := g.generateCacheKey(cur)
 	g.queue.Add(key)
 }
 
@@ -199,7 +210,7 @@ func (g *ReportGenerator) addClusterReportChangeRequest(obj interface{}) {
 		return
 	}
 
-	key := generateCacheKey(obj)
+	key := g.generateCacheKey(obj)
 	g.queue.Add(key)
 }
 
@@ -215,7 +226,7 @@ func (g *ReportGenerator) updateClusterReportChangeRequest(old interface{}, cur 
 		return
 	}
 
-	key := generateCacheKey(cur)
+	key := g.generateCacheKey(cur)
 	g.queue.Add(key)
 }
 
@@ -327,25 +338,30 @@ func (g *ReportGenerator) handleErr(err error, key interface{}, aggregatedReques
 // otherwise it updates policyReport. the key is of type "namespace/policyname"
 func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{}, err error) {
 	g.log.V(4).Info("syncing policy report", "key", key)
-	namespace := key
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		g.log.V(4).Info("sync policy report on policy deletion")
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
-
-	namespace := strings.Split(key, "/")[0]
-	policyName := strings.Split(key, "/")[1]
+	var namespace, policyName string
+	if g.splitPolicyReport {
+		namespace = strings.Split(key, "/")[0]
+		policyName = strings.Split(key, "/")[1]
+	} else {
+		namespace = key
+	}
 	new, aggregatedRequests, err := g.aggregateReports(namespace, policyName)
 	if err != nil {
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
-	deleteResources := getDeletedResources(aggregatedRequests)
-	if len(deleteResources) != 0 {
-		for _, dr := range deleteResources {
-			if err := g.updateReportsForDeletedResource(dr.name, new, aggregatedRequests); err != nil {
-				return aggregatedRequests, err
+	if g.splitPolicyReport {
+		deleteResources := getDeletedResources(aggregatedRequests)
+		if len(deleteResources) != 0 {
+			for _, dr := range deleteResources {
+				if err := g.updateReportsForDeletedResource(dr.name, new, aggregatedRequests); err != nil {
+					return aggregatedRequests, err
+				}
 			}
 		}
 	}
@@ -360,10 +376,8 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 
 	// Delete changes request does not have the policyName label set
 	var old interface{}
-	if policyName != "" {
-		if old, err = g.createReportIfNotPresent(namespace, policyName, new, aggregatedRequests); err != nil {
-			return aggregatedRequests, err
-		}
+	if old, err = g.createReportIfNotPresent(namespace, policyName, new, aggregatedRequests); err != nil {
+		return aggregatedRequests, err
 	}
 
 	if old == nil {
@@ -404,7 +418,11 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 			return nil, nil
 		}
 
-		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+		if g.splitPolicyReport {
+			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+		} else {
+			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
+		}
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
 				polr, err := convertToPolr(new)
@@ -424,7 +442,13 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-		report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+
+		log.V(2).Info("creating clusterpolicyReport>>>>>>>>>>>>>>>1", "splitPolicyReport", g.splitPolicyReport)
+		if g.splitPolicyReport {
+			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+		} else {
+			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
+		}
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {
@@ -433,6 +457,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 						return nil, fmt.Errorf("failed to convert to ClusterPolicyReport: %v", err)
 					}
 
+					log.V(2).Info("creating clusterpolicyReport>>>>>>2", "splitPolicyReport", g.splitPolicyReport)
 					if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), cpolr, metav1.CreateOptions{}); err != nil {
 						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
 					}
@@ -555,14 +580,19 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
 
+	selector := labels.NewSelector()
 	if namespace == "" {
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: policyName}))
+		if g.splitPolicyReport {
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: policyName}))
+		} else {
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
+		}
 		requests, err := g.clusterReportChangeRequestLister.List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list ClusterReportChangeRequests within: %v", err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(nil, kyvernoNamespace, policyName, requests); err != nil {
+		if report, aggregatedRequests, err = g.mergeRequests(nil, kyvernoNamespace, policyName, requests); err != nil {
 			return nil, nil, fmt.Errorf("unable to merge ClusterReportChangeRequests results: %v", err)
 		}
 	} else {
@@ -578,13 +608,17 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
+		if g.splitPolicyReport {
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: policyName}))
+		} else {
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
+		}
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
 
-		if report, aggregatedRequests, err = mergeRequests(ns, kyvernoNamespace, policyName, requests); err != nil {
+		if report, aggregatedRequests, err = g.mergeRequests(ns, kyvernoNamespace, policyName, requests); err != nil {
 			return nil, nil, fmt.Errorf("unable to merge results: %v", err)
 		}
 	}
@@ -592,7 +626,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 	return report, aggregatedRequests, nil
 }
 
-func mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func (g *ReportGenerator) mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
 	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
 		aggregatedRequests := []*kyvernov1alpha2.ClusterReportChangeRequest{}
@@ -618,7 +652,7 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsG
 
 		req := &unstructured.Unstructured{Object: obj}
 
-		setReport(req, ns, kyvernoNs, policyName)
+		g.setReport(req, ns, kyvernoNs, policyName)
 
 		return req, aggregatedRequests, nil
 	}
@@ -647,7 +681,7 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsG
 
 		req := &unstructured.Unstructured{Object: obj}
 
-		setReport(req, ns, kyvernoNs, policyName)
+		g.setReport(req, ns, kyvernoNs, policyName)
 
 		return req, aggregatedRequests, nil
 	}
@@ -655,7 +689,7 @@ func mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsG
 	return nil, nil, nil
 }
 
-func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace, policyname string) {
+func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace, policyname string) {
 	reportUnstructured.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
@@ -674,12 +708,20 @@ func setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *cor
 	}
 
 	if ns == nil {
-		reportUnstructured.SetName(GeneratePolicyReportName("") + "-" + policyname)
+		if g.splitPolicyReport {
+			reportUnstructured.SetName(GeneratePolicyReportName("") + "-" + policyname)
+		} else {
+			reportUnstructured.SetName(GeneratePolicyReportName(""))
+		}
 		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname)
+	if g.splitPolicyReport {
+		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname)
+	} else {
+		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
+	}
 	reportUnstructured.SetNamespace(ns.GetName())
 	reportUnstructured.SetKind("PolicyReport")
 }

@@ -70,6 +70,7 @@ var (
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
 	changeRequestLimit           int
+	splitPolicyReport            bool
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
@@ -94,7 +95,7 @@ func main() {
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "maximum pending report change requests per namespace or for the cluster-wide policy report")
-
+	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "Set the flag to 'true', to enable the split-up PolicyReports per policy.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -206,6 +207,7 @@ func main() {
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		changeRequestLimit,
+		splitPolicyReport,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -218,6 +220,7 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		reportReqGen.CleanupChangeRequest,
+		splitPolicyReport,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {
