@@ -92,7 +92,7 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
-	flag.IntVar(&changeRequestLimit, "changeRequestLimit", 100, "Configure the maximum count for report change requests.")
+	flag.IntVar(&changeRequestLimit, "changeRequestLimit", 1000, "Configure the maximum count for report change requests.")
 
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
