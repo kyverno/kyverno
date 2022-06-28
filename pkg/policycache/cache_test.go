@@ -45,7 +45,11 @@ func (dl dummyNsLister) Get(name string) (*kyverno.Policy, error) {
 }
 
 func Test_All(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	fakeHasSynced := func() bool {
+		return true
+	}
+
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 	//add
 	pCache.add(policy)

@@ -29,7 +29,7 @@ type Controller struct {
 // NewPolicyCacheController create a new PolicyController
 func NewPolicyCacheController(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyvernoinformer.PolicyInformer) *Controller {
 	pc := Controller{
-		Cache: newPolicyCache(pInformer, nspInformer),
+		Cache: newPolicyCache(pInformer.Lister(), nspInformer.Lister(), pInformer.Informer().HasSynced, nspInformer.Informer().HasSynced),
 	}
 
 	// ClusterPolicy Informer

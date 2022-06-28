@@ -2,7 +2,6 @@ package policycache
 
 import (
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -44,7 +43,7 @@ type policyCache struct {
 }
 
 // newPolicyCache ...
-func newPolicyCache(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyvernoinformer.PolicyInformer) Interface {
+func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister, pSynced, npSynced cache.InformerSynced) Interface {
 	namesCache := map[PolicyType]map[string]bool{
 		Mutate:               make(map[string]bool),
 		ValidateEnforce:      make(map[string]bool),
@@ -59,9 +58,9 @@ func newPolicyCache(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer
 			nameCacheMap: namesCache,
 			kindDataMap:  make(map[string]map[PolicyType][]string),
 		},
-		pInformer.Lister(),
-		nspInformer.Lister(),
-		[]cache.InformerSynced{pInformer.Informer().HasSynced, nspInformer.Informer().HasSynced},
+		pLister,
+		npLister,
+		[]cache.InformerSynced{pSynced, npSynced},
 	}
 }
 
