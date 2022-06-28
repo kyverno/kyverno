@@ -44,6 +44,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -365,7 +366,11 @@ func main() {
 			setupLog.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
-		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
+		// wait for cache to be synced before use it
+		cache.WaitForCacheSync(stopCh,
+			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
+			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
+		)
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {

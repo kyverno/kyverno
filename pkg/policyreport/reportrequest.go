@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -40,6 +41,8 @@ type Generator struct {
 
 	// polLister can list/get namespace policy from the shared informer's store
 	polLister kyvernov1listers.PolicyLister
+
+	informersSynced []cache.InformerSynced
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
@@ -70,6 +73,7 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		log:                              log,
 	}
 
+	gen.informersSynced = []cache.InformerSynced{clusterReportReqInformer.Informer().HasSynced, reportReqInformer.Informer().HasSynced, cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced}
 	return &gen
 }
 
@@ -163,6 +167,10 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("requestCreator", stopCh, gen.informersSynced...) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(gen.runWorker, time.Second, stopCh)

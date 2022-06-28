@@ -64,6 +64,8 @@ type ReportGenerator struct {
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 	nsLister                         corev1listers.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	queue workqueue.RateLimitingInterface
 
 	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
@@ -102,6 +104,7 @@ func NewReportGenerator(
 	gen.reportChangeRequestLister = reportReqInformer.Lister()
 	gen.nsLister = namespace.Lister()
 
+	gen.informersSynced = []cache.InformerSynced{clusterReportInformer.Informer().HasSynced, reportInformer.Informer().HasSynced, reportReqInformer.Informer().HasSynced, clusterReportInformer.Informer().HasSynced, namespace.Informer().HasSynced}
 	return gen, nil
 }
 
@@ -230,6 +233,10 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("start")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("PolicyReportGenerator", stopCh, g.informersSynced...) {
+		return
+	}
 
 	g.reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
