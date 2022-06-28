@@ -295,7 +295,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	count, ok := gen.changeRequestMapper.Get(info.Namespace)
 	if ok {
 		if count.(int) > gen.changeRequestLimit {
-			logger.Info("change requests exceeds the threshold, pause creations of change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
+			logger.Info("throttling report change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
 			gen.CleanupChangeRequest <- ReconcileInfo{Namespace: &(info.Namespace), MapperInactive: false}
 			gen.queue.Forget(obj)
 			gen.dataStore.delete(keyHash)

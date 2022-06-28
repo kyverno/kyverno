@@ -53,7 +53,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 
-			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, nil); err != nil {
+			if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, nil); err != nil {
 				logger.Error(err, "continue reconciling policy reports")
 			}
 
@@ -67,7 +67,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			}
 
 			if erase {
-				if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, nil); err != nil {
+				if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, nil); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
 				}
 			}
@@ -94,7 +94,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 
 			changeRequestMapperNamespace[ns] = false
 
-			if err := pc.policyReportEraser.EraseResultsEntries(eraseResultsEntries, info.Namespace); err != nil {
+			if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, info.Namespace); err != nil {
 				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
 			} else {
 				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
@@ -140,7 +140,7 @@ func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyve
 	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
-func eraseResultsEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error {
+func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error {
 	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to erase results entries %v", err)

@@ -722,7 +722,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				if annotations == nil {
 					annotations = make(map[string]string)
 				}
-				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate report per policy"
+				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate a report per policy"
 				polr.SetAnnotations(annotations)
 
 				labels := polr.GetLabels()
