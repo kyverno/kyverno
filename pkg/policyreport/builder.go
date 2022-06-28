@@ -28,6 +28,7 @@ const (
 
 	// the following labels are used to list rcr / crcr
 	ResourceLabelNamespace string = "kyverno.io/resource.namespace"
+	policyLabel            string = "kyverno.io/policy-name"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
 	deletedLabelRule       string = "kyverno.io/delete.rule"
 
@@ -54,6 +55,13 @@ func GeneratePolicyReportName(ns string) string {
 	}
 
 	return name
+}
+
+func TrimmedName(s string) string {
+	if len(s) > 63 {
+		return s[:63]
+	}
+	return s
 }
 
 // GeneratePRsFromEngineResponse generate Violations from engine responses
@@ -209,6 +217,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 
 	obj.SetLabels(map[string]string{
 		ResourceLabelNamespace: info.Namespace,
+		policyLabel:            TrimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
 	})
 }

@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -12,7 +13,10 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type PolicyReportEraser interface {
@@ -219,4 +223,42 @@ func isDeletedPolicyKey(key string) (policyName, ruleName string, isDelete bool)
 func mapToStruct(in, out interface{}) error {
 	jsonBytes, _ := json.Marshal(in)
 	return json.Unmarshal(jsonBytes, out)
+}
+
+func CleanupPolicyReport(client kyvernoclient.Interface) error {
+	var errors []string
+	var gracePeriod int64 = 0
+
+	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{LabelSelectorKey: LabelSelectorValue}))
+
+	err := client.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	err = client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	err = client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	reports, err := client.Wgpolicyk8sV1alpha2().PolicyReports(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+	for _, report := range reports.Items {
+		err = client.Wgpolicyk8sV1alpha2().PolicyReports(report.Namespace).Delete(context.TODO(), report.Name, metav1.DeleteOptions{})
+		if err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+	if len(errors) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
