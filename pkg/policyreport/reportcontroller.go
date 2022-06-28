@@ -40,6 +40,10 @@ const (
 
 	LabelSelectorKey   = "managed-by"
 	LabelSelectorValue = "kyverno"
+
+	deletedPolicyKey = "deletedpolicy"
+
+	resourceExhaustedErr = "ResourceExhausted"
 )
 
 var LabelSelector = &metav1.LabelSelector{
@@ -64,11 +68,15 @@ type ReportGenerator struct {
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 	nsLister                         corev1listers.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	queue workqueue.RateLimitingInterface
 
 	// ReconcileCh sends a signal to policy controller to force the reconciliation of policy report
 	// if send true, the reports' results will be erased, this is used to recover from the invalid records
 	ReconcileCh chan bool
+
+	cleanupChangeRequest chan<- ReconcileInfo
 
 	log logr.Logger
 }
@@ -82,6 +90,7 @@ func NewReportGenerator(
 	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
 	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
 	namespace corev1informers.NamespaceInformer,
+	cleanupChangeRequest chan<- ReconcileInfo,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
@@ -93,6 +102,7 @@ func NewReportGenerator(
 		clusterReportReqInformer: clusterReportReqInformer,
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
 		ReconcileCh:              make(chan bool, 10),
+		cleanupChangeRequest:     cleanupChangeRequest,
 		log:                      log,
 	}
 
@@ -102,10 +112,9 @@ func NewReportGenerator(
 	gen.reportChangeRequestLister = reportReqInformer.Lister()
 	gen.nsLister = namespace.Lister()
 
+	gen.informersSynced = []cache.InformerSynced{clusterReportInformer.Informer().HasSynced, reportInformer.Informer().HasSynced, reportReqInformer.Informer().HasSynced, clusterReportInformer.Informer().HasSynced, namespace.Informer().HasSynced}
 	return gen, nil
 }
-
-const deletedPolicyKey string = "deletedpolicy"
 
 // the key of queue can be
 // - <namespace name> for the resource
@@ -120,7 +129,7 @@ func generateCacheKey(changeRequest interface{}) string {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
 
-		ns := label[resourceLabelNamespace]
+		ns := label[ResourceLabelNamespace]
 		if ns == "" {
 			ns = "default"
 		}
@@ -231,6 +240,10 @@ func (g *ReportGenerator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
+	if !cache.WaitForNamedCacheSync("PolicyReportGenerator", stopCh, g.informersSynced...) {
+		return
+	}
+
 	g.reportReqInformer.Informer().AddEventHandler(
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    g.addReportChangeRequest,
@@ -311,16 +324,24 @@ func (g *ReportGenerator) handleErr(err error, key interface{}, aggregatedReques
 // otherwise it updates policyReport
 func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{}, err error) {
 	g.log.V(4).Info("syncing policy report", "key", key)
+	namespace := key
 
 	if policy, rule, ok := isDeletedPolicyKey(key); ok {
 		g.log.V(4).Info("sync policy report on policy deletion")
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 
-	namespace := key
 	new, aggregatedRequests, err := g.aggregateReports(namespace)
 	if err != nil {
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
+	}
+
+	report, err := g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
+	if err == nil {
+		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
+			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
+			return aggregatedRequests, nil
+		}
 	}
 
 	var old interface{}
@@ -540,7 +561,7 @@ func (g *ReportGenerator) aggregateReports(namespace string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, resourceLabelNamespace: namespace}))
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
 		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
@@ -694,6 +715,29 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 			return fmt.Errorf("error converting to PolicyReport: %v", err)
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				g.log.V(4).Info("got ResourceExhausted error, cleanning up change requests and erasing report results")
+
+				annotations := polr.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[inactiveLabelKey] = "Unable to update policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate a report per policy"
+				polr.SetAnnotations(annotations)
+
+				labels := polr.GetLabels()
+				labels[inactiveLabelKey] = inactiveLabelVal
+				polr.SetLabels(labels)
+
+				polr.Results = []policyreportv1alpha2.PolicyReportResult{}
+				polr.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed to erase policy report results: %v", err)
+				}
+				ns := new.GetNamespace()
+				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
+				return nil
+			}
 			return fmt.Errorf("failed to update PolicyReport: %v", err)
 		}
 	}
@@ -704,6 +748,29 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 			return fmt.Errorf("error converting to ClusterPolicyReport: %v", err)
 		}
 		if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+			if strings.Contains(err.Error(), resourceExhaustedErr) {
+				g.log.V(4).Info("got ResourceExhausted error, cleanning up change requests and erasing report results")
+
+				annotations := cpolr.GetAnnotations()
+				if annotations == nil {
+					annotations = make(map[string]string)
+				}
+				annotations[inactiveLabelKey] = "Unable to update cluster policy report due to resourceExhausted error, please enable the flag \"splitPolicyReport\" to generate report per policy"
+				cpolr.SetAnnotations(annotations)
+
+				labels := cpolr.GetLabels()
+				labels[inactiveLabelKey] = inactiveLabelVal
+				cpolr.SetLabels(labels)
+
+				cpolr.Results = []policyreportv1alpha2.PolicyReportResult{}
+				cpolr.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				if _, err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed to erase cluster policy report results: %v", err)
+				}
+				ns := ""
+				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
+				return nil
+			}
 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
 		}
 	}

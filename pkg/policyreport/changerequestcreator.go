@@ -177,7 +177,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
-				resourceNS := rcr.GetLabels()[resourceLabelNamespace]
+				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
 				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
 				if !ok {
 					mergedNamespacedRCR = &unstructured.Unstructured{}
@@ -223,8 +223,8 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 // merge merges elements from a source object into a
 // destination object if they share the same namespace label
 func merge(dst, src *unstructured.Unstructured) bool {
-	dstNS := dst.GetLabels()[resourceLabelNamespace]
-	srcNS := src.GetLabels()[resourceLabelNamespace]
+	dstNS := dst.GetLabels()[ResourceLabelNamespace]
+	srcNS := src.GetLabels()[ResourceLabelNamespace]
 	if dstNS != srcNS {
 		return false
 	}
