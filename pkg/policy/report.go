@@ -170,7 +170,7 @@ func generateSuccessEvents(log logr.Logger, ers []*response.EngineResponse) (eve
 		if !er.IsFailed() {
 			logger.V(4).Info("generating event on policy for success rules")
 			e := event.NewPolicyAppliedEvent(event.PolicyController, er)
-			eventInfos = append(eventInfos, *e)
+			eventInfos = append(eventInfos, e)
 		}
 	}
 
@@ -196,10 +196,10 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 		}
 
 		eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
-		eventInfos = append(eventInfos, *eventResource)
+		eventInfos = append(eventInfos, eventResource)
 
 		eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
-		eventInfos = append(eventInfos, *eventPolicy)
+		eventInfos = append(eventInfos, eventPolicy)
 	}
 
 	if len(eventInfos) > 0 {

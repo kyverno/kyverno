@@ -9,10 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse, blocked bool) *Info {
+func NewPolicyFailEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse, blocked bool) Info {
 	msg := buildPolicyEventMessage(ruleResp, engineResponse.GetResourceSpec(), blocked)
 
-	return &Info{
+	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
@@ -50,39 +50,42 @@ func getPolicyKind(policy v1.PolicyInterface) string {
 	return "ClusterPolicy"
 }
 
-func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineResponse) *Info {
+func NewPolicyAppliedEvent(source Source, engineResponse *response.EngineResponse) Info {
 	resource := engineResponse.PolicyResponse.Resource
+	var bldr strings.Builder
+	defer bldr.Reset()
 
-	var msg string
 	if resource.Namespace != "" {
-		msg = fmt.Sprintf("%s %s/%s: pass", resource.Kind, resource.Namespace, resource.Name)
+		fmt.Fprintf(&bldr, "%s %s/%s: pass", resource.Kind, resource.Namespace, resource.Name)
 	} else {
-		msg = fmt.Sprintf("%s %s: pass", resource.Kind, resource.Name)
+		fmt.Fprintf(&bldr, "%s %s: pass", resource.Kind, resource.Name)
 	}
 
-	return &Info{
+	return Info{
 		Kind:      getPolicyKind(engineResponse.Policy),
 		Name:      engineResponse.PolicyResponse.Policy.Name,
 		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
 		Reason:    PolicyApplied.String(),
 		Source:    source,
-		Message:   msg,
+		Message:   bldr.String(),
 	}
 }
 
-func NewResourceViolationEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) *Info {
-	policyName := engineResponse.Policy.GetName()
-	status := ruleResp.Status.String()
-	msg := fmt.Sprintf("policy %s/%s %s: %s", policyName, ruleResp.Name, status, ruleResp.Message)
+func NewResourceViolationEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
+	var bldr strings.Builder
+	defer bldr.Reset()
+
+	fmt.Fprintf(&bldr, "policy %s/%s %s: %s", engineResponse.Policy.GetName(),
+		ruleResp.Name, ruleResp.Status.String(), ruleResp.Message)
 	resource := engineResponse.GetResourceSpec()
 
-	return &Info{
+	return Info{
 		Kind:      resource.Kind,
 		Name:      resource.Name,
 		Namespace: resource.Namespace,
 		Reason:    reason.String(),
 		Source:    source,
-		Message:   msg,
+		Message:   bldr.String(),
 	}
 }
 

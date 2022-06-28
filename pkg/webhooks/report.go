@@ -21,17 +21,17 @@ func generateEvents(engineResponses []*response.EngineResponse, blocked bool, lo
 			for i, ruleResp := range er.PolicyResponse.Rules {
 				if ruleResp.Status == response.RuleStatusFail || ruleResp.Status == response.RuleStatusError {
 					e := event.NewPolicyFailEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], blocked)
-					events = append(events, *e)
+					events = append(events, e)
 				}
 
 				if !blocked {
 					e := event.NewResourceViolationEvent(event.AdmissionController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
-					events = append(events, *e)
+					events = append(events, e)
 				}
 			}
 		} else {
 			e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
-			events = append(events, *e)
+			events = append(events, e)
 		}
 	}
 
