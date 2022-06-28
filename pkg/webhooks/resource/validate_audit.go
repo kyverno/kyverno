@@ -53,12 +53,7 @@ type auditHandler struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	nsLister  corev1listers.NamespaceLister
 
-	// rbSynced returns true if the role binding shared informer has synced at least once
-	rbSynced cache.InformerSynced
-	// crbSynced returns true if the cluster role binding shared informer has synced at least once
-	crbSynced cache.InformerSynced
-	// nsSynced returns true if the namespace shared informer has synced at least once
-	nsSynced cache.InformerSynced
+	informersSynced []cache.InformerSynced
 
 	log           logr.Logger
 	configHandler config.Configuration
@@ -77,22 +72,21 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 	client dclient.Interface,
 	promConfig *metrics.PromConfig,
 ) AuditHandler {
-	return &auditHandler{
+	c := &auditHandler{
 		pCache:        pCache,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		eventGen:      eventGen,
 		rbLister:      rbInformer.Lister(),
 		crbLister:     crbInformer.Lister(),
 		nsLister:      namespaces.Lister(),
-		rbSynced:      rbInformer.Informer().HasSynced,
-		crbSynced:     crbInformer.Informer().HasSynced,
-		nsSynced:      namespaces.Informer().HasSynced,
 		log:           log,
 		prGenerator:   prGenerator,
 		configHandler: dynamicConfig,
 		client:        client,
 		promConfig:    promConfig,
 	}
+	c.informersSynced = []cache.InformerSynced{rbInformer.Informer().HasSynced, crbInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	return c
 }
 
 func (h *auditHandler) Add(request *admissionv1.AdmissionRequest) {
@@ -108,7 +102,7 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 		h.log.V(4).Info("shutting down")
 	}()
 
-	if !cache.WaitForNamedCacheSync("ValidateAuditHandler", stopCh, h.crbSynced, h.rbSynced, h.nsSynced) {
+	if !cache.WaitForNamedCacheSync("ValidateAuditHandler", stopCh, h.informersSynced...) {
 		return
 	}
 

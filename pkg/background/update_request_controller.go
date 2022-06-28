@@ -53,16 +53,7 @@ type controller struct {
 	nsLister   corev1listers.NamespaceLister
 	podLister  corev1listers.PodLister
 
-	// cpolSynced returns true if the cluster policy shared informer has synced at least once
-	cpolSynced cache.InformerSynced
-	// polSynced returns true if the policy shared informer has synced at least once
-	polSynced cache.InformerSynced
-	// urSynced returns true if the update request shared informer has synced at least once
-	urSynced cache.InformerSynced
-	// nsSynced returns true if the namespace shared informer has synced at least once
-	nsSynced cache.InformerSynced
-	// podSynced returns true if the pod shared informer has synced at least once
-	podSynced cache.InformerSynced
+	informersSynced []cache.InformerSynced
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -111,11 +102,7 @@ func NewController(
 		DeleteFunc: c.deletePolicy,
 	})
 
-	c.cpolSynced = cpolInformer.Informer().HasSynced
-	c.polSynced = polInformer.Informer().HasSynced
-	c.urSynced = urInformer.Informer().HasSynced
-	c.nsSynced = namespaceInformer.Informer().HasSynced
-	c.podSynced = podInformer.Informer().HasSynced
+	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
 
 	return &c
 }
@@ -127,7 +114,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForNamedCacheSync("background", stopCh, c.cpolSynced, c.polSynced, c.urSynced, c.nsSynced, c.podSynced) {
+	if !cache.WaitForNamedCacheSync("background", stopCh, c.informersSynced...) {
 		return
 	}
 

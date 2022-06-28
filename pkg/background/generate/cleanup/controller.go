@@ -53,14 +53,7 @@ type controller struct {
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister corev1listers.NamespaceLister
 
-	// cpolSynced returns true if the cluster policy shared informer has synced at least once
-	cpolSynced cache.InformerSynced
-	// polSynced returns true if the policy shared informer has synced at least once
-	polSynced cache.InformerSynced
-	// urSynced returns true if the update request shared informer has synced at least once
-	urSynced cache.InformerSynced
-	// nsSynced returns true if the namespace shared informer has synced at least once
-	nsSynced cache.InformerSynced
+	informersSynced []cache.InformerSynced
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -76,7 +69,7 @@ func NewController(
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 ) Controller {
-	return &controller{
+	c := &controller{
 		client:        client,
 		kyvernoClient: kyvernoclient,
 		pInformer:     pInformer,
@@ -85,12 +78,11 @@ func NewController(
 		npLister:      npInformer.Lister(),
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		nsLister:      namespaceInformer.Lister(),
-		cpolSynced:    pInformer.Informer().HasSynced,
-		polSynced:     npInformer.Informer().HasSynced,
-		urSynced:      urInformer.Informer().HasSynced,
-		nsSynced:      namespaceInformer.Informer().HasSynced,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 	}
+
+	c.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
+	return c
 }
 
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
@@ -99,7 +91,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForNamedCacheSync("generate-request-cleanup", stopCh, c.cpolSynced, c.polSynced, c.urSynced, c.nsSynced) {
+	if !cache.WaitForNamedCacheSync("generate-request-cleanup", stopCh, c.informersSynced...) {
 		return
 	}
 

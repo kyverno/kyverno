@@ -42,14 +42,7 @@ type Generator struct {
 	// polLister can list/get namespace policy from the shared informer's store
 	polLister kyvernov1listers.PolicyLister
 
-	// nsSynced returns true if the report change request shared informer has synced at least once
-	reportChangeRequestSynced cache.InformerSynced
-	// clusterReportChangeRequestSynced returns true if the cluster report change request shared informer has synced at least once
-	clusterReportChangeRequestSynced cache.InformerSynced
-	// cpolSynced returns true if the cluster policy shared informer has synced at least once
-	cpolSynced cache.InformerSynced
-	// polSynced returns true if the policy shared informer has synced at least once
-	polSynced cache.InformerSynced
+	informersSynced []cache.InformerSynced
 
 	queue     workqueue.RateLimitingInterface
 	dataStore *dataStore
@@ -80,11 +73,7 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		log:                              log,
 	}
 
-	gen.clusterReportChangeRequestSynced = clusterReportReqInformer.Informer().HasSynced
-	gen.reportChangeRequestSynced = reportReqInformer.Informer().HasSynced
-	gen.cpolSynced = cpolInformer.Informer().HasSynced
-	gen.polSynced = polInformer.Informer().HasSynced
-
+	gen.informersSynced = []cache.InformerSynced{clusterReportReqInformer.Informer().HasSynced, reportReqInformer.Informer().HasSynced, cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced}
 	return &gen
 }
 
@@ -179,7 +168,7 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	logger.Info("start")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForNamedCacheSync("requestCreator", stopCh, gen.clusterReportChangeRequestSynced, gen.reportChangeRequestSynced, gen.cpolSynced, gen.polSynced) {
+	if !cache.WaitForNamedCacheSync("requestCreator", stopCh, gen.informersSynced...) {
 		return
 	}
 
