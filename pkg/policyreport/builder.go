@@ -27,7 +27,7 @@ const (
 	appVersion string = "app.kubernetes.io/version"
 
 	// the following labels are used to list rcr / crcr
-	resourceLabelNamespace string = "kyverno.io/resource.namespace"
+	ResourceLabelNamespace string = "kyverno.io/resource.namespace"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
 	deletedLabelRule       string = "kyverno.io/delete.rule"
 
@@ -35,6 +35,9 @@ const (
 	// there would be a problem if use labels as the value could exceed 63 chars
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
+
+	inactiveLabelKey string = "kyverno.io/report.status"
+	inactiveLabelVal string = "inactive"
 
 	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
@@ -205,7 +208,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 	}
 
 	obj.SetLabels(map[string]string{
-		resourceLabelNamespace: info.Namespace,
+		ResourceLabelNamespace: info.Namespace,
 		appVersion:             version.BuildVersion,
 	})
 }
@@ -219,7 +222,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 		})
 
 		labels := req.GetLabels()
-		labels[resourceLabelNamespace] = info.Results[0].Resource.Namespace
+		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
 		req.SetLabels(labels)
 		return true
 
