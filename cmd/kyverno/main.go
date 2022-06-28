@@ -66,6 +66,7 @@ var (
 	imageSignatureRepository     string
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
+	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
@@ -88,6 +89,8 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
+	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "maximum pending report change requests per namespace or for the cluster-wide policy report")
+
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -180,6 +183,7 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		changeRequestLimit,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -191,6 +195,7 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
+		reportReqGen.CleanupChangeRequest,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {
@@ -289,7 +294,7 @@ func main() {
 		kyvernoV1.Policies(),
 		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		kubeInformer.Core().V1().Pods(),
+		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
 	)
@@ -426,7 +431,7 @@ func main() {
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
 		go prgen.Run(1, stopCh)
 		go grcc.Run(1, stopCh)
 	}

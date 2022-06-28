@@ -411,7 +411,7 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -440,7 +440,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
 
-	go pc.forceReconciliation(reconcileCh, stopCh)
+	go pc.forceReconciliation(reconcileCh, cleanupChangeRequest, stopCh)
 
 	<-stopCh
 }
