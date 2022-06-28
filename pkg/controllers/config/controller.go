@@ -26,6 +26,9 @@ type controller struct {
 	// listers
 	configmapLister corev1listers.ConfigMapLister
 
+	// configmapSynced returns true if the configmap shared informer has synced at least once
+	configmapSynced cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 }
@@ -41,6 +44,9 @@ func NewController(configmapInformer corev1informers.ConfigMapInformer, configur
 		UpdateFunc: c.update,
 		DeleteFunc: c.delete,
 	})
+
+	c.configmapSynced = configmapInformer.Informer().HasSynced
+
 	return &c
 }
 
@@ -102,6 +108,11 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	logger.Info("start")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("config-controller", stopCh, c.configmapSynced) {
+		return
+	}
+
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
 	}

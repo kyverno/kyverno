@@ -59,6 +59,8 @@ type Controller struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corelister.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	// logger
 	log logr.Logger
 }
@@ -89,6 +91,8 @@ func NewController(
 	c.npLister = npInformer.Lister()
 	c.urLister = urInformer.Lister().UpdateRequests(config.KyvernoNamespace)
 	c.nsLister = namespaceInformer.Lister()
+
+	c.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
 
 	return &c, nil
 }
@@ -191,6 +195,10 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("update-request-cleanup", stopCh, c.informersSynced...) {
+		return
+	}
 
 	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete

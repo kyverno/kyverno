@@ -29,7 +29,7 @@ type Controller struct {
 // NewPolicyCacheController create a new PolicyController
 func NewPolicyCacheController(pInformer kyvernoinformer.ClusterPolicyInformer, nspInformer kyvernoinformer.PolicyInformer) *Controller {
 	pc := Controller{
-		Cache: newPolicyCache(pInformer.Lister(), nspInformer.Lister()),
+		Cache: newPolicyCache(pInformer.Lister(), nspInformer.Lister(), pInformer.Informer().HasSynced, nspInformer.Informer().HasSynced),
 	}
 
 	// ClusterPolicy Informer
@@ -105,6 +105,10 @@ func (c *Controller) deleteNsPolicy(obj interface{}) {
 // CheckPolicySync wait until the internal policy cache is fully loaded
 func (c *Controller) CheckPolicySync(stopCh <-chan struct{}) {
 	logger.Info("starting")
+
+	if !cache.WaitForNamedCacheSync("config-controller", stopCh, c.Cache.informerHasSynced()...) {
+		return
+	}
 
 	policies := []kyverno.PolicyInterface{}
 	polList, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())

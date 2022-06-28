@@ -28,16 +28,14 @@ type Controller interface {
 }
 
 type controller struct {
-	renewer        *tls.CertRenewer
-	secretInformer informerv1.SecretInformer
-	secretQueue    chan bool
+	renewer     *tls.CertRenewer
+	secretQueue chan bool
 }
 
 func NewController(secretInformer informerv1.SecretInformer, kubeClient kubernetes.Interface, certRenewer *tls.CertRenewer) (Controller, error) {
 	manager := &controller{
-		renewer:        certRenewer,
-		secretInformer: secretInformer,
-		secretQueue:    make(chan bool, 1),
+		renewer:     certRenewer,
+		secretQueue: make(chan bool, 1),
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
