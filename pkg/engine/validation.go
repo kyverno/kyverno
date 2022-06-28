@@ -215,7 +215,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
 	}
 
-	if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyvernov1.Audit || store.GetMock()) {
+	if !preconditionsPassed {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
