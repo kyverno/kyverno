@@ -68,6 +68,7 @@ func NewReportChangeRequestGenerator(client policyreportclient.Interface,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	changeRequestLimit int,
+	splitPolicyReport bool,
 	log logr.Logger,
 ) *Generator {
 	gen := Generator{
@@ -79,9 +80,9 @@ func NewReportChangeRequestGenerator(client policyreportclient.Interface,
 		polLister:                        polInformer.Lister(),
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
-		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		changeRequestLimit:               changeRequestLimit,
 		CleanupChangeRequest:             make(chan ReconcileInfo, 10),
+		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, splitPolicyReport, log.WithName("requestCreator")),
 		log:                              log,
 	}
 
