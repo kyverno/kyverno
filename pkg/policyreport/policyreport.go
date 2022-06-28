@@ -239,7 +239,7 @@ func CleanupPolicyReport(client kyvernoclient.Interface) error {
 		errors = append(errors, err.Error())
 	}
 
-	err = client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	err = client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}

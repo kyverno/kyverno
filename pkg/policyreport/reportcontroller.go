@@ -13,8 +13,8 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
-	requestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreport "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -29,7 +29,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	listerv1 "k8s.io/client-go/listers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -125,7 +125,7 @@ func NewReportGenerator(
 // - "" for cluster wide resource
 // - "deletedpolicy/policyName/ruleName(optional)" for a deleted policy or rule
 func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
-	if request, ok := changeRequest.(*kyvernov1alpha2.ReportChangeRequest); ok {
+	if request, ok := changeRequest.(*changerequest.ReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
 		rule := label[deletedLabelRule]
@@ -143,7 +143,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		} else {
 			return ns
 		}
-	} else if request, ok := changeRequest.(*kyvernov1alpha2.ClusterReportChangeRequest); ok {
+	} else if request, ok := changeRequest.(*changerequest.ClusterReportChangeRequest); ok {
 		label := request.GetLabels()
 		policy := label[deletedLabelPolicy]
 		rule := label[deletedLabelRule]
@@ -580,7 +580,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 	aggregatedRequests interface{},
 	err error,
 ) {
-	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace())
+	kyvernoNamespace, err := g.nsLister.Get(config.KyvernoNamespace)
 	if err != nil {
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
@@ -618,7 +618,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
 		}
-		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace()).List(selector)
+		requests, err := g.reportChangeRequestLister.ReportChangeRequests(config.KyvernoNamespace).List(selector)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to list reportChangeRequests within namespace %s: %v", ns, err)
 		}
@@ -631,10 +631,10 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 	return report, aggregatedRequests, nil
 }
 
-func (g *ReportGenerator) mergeRequests(ns, kyvernoNs *corev1.Namespace, policyName string, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
+func (g *ReportGenerator) mergeRequests(ns, kyvernoNs *v1.Namespace, policyName string, requestsGeneral interface{}) (*unstructured.Unstructured, interface{}, error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
-	if requests, ok := requestsGeneral.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
-		aggregatedRequests := []*kyvernov1alpha2.ClusterReportChangeRequest{}
+	if requests, ok := requestsGeneral.([]*changerequest.ClusterReportChangeRequest); ok {
+		aggregatedRequests := []*changerequest.ClusterReportChangeRequest{}
 		for _, request := range requests {
 			if request.GetDeletionTimestamp() != nil {
 				continue
@@ -694,7 +694,7 @@ func (g *ReportGenerator) mergeRequests(ns, kyvernoNs *corev1.Namespace, policyN
 	return nil, nil, nil
 }
 
-func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *corev1.Namespace, policyname string) {
+func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructured, ns, kyvernoNs *v1.Namespace, policyname string) {
 	reportUnstructured.SetAPIVersion(policyreportv1alpha2.SchemeGroupVersion.String())
 	reportUnstructured.SetLabels(LabelSelector.MatchLabels)
 
@@ -847,7 +847,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 }
 
 func (g *ReportGenerator) updateReportsForDeletedResource(resName string, new *unstructured.Unstructured, aggregatedRequests interface{}) (err error) {
-	if _, ok := aggregatedRequests.([]*kyvernov1alpha2.ClusterReportChangeRequest); ok {
+	if _, ok := aggregatedRequests.([]*changerequest.ClusterReportChangeRequest); ok {
 		cpolrs, err := g.clusterReportLister.List(labels.Everything())
 		if err != nil {
 			return fmt.Errorf("failed to list clusterPolicyReport %v", err)

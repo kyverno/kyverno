@@ -44,7 +44,7 @@ type changeRequestCreator struct {
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client kyvernoclient.Interface, tickerInterval time.Duration, splitPolicyReport bool, log logr.Logger) creator {
+func newChangeRequestCreator(client policyreportclient.Interface, tickerInterval time.Duration, splitPolicyReport bool, log logr.Logger) creator {
 	return &changeRequestCreator{
 		client:            client,
 		RCRCache:          cache.New(0, 24*time.Hour),
