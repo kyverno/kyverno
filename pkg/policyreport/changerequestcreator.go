@@ -114,6 +114,13 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(c.tickerInterval)
 	defer ticker.Stop()
 
+	if c.splitPolicyReport {
+		err := CleanupPolicyReport(c.client)
+		if err != nil {
+			c.log.Error(err, "failed to delete old reports")
+		}
+	}
+
 	for {
 		select {
 		case <-ticker.C:
@@ -275,7 +282,8 @@ func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
 				policyName := rcr.GetLabels()[policyLabel]
-				mergedNamespacedRCR, ok := mergedRCR[policyName]
+				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
+				mergedNamespacedRCR, ok := mergedRCR[policyName+resourceNS]
 				if !ok {
 					mergedNamespacedRCR = &unstructured.Unstructured{}
 				}
@@ -283,21 +291,21 @@ func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured
 				if isDeleteRequest(rcr) {
 					if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
 						results = append(results, mergedNamespacedRCR)
-						mergedRCR[policyName] = &unstructured.Unstructured{}
+						mergedRCR[policyName+resourceNS] = &unstructured.Unstructured{}
 					}
 
 					results = append(results, rcr)
 				} else {
 					if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-						mergedRCR[policyName] = rcr
+						mergedRCR[policyName+resourceNS] = rcr
 						continue
 					}
 
 					if ok := merge(mergedNamespacedRCR, rcr); !ok {
 						results = append(results, mergedNamespacedRCR)
-						mergedRCR[policyName] = rcr
+						mergedRCR[policyName+resourceNS] = rcr
 					} else {
-						mergedRCR[policyName] = mergedNamespacedRCR
+						mergedRCR[policyName+resourceNS] = mergedNamespacedRCR
 					}
 				}
 			}
