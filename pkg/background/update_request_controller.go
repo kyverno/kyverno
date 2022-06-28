@@ -52,6 +52,8 @@ type controller struct {
 	nsLister   corev1listers.NamespaceLister
 	podLister  corev1listers.PodLister
 
+	informersSynced []cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 
@@ -81,7 +83,7 @@ func NewController(
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
 		podLister:     podInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
 		eventGen:      eventGen,
 		configuration: dynamicConfig,
 	}
@@ -98,6 +100,9 @@ func NewController(
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
+
+	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
+
 	return &c
 }
 
@@ -108,6 +113,10 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("background", stopCh, c.informersSynced...) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
