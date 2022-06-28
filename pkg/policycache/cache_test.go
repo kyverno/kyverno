@@ -44,11 +44,11 @@ func (dl dummyNsLister) Get(name string) (*kyverno.Policy, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func Test_All(t *testing.T) {
-	fakeHasSynced := func() bool {
-		return true
-	}
+func fakeHasSynced() bool {
+	return true
+}
 
+func Test_All(t *testing.T) {
 	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 	//add
@@ -81,7 +81,7 @@ func Test_All(t *testing.T) {
 }
 
 func Test_Add_Duplicate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 	pCache.add(policy)
 	pCache.add(policy)
@@ -107,7 +107,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 }
 
 func Test_Add_Validate_Audit(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 	pCache.add(policy)
 	pCache.add(policy)
@@ -132,7 +132,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 }
 
 func Test_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 	kind := "Pod"
 	pCache.add(policy)
@@ -160,7 +160,7 @@ func Test_Add_Remove(t *testing.T) {
 }
 
 func Test_Add_Remove_Any(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newAnyPolicy(t)
 	kind := "Pod"
 	pCache.add(policy)
@@ -188,7 +188,7 @@ func Test_Add_Remove_Any(t *testing.T) {
 }
 
 func Test_Remove_From_Empty_Cache(t *testing.T) {
-	pCache := newPolicyCache(nil, nil)
+	pCache := newPolicyCache(nil, nil, fakeHasSynced, fakeHasSynced)
 	policy := newPolicy(t)
 
 	pCache.remove(policy)
@@ -929,7 +929,7 @@ func newValidateEnforcePolicy(t *testing.T) *kyverno.ClusterPolicy {
 }
 
 func Test_Ns_All(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newNsPolicy(t)
 	//add
 	pCache.add(policy)
@@ -961,7 +961,7 @@ func Test_Ns_All(t *testing.T) {
 }
 
 func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newNsPolicy(t)
 	pCache.add(policy)
 	pCache.add(policy)
@@ -988,7 +988,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 }
 
 func Test_Ns_Add_Validate_Audit(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newNsPolicy(t)
 	pCache.add(policy)
 	pCache.add(policy)
@@ -1013,7 +1013,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 }
 
 func Test_Ns_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newNsPolicy(t)
 	nspace := policy.GetNamespace()
 	kind := "Pod"
@@ -1031,7 +1031,7 @@ func Test_Ns_Add_Remove(t *testing.T) {
 }
 
 func Test_GVk_Cache(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newGVKPolicy(t)
 	//add
 	pCache.add(policy)
@@ -1047,7 +1047,7 @@ func Test_GVk_Cache(t *testing.T) {
 }
 
 func Test_GVK_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newGVKPolicy(t)
 	kind := "ClusterRole"
 	pCache.add(policy)
@@ -1064,7 +1064,7 @@ func Test_GVK_Add_Remove(t *testing.T) {
 }
 
 func Test_Add_Validate_Enforce(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	//add
@@ -1080,7 +1080,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 }
 
 func Test_Ns_Add_Remove_User(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	kind := "Deployment"
@@ -1098,7 +1098,7 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 }
 
 func Test_Mutate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newMutatePolicy(t)
 	//add
 	pCache.add(policy)
@@ -1117,7 +1117,7 @@ func Test_Mutate_Policy(t *testing.T) {
 }
 
 func Test_Generate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newgenratePolicy(t)
 	//add
 	pCache.add(policy)
@@ -1134,7 +1134,7 @@ func Test_Generate_Policy(t *testing.T) {
 }
 
 func Test_NsMutate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy := newMutatePolicy(t)
 	nspolicy := newNsMutatePolicy(t)
 	//add
@@ -1159,7 +1159,7 @@ func Test_NsMutate_Policy(t *testing.T) {
 }
 
 func Test_Validate_Enforce_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache(dummyLister{}, dummyNsLister{}, fakeHasSynced, fakeHasSynced)
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
 	pCache.add(policy1)
