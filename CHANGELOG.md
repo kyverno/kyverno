@@ -2,7 +2,7 @@
 
 ### Note
 
-- A new flag `changeRequestLimit` is added to the Kyverno main container, this flag sets the up-limit of reportchangerequests that a namespace can take, or clusterreportchangerequests if matching kinds are cluster-wide resources. The default limit is set to 1000, and it's recommended to configure it to a small threshold on large clusters. Here the large clusters are considered that a policy report has more than 1k results. 
+- A new flag `maxReportChangeRequests` is added to the Kyverno main container, this flag sets the up-limit of reportchangerequests that a namespace can take, or clusterreportchangerequests if matching kinds are cluster-wide resources. The default limit is set to 1000, and it's recommended to configure it to a small threshold on large clusters. Here the large clusters are considered that a policy report has more than 1k results. 
 
 
 ## v1.7.0-rc1

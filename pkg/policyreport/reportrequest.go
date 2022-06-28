@@ -29,8 +29,6 @@ const (
 	workQueueRetryLimit = 10
 )
 
-type concurrentMap struct{ cmap.ConcurrentMap }
-
 // Generator creates report request
 type Generator struct {
 	dclient dclient.Interface
@@ -343,23 +341,4 @@ func hasResultsChanged(old, new map[string]interface{}) bool {
 
 func newChangeRequestMapper() concurrentMap {
 	return concurrentMap{cmap.New()}
-}
-
-func (m concurrentMap) increase(ns string) {
-	count, ok := m.Get(ns)
-	if ok && count != -1 {
-		m.Set(ns, count.(int)+1)
-	} else {
-		m.Set(ns, 1)
-	}
-}
-
-func (m concurrentMap) decrease(keyHash string) {
-	_, ns := parseKeyHash(keyHash)
-	count, ok := m.Get(ns)
-	if ok && count.(int) > 0 {
-		m.Set(ns, count.(int)-1)
-	} else {
-		m.Set(ns, 0)
-	}
 }
