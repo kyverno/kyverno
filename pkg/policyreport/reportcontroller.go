@@ -366,7 +366,12 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		}
 	}
 
-	report, err := g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
+	var report *policyreportv1alpha2.PolicyReport
+	if g.splitPolicyReport {
+		report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
+	} else {
+		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
+	}
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
 			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
@@ -419,7 +424,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 		}
 
 		if g.splitPolicyReport {
-			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+			report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
 		} else {
 			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
 		}
@@ -444,7 +449,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 	} else {
 
 		if g.splitPolicyReport {
-			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace) + "-" + policyName)
+			report, err = g.clusterReportLister.Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
 		} else {
 			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
 		}
@@ -583,7 +588,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 	selector := labels.NewSelector()
 	if namespace == "" {
 		if g.splitPolicyReport {
-			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: policyName}))
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
 		}
@@ -609,7 +614,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		}
 
 		if g.splitPolicyReport {
-			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: policyName}))
+			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
 		}
@@ -709,7 +714,7 @@ func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructure
 
 	if ns == nil {
 		if g.splitPolicyReport {
-			reportUnstructured.SetName(GeneratePolicyReportName("") + "-" + policyname)
+			reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName("") + "-" + policyname))
 		} else {
 			reportUnstructured.SetName(GeneratePolicyReportName(""))
 		}
@@ -718,7 +723,7 @@ func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructure
 	}
 
 	if g.splitPolicyReport {
-		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname)
+		reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname))
 	} else {
 		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
 	}

@@ -57,6 +57,13 @@ func GeneratePolicyReportName(ns string) string {
 	return name
 }
 
+func TrimmedName(s string) string {
+	if len(s) > 63 {
+		return s[:63]
+	}
+	return s
+}
+
 // GeneratePRsFromEngineResponse generate Violations from engine responses
 func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
@@ -210,7 +217,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 
 	obj.SetLabels(map[string]string{
 		ResourceLabelNamespace: info.Namespace,
-		policyLabel:            info.PolicyName,
+		policyLabel:            TrimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
 	})
 }
