@@ -2,7 +2,7 @@ package event
 
 const eventWorkQueueName = "kyverno-events"
 
-const workQueueRetryLimit = 10
+const workQueueRetryLimit = 3
 
 //Info defines the event details
 type Info struct {
