@@ -34,6 +34,7 @@ func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInte
 	return c.cachedClient
 }
 
+// DiscoveryInterface gets the discovery client
 func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }

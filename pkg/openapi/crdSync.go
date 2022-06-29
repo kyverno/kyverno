@@ -10,6 +10,7 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +125,9 @@ func (c *crdSync) sync() {
 }
 
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
+	util.OverrideRuntimeErrorHandler()
 	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
+
 	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
 		return errors.Wrapf(err, "fetching API server groups and resources")
 	}
