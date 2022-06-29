@@ -24,6 +24,7 @@ import (
 	rbacv1informers "k8s.io/client-go/informers/rbac/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -52,6 +53,8 @@ type auditHandler struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	nsLister  corev1listers.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	log           logr.Logger
 	configHandler config.Configuration
 	promConfig    *metrics.PromConfig
@@ -69,7 +72,7 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 	client dclient.Interface,
 	promConfig *metrics.PromConfig,
 ) AuditHandler {
-	return &auditHandler{
+	c := &auditHandler{
 		pCache:        pCache,
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		eventGen:      eventGen,
@@ -82,6 +85,8 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 		client:        client,
 		promConfig:    promConfig,
 	}
+	c.informersSynced = []cache.InformerSynced{rbInformer.Informer().HasSynced, crbInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	return c
 }
 
 func (h *auditHandler) Add(request *admissionv1.AdmissionRequest) {
@@ -96,6 +101,10 @@ func (h *auditHandler) Run(workers int, stopCh <-chan struct{}) {
 		utilruntime.HandleCrash()
 		h.log.V(4).Info("shutting down")
 	}()
+
+	if !cache.WaitForNamedCacheSync("ValidateAuditHandler", stopCh, h.informersSynced...) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(h.runWorker, time.Second, stopCh)
