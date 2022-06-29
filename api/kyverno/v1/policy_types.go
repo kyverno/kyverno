@@ -4,6 +4,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/pod-security-admission/api"
 )
 
 // PolicyList is a list of Policy instances.
@@ -487,6 +488,19 @@ type Validation struct {
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+
+	PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+}
+
+type PodSecurity struct {
+	Level   api.Level              `json:"level,omitempty" yaml:"level,omitempty"`
+	Version api.Version            `json:"version,omitempty" yaml:"version,omitempty"`
+	Exclude []*PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+}
+type PodSecurityStandard struct {
+	Path   string   `json:"path,omitempty" yaml:"path,omitempty"`
+	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.
