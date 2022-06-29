@@ -9,4 +9,4 @@ results:
   resource: hourly-policy
   kind: Policy
   patchedResource: patched.yaml
-  result: pass
+  result: fail
