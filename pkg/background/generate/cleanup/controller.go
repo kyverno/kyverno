@@ -53,6 +53,8 @@ type controller struct {
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister corev1listers.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 }
@@ -67,7 +69,7 @@ func NewController(
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 ) Controller {
-	return &controller{
+	c := &controller{
 		client:        client,
 		kyvernoClient: kyvernoclient,
 		pInformer:     pInformer,
@@ -78,6 +80,9 @@ func NewController(
 		nsLister:      namespaceInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
 	}
+
+	c.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
+	return c
 }
 
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
@@ -85,6 +90,11 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("generate-request-cleanup", stopCh, c.informersSynced...) {
+		return
+	}
+
 	c.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		DeleteFunc: c.deletePolicy, // we only cleanup if the policy is delete
 	})
