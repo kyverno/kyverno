@@ -84,7 +84,7 @@ docker-get-initContainer-digest:
 	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 docker-build-initContainer-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(INITC_PATH)
 	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(PWD)/$(INITC_PATH)
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(INITC_IMAGE):latest
 
@@ -481,4 +481,4 @@ kind-deploy: docker-build-initContainer-local docker-build-kyverno-local
 		--set initImage.repository=$(REPO)/$(INITC_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=false}
-	# helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
