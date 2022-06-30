@@ -221,6 +221,8 @@ spec:
       verifyImages:
       - image: "harbor2.zoller.com/cosign/*"
         mutateDigest: false
+        verifyDigest: false
+        required: false
         key: |-
           -----BEGIN PUBLIC KEY-----
           MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi
