@@ -514,7 +514,17 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				continue
+				if g.splitPolicyReport {
+					if err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), cpolr.GetName(), metav1.DeleteOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return nil
+						} else {
+							return fmt.Errorf("failed to delete clusterPolicyReport %s %v", policyName, err)
+						}
+					}
+				} else {
+					continue
+				}
 			}
 			newRes = append(newRes, result)
 		}
@@ -556,7 +566,17 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				continue
+				if g.splitPolicyReport {
+					if err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{}); err != nil {
+						if apierrors.IsNotFound(err) {
+							return nil
+						} else {
+							return fmt.Errorf("failed to delete PolicyReport %s %v", r.GetName(), err)
+						}
+					}
+				} else {
+					continue
+				}
 			}
 			newRes = append(newRes, result)
 		}
