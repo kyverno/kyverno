@@ -256,7 +256,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	preconditionsPassed, err := checkPreconditions(v.log, v.ctx, v.anyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to evaluate preconditions", err)
-	} else if !preconditionsPassed && (v.ctx.Policy.GetSpec().ValidationFailureAction != kyvernov1.Audit || store.GetMock()) {
+	} else if !preconditionsPassed {
 		return ruleResponse(*v.rule, response.Validation, "preconditions not met", response.RuleStatusSkip, nil)
 	}
 
