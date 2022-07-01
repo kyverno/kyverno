@@ -19,6 +19,7 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 )
 
@@ -339,4 +340,20 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoAnyAllConditions, nil
 	}
 	return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+}
+
+func OverrideRuntimeErrorHandler() {
+	logger := log.Log.WithName("RuntimeErrorHandler")
+	if len(runtime.ErrorHandlers) > 0 {
+		runtime.ErrorHandlers[0] = func(err error) {
+			logger.V(6).Info("runtime error: %s", err)
+		}
+
+	} else {
+		runtime.ErrorHandlers = []func(err error){
+			func(err error) {
+				logger.V(6).Info("runtime error: %s", err)
+			},
+		}
+	}
 }

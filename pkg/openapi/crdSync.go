@@ -12,11 +12,13 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	client "github.com/kyverno/kyverno/pkg/dclient"
+	util "github.com/kyverno/kyverno/pkg/utils"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -24,6 +26,10 @@ type crdSync struct {
 	client     client.Interface
 	controller *Controller
 }
+
+const (
+	skipErrorMsg = "Got empty response for"
+)
 
 // crdDefinitionPrior represents CRDs version prior to 1.16
 var crdDefinitionPrior struct {
@@ -69,7 +75,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 		log.Log.Error(err, "failed to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -108,7 +114,7 @@ func (c *crdSync) sync() {
 		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
 		log.Log.Error(err, "cannot get OpenAPI schema")
 	}
@@ -120,13 +126,15 @@ func (c *crdSync) sync() {
 }
 
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
-	_, apiResourceLists, err := c.client.Discovery().DiscoveryCache().ServerGroupsAndResources()
-	if err != nil {
+	util.OverrideRuntimeErrorHandler()
+
+	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
+	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
 		return errors.Wrapf(err, "fetching API server groups and resources")
 	}
 
-	preferredAPIResourcesLists, err := c.client.Discovery().DiscoveryCache().ServerPreferredResources()
-	if err != nil {
+	preferredAPIResourcesLists, err := discovery.ServerPreferredResources(c.client.Discovery().DiscoveryInterface())
+	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
 		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
 
