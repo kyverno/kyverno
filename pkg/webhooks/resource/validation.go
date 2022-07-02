@@ -82,7 +82,8 @@ func (v *validationHandler) handleValidation(
 
 	// If Validation fails then reject the request
 	// no violations will be created on "enforce"
-	blocked := toBlockResource(engineResponses, logger)
+	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
+	blocked := blockRequest(engineResponses, failurePolicy, logger)
 
 	// REPORTING EVENTS
 	// Scenario 1:

@@ -139,10 +139,21 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
-// IsFailed checks if any rule has succeeded or not
+// IsFailed checks if any rule created a policy violation
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail {
+			return true
+		}
+	}
+
+	return false
+}
+
+// IsError checks if any rule resulted in a processing error
+func (er EngineResponse) IsError() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusError {
 			return true
 		}
 	}

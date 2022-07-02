@@ -220,21 +220,34 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	addRoles := containsRBACInfo(mutatePolicies)
 	policyContext, err := h.buildPolicyContext(request, addRoles)
 	if err != nil {
-		logger.Error(err, "failed to build policy context")
-		return admissionutils.ResponseFailure(false, err.Error())
+		return h.handleError(policyContext, err, "failed to build policy context", logger)
 	}
 	// update container images to a canonical form
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
-	mutatePatches := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
+	mutatePatches, err := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
+	if err != nil {
+		return h.handleError(policyContext, err, "mutation error", logger)
+	}
+
 	newRequest := patchRequest(mutatePatches, request, logger)
 	imagePatches, err := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
 	if err != nil {
-		logger.Error(err, "image verification failed")
-		return admissionutils.ResponseFailure(false, err.Error())
+		return h.handleError(policyContext, err, "image verification error", logger)
 	}
+
 	return admissionutils.ResponseSuccessWithPatch(true, "", append(mutatePatches, imagePatches...))
+}
+
+// handleError - allows admission request to proceed when the failurePolicy is set to ignore
+func (h *handlers) handleError(policyContext *engine.PolicyContext, err error, details string, logger logr.Logger) *admissionv1.AdmissionResponse {
+	logger.Error(err, details)
+	if policyContext.Policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
+		return admissionutils.ResponseSuccess(true, "")
+	}
+
+	return admissionutils.ResponseFailure(false, err.Error())
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
@@ -277,41 +290,32 @@ func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, add
 	return policyContext, nil
 }
 
-func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts int64) []byte {
-	mutatePatches, mutateEngineResponses := h.handleMutation(logger, request, policyContext, policies)
+func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts int64) ([]byte, error) {
+	mutatePatches, mutateEngineResponses, err := h.handleMutation(logger, request, policyContext, policies)
+	if err != nil {
+		return nil, err
+	}
+
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(ts, 0)))
 	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
 	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
 
-	return mutatePatches
+	return mutatePatches, nil
 }
 
 // handleMutation handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
-func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, []*response.EngineResponse) {
+func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, []*response.EngineResponse, error) {
 	if len(policies) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	patchedResource := request.Object.Raw
-	newR, oldR, err := utils.ExtractResources(patchedResource, request)
-	if err != nil {
-		// as resource cannot be parsed, we skip processing
-		logger.Error(err, "failed to extract resource")
-		return nil, nil
-	}
-	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(newR, unstructured.Unstructured{}) {
-		deletionTimeStamp = newR.GetDeletionTimestamp()
-	} else {
-		deletionTimeStamp = oldR.GetDeletionTimestamp()
+	if isResourceDeleted(policyContext) && request.Operation == admissionv1.Update {
+		return nil, nil, nil
 	}
 
-	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
-		return nil, nil
-	}
 	var patches [][]byte
 	var engineResponses []*response.EngineResponse
 
@@ -324,9 +328,7 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 		policyContext.Policy = policy
 		engineResponse, policyPatches, err := h.applyMutation(request, policyContext, logger)
 		if err != nil {
-			// TODO report errors in engineResponse and record in metrics
-			logger.Error(err, "mutate error")
-			continue
+			return nil, nil, fmt.Errorf("mutation policy %s error: %v", policy.GetName(), err)
 		}
 
 		if len(policyPatches) > 0 {
@@ -351,33 +353,26 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 		patches = append(patches, annPatches...)
 	}
 
-	// REPORTING EVENTS
-	// Scenario 1:
-	//   some/all policies failed to apply on the resource. a policy violation is generated.
-	//   create an event on the resource and the policy that failed
-	// Scenario 2:
-	//   all policies were applied successfully.
-	//   create an event on the resource
-	// ADD EVENTS
-	if deletionTimeStamp == nil {
+	if !isResourceDeleted(policyContext) {
 		events := generateEvents(engineResponses, false, logger)
 		h.eventGen.Add(events...)
 	}
 
-	// debug info
-	func() {
-		if len(patches) != 0 {
-			logger.V(4).Info("JSON patches generated")
-		}
-
-		// if any of the policies fails, print out the error
-		if !engineutils.IsResponseSuccessful(engineResponses) {
-			logger.Error(errors.New(getErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
-		}
-	}()
+	logMutationResponse(patches, engineResponses, logger)
 
 	// patches holds all the successful patches, if no patch is created, it returns nil
-	return jsonutils.JoinPatches(patches...), engineResponses
+	return jsonutils.JoinPatches(patches...), engineResponses, nil
+}
+
+func logMutationResponse(patches [][]byte, engineResponses []*response.EngineResponse, logger logr.Logger) {
+	if len(patches) != 0 {
+		logger.V(4).Info("created patches", "count", len(patches))
+	}
+
+	// if any of the policies fails, print out the error
+	if !engineutils.IsResponseSuccessful(engineResponses) {
+		logger.Error(errors.New(getErrorMsg(engineResponses)), "failed to apply mutation rules on the resource, reporting policy violation")
+	}
 }
 
 func (h *handlers) applyMutation(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, logger logr.Logger) (*response.EngineResponse, [][]byte, error) {
@@ -432,15 +427,9 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	h.prGenerator.Add(prInfos...)
 
-	var deletionTimeStamp *metav1.Time
-	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
-		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
-	} else {
-		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
-	}
-
-	blocked := toBlockResource(engineResponses, logger)
-	if deletionTimeStamp == nil {
+	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
+	blocked := blockRequest(engineResponses, failurePolicy, logger)
+	if !isResourceDeleted(policyContext) {
 		events := generateEvents(engineResponses, blocked, logger)
 		h.eventGen.Add(events...)
 	}
@@ -462,6 +451,17 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	}
 
 	return true, "", jsonutils.JoinPatches(patches...)
+}
+
+func isResourceDeleted(policyContext *engine.PolicyContext) bool {
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+	}
+
+	return deletionTimeStamp != nil
 }
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {

@@ -166,15 +166,15 @@ func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) 
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
+func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if engineutils2.CheckEngineResponse(er) {
-			log.Info("spec.ValidationFailureAction set to enforce, blocking resource request", "policy", er.PolicyResponse.Policy.Name)
+		if engineutils2.BlockRequest(er, failurePolicy) {
+			log.Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
 	}
 
-	log.V(4).Info("spec.ValidationFailureAction set to audit for all applicable policies, won't block resource operation")
+	log.V(4).Info("allowing admission request")
 	return false
 }
 
@@ -183,17 +183,16 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 	policyToRule := make(map[string]interface{})
 	var resourceName string
 	for _, er := range engineResponses {
-		if engineutils2.CheckEngineResponse(er) {
-			ruleToReason := make(map[string]string)
-			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
-					ruleToReason[rule.Name] = rule.Message
-				}
+		ruleToReason := make(map[string]string)
+		for _, rule := range er.PolicyResponse.Rules {
+			if rule.Status != response.RuleStatusPass {
+				ruleToReason[rule.Name] = rule.Message
 			}
-			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 		}
+		resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
+		policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
 	}
+
 	result, _ := yamlv2.Marshal(policyToRule)
 	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
 }

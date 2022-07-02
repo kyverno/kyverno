@@ -30,15 +30,16 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
-	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 	// Rules within the same policy share the same failure behavior.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
-	// ValidationFailureAction controls if a validation policy rule failure should disallow
+	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional. The default value is "audit".
+	// and report an error in a policy report. Optional.
+	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`

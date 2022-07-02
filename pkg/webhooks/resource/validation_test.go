@@ -536,7 +536,8 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 				}
 			}
 
-			blocked := toBlockResource([]*response.EngineResponse{er}, log.Log.WithName("WebhookServer"))
+			failurePolicy := kyverno.Fail
+			blocked := blockRequest([]*response.EngineResponse{er}, failurePolicy, log.Log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
