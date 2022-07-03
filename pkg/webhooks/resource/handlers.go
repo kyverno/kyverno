@@ -102,7 +102,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	}
 
 	if excludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess(true, "")
+		return admissionutils.ResponseSuccess()
 	}
 
 	kind := request.Kind.Kind
@@ -179,23 +179,25 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		prGenerator: h.prGenerator,
 	}
 
-	ok, msg := vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
+	ok, msg, warnings := vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
 	if !ok {
 		logger.Info("admission request denied")
-		return admissionutils.ResponseFailure(false, msg)
+		return admissionutils.ResponseFailure(msg)
 	}
 
-	// push admission request to audit handler, this won't block the admission request
 	h.auditHandler.Add(request.DeepCopy())
-
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
 
-	return admissionutils.ResponseSuccess(true, "")
+	if warnings != nil {
+		return admissionutils.ResponseSuccessWithWarnings(warnings)
+	}
+
+	return admissionutils.ResponseSuccess()
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	if excludeKyvernoResources(request.Kind.Kind) {
-		return admissionutils.ResponseSuccess(true, "")
+		return admissionutils.ResponseSuccess()
 	}
 	if request.Operation == admissionv1.Delete {
 		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
@@ -205,7 +207,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
 		}
 
-		return admissionutils.ResponseSuccess(true, "")
+		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
 	logger.V(4).Info("received an admission request in mutating webhook", "kind", kind)
@@ -214,7 +216,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request", "kind", kind)
-		return admissionutils.ResponseSuccess(true, "")
+		return admissionutils.ResponseSuccess()
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "kind", kind, "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
 	addRoles := containsRBACInfo(mutatePolicies)
@@ -226,28 +228,32 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
-	mutatePatches, err := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
+	mutatePatches, err, mutateWarnings := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
 	if err != nil {
 		return h.handleError(policyContext, err, "mutation error", logger)
 	}
 
 	newRequest := patchRequest(mutatePatches, request, logger)
-	imagePatches, err := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
+	imagePatches, err, imageVerifyWarnings := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
 	if err != nil {
 		return h.handleError(policyContext, err, "image verification error", logger)
 	}
 
-	return admissionutils.ResponseSuccessWithPatch(true, "", append(mutatePatches, imagePatches...))
+	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
+		admissionutils.ResponseSuccessWithPatchAndWarnings(append(mutatePatches, imagePatches...), append(mutateWarnings, imageVerifyWarnings...))
+	}
+
+	return admissionutils.ResponseSuccessWithPatch(append(mutatePatches, imagePatches...))
 }
 
 // handleError - allows admission request to proceed when the failurePolicy is set to ignore
 func (h *handlers) handleError(policyContext *engine.PolicyContext, err error, details string, logger logr.Logger) *admissionv1.AdmissionResponse {
 	logger.Error(err, details)
 	if policyContext.Policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
-		return admissionutils.ResponseSuccess(true, "")
+		return admissionutils.ResponseSuccess()
 	}
 
-	return admissionutils.ResponseFailure(false, err.Error())
+	return admissionutils.ResponseFailure(err.Error())
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
@@ -290,10 +296,10 @@ func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, add
 	return policyContext, nil
 }
 
-func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts int64) ([]byte, error) {
+func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts int64) ([]byte, error, []string) {
 	mutatePatches, mutateEngineResponses, err := h.handleMutation(logger, request, policyContext, policies)
 	if err != nil {
-		return nil, err
+		return nil, err, nil
 	}
 
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
@@ -302,7 +308,8 @@ func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.
 	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
 	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
 
-	return mutatePatches, nil
+	warnings := getWarningMessages(mutateEngineResponses)
+	return mutatePatches, nil, warnings
 }
 
 // handleMutation handles mutating webhook admission request
@@ -397,19 +404,19 @@ func (h *handlers) applyMutation(request *admissionv1.AdmissionRequest, policyCo
 	return engineResponse, policyPatches, nil
 }
 
-func (h *handlers) applyImageVerifyPolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, error) {
-	ok, message, imagePatches := h.handleVerifyImages(logger, request, policyContext, policies)
+func (h *handlers) applyImageVerifyPolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, error, []string) {
+	ok, message, imagePatches, warnings := h.handleVerifyImages(logger, request, policyContext, policies)
 	if !ok {
-		return nil, errors.New(message)
+		return nil, errors.New(message), nil
 	}
 
-	logger.V(6).Info("images verified", "patches", string(imagePatches))
-	return imagePatches, nil
+	logger.V(6).Info("images verified", "patches", string(imagePatches), "warnings", warnings)
+	return imagePatches, nil, warnings
 }
 
-func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) (bool, string, []byte) {
+func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
-		return true, "", nil
+		return true, "", nil, nil
 	}
 
 	var engineResponses []*response.EngineResponse
@@ -436,7 +443,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 
 	if blocked {
 		logger.V(4).Info("resource blocked")
-		return false, getEnforceFailureErrorMsg(engineResponses), nil
+		return false, getBlockedMessages(engineResponses), nil, nil
 	}
 
 	if !verifiedImageData.IsEmpty() {
@@ -450,7 +457,8 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 		}
 	}
 
-	return true, "", jsonutils.JoinPatches(patches...)
+	warnings := getWarningMessages(engineResponses)
+	return true, "", jsonutils.JoinPatches(patches...), warnings
 }
 
 func isResourceDeleted(policyContext *engine.PolicyContext) bool {

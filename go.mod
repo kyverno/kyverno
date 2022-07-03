@@ -59,7 +59,10 @@ require (
 	sigs.k8s.io/yaml v1.3.0
 )
 
-require github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
+require (
+	github.com/aws/aws-sdk-go v1.44.33
+	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
+)
 
 require (
 	bitbucket.org/creachadair/shell v0.0.6 // indirect
