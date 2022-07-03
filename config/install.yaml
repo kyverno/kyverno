@@ -77,10 +77,10 @@ spec:
                   name).
                 type: boolean
               failurePolicy:
-                description: FailurePolicy defines how unrecognized errors from the
-                  admission endpoint are handled. Rules within the same policy share
-                  the same failure behavior. Allowed values are Ignore or Fail. Defaults
-                  to Fail.
+                description: FailurePolicy defines how unexpected policy errors and
+                  webhook response timeout errors are handled. Rules within the same
+                  policy share the same failure behavior. Allowed values are Ignore
+                  or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -2473,10 +2473,11 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
-                description: ValidationFailureAction controls if a validation policy
-                  rule failure should disallow the admission review request (enforce),
+                description: ValidationFailureAction defines if a validation policy
+                  rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
-                  in a policy report. Optional. The default value is "audit".
+                  in a policy report. Optional. Allowed values are audit or enforce.
+                  The default value is "audit".
                 enum:
                 - audit
                 - enforce
@@ -3587,10 +3588,10 @@ spec:
                   name).
                 type: boolean
               failurePolicy:
-                description: FailurePolicy defines how unrecognized errors from the
-                  admission endpoint are handled. Rules within the same policy share
-                  the same failure behavior. Allowed values are Ignore or Fail. Defaults
-                  to Fail.
+                description: FailurePolicy defines how unexpected policy errors and
+                  webhook response timeout errors are handled. Rules within the same
+                  policy share the same failure behavior. Allowed values are Ignore
+                  or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -5983,10 +5984,11 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
-                description: ValidationFailureAction controls if a validation policy
-                  rule failure should disallow the admission review request (enforce),
+                description: ValidationFailureAction defines if a validation policy
+                  rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
-                  in a policy report. Optional. The default value is "audit".
+                  in a policy report. Optional. Allowed values are audit or enforce.
+                  The default value is "audit".
                 enum:
                 - audit
                 - enforce
@@ -7820,6 +7822,8 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore
@@ -7849,6 +7853,8 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account

@@ -113,7 +113,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -129,9 +129,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -320,7 +321,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -336,9 +337,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -1837,7 +1839,7 @@ Note - this field MUST be unique.</p>
 </table>
 <hr />
 <h3 id="kyverno.io/v1.ImageExtractorConfigs">ImageExtractorConfigs
-(<code>map[string][]./api/kyverno/v1.ImageExtractorConfig</code> alias)</p></h3>
+(<code>map[string][]github/JimBugwadia/kyverno/api/kyverno/v1.ImageExtractorConfig</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Rule">Rule</a>)
@@ -2605,7 +2607,7 @@ ResourceDescription
 </table>
 <hr />
 <h3 id="kyverno.io/v1.ResourceFilters">ResourceFilters
-(<code>[]./api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
+(<code>[]github/JimBugwadia/kyverno/api/kyverno/v1.ResourceFilter</code> alias)</p></h3>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.MatchResources">MatchResources</a>)
@@ -2893,7 +2895,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -2909,9 +2911,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
