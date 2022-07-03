@@ -7820,6 +7820,8 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore
@@ -7849,6 +7851,8 @@ spec:
           privileged: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kyverno-service-account

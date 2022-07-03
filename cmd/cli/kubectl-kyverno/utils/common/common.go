@@ -412,33 +412,40 @@ func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructu
 	policyWithNamespaceSelector := false
 OuterLoop:
 	for _, p := range autogen.ComputeRules(policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
-		for _, m := range p.MatchResources.Any {
-			if m.ResourceDescription.NamespaceSelector != nil {
+		if p.MatchResourcesXXX != nil {
+			if p.MatchResourcesXXX.ResourceDescription.NamespaceSelector != nil {
 				policyWithNamespaceSelector = true
-				break OuterLoop
+				break
+			}
+			for _, m := range p.MatchResourcesXXX.Any {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
+			}
+			for _, m := range p.MatchResourcesXXX.All {
+				if m.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
 			}
 		}
-		for _, m := range p.MatchResources.All {
-			if m.ResourceDescription.NamespaceSelector != nil {
+		if p.ExcludeResourcesXXX != nil {
+			if p.ExcludeResourcesXXX.ResourceDescription.NamespaceSelector != nil {
 				policyWithNamespaceSelector = true
-				break OuterLoop
+				break
 			}
-		}
-		for _, e := range p.ExcludeResources.Any {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
+			for _, e := range p.ExcludeResourcesXXX.Any {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
 			}
-		}
-		for _, e := range p.ExcludeResources.All {
-			if e.ResourceDescription.NamespaceSelector != nil {
-				policyWithNamespaceSelector = true
-				break OuterLoop
+			for _, e := range p.ExcludeResourcesXXX.All {
+				if e.ResourceDescription.NamespaceSelector != nil {
+					policyWithNamespaceSelector = true
+					break OuterLoop
+				}
 			}
 		}
 	}
@@ -993,11 +1000,15 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		if rule.MatchResourcesXXX != nil {
+			for _, kind := range rule.MatchResourcesXXX.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			}
 		}
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		if rule.ExcludeResourcesXXX != nil {
+			for _, kind := range rule.ExcludeResourcesXXX.ResourceDescription.Kinds {
+				kindOnwhichPolicyIsApplied[kind] = struct{}{}
+			}
 		}
 	}
 	return kindOnwhichPolicyIsApplied

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -33,32 +34,44 @@ type MatchResources struct {
 // GetKinds returns all kinds
 func (m *MatchResources) GetKinds() []string {
 	var kinds []string
-	kinds = append(kinds, m.ResourceDescription.Kinds...)
-	for _, value := range m.All {
-		kinds = append(kinds, value.ResourceDescription.Kinds...)
-	}
-	for _, value := range m.Any {
-		kinds = append(kinds, value.ResourceDescription.Kinds...)
+	if m != nil {
+		kinds = append(kinds, m.ResourceDescription.Kinds...)
+		for _, value := range m.All {
+			kinds = append(kinds, value.ResourceDescription.Kinds...)
+		}
+		for _, value := range m.Any {
+			kinds = append(kinds, value.ResourceDescription.Kinds...)
+		}
 	}
 	return kinds
 }
 
+// GetKinds returns all kinds
+func (m *MatchResources) GetSelector() *metav1.LabelSelector {
+	if m != nil {
+		return m.Selector
+	}
+	return nil
+}
+
 // Validate implements programmatic validation
 func (m *MatchResources) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
-	if len(m.Any) > 0 && len(m.All) > 0 {
-		errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
+	if m != nil {
+		if len(m.Any) > 0 && len(m.All) > 0 {
+			errs = append(errs, field.Invalid(path, m, "Can't specify any and all together"))
+		}
+		anyPath := path.Child("any")
+		for i, filter := range m.Any {
+			errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
+			errs = append(errs, filter.ResourceDescription.Validate(anyPath.Index(i), namespaced, clusterResources)...)
+		}
+		allPath := path.Child("all")
+		for i, filter := range m.All {
+			errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
+			errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), namespaced, clusterResources)...)
+		}
+		errs = append(errs, m.UserInfo.Validate(path)...)
+		errs = append(errs, m.ResourceDescription.Validate(path, namespaced, clusterResources)...)
 	}
-	anyPath := path.Child("any")
-	for i, filter := range m.Any {
-		errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
-		errs = append(errs, filter.ResourceDescription.Validate(anyPath.Index(i), namespaced, clusterResources)...)
-	}
-	allPath := path.Child("all")
-	for i, filter := range m.All {
-		errs = append(errs, filter.UserInfo.Validate(anyPath.Index(i))...)
-		errs = append(errs, filter.ResourceDescription.Validate(allPath.Index(i), namespaced, clusterResources)...)
-	}
-	errs = append(errs, m.UserInfo.Validate(path)...)
-	errs = append(errs, m.ResourceDescription.Validate(path, namespaced, clusterResources)...)
 	return errs
 }

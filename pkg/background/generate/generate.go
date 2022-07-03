@@ -325,11 +325,13 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		processExisting = false
 		var genResource kyvernov1.ResourceSpec
 
-		if len(rule.MatchResources.Kinds) > 0 {
-			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
-				rcreationTime := resource.GetCreationTimestamp()
-				pcreationTime := policy.GetCreationTimestamp()
-				processExisting = rcreationTime.Before(&pcreationTime)
+		if rule.MatchResourcesXXX != nil {
+			if len(rule.MatchResourcesXXX.Kinds) > 0 {
+				if len(rule.MatchResourcesXXX.Annotations) == 0 && rule.MatchResourcesXXX.Selector == nil {
+					rcreationTime := resource.GetCreationTimestamp()
+					pcreationTime := policy.GetCreationTimestamp()
+					processExisting = rcreationTime.Before(&pcreationTime)
+				}
 			}
 		}
 

@@ -101,7 +101,7 @@ func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
 	}
 	kindStates := map[string]state{}
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, gvk := range rule.MatchResources.GetKinds() {
+		for _, gvk := range rule.MatchResourcesXXX.GetKinds() {
 			kind := computeKind(gvk)
 			entry := kindStates[kind]
 			entry.hasMutate = (entry.hasMutate || rule.HasMutate())

@@ -971,7 +971,7 @@ func TestResourceDescriptionMatch_MultipleKind(t *testing.T) {
 			MatchExpressions: nil,
 		},
 	}
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
@@ -1032,7 +1032,7 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 			MatchExpressions: nil,
 		},
 	}
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
@@ -1092,7 +1092,7 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 			MatchExpressions: nil,
 		},
 	}
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
@@ -1160,7 +1160,7 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 			},
 		},
 	}
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
@@ -1229,7 +1229,7 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 			},
 		},
 	}
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err != nil {
 		t.Errorf("Testcase has failed due to the following:%v", err)
@@ -1308,8 +1308,8 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 		},
 	}
 
-	rule := v1.Rule{MatchResources: v1.MatchResources{ResourceDescription: resourceDescription},
-		ExcludeResources: v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
+	rule := v1.Rule{MatchResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescription},
+		ExcludeResourcesXXX: &v1.MatchResources{ResourceDescription: resourceDescriptionExclude}}
 
 	if err := MatchesResourceDescription(*resource, rule, v1beta1.RequestInfo{}, []string{}, nil, ""); err == nil {
 		t.Errorf("Testcase has failed due to the following:\n Function has returned no error, even though it was supposed to fail")

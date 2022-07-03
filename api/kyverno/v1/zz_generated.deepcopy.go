@@ -1033,8 +1033,16 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	in.MatchResources.DeepCopyInto(&out.MatchResources)
-	in.ExcludeResources.DeepCopyInto(&out.ExcludeResources)
+	if in.MatchResourcesXXX != nil {
+		in, out := &in.MatchResourcesXXX, &out.MatchResourcesXXX
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.ExcludeResourcesXXX != nil {
+		in, out := &in.ExcludeResourcesXXX, &out.ExcludeResourcesXXX
+		*out = new(MatchResources)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ImageExtractors != nil {
 		in, out := &in.ImageExtractors, &out.ImageExtractors
 		*out = make(ImageExtractorConfigs, len(*in))

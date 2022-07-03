@@ -49,13 +49,13 @@ type Rule struct {
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the user name or role.
 	// At least one kind is required.
-	MatchResources MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
+	MatchResourcesXXX *MatchResources `json:"match,omitempty" yaml:"match,omitempty"`
 
 	// ExcludeResources defines when this policy rule should not be applied. The exclude
 	// criteria can include resource information (e.g. kind, name, namespace, labels)
 	// and admission review request information like the name or role.
 	// +optional
-	ExcludeResources MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	ExcludeResourcesXXX *MatchResources `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 
 	// ImageExtractors defines a mapping from kinds to ImageExtractorConfigs.
 	// This config is only valid for verifyImages rules.
@@ -168,13 +168,16 @@ func (r *Rule) ValidateRuleType(path *field.Path) (errs field.ErrorList) {
 
 // ValidateMatchExcludeConflict checks if the resultant of match and exclude block is not an empty set
 func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorList) {
-	if len(r.ExcludeResources.All) > 0 || len(r.MatchResources.All) > 0 {
+	if r.MatchResourcesXXX == nil || r.ExcludeResourcesXXX == nil {
+		return errs
+	}
+	if len(r.ExcludeResourcesXXX.All) > 0 || len(r.MatchResourcesXXX.All) > 0 {
 		return errs
 	}
 	// if both have any then no resource should be common
-	if len(r.MatchResources.Any) > 0 && len(r.ExcludeResources.Any) > 0 {
-		for _, rmr := range r.MatchResources.Any {
-			for _, rer := range r.ExcludeResources.Any {
+	if len(r.MatchResourcesXXX.Any) > 0 && len(r.ExcludeResourcesXXX.Any) > 0 {
+		for _, rmr := range r.MatchResourcesXXX.Any {
+			for _, rer := range r.ExcludeResourcesXXX.Any {
 				if reflect.DeepEqual(rmr, rer) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
@@ -182,65 +185,62 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	if reflect.DeepEqual(r.ExcludeResources, MatchResources{}) {
-		return errs
-	}
-	excludeRoles := sets.NewString(r.ExcludeResources.Roles...)
-	excludeClusterRoles := sets.NewString(r.ExcludeResources.ClusterRoles...)
-	excludeKinds := sets.NewString(r.ExcludeResources.Kinds...)
-	excludeNamespaces := sets.NewString(r.ExcludeResources.Namespaces...)
+	excludeRoles := sets.NewString(r.ExcludeResourcesXXX.Roles...)
+	excludeClusterRoles := sets.NewString(r.ExcludeResourcesXXX.ClusterRoles...)
+	excludeKinds := sets.NewString(r.ExcludeResourcesXXX.Kinds...)
+	excludeNamespaces := sets.NewString(r.ExcludeResourcesXXX.Namespaces...)
 	excludeSubjects := sets.NewString()
-	for _, subject := range r.ExcludeResources.Subjects {
+	for _, subject := range r.ExcludeResourcesXXX.Subjects {
 		subjectRaw, _ := json.Marshal(subject)
 		excludeSubjects.Insert(string(subjectRaw))
 	}
 	excludeSelectorMatchExpressions := sets.NewString()
-	if r.ExcludeResources.Selector != nil {
-		for _, matchExpression := range r.ExcludeResources.Selector.MatchExpressions {
+	if r.ExcludeResourcesXXX.Selector != nil {
+		for _, matchExpression := range r.ExcludeResourcesXXX.Selector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
 			excludeSelectorMatchExpressions.Insert(string(matchExpressionRaw))
 		}
 	}
 	excludeNamespaceSelectorMatchExpressions := sets.NewString()
-	if r.ExcludeResources.NamespaceSelector != nil {
-		for _, matchExpression := range r.ExcludeResources.NamespaceSelector.MatchExpressions {
+	if r.ExcludeResourcesXXX.NamespaceSelector != nil {
+		for _, matchExpression := range r.ExcludeResourcesXXX.NamespaceSelector.MatchExpressions {
 			matchExpressionRaw, _ := json.Marshal(matchExpression)
 			excludeNamespaceSelectorMatchExpressions.Insert(string(matchExpressionRaw))
 		}
 	}
 	if len(excludeRoles) > 0 {
-		if len(r.MatchResources.Roles) == 0 || !excludeRoles.HasAll(r.MatchResources.Roles...) {
+		if len(r.MatchResourcesXXX.Roles) == 0 || !excludeRoles.HasAll(r.MatchResourcesXXX.Roles...) {
 			return errs
 		}
 	}
 	if len(excludeClusterRoles) > 0 {
-		if len(r.MatchResources.ClusterRoles) == 0 || !excludeClusterRoles.HasAll(r.MatchResources.ClusterRoles...) {
+		if len(r.MatchResourcesXXX.ClusterRoles) == 0 || !excludeClusterRoles.HasAll(r.MatchResourcesXXX.ClusterRoles...) {
 			return errs
 		}
 	}
 	if len(excludeSubjects) > 0 {
-		if len(r.MatchResources.Subjects) == 0 {
+		if len(r.MatchResourcesXXX.Subjects) == 0 {
 			return errs
 		}
-		for _, subject := range r.MatchResources.UserInfo.Subjects {
+		for _, subject := range r.MatchResourcesXXX.UserInfo.Subjects {
 			subjectRaw, _ := json.Marshal(subject)
 			if !excludeSubjects.Has(string(subjectRaw)) {
 				return errs
 			}
 		}
 	}
-	if r.ExcludeResources.Name != "" {
-		if !wildcard.Match(r.ExcludeResources.Name, r.MatchResources.Name) {
+	if r.ExcludeResourcesXXX.Name != "" {
+		if !wildcard.Match(r.ExcludeResourcesXXX.Name, r.MatchResourcesXXX.Name) {
 			return errs
 		}
 	}
-	if len(r.ExcludeResources.Names) > 0 {
-		excludeSlice := r.ExcludeResources.Names
-		matchSlice := r.MatchResources.Names
+	if len(r.ExcludeResourcesXXX.Names) > 0 {
+		excludeSlice := r.ExcludeResourcesXXX.Names
+		matchSlice := r.MatchResourcesXXX.Names
 
 		// if exclude block has something and match doesn't it means we
 		// have a non empty set
-		if len(r.MatchResources.Names) == 0 {
+		if len(r.MatchResourcesXXX.Names) == 0 {
 			return errs
 		}
 
@@ -256,76 +256,76 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		return errs
 	}
 	if len(excludeNamespaces) > 0 {
-		if len(r.MatchResources.Namespaces) == 0 || !excludeNamespaces.HasAll(r.MatchResources.Namespaces...) {
+		if len(r.MatchResourcesXXX.Namespaces) == 0 || !excludeNamespaces.HasAll(r.MatchResourcesXXX.Namespaces...) {
 			return errs
 		}
 	}
 	if len(excludeKinds) > 0 {
-		if len(r.MatchResources.Kinds) == 0 || !excludeKinds.HasAll(r.MatchResources.Kinds...) {
+		if len(r.MatchResourcesXXX.Kinds) == 0 || !excludeKinds.HasAll(r.MatchResourcesXXX.Kinds...) {
 			return errs
 		}
 	}
-	if r.MatchResources.Selector != nil && r.ExcludeResources.Selector != nil {
+	if r.MatchResourcesXXX.Selector != nil && r.ExcludeResourcesXXX.Selector != nil {
 		if len(excludeSelectorMatchExpressions) > 0 {
-			if len(r.MatchResources.Selector.MatchExpressions) == 0 {
+			if len(r.MatchResourcesXXX.Selector.MatchExpressions) == 0 {
 				return errs
 			}
-			for _, matchExpression := range r.MatchResources.Selector.MatchExpressions {
+			for _, matchExpression := range r.MatchResourcesXXX.Selector.MatchExpressions {
 				matchExpressionRaw, _ := json.Marshal(matchExpression)
 				if !excludeSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
 					return errs
 				}
 			}
 		}
-		if len(r.ExcludeResources.Selector.MatchLabels) > 0 {
-			if len(r.MatchResources.Selector.MatchLabels) == 0 {
+		if len(r.ExcludeResourcesXXX.Selector.MatchLabels) > 0 {
+			if len(r.MatchResourcesXXX.Selector.MatchLabels) == 0 {
 				return errs
 			}
-			for label, value := range r.MatchResources.Selector.MatchLabels {
-				if r.ExcludeResources.Selector.MatchLabels[label] != value {
+			for label, value := range r.MatchResourcesXXX.Selector.MatchLabels {
+				if r.ExcludeResourcesXXX.Selector.MatchLabels[label] != value {
 					return errs
 				}
 			}
 		}
 	}
-	if r.MatchResources.NamespaceSelector != nil && r.ExcludeResources.NamespaceSelector != nil {
+	if r.MatchResourcesXXX.NamespaceSelector != nil && r.ExcludeResourcesXXX.NamespaceSelector != nil {
 		if len(excludeNamespaceSelectorMatchExpressions) > 0 {
-			if len(r.MatchResources.NamespaceSelector.MatchExpressions) == 0 {
+			if len(r.MatchResourcesXXX.NamespaceSelector.MatchExpressions) == 0 {
 				return errs
 			}
-			for _, matchExpression := range r.MatchResources.NamespaceSelector.MatchExpressions {
+			for _, matchExpression := range r.MatchResourcesXXX.NamespaceSelector.MatchExpressions {
 				matchExpressionRaw, _ := json.Marshal(matchExpression)
 				if !excludeNamespaceSelectorMatchExpressions.Has(string(matchExpressionRaw)) {
 					return errs
 				}
 			}
 		}
-		if len(r.ExcludeResources.NamespaceSelector.MatchLabels) > 0 {
-			if len(r.MatchResources.NamespaceSelector.MatchLabels) == 0 {
+		if len(r.ExcludeResourcesXXX.NamespaceSelector.MatchLabels) > 0 {
+			if len(r.MatchResourcesXXX.NamespaceSelector.MatchLabels) == 0 {
 				return errs
 			}
-			for label, value := range r.MatchResources.NamespaceSelector.MatchLabels {
-				if r.ExcludeResources.NamespaceSelector.MatchLabels[label] != value {
+			for label, value := range r.MatchResourcesXXX.NamespaceSelector.MatchLabels {
+				if r.ExcludeResourcesXXX.NamespaceSelector.MatchLabels[label] != value {
 					return errs
 				}
 			}
 		}
 	}
-	if (r.MatchResources.Selector == nil && r.ExcludeResources.Selector != nil) ||
-		(r.MatchResources.Selector != nil && r.ExcludeResources.Selector == nil) {
+	if (r.MatchResourcesXXX.Selector == nil && r.ExcludeResourcesXXX.Selector != nil) ||
+		(r.MatchResourcesXXX.Selector != nil && r.ExcludeResourcesXXX.Selector == nil) {
 		return errs
 	}
-	if (r.MatchResources.NamespaceSelector == nil && r.ExcludeResources.NamespaceSelector != nil) ||
-		(r.MatchResources.NamespaceSelector != nil && r.ExcludeResources.NamespaceSelector == nil) {
+	if (r.MatchResourcesXXX.NamespaceSelector == nil && r.ExcludeResourcesXXX.NamespaceSelector != nil) ||
+		(r.MatchResourcesXXX.NamespaceSelector != nil && r.ExcludeResourcesXXX.NamespaceSelector == nil) {
 		return errs
 	}
-	if r.MatchResources.Annotations != nil && r.ExcludeResources.Annotations != nil {
-		if !(reflect.DeepEqual(r.MatchResources.Annotations, r.ExcludeResources.Annotations)) {
+	if r.MatchResourcesXXX.Annotations != nil && r.ExcludeResourcesXXX.Annotations != nil {
+		if !(reflect.DeepEqual(r.MatchResourcesXXX.Annotations, r.ExcludeResourcesXXX.Annotations)) {
 			return errs
 		}
 	}
-	if (r.MatchResources.Annotations == nil && r.ExcludeResources.Annotations != nil) ||
-		(r.MatchResources.Annotations != nil && r.ExcludeResources.Annotations == nil) {
+	if (r.MatchResourcesXXX.Annotations == nil && r.ExcludeResourcesXXX.Annotations != nil) ||
+		(r.MatchResourcesXXX.Annotations != nil && r.ExcludeResourcesXXX.Annotations == nil) {
 		return errs
 	}
 	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
@@ -335,7 +335,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 func (r *Rule) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
 	errs = append(errs, r.ValidateMatchExcludeConflict(path)...)
-	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
-	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
+	errs = append(errs, r.MatchResourcesXXX.Validate(path.Child("match"), namespaced, clusterResources)...)
+	errs = append(errs, r.ExcludeResourcesXXX.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	return errs
 }

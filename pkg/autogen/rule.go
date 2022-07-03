@@ -39,11 +39,11 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 		Name:         rule.Name,
 		VerifyImages: rule.VerifyImages,
 	}
-	if !reflect.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
-		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
+	if rule.MatchResourcesXXX != nil {
+		jsonFriendlyStruct.MatchResources = rule.MatchResourcesXXX.DeepCopy()
 	}
-	if !reflect.DeepEqual(rule.ExcludeResources, kyvernov1.MatchResources{}) {
-		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
+	if rule.ExcludeResourcesXXX != nil {
+		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResourcesXXX.DeepCopy()
 	}
 	if !reflect.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
 		jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
@@ -77,20 +77,24 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 	rule = rule.DeepCopy()
 	rule.Name = name
 	// overwrite Kinds by pod controllers defined in the annotation
-	if len(rule.MatchResources.Any) > 0 {
-		rule.MatchResources.Any = grf(rule.MatchResources.Any, kinds)
-	} else if len(rule.MatchResources.All) > 0 {
-		rule.MatchResources.All = grf(rule.MatchResources.All, kinds)
-	} else {
-		rule.MatchResources.Kinds = kinds
+	if rule.MatchResourcesXXX != nil {
+		if len(rule.MatchResourcesXXX.Any) > 0 {
+			rule.MatchResourcesXXX.Any = grf(rule.MatchResourcesXXX.Any, kinds)
+		} else if len(rule.MatchResourcesXXX.All) > 0 {
+			rule.MatchResourcesXXX.All = grf(rule.MatchResourcesXXX.All, kinds)
+		} else {
+			rule.MatchResourcesXXX.Kinds = kinds
+		}
 	}
-	if len(rule.ExcludeResources.Any) > 0 {
-		rule.ExcludeResources.Any = grf(rule.ExcludeResources.Any, kinds)
-	} else if len(rule.ExcludeResources.All) > 0 {
-		rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
-	} else {
-		if len(rule.ExcludeResources.Kinds) != 0 {
-			rule.ExcludeResources.Kinds = kinds
+	if rule.ExcludeResourcesXXX != nil {
+		if len(rule.ExcludeResourcesXXX.Any) > 0 {
+			rule.ExcludeResourcesXXX.Any = grf(rule.ExcludeResourcesXXX.Any, kinds)
+		} else if len(rule.ExcludeResourcesXXX.All) > 0 {
+			rule.ExcludeResourcesXXX.All = grf(rule.ExcludeResourcesXXX.All, kinds)
+		} else {
+			if len(rule.ExcludeResourcesXXX.Kinds) != 0 {
+				rule.ExcludeResourcesXXX.Kinds = kinds
+			}
 		}
 	}
 	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
@@ -217,7 +221,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		return nil
 	}
 	logger.V(3).Info("processing rule", "rulename", rule.Name)
-	match, exclude := rule.MatchResources, rule.ExcludeResources
+	match, exclude := rule.MatchResourcesXXX, rule.ExcludeResourcesXXX
 	matchKinds, excludeKinds := match.GetKinds(), exclude.GetKinds()
 	if !kubeutils.ContainsKind(matchKinds, "Pod") || (len(excludeKinds) != 0 && !kubeutils.ContainsKind(excludeKinds, "Pod")) {
 		return nil

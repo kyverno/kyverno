@@ -73,33 +73,41 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
-		match, exclude := rule.MatchResources, rule.ExcludeResources
-		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
-			logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, ""
-		}
-		for _, value := range match.Any {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+		match, exclude := rule.MatchResourcesXXX, rule.ExcludeResourcesXXX
+		if match != nil {
+			if !checkAutogenSupport(&needed, match.ResourceDescription) {
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
-		}
-		for _, value := range match.All {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
-				return false, ""
+			for _, value := range match.Any {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
+					return false, ""
+				}
+			}
+			for _, value := range match.All {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match all block is not be applicable.", "rule", rule.Name)
+					return false, ""
+				}
 			}
 		}
-		for _, value := range exclude.Any {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+		if exclude != nil {
+			if !checkAutogenSupport(&needed, exclude.ResourceDescription) {
+				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
 				return false, ""
 			}
-		}
-		for _, value := range exclude.All {
-			if !checkAutogenSupport(&needed, value.ResourceDescription) {
-				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
-				return false, ""
+			for _, value := range exclude.Any {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclude any block is not be applicable.", "rule", rule.Name)
+					return false, ""
+				}
+			}
+			for _, value := range exclude.All {
+				if !checkAutogenSupport(&needed, value.ResourceDescription) {
+					logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in exclud all block is not be applicable.", "rule", rule.Name)
+					return false, ""
+				}
 			}
 		}
 	}
@@ -245,10 +253,10 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		VerifyImages: rule.VerifyImages,
 	}
 	if rule.MatchResources != nil {
-		out.MatchResources = *rule.MatchResources
+		out.MatchResourcesXXX = rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResources = *rule.ExcludeResources
+		out.ExcludeResourcesXXX = rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context

@@ -61,7 +61,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, rule.Generation.Kind) {
+		if utils.ContainsString(rule.MatchResourcesXXX.GetKinds(), rule.Generation.Kind) {
 			return fmt.Errorf("generation kind and match resource kind should not be the same")
 		}
 	}

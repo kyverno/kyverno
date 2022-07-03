@@ -139,7 +139,7 @@ func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) er
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
-			for _, kind := range rule.MatchResources.Kinds {
+			for _, kind := range rule.MatchResourcesXXX.GetKinds() {
 				kindToRules[kind] = append(kindToRules[kind], rule)
 			}
 		}

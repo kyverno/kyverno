@@ -169,33 +169,34 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
-		if len(rule.MatchResources.Any) > 0 {
-			for _, rmr := range rule.MatchResources.Any {
-				if len(rmr.Kinds) == 0 {
+		if rule.MatchResourcesXXX != nil {
+			if len(rule.MatchResourcesXXX.Any) > 0 {
+				for _, rmr := range rule.MatchResourcesXXX.Any {
+					if len(rmr.Kinds) == 0 {
+						return nil, validateMatchKindHelper(rule)
+					}
+				}
+			} else if len(rule.MatchResourcesXXX.All) > 0 {
+				for _, rmr := range rule.MatchResourcesXXX.All {
+					if len(rmr.Kinds) == 0 {
+						return nil, validateMatchKindHelper(rule)
+					}
+				}
+			} else {
+				if len(rule.MatchResourcesXXX.Kinds) == 0 {
 					return nil, validateMatchKindHelper(rule)
 				}
 			}
-		} else if len(rule.MatchResources.All) > 0 {
-			for _, rmr := range rule.MatchResources.All {
-				if len(rmr.Kinds) == 0 {
-					return nil, validateMatchKindHelper(rule)
-				}
-			}
-		} else {
-			if len(rule.MatchResources.Kinds) == 0 {
-				return nil, validateMatchKindHelper(rule)
+			if utils.ContainsString(rule.MatchResourcesXXX.Kinds, "*") && spec.BackgroundProcessingEnabled() {
+				return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
-			return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
-		}
-
-		if (utils.ContainsString(rule.MatchResources.Kinds, "*") && len(rule.MatchResources.Kinds) > 1) || (utils.ContainsString(rule.ExcludeResources.Kinds, "*") && len(rule.ExcludeResources.Kinds) > 1) {
+		if (rule.MatchResourcesXXX != nil && utils.ContainsString(rule.MatchResourcesXXX.Kinds, "*") && len(rule.MatchResourcesXXX.Kinds) > 1) || (rule.ExcludeResourcesXXX != nil && utils.ContainsString(rule.ExcludeResourcesXXX.Kinds, "*") && len(rule.ExcludeResourcesXXX.Kinds) > 1) {
 			return nil, fmt.Errorf("wildard policy can not deal more than one kind")
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
+		if (rule.MatchResourcesXXX != nil && utils.ContainsString(rule.MatchResourcesXXX.Kinds, "*")) || (rule.ExcludeResourcesXXX != nil && utils.ContainsString(rule.ExcludeResourcesXXX.Kinds, "*")) {
 			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 				return nil, fmt.Errorf("wildcard policy does not support rule type")
 			}
@@ -256,51 +257,58 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		}
 
 		// Validate Kind with match resource kinds
-		match := rule.MatchResources
-		exclude := rule.ExcludeResources
-		for _, value := range match.Any {
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
-				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+		match := rule.MatchResourcesXXX
+		if match != nil {
+			for _, value := range match.Any {
+				if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+					err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+					if err != nil {
+						return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+					}
+				}
+			}
+			for _, value := range match.All {
+				if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+					err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+					if err != nil {
+						return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+					}
 				}
 			}
 		}
-		for _, value := range match.All {
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
-				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+		exclude := rule.ExcludeResourcesXXX
+		if exclude != nil {
+			for _, value := range exclude.Any {
+				if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+					err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+					if err != nil {
+						return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+					}
+				}
+			}
+			for _, value := range exclude.All {
+				if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
+					err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+					if err != nil {
+						return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
+					}
 				}
 			}
 		}
-		for _, value := range exclude.Any {
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
+		if match != nil {
+			if !utils.ContainsString(match.Kinds, "*") {
+				err := validateKinds(match.Kinds, mock, client, policy)
 				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+					return nil, errors.Wrapf(err, "match resource kind is invalid")
+				}
+				if exclude != nil {
+					err = validateKinds(exclude.Kinds, mock, client, policy)
+					if err != nil {
+						return nil, errors.Wrapf(err, "exclude resource kind is invalid")
+					}
 				}
 			}
 		}
-		for _, value := range exclude.All {
-			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
-				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
-				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
-				}
-			}
-		}
-		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
-			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "match resource kind is invalid")
-			}
-			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, policy)
-			if err != nil {
-				return nil, errors.Wrapf(err, "exclude resource kind is invalid")
-			}
-		}
-
 		// Validate string values in labels
 		if !isLabelAndAnnotationsString(rule) {
 			return nil, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
@@ -426,14 +434,18 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 		return fmt.Errorf("rule \"%s\" should not have variables in patchesJSON6902 path section", rule.Name)
 	}
 
-	err = objectHasVariables(rule.ExcludeResources)
-	if err != nil {
-		return fmt.Errorf("rule \"%s\" should not have variables in exclude section", rule.Name)
+	if rule.ExcludeResourcesXXX != nil {
+		err = objectHasVariables(rule.ExcludeResourcesXXX)
+		if err != nil {
+			return fmt.Errorf("rule \"%s\" should not have variables in exclude section", rule.Name)
+		}
 	}
 
-	err = objectHasVariables(rule.MatchResources)
-	if err != nil {
-		return fmt.Errorf("rule \"%s\" should not have variables in match section", rule.Name)
+	if rule.MatchResourcesXXX != nil {
+		err = objectHasVariables(rule.MatchResourcesXXX)
+		if err != nil {
+			return fmt.Errorf("rule \"%s\" should not have variables in match section", rule.Name)
+		}
 	}
 
 	return nil
@@ -706,41 +718,45 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 }
 
 func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
-	// validate userInfo in match and exclude
-	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
-		return "exclude", errs.ToAggregate()
+	if rule.ExcludeResourcesXXX != nil {
+		// validate userInfo in match and exclude
+		if errs := rule.ExcludeResourcesXXX.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
+			return "exclude", errs.ToAggregate()
+		}
+
+		if (len(rule.ExcludeResourcesXXX.Any) > 0 || len(rule.ExcludeResourcesXXX.All) > 0) && !reflect.DeepEqual(rule.ExcludeResourcesXXX.ResourceDescription, kyvernov1.ResourceDescription{}) {
+			return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
+		}
+
+		if len(rule.ExcludeResourcesXXX.Any) > 0 && len(rule.ExcludeResourcesXXX.All) > 0 {
+			return "match.", fmt.Errorf("can't specify any and all together")
+		}
 	}
 
-	if (len(rule.MatchResources.Any) > 0 || len(rule.MatchResources.All) > 0) && !reflect.DeepEqual(rule.MatchResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
-		return "match.", fmt.Errorf("can't specify any/all together with match resources")
-	}
+	if rule.MatchResourcesXXX != nil {
+		if (len(rule.MatchResourcesXXX.Any) > 0 || len(rule.MatchResourcesXXX.All) > 0) && !reflect.DeepEqual(rule.MatchResourcesXXX.ResourceDescription, kyvernov1.ResourceDescription{}) {
+			return "match.", fmt.Errorf("can't specify any/all together with match resources")
+		}
 
-	if (len(rule.ExcludeResources.Any) > 0 || len(rule.ExcludeResources.All) > 0) && !reflect.DeepEqual(rule.ExcludeResources.ResourceDescription, kyvernov1.ResourceDescription{}) {
-		return "exclude.", fmt.Errorf("can't specify any/all together with exclude resources")
-	}
-
-	if len(rule.ExcludeResources.Any) > 0 && len(rule.ExcludeResources.All) > 0 {
-		return "match.", fmt.Errorf("can't specify any and all together")
-	}
-
-	if len(rule.MatchResources.Any) > 0 {
-		for _, rmr := range rule.MatchResources.Any {
+		if len(rule.MatchResourcesXXX.Any) > 0 {
+			for _, rmr := range rule.MatchResourcesXXX.Any {
+				// matched resources
+				if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+					return fmt.Sprintf("match.resources.%s", path), err
+				}
+			}
+		} else if len(rule.MatchResourcesXXX.All) > 0 {
+			for _, rmr := range rule.MatchResourcesXXX.All {
+				// matched resources
+				if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+					return fmt.Sprintf("match.resources.%s", path), err
+				}
+			}
+		} else {
 			// matched resources
-			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
+			if path, err := validateMatchedResourceDescription(rule.MatchResourcesXXX.ResourceDescription); err != nil {
 				return fmt.Sprintf("match.resources.%s", path), err
 			}
-		}
-	} else if len(rule.MatchResources.All) > 0 {
-		for _, rmr := range rule.MatchResources.All {
-			// matched resources
-			if path, err := validateMatchedResourceDescription(rmr.ResourceDescription); err != nil {
-				return fmt.Sprintf("match.resources.%s", path), err
-			}
-		}
-	} else {
-		// matched resources
-		if path, err := validateMatchedResourceDescription(rule.MatchResources.ResourceDescription); err != nil {
-			return fmt.Sprintf("match.resources.%s", path), err
 		}
 	}
 
@@ -1039,7 +1055,7 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 		return false
 	}
 
-	if utils.ContainsString(rule.MatchResources.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
+	if rule.MatchResourcesXXX != nil && utils.ContainsString(rule.MatchResourcesXXX.Kinds, "Pod") && rule.Mutation.PatchesJSON6902 != "" {
 		return true
 	}
 
