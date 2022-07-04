@@ -472,7 +472,10 @@ func (pc *PolicyController) syncPolicy(key string) error {
 	defer func() {
 		logger.V(4).Info("finished syncing policy", "key", key, "processingTime", time.Since(startTime).String())
 	}()
-	policy, _ := pc.getPolicy(key)
+	policy, err := pc.getPolicy(key)
+	if err != nil {
+		return err
+	}
 
 	pc.processExistingResources(policy)
 	return nil
