@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -20,6 +21,9 @@ type controller struct {
 	// listers
 	configmapLister corev1listers.ConfigMapLister
 
+	// configmapSynced returns true if the configmap shared informer has synced at least once
+	configmapSynced cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 }
@@ -30,12 +34,14 @@ func NewController(configuration config.Configuration, configmapInformer corev1i
 		configmapLister: configmapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "config-controller"),
 	}
+
+	c.configmapSynced = configmapInformer.Informer().HasSynced
 	controllerutils.AddDefaultEventHandlers(logger, configmapInformer.Informer(), c.queue)
 	return &c
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(logger, c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh, c.configmapSynced)
 }
 
 func (c *controller) reconcile(key, namespace, name string) error {
