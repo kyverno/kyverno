@@ -22,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -33,6 +34,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/util/wait"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	rbacv1listers "k8s.io/client-go/listers/rbac/v1"
 )
@@ -188,7 +190,11 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	// push admission request to audit handler, this won't block the admission request
 	h.auditHandler.Add(request.DeepCopy())
 
-	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
+	go wait.Until(func() {
+		h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
+	}, time.Second, signal.SetupSignalHandler())
+
+	<-signal.SetupSignalHandler()
 
 	return admissionutils.ResponseSuccess(true, "")
 }
