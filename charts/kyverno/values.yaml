@@ -177,7 +177,7 @@ initResources:
     memory: 64Mi
 
 autoscaling:
-  # -- Toggle autoscaling 
+  # -- Toggle autoscaling
   enabled: false
   # -- Minimum number of replicas - recommended no lower than 3
   minReplicas: 3
