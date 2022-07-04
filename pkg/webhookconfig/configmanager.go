@@ -16,6 +16,7 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
@@ -526,15 +527,17 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 	update := func(meta *metav1.ObjectMeta, p kyvernov1.PolicyInterface, status *kyvernov1.PolicyStatus) bool {
 		copy := status.DeepCopy()
 		status.SetReady(ready)
-		// TODO: finalize status content
-		// requested, _, activated := autogen.GetControllers(meta, p.GetSpec())
-		// status.Autogen.Requested = requested
-		// status.Autogen.Activated = activated
-		// if toggle.AutogenInternals() {
-		// 	status.Rules = autogen.ComputeRules(p)
-		// } else {
-		// 	status.Rules = nil
-		// }
+		if toggle.AutogenInternals() {
+			var rules []kyvernov1.Rule
+			for _, rule := range autogen.ComputeRules(p) {
+				if strings.HasPrefix(rule.Name, "autogen-") {
+					rules = append(rules, rule)
+				}
+			}
+			status.Autogen.Rules = rules
+		} else {
+			status.Autogen.Rules = nil
+		}
 		return !reflect.DeepEqual(status, copy)
 	}
 	if namespace == "" {
