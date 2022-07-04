@@ -792,9 +792,11 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <h3 id="kyverno.io/v1.AutogenStatus">AutogenStatus
 </h3>
 <p>
-<p>AutogenStatus contains autogen status information.
-It indicates requested and effective autogen controllers used when
-automatically generating rules.</p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+</p>
+<p>
+<p>AutogenStatus contains autogen status information.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -806,24 +808,15 @@ automatically generating rules.</p>
 <tbody>
 <tr>
 <td>
-<code>requested</code></br>
+<code>rules</code></br>
 <em>
-[]string
+<a href="#kyverno.io/v1.Rule">
+[]Rule
+</a>
 </em>
 </td>
 <td>
-<p>Requested indicates the autogen requested controllers</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>activated</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Activated indicates the autogen activated controllers</p>
+<p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
 </td>
 </tr>
 </tbody>
@@ -2378,6 +2371,20 @@ Deprecated in favor of Conditions</p>
 <p>Conditions is a list of conditions that apply to the policy</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>autogen</code></br>
+<em>
+<a href="#kyverno.io/v1.AutogenStatus">
+AutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Autogen contains autogen status information</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2686,6 +2693,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.AutogenStatus">AutogenStatus</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
