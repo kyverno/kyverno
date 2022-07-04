@@ -5,7 +5,6 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -103,7 +102,6 @@ func (c *controller) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 
 // Run begins watching and syncing.
 func (c *controller) run(workers int, stopCh <-chan struct{}) {
-
 	defer utilruntime.HandleCrash()
 	defer c.policyqueue.ShutDown()
 
