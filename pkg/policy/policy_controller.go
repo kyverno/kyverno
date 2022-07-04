@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -64,9 +63,6 @@ type PolicyController struct {
 
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernov1listers.PolicyLister
-
-	// urLister can list/get update request from the shared informer's store
-	urLister kyvernov1beta1listers.UpdateRequestLister
 
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
@@ -136,7 +132,7 @@ func NewPolicyController(
 	pc.npLister = npInformer.Lister()
 	pc.nsLister = namespaces.Lister()
 
-	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
 	pc.rm = NewResourceManager(30)
