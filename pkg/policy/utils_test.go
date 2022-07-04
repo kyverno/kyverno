@@ -18,7 +18,7 @@ func Test_isMatchResourcesAllValid(t *testing.T) {
 		{
 			name: "All with no kinds are invalid",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					All: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{
@@ -30,11 +30,10 @@ func Test_isMatchResourcesAllValid(t *testing.T) {
 			},
 			want: false,
 		},
-
 		{
 			name: "All with same kind are valid",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					All: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{
@@ -54,7 +53,7 @@ func Test_isMatchResourcesAllValid(t *testing.T) {
 		{
 			name: "All with different kinds are invalid",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					All: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{
@@ -89,7 +88,7 @@ func Test_fetchUniqueKinds(t *testing.T) {
 		{
 			name: "Unique MatchResource kinds",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
 						Kinds: []string{"kind1", "kind2"},
 					},
@@ -101,7 +100,7 @@ func Test_fetchUniqueKinds(t *testing.T) {
 		{
 			name: "Any with same kind are valid",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					Any: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{
@@ -121,7 +120,7 @@ func Test_fetchUniqueKinds(t *testing.T) {
 		{
 			name: "Match with All and Any kind",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					All: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{
@@ -143,7 +142,7 @@ func Test_fetchUniqueKinds(t *testing.T) {
 		{
 			name: "Match with different All and Any kind",
 			rule: kyverno.Rule{
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					All: []kyverno.ResourceFilter{
 						{
 							ResourceDescription: kyverno.ResourceDescription{

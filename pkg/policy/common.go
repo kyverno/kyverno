@@ -63,7 +63,7 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 		namespace = ""
 	}
 
-	list := pc.getResourceList(kind, namespace, rule.MatchResourcesXXX.GetSelector(), log)
+	list := pc.getResourceList(kind, namespace, rule.MatchResources.GetSelector(), log)
 	switch typedList := list.(type) {
 	case []*unstructured.Unstructured:
 		for _, r := range typedList {
@@ -80,8 +80,8 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	// skip resources to be filtered
-	if rule.ExcludeResourcesXXX != nil {
-		excludeResources(resourceMap, rule.ExcludeResourcesXXX.ResourceDescription, pc.configHandler, log)
+	if rule.ExcludeResources != nil {
+		excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
 	}
 
 	return resourceMap
@@ -99,8 +99,8 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Ru
 	}
 
 	// match name
-	if rule.MatchResourcesXXX != nil && rule.MatchResourcesXXX.Name != "" {
-		if !wildcard.Match(rule.MatchResourcesXXX.Name, r.GetName()) {
+	if rule.MatchResources != nil && rule.MatchResources.Name != "" {
+		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
 			return false
 		}
 	}

@@ -516,7 +516,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 	kinds := fetchUniqueKinds(rule)
 
 	for _, kind := range kinds {
-		mlist, err := client.ListResource("", kind, "", rule.MatchResourcesXXX.GetSelector())
+		mlist, err := client.ListResource("", kind, "", rule.MatchResources.GetSelector())
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 		}

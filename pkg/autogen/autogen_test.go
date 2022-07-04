@@ -296,7 +296,7 @@ func Test_Any(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].MatchResourcesXXX.Any = kyverno.ResourceFilters{
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -334,7 +334,7 @@ func Test_All(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].MatchResourcesXXX.All = kyverno.ResourceFilters{
+	spec.Rules[0].MatchResources.All = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -373,7 +373,7 @@ func Test_Exclude(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].ExcludeResourcesXXX = &kyverno.MatchResources{
+	spec.Rules[0].ExcludeResources = &kyverno.MatchResources{
 		ResourceDescription: kyverno.ResourceDescription{Namespaces: []string{"fake-namespce"}},
 	}
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
@@ -438,7 +438,7 @@ func Test_ForEachPod(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].ExcludeResourcesXXX = &kyverno.MatchResources{
+	spec.Rules[0].ExcludeResources = &kyverno.MatchResources{
 		ResourceDescription: kyverno.ResourceDescription{Namespaces: []string{"fake-namespce"}},
 	}
 
@@ -480,7 +480,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 
 	spec := policy.GetSpec()
 	rule := spec.Rules[0].DeepCopy()
-	rule.ExcludeResourcesXXX = &kyverno.MatchResources{
+	rule.ExcludeResources = &kyverno.MatchResources{
 		ResourceDescription: kyverno.ResourceDescription{
 			Kinds:      []string{"Pod"},
 			Namespaces: []string{"test"},
@@ -577,7 +577,7 @@ func Test_Deny(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].MatchResourcesXXX.Any = kyverno.ResourceFilters{
+	spec.Rules[0].MatchResources.Any = kyverno.ResourceFilters{
 		{
 			ResourceDescription: kyverno.ResourceDescription{
 				Kinds: []string{"Pod"},
@@ -657,7 +657,7 @@ spec:
                 -----END CERTIFICATE-----`,
 			expectedRules: []kyverno.Rule{{
 				Name: "check-image",
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
 						Kinds: []string{"Pod"},
 					},
@@ -696,7 +696,7 @@ kA==
 				}},
 			}, {
 				Name: "autogen-check-image",
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
 						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet"},
 					},
@@ -735,7 +735,7 @@ kA==
 				}},
 			}, {
 				Name: "autogen-cronjob-check-image",
-				MatchResourcesXXX: &kyverno.MatchResources{
+				MatchResources: &kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
 						Kinds: []string{"CronJob"},
 					},

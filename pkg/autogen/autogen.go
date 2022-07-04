@@ -73,7 +73,7 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 		if rule.Mutation.PatchesJSON6902 != "" || rule.HasGenerate() {
 			return false, "none"
 		}
-		match, exclude := rule.MatchResourcesXXX, rule.ExcludeResourcesXXX
+		match, exclude := rule.MatchResources, rule.ExcludeResources
 		if match != nil {
 			if !checkAutogenSupport(&needed, match.ResourceDescription) {
 				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
@@ -253,10 +253,10 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		VerifyImages: rule.VerifyImages,
 	}
 	if rule.MatchResources != nil {
-		out.MatchResourcesXXX = rule.MatchResources
+		out.MatchResources = rule.MatchResources
 	}
 	if rule.ExcludeResources != nil {
-		out.ExcludeResourcesXXX = rule.ExcludeResources
+		out.ExcludeResources = rule.ExcludeResources
 	}
 	if rule.Context != nil {
 		out.Context = *rule.Context

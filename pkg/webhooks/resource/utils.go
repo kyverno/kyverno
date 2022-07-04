@@ -101,38 +101,38 @@ func containsRBACInfo(policies ...[]kyvernov1.PolicyInterface) bool {
 }
 
 func checkForRBACInfo(rule kyvernov1.Rule) bool {
-	if rule.MatchResourcesXXX != nil {
-		if len(rule.MatchResourcesXXX.Roles) > 0 || len(rule.MatchResourcesXXX.ClusterRoles) > 0 {
+	if rule.MatchResources != nil {
+		if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 {
 			return true
 		}
-		if len(rule.MatchResourcesXXX.All) > 0 {
-			for _, rf := range rule.MatchResourcesXXX.All {
+		if len(rule.MatchResources.All) > 0 {
+			for _, rf := range rule.MatchResources.All {
 				if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
 					return true
 				}
 			}
 		}
-		if len(rule.MatchResourcesXXX.Any) > 0 {
-			for _, rf := range rule.MatchResourcesXXX.Any {
+		if len(rule.MatchResources.Any) > 0 {
+			for _, rf := range rule.MatchResources.Any {
 				if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
 					return true
 				}
 			}
 		}
 	}
-	if rule.ExcludeResourcesXXX != nil {
-		if len(rule.ExcludeResourcesXXX.Roles) > 0 || len(rule.ExcludeResourcesXXX.ClusterRoles) > 0 {
+	if rule.ExcludeResources != nil {
+		if len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
 			return true
 		}
-		if len(rule.ExcludeResourcesXXX.All) > 0 {
-			for _, rf := range rule.ExcludeResourcesXXX.All {
+		if len(rule.ExcludeResources.All) > 0 {
+			for _, rf := range rule.ExcludeResources.All {
 				if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
 					return true
 				}
 			}
 		}
-		if len(rule.ExcludeResourcesXXX.Any) > 0 {
-			for _, rf := range rule.ExcludeResourcesXXX.Any {
+		if len(rule.ExcludeResources.Any) > 0 {
+			for _, rf := range rule.ExcludeResources.Any {
 				if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
 					return true
 				}

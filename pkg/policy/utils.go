@@ -18,8 +18,8 @@ func isRunningPod(obj unstructured.Unstructured) bool {
 // check if all slice elements are same
 func isMatchResourcesAllValid(rule kyvernov1.Rule) bool {
 	var kindlist []string
-	if rule.MatchResourcesXXX != nil {
-		for _, all := range rule.MatchResourcesXXX.All {
+	if rule.MatchResources != nil {
+		for _, all := range rule.MatchResources.All {
 			kindlist = append(kindlist, all.Kinds...)
 		}
 	}
@@ -38,15 +38,15 @@ func isMatchResourcesAllValid(rule kyvernov1.Rule) bool {
 
 func fetchUniqueKinds(rule kyvernov1.Rule) []string {
 	var kindlist []string
-	if rule.MatchResourcesXXX != nil {
-		kindlist = append(kindlist, rule.MatchResourcesXXX.Kinds...)
+	if rule.MatchResources != nil {
+		kindlist = append(kindlist, rule.MatchResources.Kinds...)
 
-		for _, all := range rule.MatchResourcesXXX.Any {
+		for _, all := range rule.MatchResources.Any {
 			kindlist = append(kindlist, all.Kinds...)
 		}
 
 		if isMatchResourcesAllValid(rule) {
-			for _, all := range rule.MatchResourcesXXX.All {
+			for _, all := range rule.MatchResources.All {
 				kindlist = append(kindlist, all.Kinds...)
 			}
 		}

@@ -412,36 +412,36 @@ func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructu
 	policyWithNamespaceSelector := false
 OuterLoop:
 	for _, p := range autogen.ComputeRules(policy) {
-		if p.MatchResourcesXXX != nil {
-			if p.MatchResourcesXXX.ResourceDescription.NamespaceSelector != nil {
+		if p.MatchResources != nil {
+			if p.MatchResources.ResourceDescription.NamespaceSelector != nil {
 				policyWithNamespaceSelector = true
 				break
 			}
-			for _, m := range p.MatchResourcesXXX.Any {
+			for _, m := range p.MatchResources.Any {
 				if m.ResourceDescription.NamespaceSelector != nil {
 					policyWithNamespaceSelector = true
 					break OuterLoop
 				}
 			}
-			for _, m := range p.MatchResourcesXXX.All {
+			for _, m := range p.MatchResources.All {
 				if m.ResourceDescription.NamespaceSelector != nil {
 					policyWithNamespaceSelector = true
 					break OuterLoop
 				}
 			}
 		}
-		if p.ExcludeResourcesXXX != nil {
-			if p.ExcludeResourcesXXX.ResourceDescription.NamespaceSelector != nil {
+		if p.ExcludeResources != nil {
+			if p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 				policyWithNamespaceSelector = true
 				break
 			}
-			for _, e := range p.ExcludeResourcesXXX.Any {
+			for _, e := range p.ExcludeResources.Any {
 				if e.ResourceDescription.NamespaceSelector != nil {
 					policyWithNamespaceSelector = true
 					break OuterLoop
 				}
 			}
-			for _, e := range p.ExcludeResourcesXXX.All {
+			for _, e := range p.ExcludeResources.All {
 				if e.ResourceDescription.NamespaceSelector != nil {
 					policyWithNamespaceSelector = true
 					break OuterLoop
@@ -1000,13 +1000,13 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
-		if rule.MatchResourcesXXX != nil {
-			for _, kind := range rule.MatchResourcesXXX.ResourceDescription.Kinds {
+		if rule.MatchResources != nil {
+			for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
 				kindOnwhichPolicyIsApplied[kind] = struct{}{}
 			}
 		}
-		if rule.ExcludeResourcesXXX != nil {
-			for _, kind := range rule.ExcludeResourcesXXX.ResourceDescription.Kinds {
+		if rule.ExcludeResources != nil {
+			for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
 				kindOnwhichPolicyIsApplied[kind] = struct{}{}
 			}
 		}

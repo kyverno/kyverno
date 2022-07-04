@@ -30,7 +30,7 @@ func (pc *PolicyController) processExistingResources(policy kyvernov1.PolicyInte
 		if !rule.HasValidate() && !rule.HasVerifyImages() {
 			continue
 		}
-		matchKinds := rule.MatchResourcesXXX.GetKinds()
+		matchKinds := rule.MatchResources.GetKinds()
 		pc.processExistingKinds(matchKinds, policy, rule, logger)
 	}
 }

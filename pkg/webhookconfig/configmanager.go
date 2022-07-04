@@ -596,7 +596,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 	for _, rule := range autogen.ComputeRules(policy) {
 		// matching kinds in generate policies need to be added to both webhook
 		if rule.HasGenerate() {
-			matchedGVK = append(matchedGVK, rule.MatchResourcesXXX.GetKinds()...)
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
 			continue
 		}
@@ -605,7 +605,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
 			(!updateValidate && rule.HasVerifyImages()) {
-			matchedGVK = append(matchedGVK, rule.MatchResourcesXXX.GetKinds()...)
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
 
@@ -686,8 +686,8 @@ func webhookKey(webhookKind, failurePolicy string) string {
 
 func hasWildcard(spec *kyvernov1.Spec) bool {
 	for _, rule := range spec.Rules {
-		if rule.MatchResourcesXXX != nil {
-			if kinds := rule.MatchResourcesXXX.GetKinds(); utils.ContainsString(kinds, "*") {
+		if rule.MatchResources != nil {
+			if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
 				return true
 			}
 		}

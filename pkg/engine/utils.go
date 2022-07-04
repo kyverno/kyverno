@@ -279,12 +279,12 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 		return errors.New(" The policy and resource namespace are different. Therefore, policy skip this resource.")
 	}
 
-	if rule.MatchResourcesXXX != nil {
-		if len(rule.MatchResourcesXXX.Any) > 0 {
+	if rule.MatchResources != nil {
+		if len(rule.MatchResources.Any) > 0 {
 			// include object if ANY of the criteria match
 			// so if one matches then break from loop
 			oneMatched := false
-			for _, rmr := range rule.MatchResourcesXXX.Any {
+			for _, rmr := range rule.MatchResources.Any {
 				// if there are no errors it means it was a match
 				if len(matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
 					oneMatched = true
@@ -294,27 +294,27 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 			if !oneMatched {
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("no resource matched"))
 			}
-		} else if len(rule.MatchResourcesXXX.All) > 0 {
+		} else if len(rule.MatchResources.All) > 0 {
 			// include object if ALL of the criteria match
-			for _, rmr := range rule.MatchResourcesXXX.All {
+			for _, rmr := range rule.MatchResources.All {
 				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 			}
 		} else {
-			rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResourcesXXX.UserInfo, ResourceDescription: rule.MatchResourcesXXX.ResourceDescription}
+			rmr := kyvernov1.ResourceFilter{UserInfo: rule.MatchResources.UserInfo, ResourceDescription: rule.MatchResources.ResourceDescription}
 			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionMatchHelper(rmr, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 		}
 	}
 
-	if rule.ExcludeResourcesXXX != nil {
-		if len(rule.ExcludeResourcesXXX.Any) > 0 {
+	if rule.ExcludeResources != nil {
+		if len(rule.ExcludeResources.Any) > 0 {
 			// exclude the object if ANY of the criteria match
-			for _, rer := range rule.ExcludeResourcesXXX.Any {
+			for _, rer := range rule.ExcludeResources.Any {
 				reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 			}
-		} else if len(rule.ExcludeResourcesXXX.All) > 0 {
+		} else if len(rule.ExcludeResources.All) > 0 {
 			// exclude the object if ALL the criteria match
 			excludedByAll := true
-			for _, rer := range rule.ExcludeResourcesXXX.All {
+			for _, rer := range rule.ExcludeResources.All {
 				// we got no errors inplying a resource did NOT exclude it
 				// "matchesResourceDescriptionExcludeHelper" returns errors if resource is excluded by a filter
 				if len(matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)) == 0 {
@@ -326,7 +326,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 				reasonsForFailure = append(reasonsForFailure, fmt.Errorf("resource excluded since the combination of all criteria exclude it"))
 			}
 		} else {
-			rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResourcesXXX.UserInfo, ResourceDescription: rule.ExcludeResourcesXXX.ResourceDescription}
+			rer := kyvernov1.ResourceFilter{UserInfo: rule.ExcludeResources.UserInfo, ResourceDescription: rule.ExcludeResources.ResourceDescription}
 			reasonsForFailure = append(reasonsForFailure, matchesResourceDescriptionExcludeHelper(rer, admissionInfo, resource, dynamicConfig, namespaceLabels)...)
 		}
 	}

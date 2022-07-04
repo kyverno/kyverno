@@ -26,7 +26,7 @@ func Test_All(t *testing.T) {
 	//add
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			// get
 			mutate := pCache.get(Mutate, kind, "")
@@ -59,7 +59,7 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 	setPolicy(pCache, policy)
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			mutate := pCache.get(Mutate, kind, "")
 			if len(mutate) != 1 {
@@ -87,7 +87,7 @@ func Test_Add_Validate_Audit(t *testing.T) {
 	setPolicy(pCache, policy)
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, "")
 			if len(validateEnforce) != 0 {
@@ -906,7 +906,7 @@ func Test_Ns_All(t *testing.T) {
 	setPolicy(pCache, policy)
 	nspace := policy.GetNamespace()
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			// get
 			mutate := pCache.get(Mutate, kind, nspace)
@@ -939,7 +939,7 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 	setPolicy(pCache, policy)
 	nspace := policy.GetNamespace()
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			mutate := pCache.get(Mutate, kind, nspace)
 			if len(mutate) != 1 {
@@ -968,7 +968,7 @@ func Test_Ns_Add_Validate_Audit(t *testing.T) {
 	setPolicy(pCache, policy)
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 			if len(validateEnforce) != 0 {
@@ -1007,7 +1007,7 @@ func Test_GVk_Cache(t *testing.T) {
 	//add
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			generate := pCache.get(Generate, kind, "")
 			if len(generate) != 1 {
@@ -1041,7 +1041,7 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 	//add
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 			if len(validateEnforce) != 1 {
 				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
@@ -1076,7 +1076,7 @@ func Test_Mutate_Policy(t *testing.T) {
 	setPolicy(pCache, policy)
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			// get
 			mutate := pCache.get(Mutate, kind, "")
@@ -1093,7 +1093,7 @@ func Test_Generate_Policy(t *testing.T) {
 	//add
 	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResourcesXXX.GetKinds() {
+		for _, kind := range rule.MatchResources.GetKinds() {
 
 			// get
 			generate := pCache.get(Generate, kind, "")

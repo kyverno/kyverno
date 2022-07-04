@@ -1031,13 +1031,13 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.MatchResourcesXXX != nil {
-		in, out := &in.MatchResourcesXXX, &out.MatchResourcesXXX
+	if in.MatchResources != nil {
+		in, out := &in.MatchResources, &out.MatchResources
 		*out = new(MatchResources)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ExcludeResourcesXXX != nil {
-		in, out := &in.ExcludeResourcesXXX, &out.ExcludeResourcesXXX
+	if in.ExcludeResources != nil {
+		in, out := &in.ExcludeResources, &out.ExcludeResources
 		*out = new(MatchResources)
 		(*in).DeepCopyInto(*out)
 	}
