@@ -12,6 +12,7 @@ import (
 )
 
 func Test_EvaluatePSS(t *testing.T) {
+	fmt.Println("===========")
 	podSecurityRule := newRule()
 
 	lv := api.LevelVersion{
@@ -32,6 +33,7 @@ func Test_EvaluatePSS(t *testing.T) {
 	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
+	fmt.Println("===========")
 }
 
 func newRule() *v1.PodSecurity {
@@ -152,6 +154,7 @@ func newVolumeTypeRule() *v1.PodSecurity {
 }
 
 func Test_EvaluateVolumeType(t *testing.T) {
+	fmt.Println("===========")
 	podSecurityRule := newVolumeTypeRule()
 
 	lv := api.LevelVersion{
@@ -175,6 +178,7 @@ func Test_EvaluateVolumeType(t *testing.T) {
 	fmt.Println("allowed: ", allowed)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
+	fmt.Println("===========")
 }
 
 // App Armor
@@ -226,13 +230,14 @@ func newAppArmorRule() *v1.PodSecurity {
 			{
 				RestrictedField: "metadata.annotations[\"container.apparmor.security.beta.kubernetes.io/*\"]",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
-				Values:          []string{},
+				Values:          []string{""},
 			},
 		},
 	}
 }
 
 func Test_EvaluateAppArmor(t *testing.T) {
+	fmt.Println("===========")
 	podSecurityRule := newAppArmorRule()
 
 	lv := api.LevelVersion{
@@ -247,9 +252,10 @@ func Test_EvaluateAppArmor(t *testing.T) {
 	fmt.Println("res: ", res)
 	assert.True(t, len(res) == 1, res)
 
-	// allowed, err := ExemptProfile(podSecurityRule, podSpec, podObjectMeta)
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, podObjectMeta)
 
-	// fmt.Println("allowed: ", allowed)
-	// assert.NoError(t, err)
-	// assert.True(t, allowed)
+	fmt.Println("allowed: ", allowed)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
 }

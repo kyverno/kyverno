@@ -16,6 +16,7 @@ import (
 
 func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []policy.CheckResult) {
 	checks := policy.DefaultChecks()
+
 	for _, check := range checks {
 
 		// Restricted ? Baseline + Restricted (cumulative)
@@ -29,14 +30,13 @@ func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *c
 
 		for _, versionCheck := range check.Versions {
 			res := versionCheck.CheckPod(podMetadata, podSpec)
-			fmt.Printf("%v, res: %v\n", versionCheck, res)
+			// fmt.Printf("%v, res: %v\n", versionCheck, res)
 			if !res.Allowed {
 				fmt.Printf("check error: %v\n", res)
 				results = append(results, res)
 			}
 		}
 	}
-
 	return
 }
 
@@ -61,6 +61,7 @@ func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta 
 			}
 		}
 
+		fmt.Printf("Restricted Field: %v\n", exclude.RestrictedField)
 		value, err := ctx.Query(exclude.RestrictedField)
 		if err != nil {
 			return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
@@ -85,19 +86,19 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 }
 
 func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
-	addCapabilities := resourceValue.([]interface{})
-	fmt.Println(addCapabilities)
+	excludeValues := resourceValue.([]interface{})
+	fmt.Println(excludeValues)
 
-	for k, capabilities := range addCapabilities {
-		rt := reflect.TypeOf(capabilities)
+	for k, values := range excludeValues {
+		rt := reflect.TypeOf(values)
 		kind := rt.Kind()
 
 		if kind == reflect.Slice {
 			fmt.Println(k, "is a slice with element type", rt.Elem())
-			for _, capability := range capabilities.([]interface{}) {
-				fmt.Printf("value: %s\n", capability)
-				fmt.Println("====capability", exclude.Values, capability)
-				if !utils.ContainsString(exclude.Values, capability.(string)) {
+			for _, value := range values.([]interface{}) {
+				fmt.Printf("value: %s\n", value)
+				fmt.Printf("exclude values %v,  value: %s\n", exclude.Values, value)
+				if !utils.ContainsString(exclude.Values, value.(string)) {
 					return false
 				}
 			}
@@ -106,7 +107,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 		} else if kind == reflect.Map {
 			// For Volume Types control
 			fmt.Println("is a map with element type", rt.Elem())
-			for key, value := range capabilities.(map[string]interface{}) {
+			for key, value := range values.(map[string]interface{}) {
 				// `Volume`` has 2 fields: `Name` and a `Volume Source` (inline json)
 				// Ignore `Name` field because we want to look at `Volume Source`'s key
 				// https://github.com/kubernetes/api/blob/f18d381b8d0129e7098e1e67a89a8088f2dba7e6/core/v1/types.go#L36
