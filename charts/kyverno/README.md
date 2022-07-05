@@ -102,7 +102,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | resources.requests | object | `{"cpu":"100m","memory":"128Mi"}` | Pod resource requests |
 | initResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
-| autoscaling.enabled | bool | `false` | Toggle autoscaling  |
+| autoscaling.enabled | bool | `false` | Toggle autoscaling |
 | autoscaling.minReplicas | int | `3` | Minimum number of replicas - recommended no lower than 3 |
 | autoscaling.maxReplicas | int | `10` | Maximum number of replicas |
 | autoscaling.cPUUtilizationPercentage | int | `80` | Default CPU target Percentage for horizontal scaling |
