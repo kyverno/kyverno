@@ -215,6 +215,76 @@ func newPrivilegedContainersPodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
+// HostPath Volumes
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPathVolumes_test.go
+func Test_EvaluateHostPathVolumes(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newHostPathVolumesRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newHostPathVolumesPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 2, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newHostPathVolumesRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.volumes[*].hostPath
+				RestrictedField: "volumes[*]",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"hostPath"},
+			},
+		},
+	}
+}
+
+func newHostPathVolumesPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSepc := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+		Volumes: []corev1.Volume{
+			{Name: "a", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{}}},
+			{Name: "b", VolumeSource: corev1.VolumeSource{HostPath: &corev1.HostPathVolumeSource{}}},
+			// {Name: "c", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
+		},
+	}
+	return podSepc
+}
+
 // Capabilities
 func Test_EvaluatePSS(t *testing.T) {
 	fmt.Println("===========")
