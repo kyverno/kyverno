@@ -67,3 +67,6 @@ func (c *fakeDiscoveryClient) OpenAPISchema() (*openapiv2.Document, error) {
 func (c *fakeDiscoveryClient) DiscoveryCache() discovery.CachedDiscoveryInterface {
 	return nil
 }
+func (c *fakeDiscoveryClient) DiscoveryInterface() discovery.DiscoveryInterface {
+	return nil
+}

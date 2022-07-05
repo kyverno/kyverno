@@ -21,6 +21,7 @@ type IDiscovery interface {
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
+	DiscoveryInterface() discovery.DiscoveryInterface
 }
 
 // serverPreferredResources stores the cachedClient instance for discovery client
@@ -30,6 +31,11 @@ type serverPreferredResources struct {
 
 // DiscoveryCache gets the discovery client cache
 func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return c.cachedClient
+}
+
+// DiscoveryInterface gets the discovery client
+func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }
 
@@ -56,6 +62,7 @@ func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 // OpenAPISchema returns the API server OpenAPI schema document
 func (c serverPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
+
 }
 
 // GetGVRFromKind get the Group Version Resource from kind
@@ -111,12 +118,12 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 	var serverResources []*metav1.APIResourceList
 	var err error
 	if apiVersion == "" {
-		serverResources, err = c.cachedClient.ServerPreferredResources()
+		serverResources, err = discovery.ServerPreferredResources(c.DiscoveryInterface())
 	} else {
-		_, serverResources, err = c.cachedClient.ServerGroupsAndResources()
+		_, serverResources, err = discovery.ServerGroupsAndResources(c.DiscoveryInterface())
 	}
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err, c)
 		} else if isMetricsServerUnavailable(kind, err) {
