@@ -108,7 +108,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 			fmt.Println(k, "is a slice with element type", rt.Elem())
 			for _, value := range values.([]interface{}) {
 				fmt.Printf("value: %s\n", value)
-				fmt.Printf("exclude values %v,  value: %s\n", exclude.Values, value)
+				fmt.Printf("exclude values %v,  value: %v\n", exclude.Values, value)
 				if !utils.ContainsString(exclude.Values, value.(string)) {
 					return false
 				}
@@ -125,7 +125,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 				if key == "name" {
 					continue
 				}
-				fmt.Printf("exclude values %v, key: %s, value: %s\n", exclude.Values, key, value)
+				fmt.Printf("exclude values %v, key: %s, value: %v\n", exclude.Values, key, value)
 				if !utils.ContainsString(exclude.Values, key) {
 					return false
 				}

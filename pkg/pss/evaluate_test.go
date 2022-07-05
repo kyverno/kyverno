@@ -285,6 +285,79 @@ func newHostPathVolumesPodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
+// Error: panic: interface conversion: interface {} is float64, not string [recovered]
+// panic: interface conversion: interface {} is float64, not string
+
+// // Host Ports
+// // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPorts_test.go
+// func Test_EvaluateHostPorts(t *testing.T) {
+// 	fmt.Println("===========")
+// 	podSecurityRule := newHostPortsRule()
+
+// 	lv := api.LevelVersion{
+// 		Level:   podSecurityRule.Level,
+// 		Version: podSecurityRule.Version,
+// 	}
+
+// 	podMeta := &metav1.ObjectMeta{
+// 		Name:      "test",
+// 		Namespace: "test-namespace",
+// 	}
+
+// 	podSpec := newHostPortsPodSpec()
+
+// 	res := EvaluatePSS(lv, podMeta, podSpec)
+// 	assert.True(t, len(res) == 1, res)
+
+// 	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+// 	assert.NoError(t, err)
+// 	assert.True(t, allowed)
+// 	fmt.Println("===========")
+// }
+
+// func newHostPortsRule() *v1.PodSecurity {
+// 	return &v1.PodSecurity{
+// 		Level:   api.LevelRestricted,
+// 		Version: api.LatestVersion(),
+// 		Exclude: []*v1.PodSecurityStandard{
+// 			{
+// 				// spec.volumes[*].hostPath
+// 				RestrictedField: "containers[*].ports[*].hostPort",
+// 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+// 				Values:          []string{"10", "20"},
+// 			},
+// 		},
+// 	}
+// }
+
+// func newHostPortsPodSpec() *corev1.PodSpec {
+// 	fakeTrue := true
+// 	fakeFalse := false
+
+// 	podSepc := &corev1.PodSpec{
+// 		Containers: []corev1.Container{
+// 			{
+// 				Ports: []corev1.ContainerPort{
+// 					// {HostPort: 0},
+// 					{HostPort: 10},
+// 					{HostPort: 20},
+// 				},
+// 				Name:  "test-container",
+// 				Image: "ghcr.io/example/nginx:1.2.3",
+// 				SecurityContext: &corev1.SecurityContext{
+// 					RunAsNonRoot:             &fakeTrue,
+// 					AllowPrivilegeEscalation: &fakeFalse,
+// 					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+// 					Capabilities: &corev1.Capabilities{
+// 						Drop: []corev1.Capability{"ALL"},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+// 	return podSepc
+// }
+
 // Capabilities
 func Test_EvaluatePSS(t *testing.T) {
 	fmt.Println("===========")
