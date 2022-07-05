@@ -3,6 +3,7 @@ package pss
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -86,7 +87,17 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 }
 
 func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
+	// When resourceValue is a bool (Host Namespaces control)
+	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
+		fmt.Printf("exclude values %v,  resourceValue: %v\n", exclude.Values, resourceValue)
+		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
+			return false
+		}
+		return true
+	}
+
 	excludeValues := resourceValue.([]interface{})
+
 	fmt.Println(excludeValues)
 
 	for k, values := range excludeValues {
