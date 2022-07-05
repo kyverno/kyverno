@@ -17,7 +17,11 @@ import (
 func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []policy.CheckResult) {
 	checks := policy.DefaultChecks()
 	for _, check := range checks {
-		if check.Level != lv.Level {
+
+		// Restricted ? Baseline + Restricted (cumulative)
+		// Baseline ? Then ignore checks for Restricted
+		// fmt.Printf("current level: %s, check level: %s\n", lv.Level, check.Level)
+		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
 			continue
 		}
 
@@ -25,8 +29,9 @@ func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *c
 
 		for _, versionCheck := range check.Versions {
 			res := versionCheck.CheckPod(podMetadata, podSpec)
+			fmt.Printf("%v, res: %v\n", versionCheck, res)
 			if !res.Allowed {
-				fmt.Println(res)
+				fmt.Printf("check error: %v\n", res)
 				results = append(results, res)
 			}
 		}
@@ -35,8 +40,7 @@ func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *c
 	return
 }
 
-func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec) (bool, error) {
-	fmt.Println("ExemptProfile")
+func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	for _, exclude := range rule.Exclude {
@@ -47,8 +51,14 @@ func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec) (bool, error) 
 		// double check if the given RestrictedField violates the specific profile?
 		// need a RestrictedField - check ID map to fetch psa Check
 
-		if err := ctx.AddJSONObject(podSpec); err != nil {
-			return false, errors.Wrap(err, "failed to add podSpec to engine context")
+		if podObjectMeta != nil {
+			if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+				return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+			}
+		} else {
+			if err := ctx.AddJSONObject(podSpec); err != nil {
+				return false, errors.Wrap(err, "failed to add podSpec to engine context")
+			}
 		}
 
 		value, err := ctx.Query(exclude.RestrictedField)
@@ -76,7 +86,6 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 
 func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
 	addCapabilities := resourceValue.([]interface{})
-	fmt.Println("allowedValues")
 	fmt.Println(addCapabilities)
 
 	for k, capabilities := range addCapabilities {

@@ -29,7 +29,7 @@ func Test_EvaluatePSS(t *testing.T) {
 	res := EvaluatePSS(lv, podMeta, podSpec)
 	assert.True(t, len(res) == 1, res)
 
-	allowed, err := ExemptProfile(podSecurityRule, podSpec)
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 }
@@ -168,128 +168,88 @@ func Test_EvaluateVolumeType(t *testing.T) {
 
 	res := EvaluatePSS(lv, podMeta, podSpec)
 	fmt.Println("res: ", res)
-	assert.True(t, len(res) == 1, res)
+	assert.True(t, len(res) == 2, res)
 
-	allowed, err := ExemptProfile(podSecurityRule, podSpec)
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
 
 	fmt.Println("allowed: ", allowed)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 }
 
-// // App Armor
-// func newAppArmorPodSpec() *corev1.Pod {
-// 	fakeTrue := true
-// 	fakeFalse := false
+// App Armor
+func newAppArmorPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
 
-// 	pod := &corev1.Pod{
-// 		PodSpec: &corev1.PodSpec{
-// 			Containers: []corev1.Container{
-// 				{
-// 					Name:  "test-container",
-// 					Image: "ghcr.io/example/nginx:1.2.3",
-// 					SecurityContext: &corev1.SecurityContext{
-// 						RunAsNonRoot:             &fakeTrue,
-// 						AllowPrivilegeEscalation: &fakeFalse,
-// 						SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
-// 						Capabilities: &corev1.Capabilities{
-// 							Drop: []corev1.Capability{"ALL"},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 		ObjectMeta: metav1.ObjectMeta{
-// 			Annotations: map[string]string{
-// 				`container.apparmor.security.beta.kubernetes.io/`:  `bogus`,
-// 				`container.apparmor.security.beta.kubernetes.io/a`: ``,
-// 				`container.apparmor.security.beta.kubernetes.io/b`: `runtime/default`,
-// 				`container.apparmor.security.beta.kubernetes.io/c`: `localhost/`,
-// 				`container.apparmor.security.beta.kubernetes.io/d`: `localhost/foo`,
-// 				`container.apparmor.security.beta.kubernetes.io/e`: `unconfined`,
-// 				`container.apparmor.security.beta.kubernetes.io/f`: `unknown`,
-// 			},
-// 		},
-// 	},
-// 	// podSpec := &corev1.PodSpec{
-// 	// 	Containers: []corev1.Container{
-// 	// 		{
-// 	// 			Name:  "test-container",
-// 	// 			Image: "ghcr.io/example/nginx:1.2.3",
-// 	// 			SecurityContext: &corev1.SecurityContext{
-// 	// 				RunAsNonRoot:             &fakeTrue,
-// 	// 				AllowPrivilegeEscalation: &fakeFalse,
-// 	// 				SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
-// 	// 				Capabilities: &corev1.Capabilities{
-// 	// 					Drop: []corev1.Capability{"ALL"},
-// 	// 				},
-// 	// 			},
-// 	// 			VolumeMounts: []corev1.VolumeMount{
-// 	// 				{
-// 	// 					Name:      "cephfs",
-// 	// 					MountPath: "/mnt/cephfs",
-// 	// 				},
-// 	// 				{
-// 	// 					Name:      "hostPath",
-// 	// 					MountPath: "/mnt/hostPath",
-// 	// 				},
-// 	// 			},
-// 	// 		},
-// 	// 	},
-// 	// 	Volumes: []corev1.Volume{
-// 	// 		{
-// 	// 			Name: "cephfs",
-// 	// 			VolumeSource: corev1.VolumeSource{
-// 	// 				CephFS: &corev1.CephFSVolumeSource{},
-// 	// 			},
-// 	// 		},
-// 	// 		{
-// 	// 			Name: "hostPath",
-// 	// 			VolumeSource: corev1.VolumeSource{
-// 	// 				HostPath: &corev1.HostPathVolumeSource{},
-// 	// 			},
-// 	// 		},
-// 	// 	},
-// 	// }
-// 	return pod
-// }
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSpec
+}
 
-// func newAppArmorRule() *v1.PodSecurity {
-// 	return &v1.PodSecurity{
-// 		Level:   api.LevelRestricted,
-// 		Version: api.LatestVersion(),
-// 		Exclude: []*v1.PodSecurityStandard{
-// 			{
-// 				RestrictedField: "metadata.annotations[“container.apparmor.security.beta.kubernetes.io/*”]",
-// 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
-// 				Values:          []string{},
-// 			},
-// 		},
-// 	}
-// }
+func newAppArmorPodObjectMeta() *metav1.ObjectMeta {
+	objectMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+		Annotations: map[string]string{
+			`container.apparmor.security.beta.kubernetes.io/`:  `bogus`,
+			`container.apparmor.security.beta.kubernetes.io/a`: ``,
+			`container.apparmor.security.beta.kubernetes.io/b`: `runtime/default`,
+			`container.apparmor.security.beta.kubernetes.io/c`: `localhost/`,
+			`container.apparmor.security.beta.kubernetes.io/d`: `localhost/foo`,
+			"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
+			`container.apparmor.security.beta.kubernetes.io/f`: `unknown`,
+		},
+	}
+	return objectMeta
+}
 
-// func Test_EvaluateAppArmor(t *testing.T) {
-// 	podSecurityRule := newAppArmorRule()
+func newAppArmorRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				RestrictedField: "metadata.annotations[\"container.apparmor.security.beta.kubernetes.io/*\"]",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{},
+			},
+		},
+	}
+}
 
-// 	lv := api.LevelVersion{
-// 		Level:   podSecurityRule.Level,
-// 		Version: podSecurityRule.Version,
-// 	}
+func Test_EvaluateAppArmor(t *testing.T) {
+	podSecurityRule := newAppArmorRule()
 
-// 	podMeta := &metav1.ObjectMeta{
-// 		Name:      "test",
-// 		Namespace: "test-namespace",
-// 	}
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
 
-// 	podSpec := newAppArmorPod()
+	podObjectMeta := newAppArmorPodObjectMeta()
+	podSpec := newAppArmorPodSpec()
 
-// 	res := EvaluatePSS(lv, podMeta, podSpec)
-// 	fmt.Println("res: ", res)
-// 	assert.True(t, len(res) == 1, res)
+	res := EvaluatePSS(lv, podObjectMeta, podSpec)
+	fmt.Println("res: ", res)
+	assert.True(t, len(res) == 1, res)
 
-// 	allowed, err := ExemptProfile(podSecurityRule, podSpec)
+	// allowed, err := ExemptProfile(podSecurityRule, podSpec, podObjectMeta)
 
-// 	fmt.Println("allowed: ", allowed)
-// 	assert.NoError(t, err)
-// 	assert.True(t, allowed)
-// }
+	// fmt.Println("allowed: ", allowed)
+	// assert.NoError(t, err)
+	// assert.True(t, allowed)
+}
