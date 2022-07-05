@@ -498,9 +498,9 @@ type PodSecurity struct {
 	Exclude []*PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 type PodSecurityStandard struct {
-	Path   string   `json:"path,omitempty" yaml:"path,omitempty"`
-	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
-	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
+	RestrictedField string   `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
+	Images          []string `json:"images,omitempty" yaml:"images,omitempty"`
+	Values          []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
 // Deny specifies a list of conditions used to pass or fail a validation rule.

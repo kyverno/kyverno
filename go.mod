@@ -37,6 +37,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
+	golang.org/x/tools v0.1.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 	gotest.tools v2.2.0+incompatible
@@ -47,7 +48,7 @@ require (
 	k8s.io/client-go v0.22.4
 	k8s.io/klog/v2 v2.20.0
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
-	k8s.io/pod-security-admission v0.22.4 // indirect
+	k8s.io/pod-security-admission v0.22.4
 	sigs.k8s.io/controller-runtime v0.8.1
 	sigs.k8s.io/kustomize/api v0.8.8
 	sigs.k8s.io/kustomize/kyaml v0.10.17
