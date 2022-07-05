@@ -1441,7 +1441,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 
 			objects := []runtime.Object{target}
 			scheme := runtime.NewScheme()
-			dclient, err := client.NewMockClient(scheme, gvrToListKind, objects...)
+			dclient, err := client.NewFakeClient(scheme, gvrToListKind, objects...)
 			assert.NilError(t, err)
 			dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
 

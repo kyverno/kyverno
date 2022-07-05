@@ -90,7 +90,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface) (*MetricsConfigData, err
 			}
 		}
 	} else {
-		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
+		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading default configuration")
 	}
 
 	return &mcd, nil

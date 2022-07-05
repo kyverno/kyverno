@@ -59,7 +59,7 @@ type handlers struct {
 	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
 	auditHandler      AuditHandler
-	openAPIController *openapi.Controller
+	openAPIController openapi.ValidateInterface
 }
 
 func NewHandlers(
@@ -76,7 +76,7 @@ func NewHandlers(
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	auditHandler AuditHandler,
-	openAPIController *openapi.Controller,
+	openAPIController openapi.ValidateInterface,
 ) webhooks.Handlers {
 	return &handlers{
 		client:            client,
