@@ -629,8 +629,166 @@ func newSysctlPodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
+// Restricted
+// Volume Type
+func Test_Restricted_EvaluateVolumeType(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newVolumeTypeRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newVolumeTypePodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	fmt.Println("res: ", res)
+	assert.True(t, len(res) == 2, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+
+	fmt.Println("allowed: ", allowed)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newVolumeTypePodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "cephfs",
+						MountPath: "/mnt/cephfs",
+					},
+					{
+						Name:      "hostPath",
+						MountPath: "/mnt/hostPath",
+					},
+				},
+			},
+		},
+		Volumes: []corev1.Volume{
+			{
+				Name: "cephfs",
+				VolumeSource: corev1.VolumeSource{
+					CephFS: &corev1.CephFSVolumeSource{},
+				},
+			},
+			{
+				Name: "hostPath",
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{},
+				},
+			},
+		},
+	}
+	return podSpec
+}
+
+func newVolumeTypeRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				RestrictedField: "volumes[*]",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"cephfs", "hostPath"},
+			},
+		},
+	}
+}
+
+// Privilege Escalation
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_allowPrivilegeEscalation_test.go
+func Test_Restricted_EvaluatePrivilegeEscalation(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newPrivilegeEscalationRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newPrivilegeEscalationPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	fmt.Println("res: ", res)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+
+	fmt.Println("allowed: ", allowed)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newPrivilegeEscalationPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: utilpointer.Bool(true),
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSpec
+}
+
+func newPrivilegeEscalationRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.allowPrivilegeEscalation
+				RestrictedField: "containers[*].securityContext.allowPrivilegeEscalation",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"true"},
+			},
+		},
+	}
+}
+
 // Capabilities
-func Test_EvaluatePSS(t *testing.T) {
+func Test_Restricted_EvaluateCapabilites(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newRule()
 
@@ -698,97 +856,32 @@ func newPodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
-// Volume Type
-func newVolumeTypePodSpec() *corev1.PodSpec {
-	fakeTrue := true
-	fakeFalse := false
-
-	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{
-			{
-				Name:  "test-container",
-				Image: "ghcr.io/example/nginx:1.2.3",
-				SecurityContext: &corev1.SecurityContext{
-					RunAsNonRoot:             &fakeTrue,
-					AllowPrivilegeEscalation: &fakeFalse,
-					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{"ALL"},
-					},
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "cephfs",
-						MountPath: "/mnt/cephfs",
-					},
-					{
-						Name:      "hostPath",
-						MountPath: "/mnt/hostPath",
-					},
-				},
-			},
-		},
-		Volumes: []corev1.Volume{
-			{
-				Name: "cephfs",
-				VolumeSource: corev1.VolumeSource{
-					CephFS: &corev1.CephFSVolumeSource{},
-				},
-			},
-			{
-				Name: "hostPath",
-				VolumeSource: corev1.VolumeSource{
-					HostPath: &corev1.HostPathVolumeSource{},
-				},
-			},
-		},
-	}
-	return podSpec
-}
-
-func newVolumeTypeRule() *v1.PodSecurity {
-	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
-		Exclude: []*v1.PodSecurityStandard{
-			{
-				RestrictedField: "volumes[*]",
-				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
-				Values:          []string{"cephfs", "hostPath"},
-			},
-		},
-	}
-}
-
-func Test_EvaluateVolumeType(t *testing.T) {
+// App Armor
+func Test_Restricted_EvaluateAppArmor(t *testing.T) {
 	fmt.Println("===========")
-	podSecurityRule := newVolumeTypeRule()
+	podSecurityRule := newAppArmorRule()
 
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
 		Version: podSecurityRule.Version,
 	}
 
-	podMeta := &metav1.ObjectMeta{
-		Name:      "test",
-		Namespace: "test-namespace",
-	}
+	podObjectMeta := newAppArmorPodObjectMeta()
+	podSpec := newAppArmorPodSpec()
 
-	podSpec := newVolumeTypePodSpec()
-
-	res := EvaluatePSS(lv, podMeta, podSpec)
+	res := EvaluatePSS(lv, podObjectMeta, podSpec)
 	fmt.Println("res: ", res)
-	assert.True(t, len(res) == 2, res)
+	assert.True(t, len(res) == 1, res)
 
-	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	// JMESPATH problem
+	// allowed, err := ExemptProfile(podSecurityRule, podSpec, podObjectMeta)
 
-	fmt.Println("allowed: ", allowed)
-	assert.NoError(t, err)
-	assert.True(t, allowed)
-	fmt.Println("===========")
+	// fmt.Println("allowed: ", allowed)
+	// assert.NoError(t, err)
+	// assert.True(t, allowed)
+	// fmt.Println("===========")
 }
 
-// App Armor
 func newAppArmorPodSpec() *corev1.PodSpec {
 	fakeTrue := true
 	fakeFalse := false
@@ -841,29 +934,4 @@ func newAppArmorRule() *v1.PodSecurity {
 			},
 		},
 	}
-}
-
-func Test_EvaluateAppArmor(t *testing.T) {
-	fmt.Println("===========")
-	podSecurityRule := newAppArmorRule()
-
-	lv := api.LevelVersion{
-		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
-	}
-
-	podObjectMeta := newAppArmorPodObjectMeta()
-	podSpec := newAppArmorPodSpec()
-
-	res := EvaluatePSS(lv, podObjectMeta, podSpec)
-	fmt.Println("res: ", res)
-	assert.True(t, len(res) == 1, res)
-
-	// JMESPATH problem
-	// allowed, err := ExemptProfile(podSecurityRule, podSpec, podObjectMeta)
-
-	// fmt.Println("allowed: ", allowed)
-	// assert.NoError(t, err)
-	// assert.True(t, allowed)
-	// fmt.Println("===========")
 }

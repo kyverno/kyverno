@@ -99,7 +99,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 	// Is a Bool / String / Float
 	// When resourceValue is a bool (Host Namespaces control)
 	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
-		fmt.Printf("exclude values %v,  resourceValue: %v\n", exclude.Values, resourceValue)
+		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
 		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
 			return false
 		}
@@ -126,7 +126,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 						return false
 					}
 				} else if reflect.TypeOf(value).Kind() == reflect.String {
-					fmt.Printf("exclude values %v,  value: %v\n", exclude.Values, value)
+					fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, value)
 					if !utils.ContainsString(exclude.Values, value.(string)) {
 						return false
 					}
@@ -142,18 +142,22 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 				if key == "name" {
 					continue
 				}
-				fmt.Printf("exclude values %v, key: %s, value: %v\n", exclude.Values, key, value)
+				fmt.Printf("[exclude values]: %v\n[key]: %s\n[restricted field values]: %v\n", exclude.Values, key, value)
 				if !utils.ContainsString(exclude.Values, key) {
 					return false
 				}
 			}
 		} else if kind == reflect.String {
-			fmt.Printf("exclude values %v,  values: %v\n", exclude.Values, values)
+			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
 			if !utils.ContainsString(exclude.Values, values.(string)) {
 				return false
 			}
-			// return true
 
+		} else if kind == reflect.Bool {
+			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
+			if !utils.ContainsString(exclude.Values, strconv.FormatBool(values.(bool))) {
+				return false
+			}
 		} else {
 			fmt.Println(values, "is something else entirely")
 		}
