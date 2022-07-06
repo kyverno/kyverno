@@ -6,7 +6,7 @@ import (
 )
 
 func NewFake() Generator {
-	return &generator{}
+	return &fakeGenerator{}
 }
 
 type fakeGenerator struct {
