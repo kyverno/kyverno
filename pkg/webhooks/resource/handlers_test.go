@@ -269,7 +269,7 @@ func Test_ImageVerify(t *testing.T) {
 	policyCache.Set(key, &policy)
 
 	response = handlers.Mutate(logger, request)
-	assert.Equal(t, response.Allowed, true)
+	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 1)
 }
 
