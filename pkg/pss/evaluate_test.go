@@ -787,6 +787,73 @@ func newPrivilegeEscalationRule() *v1.PodSecurity {
 	}
 }
 
+// Running as Non-Root
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_runAsNonRoot_test.go
+func Test_Restricted_EvaluateRunningAsNonRoot(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newRunningAsNonRootRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newRunningAsNonRootPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	fmt.Println("res: ", res)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+
+	fmt.Println("allowed: ", allowed)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newRunningAsNonRootPodSpec() *corev1.PodSpec {
+	fakeFalse := false
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             utilpointer.Bool(false),
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSpec
+}
+
+func newRunningAsNonRootRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.runAsNonRoot
+				RestrictedField: "containers[*].securityContext.runAsNonRoot",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"false"},
+			},
+		},
+	}
+}
+
 // Capabilities
 func Test_Restricted_EvaluateCapabilites(t *testing.T) {
 	fmt.Println("===========")
