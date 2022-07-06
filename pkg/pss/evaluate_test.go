@@ -427,6 +427,75 @@ func newSELinuxPodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
+// /proc Mount Type
+//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_EvaluateProcMountType(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newProcMountTypeRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newProcMountTypePodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newProcMountTypeRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.procMount
+				RestrictedField: "containers[*].securityContext.procMount",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"Unmasked"},
+			},
+		},
+	}
+}
+
+func newProcMountTypePodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+	// defaultValue := corev1.DefaultProcMount
+	unmaskedValue := corev1.UnmaskedProcMount
+
+	podSepc := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					// ProcMount:                &defaultValue,
+					ProcMount:                &unmaskedValue,
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSepc
+}
+
 // Capabilities
 func Test_EvaluatePSS(t *testing.T) {
 	fmt.Println("===========")
