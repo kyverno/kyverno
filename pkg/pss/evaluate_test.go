@@ -42,7 +42,7 @@ func Test_EvaluateHostProcess(t *testing.T) {
 
 func newHostProcessRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -111,7 +111,7 @@ func Test_EvaluateHostNamespaces(t *testing.T) {
 
 func newHostNamespacesRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -178,7 +178,7 @@ func Test_EvaluatePrivilegedContainers(t *testing.T) {
 
 func newPrivilegedContainersRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -234,7 +234,7 @@ func Test_EvaluateHostPathVolumes(t *testing.T) {
 	podSpec := newHostPathVolumesPodSpec()
 
 	res := EvaluatePSS(lv, podMeta, podSpec)
-	assert.True(t, len(res) == 2, res)
+	assert.True(t, len(res) == 1, res)
 
 	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
 	assert.NoError(t, err)
@@ -244,7 +244,7 @@ func Test_EvaluateHostPathVolumes(t *testing.T) {
 
 func newHostPathVolumesRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -317,7 +317,7 @@ func Test_EvaluateHostPorts(t *testing.T) {
 
 func newHostPortsRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -387,7 +387,7 @@ func Test_EvaluateSELinux(t *testing.T) {
 
 func newSELinuxRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
@@ -456,7 +456,7 @@ func Test_EvaluateProcMountType(t *testing.T) {
 
 func newProcMountTypeRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
-		Level:   api.LevelRestricted,
+		Level:   api.LevelBaseline,
 		Version: api.LatestVersion(),
 		Exclude: []*v1.PodSecurityStandard{
 			{
