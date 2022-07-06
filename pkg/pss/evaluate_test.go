@@ -496,6 +496,71 @@ func newProcMountTypePodSpec() *corev1.PodSpec {
 	return podSepc
 }
 
+// Seccomp
+//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_EvaluateSeccomp(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newSeccompRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newSeccompPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newSeccompRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelBaseline,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.seccompProfile.type
+				RestrictedField: "containers[*].securityContext.seccompProfile.type",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"Unconfined"},
+			},
+		},
+	}
+}
+
+func newSeccompPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSepc := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Unconfined"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSepc
+}
+
 // Capabilities
 func Test_EvaluatePSS(t *testing.T) {
 	fmt.Println("===========")
