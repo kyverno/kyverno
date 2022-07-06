@@ -296,13 +296,24 @@ func (c *controller) updateUR(_, cur interface{}) {
 }
 
 func (c *controller) deleteUR(obj interface{}) {
-	ur, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1beta1.UpdateRequest)
-	if ok {
-		// sync Handler will remove it from the queue
-		c.enqueueUpdateRequest(ur)
-	} else {
-		logger.Info("Failed to get deleted object", "obj", obj)
+	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
+	if !ok {
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			logger.Info("Couldn't get object from tombstone", "obj", obj)
+			return
+		}
+		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
+		if !ok {
+			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
+			return
+		}
 	}
+	if ur.Status.Handler != "" {
+		return
+	}
+	// sync Handler will remove it from the queue
+	c.enqueueUpdateRequest(ur)
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
