@@ -152,7 +152,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 			if !utils.ContainsString(exclude.Values, values.(string)) {
 				return false
 			}
-			return true
+			// return true
 
 		} else {
 			fmt.Println(values, "is something else entirely")

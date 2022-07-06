@@ -15,7 +15,7 @@ import (
 // Baseline
 // Host Process
 // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_windowsHostProcess_test.go
-func Test_EvaluateHostProcess(t *testing.T) {
+func Test_Baseline_EvaluateHostProcess(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostProcessRule()
 
@@ -84,7 +84,7 @@ func newHostProcessPodSpec() *corev1.PodSpec {
 
 // Host Namespaces
 // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostNamespaces_test.go
-func Test_EvaluateHostNamespaces(t *testing.T) {
+func Test_Baseline_EvaluateHostNamespaces(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostNamespacesRule()
 
@@ -151,7 +151,7 @@ func newHostNamespacesPodSpec() *corev1.PodSpec {
 
 // Privileged Containers
 // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_privileged_test.go
-func Test_EvaluatePrivilegedContainers(t *testing.T) {
+func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newPrivilegedContainersRule()
 
@@ -217,7 +217,7 @@ func newPrivilegedContainersPodSpec() *corev1.PodSpec {
 
 // HostPath Volumes
 // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPathVolumes_test.go
-func Test_EvaluateHostPathVolumes(t *testing.T) {
+func Test_Baseline_EvaluateHostPathVolumes(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostPathVolumesRule()
 
@@ -290,7 +290,7 @@ func newHostPathVolumesPodSpec() *corev1.PodSpec {
 
 // Host Ports
 // https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPorts_test.go
-func Test_EvaluateHostPorts(t *testing.T) {
+func Test_Baseline_EvaluateHostPorts(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostPortsRule()
 
@@ -359,8 +359,8 @@ func newHostPortsPodSpec() *corev1.PodSpec {
 }
 
 // SELinux
-//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
-func Test_EvaluateSELinux(t *testing.T) {
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_Baseline_EvaluateSELinux(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newSELinuxRule()
 
@@ -428,8 +428,8 @@ func newSELinuxPodSpec() *corev1.PodSpec {
 }
 
 // /proc Mount Type
-//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
-func Test_EvaluateProcMountType(t *testing.T) {
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_Baseline_EvaluateProcMountType(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newProcMountTypeRule()
 
@@ -497,8 +497,8 @@ func newProcMountTypePodSpec() *corev1.PodSpec {
 }
 
 // Seccomp
-//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
-func Test_EvaluateSeccomp(t *testing.T) {
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_Baseline_EvaluateSeccomp(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newSeccompRule()
 
@@ -551,6 +551,74 @@ func newSeccompPodSpec() *corev1.PodSpec {
 					RunAsNonRoot:             &fakeTrue,
 					AllowPrivilegeEscalation: &fakeFalse,
 					SeccompProfile:           &corev1.SeccompProfile{Type: "Unconfined"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSepc
+}
+
+// Sysctl
+// https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_sysctls_test.go
+func Test_Baseline_EvaluateSysctl(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newSysctlRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newSysctlPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newSysctlRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelBaseline,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.seccompProfile.type
+				RestrictedField: "securityContext.sysctls[*].name",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"a", "b"},
+			},
+		},
+	}
+}
+
+func newSysctlPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSepc := &corev1.PodSpec{
+		SecurityContext: &corev1.PodSecurityContext{
+			Sysctls: []corev1.Sysctl{{Name: "a"}, {Name: "b"}},
+		},
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
 					Capabilities: &corev1.Capabilities{
 						Drop: []corev1.Capability{"ALL"},
 					},
