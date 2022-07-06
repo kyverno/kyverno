@@ -52,6 +52,9 @@ type Response struct {
 	Statements []map[string]interface{}
 }
 
+type CosignError struct {
+}
+
 func Verify(opts Options) (*Response, error) {
 	if opts.FetchAttestations {
 		return fetchAttestations(opts)

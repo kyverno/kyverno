@@ -15,12 +15,12 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -496,6 +496,6 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		}
 	}
 
-	err = engineUtils.CombineErrors(errors)
+	err = multierr.Combine(errors...)
 	return err
 }

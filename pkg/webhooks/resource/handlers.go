@@ -222,7 +222,8 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	addRoles := containsRBACInfo(mutatePolicies)
 	policyContext, err := h.buildPolicyContext(request, addRoles)
 	if err != nil {
-		return h.handleError(policyContext, err, "failed to build policy context", logger)
+		logger.Error(err, "failed to build policy context")
+		return admissionutils.ResponseFailure(err.Error())
 	}
 	// update container images to a canonical form
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
@@ -230,30 +231,24 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	}
 	mutatePatches, mutateWarnings, err := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
 	if err != nil {
-		return h.handleError(policyContext, err, "mutation error", logger)
+		logger.Error(err, "mutation failed")
+		return admissionutils.ResponseFailure(err.Error())
 	}
 
 	newRequest := patchRequest(mutatePatches, request, logger)
 	imagePatches, imageVerifyWarnings, err := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
 	if err != nil {
-		return h.handleError(policyContext, err, "image verification error", logger)
+		logger.Error(err, "image verification failed")
+		return admissionutils.ResponseFailure(err.Error())
 	}
 
 	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
-		admissionutils.ResponseSuccessWithPatchAndWarnings(append(mutatePatches, imagePatches...), append(mutateWarnings, imageVerifyWarnings...))
+		warnings := append(mutateWarnings, imageVerifyWarnings...)
+		logger.V(2).Info("mutation webhook", "warnings", warnings)
+		return admissionutils.ResponseSuccessWithPatchAndWarnings(append(mutatePatches, imagePatches...), warnings)
 	}
 
 	return admissionutils.ResponseSuccessWithPatch(append(mutatePatches, imagePatches...))
-}
-
-// handleError - allows admission request to proceed when the failurePolicy is set to ignore
-func (h *handlers) handleError(policyContext *engine.PolicyContext, err error, details string, logger logr.Logger) *admissionv1.AdmissionResponse {
-	logger.Error(err, details)
-	if policyContext.Policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
-		return admissionutils.ResponseSuccess()
-	}
-
-	return admissionutils.ResponseFailure(err.Error())
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
@@ -442,7 +437,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	}
 
 	if blocked {
-		logger.V(4).Info("resource blocked")
+		logger.V(4).Info("admission request blocked")
 		return false, getBlockedMessages(engineResponses), nil, nil
 	}
 
