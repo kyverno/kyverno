@@ -109,6 +109,14 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 	// Is an array
 	excludeValues := resourceValue.([]interface{})
 
+	// // Allow a RestrictedField to be undefined (Restricted Seccomp control)
+	if len(exclude.Values) == 1 && exclude.Values[0] == "undefined" {
+		if len(excludeValues) == 0 {
+			return true
+		}
+		return false
+	}
+
 	for _, values := range excludeValues {
 		rt := reflect.TypeOf(values)
 		kind := rt.Kind()
