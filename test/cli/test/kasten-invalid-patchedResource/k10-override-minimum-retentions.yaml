@@ -25,42 +25,6 @@ spec:
           kinds:
           - config.kio.kasten.io/v1alpha1/Policy
     mutate: 
-      # Federal Information Security Management Act (FISMA): 3 Years 
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":12,"yearly":3}
-      
-      # Health Insurance Portability and Accountability Act (HIPAA):  6 Years   
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":12,"yearly":6}
-         
-      # National Energy Commission (NERC): 3 to 6 Years  
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":12,"yearly":3}
-      
-      # Basel II Capital Accord: 3 to 7 Years 
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":12,"yearly":3}
-      
-      # Sarbanes-Oxley Act of 2002 (SOX): 7 Years
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":12,"yearly":7}
-      
-      # National Industrial Security Program Operating Manual (NISPOM): 6 to 12 Months 
-      #patchesJson6902: |-
-      #  - path: "/spec/retention"
-      #    op: replace
-      #    value: {"hourly":24,"daily":30,"weekly":4,"monthly":6}
-      
       # Cost Optimization (Maximum Retention: 3 Months)
       patchesJson6902: |-
         - path: "/spec/retention"
