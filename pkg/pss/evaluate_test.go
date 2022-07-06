@@ -338,13 +338,82 @@ func newHostPortsPodSpec() *corev1.PodSpec {
 		Containers: []corev1.Container{
 			{
 				Ports: []corev1.ContainerPort{
-					{HostPort: 0},
+					// {HostPort: 0},
 					{HostPort: 10},
 					{HostPort: 20},
 				},
 				Name:  "test-container",
 				Image: "ghcr.io/example/nginx:1.2.3",
 				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSepc
+}
+
+// SELinux
+//https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions_test.go
+func Test_EvaluateSELinux(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newSELinuxRule()
+
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: podSecurityRule.Version,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newSELinuxPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newSELinuxRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: api.LatestVersion(),
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				// spec.containers[*].securityContext.seLinuxOptions.type
+				RestrictedField: "containers[*].securityContext.seLinuxOptions.type",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"bar"},
+			},
+		},
+	}
+}
+
+func newSELinuxPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSepc := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					SELinuxOptions: &corev1.SELinuxOptions{
+						// Type: "container_t",
+						Type: "bar",
+					},
 					RunAsNonRoot:             &fakeTrue,
 					AllowPrivilegeEscalation: &fakeFalse,
 					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},

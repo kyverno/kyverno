@@ -96,6 +96,7 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 // JSON objects: map[string]interface{}
 // JSON null: nil
 func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
+	// Is a Bool / String / Float
 	// When resourceValue is a bool (Host Namespaces control)
 	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
 		fmt.Printf("exclude values %v,  resourceValue: %v\n", exclude.Values, resourceValue)
@@ -105,6 +106,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 		return true
 	}
 
+	// Is an array
 	excludeValues := resourceValue.([]interface{})
 
 	for _, values := range excludeValues {
@@ -145,6 +147,13 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 					return false
 				}
 			}
+		} else if kind == reflect.String {
+			fmt.Printf("exclude values %v,  values: %v\n", exclude.Values, values)
+			if !utils.ContainsString(exclude.Values, values.(string)) {
+				return false
+			}
+			return true
+
 		} else {
 			fmt.Println(values, "is something else entirely")
 		}
@@ -152,6 +161,14 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 	return true
 }
 
+// func concatAllowedValues(restrictedField string, excludeValues []string) []string {
+// switch restrictedField {
+// case "containers[*].ports[*].hostPort":
+// 	excludeValues = append(excludeValues, 0)
+// 	...
+// }
+
+// }
 // func getCheck(path string) policy.Check {
 
 // }
