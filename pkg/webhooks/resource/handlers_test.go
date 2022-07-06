@@ -270,7 +270,7 @@ func Test_ImageVerify(t *testing.T) {
 
 	response = handlers.Mutate(logger, request)
 	assert.Equal(t, response.Allowed, false)
-	assert.Equal(t, len(response.Warnings), 1)
+	assert.Equal(t, len(response.Warnings), 0)
 }
 
 func makeKey(policy kyverno.PolicyInterface) string {
