@@ -39,7 +39,7 @@ type EngineStats struct {
 }
 
 func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
-	title := cases.Title(language.English)
+	title := cases.Title(language.Und, cases.NoLower)
 	for _, k := range kinds {
 		parts := strings.Split(k, "/")
 		if len(parts) == 1 {
