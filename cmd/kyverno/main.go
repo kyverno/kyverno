@@ -143,7 +143,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	var metricsServerMux *http.ServeMux
 	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
@@ -265,38 +264,30 @@ func main() {
 	}
 
 	// Metrics Configuration
-	if !disableMetricsExport {
-		if otel == "grpc" {
-			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
-			metricsAddr := ":" + metricsPort
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		log.Log.WithName("Metrics"),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize metrics")
+		os.Exit(1)
+	}
+
+	if otel == "prometheus" {
+		go func() {
 			setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-
-			endpoint := otelCollector + metricsAddr
-			metricsConfig, err = metrics.NewOTLPGRPCConfig(
-				endpoint,
-				metricsConfigData,
-				transportCreds,
-				kubeClient,
-				log.Log.WithName("Metrics"),
-			)
-
-			if err != nil {
-				setupLog.Error(err, "Failed to enable metrics", "address", ":4317")
-				os.Exit(1)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
 			}
-		} else if otel == "prometheus" {
-			// Prometheus Server will serve metrics on metrics-port
-			metricsAddr := ":" + metricsPort
-			setupLog.Info("enabling prometheus metrics", "address", metricsAddr)
-			metricsConfig, metricsServerMux, err = metrics.NewPrometheusConfig(metricsConfigData, log.Log.WithName("Metrics"))
-			go func() {
-				setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-				if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-					setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
-					os.Exit(1)
-				}
-			}()
-		}
+
+		}()
 	}
 
 	// Tracing Configuration
