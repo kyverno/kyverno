@@ -90,9 +90,8 @@ Go ahead and push your changes to GitHub using this command.
 ```sh
 git push
 ```
-#### Developer Certificate of Origin (DCO) Sign off
-=======
-## Cherry-pick PRs to release branches
+
+#### Cherry-pick PRs to release branches
 
 Once you fork the project, you will notice that there are a number of branches related to Kyverno's releases such as release-1.7. You can view the list of remote branches by using the command below:
 
@@ -116,11 +115,7 @@ git push --set-upstream origin release-1.7
 
 Once the commit has been cherry picked, the author will need to open a PR merging to the release branch, release-1.7 for example.
 
-## Engage with us
-
-The website has the most updated information on [how to engage with the Kyverno community](https://kyverno.io/community/) including its maintainers and contributors.
-
-## Developer Certificate of Origin (DCO) Sign off
+#### Developer Certificate of Origin (DCO) Sign off
 
 For contributors to certify that they wrote or otherwise have the right to submit the code they are contributing to the project, we are requiring everyone to acknowledge this by signing their work which indicates you agree to the DCO found [here](https://developercertificate.org/).
 
