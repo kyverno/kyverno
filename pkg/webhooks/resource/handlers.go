@@ -359,8 +359,10 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, logger)
-	h.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, false, logger)
+		h.eventGen.Add(events...)
+	}
 
 	// debug info
 	func() {
@@ -430,9 +432,18 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	h.prGenerator.Add(prInfos...)
 
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+	}
+
 	blocked := toBlockResource(engineResponses, logger)
-	events := generateEvents(engineResponses, blocked, logger)
-	h.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, blocked, logger)
+		h.eventGen.Add(events...)
+	}
 
 	if blocked {
 		logger.V(4).Info("resource blocked")

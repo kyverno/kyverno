@@ -44,6 +44,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -72,6 +73,8 @@ var (
 	allowInsecureRegistry        bool
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
+	changeRequestLimit           int
+	splitPolicyReport            bool
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
@@ -99,6 +102,8 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
+	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "maximum pending report change requests per namespace or for the cluster-wide policy report")
+	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "Set the flag to 'true', to enable the split-up PolicyReports per policy.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -208,6 +213,8 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		changeRequestLimit,
+		splitPolicyReport,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -219,6 +226,8 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
+		reportReqGen.CleanupChangeRequest,
+		splitPolicyReport,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {
@@ -335,7 +344,7 @@ func main() {
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		kubeInformer.Core().V1().Pods(),
+		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
 	)
@@ -391,7 +400,11 @@ func main() {
 			setupLog.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
-		waitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
+		// wait for cache to be synced before use it
+		cache.WaitForCacheSync(stopCh,
+			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
+			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
+		)
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
@@ -429,11 +442,6 @@ func main() {
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
-
-	if err := cosign.Init(); err != nil {
-		setupLog.Error(err, "initialization failed")
-		os.Exit(1)
-	}
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -473,7 +481,7 @@ func main() {
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
 		go prgen.Run(1, stopCh)
 		go grcc.Run(1, stopCh)
 	}

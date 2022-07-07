@@ -25,6 +25,11 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
+	// cpolSynced returns true if the cluster policy shared informer has synced at least once
+	cpolSynced cache.InformerSynced
+	// polSynced returns true if the policy shared informer has synced at least once
+	polSynced cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 }
@@ -34,6 +39,8 @@ func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterP
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
+		cpolSynced: cpolInformer.Informer().HasSynced,
+		polSynced:  polInformer.Informer().HasSynced,
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policycache-controller"),
 	}
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
@@ -44,6 +51,7 @@ func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterP
 func (c *controller) WarmUp() error {
 	logger.Info("warming up ...")
 	defer logger.Info("warm up done")
+
 	pols, err := c.polLister.Policies(metav1.NamespaceAll).List(labels.Everything())
 	if err != nil {
 		return err
@@ -70,7 +78,7 @@ func (c *controller) WarmUp() error {
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(logger, c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run("policycache-controller", logger, c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
 }
 
 func (c *controller) reconcile(key, namespace, name string) error {

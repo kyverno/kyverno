@@ -58,6 +58,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: METRICS_CONFIG
               value: kyverno-metrics
@@ -110,6 +112,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: 128Mi
