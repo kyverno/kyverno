@@ -20,6 +20,8 @@ import (
 // - in PodSpec by default (don't need to specify "spec." prefix in RestrictedField)
 // - Problem with App Armor: cannot query Metadata field inside Pod
 
+// --> Solution: Add Pod object we send `ctx.AddJSONObject(podSpec)`
+
 // 2. HostPathVolumes: container has an allowed volumeSource (emptyDir) —> ExemptProfile() fails
 // exclude.Values = ["hostPath"]
 // key = hostPath (not allowed), emptyDir (allowed)
@@ -27,21 +29,16 @@ import (
 //     return false
 // }
 
-// Solution:
+// --> Solution:
 
 // Add specific conditions / PSS control:
 // Check the restrictedField and concat allowedValues to excludeValues
 // - if conditions (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPorts.go)
 // - array of allowed values (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions.go)
 
-// func concatAllowedValues(restrictedField string, excludeValues []string) []string {
-// switch restrictedField {
-// case "containers[*].ports[*].hostPort":
-// 	excludeValues = append(excludeValues, 0)
-// 	...
-// }
+// --> Solution: skip allowed values
 
-// 4. Values []string -> []interface{} ? HostPorts
+// 3. Values []string -> []interface{} ? HostPorts
 // Have to check if the object inside []interface{} is a:
 
 // - String
@@ -49,8 +46,19 @@ import (
 // - Bool
 // ….
 
-// 5. Cannot find Running as Non-Root User control files in K8S repo
-// 6. ExcludeValue: undefined for restricted seccomp
+// --> Solution: Use switch to make it more readable
+
+// 4. Cannot find Running as Non-Root User control files in K8S repo
+
+// --> Solution: https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_runAsUser_test.go
+
+// 5. ExcludeValue: undefined for restricted seccomp
+
+// --> Solution: either undefined / null
+
+// TO DO:
+// E2E test for one control
+// 1. New package for PSS checks, connect with Kyverno Engine (admission webhook)
 
 func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []policy.CheckResult) {
 	checks := policy.DefaultChecks()
@@ -133,6 +141,8 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 // JSON objects: map[string]interface{}
 // JSON null: nil
 func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
+	// Use `switch` keyword in golang
+
 	// Is a Bool / String / Float
 	// When resourceValue is a bool (Host Namespaces control)
 	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
