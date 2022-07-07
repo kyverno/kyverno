@@ -15,6 +15,43 @@ import (
 	"k8s.io/pod-security-admission/policy"
 )
 
+// Problems to address
+// 1. JMESPath:
+// - in PodSpec by default (don't need to specify "spec." prefix in RestrictedField)
+// - Problem with App Armor: cannot query Metadata field inside Pod
+
+// 2. HostPathVolumes: container has an allowed volumeSource (emptyDir) —> ExemptProfile() fails
+// exclude.Values = ["hostPath"]
+// key = hostPath (not allowed), emptyDir (allowed)
+// if !utils.ContainsString(exclude.Values, key) {
+//     return false
+// }
+
+// Solution:
+
+// Add specific conditions / PSS control:
+// Check the restrictedField and concat allowedValues to excludeValues
+// - if conditions (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPorts.go)
+// - array of allowed values (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions.go)
+
+// func concatAllowedValues(restrictedField string, excludeValues []string) []string {
+// switch restrictedField {
+// case "containers[*].ports[*].hostPort":
+// 	excludeValues = append(excludeValues, 0)
+// 	...
+// }
+
+// 4. Values []string -> []interface{} ? HostPorts
+// Have to check if the object inside []interface{} is a:
+
+// - String
+// - Float64
+// - Bool
+// ….
+
+// 5. Cannot find Running as Non-Root User control files in K8S repo
+// 6. ExcludeValue: undefined for restricted seccomp
+
 func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []policy.CheckResult) {
 	checks := policy.DefaultChecks()
 
@@ -172,13 +209,6 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 	}
 	return true
 }
-
-// func concatAllowedValues(restrictedField string, excludeValues []string) []string {
-// switch restrictedField {
-// case "containers[*].ports[*].hostPort":
-// 	excludeValues = append(excludeValues, 0)
-// 	...
-// }
 
 // }
 // func getCheck(path string) policy.Check {

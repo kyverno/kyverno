@@ -959,7 +959,7 @@ func newRestrictedSeccompRule() *v1.PodSecurity {
 				// spec.containers[*].securityContext.seccompProfile.type
 				RestrictedField: "containers[*].securityContext.seccompProfile.type",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
-				Values:          []string{"undefined", "Unconfined"},
+				Values:          []string{"undefined"},
 			},
 		},
 	}
