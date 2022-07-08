@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -525,7 +524,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			var policy kyverno.ClusterPolicy
+			var policy kyvernov1.ClusterPolicy
 			err := json.Unmarshal(tc.rawPolicy, &policy)
 			assert.NilError(t, err)
 			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
@@ -580,7 +579,7 @@ func Test_RuleSelector(t *testing.T) {
 		"spec": {"containers": [{"name": "nginx", "image": "nginx:latest"}]}
 	}`)
 
-	var policy kyverno.ClusterPolicy
+	var policy kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
@@ -597,7 +596,7 @@ func Test_RuleSelector(t *testing.T) {
 	blocked := toBlockResource([]*response.EngineResponse{resp}, log)
 	assert.Assert(t, blocked == true)
 
-	applyOne := v1.ApplyOne
+	applyOne := kyvernov1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
 
 	resp = engine.Validate(ctx)
