@@ -104,20 +104,19 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>ruleSelector</code></br>
+<code>applyRules</code></br>
 <em>
-<a href="#kyverno.io/v1.RuleSelectorType">
-RuleSelectorType
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RuleSelector controls which rules are applied. The allowed values are <code>AllMatch</code>
-and <code>FirstMatch</code>. Within a policy, rules are processed in the order of declaration.
-With <code>FirstMatch</code>, processing stops after the first matching rule is applied.
-With <code>AllMatch</code> all rules that match are applied, in declaration order.
-The default value is <code>AllMatch</code>.</p>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
 </td>
 </tr>
 <tr>
@@ -329,20 +328,19 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>ruleSelector</code></br>
+<code>applyRules</code></br>
 <em>
-<a href="#kyverno.io/v1.RuleSelectorType">
-RuleSelectorType
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RuleSelector controls which rules are applied. The allowed values are <code>AllMatch</code>
-and <code>FirstMatch</code>. Within a policy, rules are processed in the order of declaration.
-With <code>FirstMatch</code>, processing stops after the first matching rule is applied.
-With <code>AllMatch</code> all rules that match are applied, in declaration order.
-The default value is <code>AllMatch</code>.</p>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
 </td>
 </tr>
 <tr>
@@ -634,6 +632,15 @@ Here, all of the conditions need to pass</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ApplyRulesType">ApplyRulesType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+<p>ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.</p>
+</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
@@ -2894,15 +2901,6 @@ Generation
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.RuleSelectorType">RuleSelectorType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.Spec">Spec</a>)
-</p>
-<p>
-<p>RulesSelectorType specifies whether all matching rules, or the first matching rule, in a policy is applied.</p>
-</p>
 <h3 id="kyverno.io/v1.Spec">Spec
 </h3>
 <p>
@@ -2937,20 +2935,19 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>ruleSelector</code></br>
+<code>applyRules</code></br>
 <em>
-<a href="#kyverno.io/v1.RuleSelectorType">
-RuleSelectorType
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
 </a>
 </em>
 </td>
 <td>
 <em>(Optional)</em>
-<p>RuleSelector controls which rules are applied. The allowed values are <code>AllMatch</code>
-and <code>FirstMatch</code>. Within a policy, rules are processed in the order of declaration.
-With <code>FirstMatch</code>, processing stops after the first matching rule is applied.
-With <code>AllMatch</code> all rules that match are applied, in declaration order.
-The default value is <code>AllMatch</code>.</p>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
 </td>
 </tr>
 <tr>

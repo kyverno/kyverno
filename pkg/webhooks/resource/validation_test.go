@@ -597,8 +597,8 @@ func Test_RuleSelector(t *testing.T) {
 	blocked := toBlockResource([]*response.EngineResponse{resp}, log)
 	assert.Assert(t, blocked == true)
 
-	firstMatch := v1.FirstMatch
-	policy.Spec.RuleSelector = &firstMatch
+	applyOne := v1.ApplyOne
+	policy.Spec.ApplyRules = &applyOne
 
 	resp = engine.Validate(ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)

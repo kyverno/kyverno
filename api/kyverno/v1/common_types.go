@@ -18,15 +18,15 @@ const (
 	Fail FailurePolicyType = "Fail"
 )
 
-// RulesSelectorType specifies whether all matching rules, or the first matching rule, in a policy is applied.
-// +kubebuilder:validation:Enum=AllMatch;FirstMatch
-type RuleSelectorType string
+//  ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.
+// +kubebuilder:validation:Enum=All;One
+type ApplyRulesType string
 
 const (
 	// AllMatchingRules applies all rules in a policy that match.
-	AllMatch RuleSelectorType = "AllMatch"
+	ApplyAll ApplyRulesType = "All"
 	// FirstMatchingRule applies only the first matching rule in the policy.
-	FirstMatch RuleSelectorType = "FirstMatch"
+	ApplyOne ApplyRulesType = "One"
 )
 
 // AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.

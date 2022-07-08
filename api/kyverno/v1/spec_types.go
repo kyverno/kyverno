@@ -30,13 +30,12 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
-	// RuleSelector controls which rules are applied. The allowed values are `AllMatch`
-	// and `FirstMatch`. Within a policy, rules are processed in the order of declaration.
-	// With `FirstMatch`, processing stops after the first matching rule is applied.
-	// With `AllMatch` all rules that match are applied, in declaration order.
-	// The default value is `AllMatch`.
+	// ApplyRules controls how rules in a policy are applied. Rule are processed in
+	// the order of declaration. When set to `One` processing stops after a rule has
+	// been applied i.e. the rule matches and results in a pass, fail, or error. When
+	// set to `All` all rules in the policy are processed. The default is `All`.
 	// +optional
-	RuleSelector *RuleSelectorType `json:"ruleSelector,omitempty" yaml:"ruleSelector,omitempty"`
+	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
 
 	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
 	// Rules within the same policy share the same failure behavior.
@@ -200,11 +199,11 @@ func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetRuleSelector() RuleSelectorType {
-	if s.RuleSelector == nil {
-		return AllMatch
+func (s *Spec) GetApplyRules() ApplyRulesType {
+	if s.ApplyRules == nil {
+		return ApplyAll
 	}
-	return *s.RuleSelector
+	return *s.ApplyRules
 }
 
 // ValidateRuleNames checks if the rule names are unique across a policy

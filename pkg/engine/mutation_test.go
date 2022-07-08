@@ -1497,7 +1497,7 @@ func Test_RuleSelectorMutate(t *testing.T) {
           }
         },
         {
-          "name": "add-name-label",
+          "name": "add-appname-label",
           "match": {
             "resources": {
               "kinds": [
@@ -1576,8 +1576,8 @@ func Test_RuleSelectorMutate(t *testing.T) {
 		t.Errorf("rule 2 patches dont match")
 	}
 
-	firstMatch := kyverno.FirstMatch
-	policy.Spec.RuleSelector = &firstMatch
+	applyOne := kyverno.ApplyOne
+	policyContext.Policy.GetSpec().ApplyRules = &applyOne
 
 	er = Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)

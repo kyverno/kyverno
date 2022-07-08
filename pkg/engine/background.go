@@ -48,11 +48,11 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		return resp
 	}
 
-	ruleSelector := policyContext.Policy.GetSpec().GetRuleSelector()
+	applyRules := policyContext.Policy.GetSpec().GetApplyRules()
 	for _, rule := range autogen.ComputeRules(policyContext.Policy) {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
-			if ruleSelector == kyvernov1.FirstMatch && ruleResp.Status != response.RuleStatusSkip {
+			if applyRules == kyvernov1.ApplyOne && ruleResp.Status != response.RuleStatusSkip {
 				break
 			}
 		}

@@ -1085,9 +1085,9 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.RuleSelector != nil {
-		in, out := &in.RuleSelector, &out.RuleSelector
-		*out = new(RuleSelectorType)
+	if in.ApplyRules != nil {
+		in, out := &in.ApplyRules, &out.ApplyRules
+		*out = new(ApplyRulesType)
 		**out = **in
 	}
 	if in.FailurePolicy != nil {

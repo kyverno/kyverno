@@ -91,7 +91,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 	rules := autogen.ComputeRules(ctx.Policy)
 	matchCount := 0
-	ruleSelector := ctx.Policy.GetSpec().GetRuleSelector()
+	applyRules := ctx.Policy.GetSpec().GetApplyRules()
 
 	for i := range rules {
 		rule := &rules[i]
@@ -106,7 +106,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
-		log.V(3).Info("processing validation rule", "matchCount", matchCount, "ruleSelector", ruleSelector)
+		log.V(3).Info("processing validation rule", "matchCount", matchCount, "applyRules", applyRules)
 		ctx.JSONContext.Reset()
 		startTime := time.Now()
 
@@ -119,7 +119,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
-			if ruleSelector == kyvernov1.FirstMatch && resp.PolicyResponse.RulesAppliedCount > 0 {
+			if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
 				break
 			}
 		}

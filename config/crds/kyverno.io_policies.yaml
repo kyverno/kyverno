@@ -53,6 +53,16 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              applyRules:
+                description: ApplyRules controls how rules in a policy are applied.
+                  Rule are processed in the order of declaration. When set to `One`
+                  processing stops after a rule has been applied i.e. the rule matches
+                  and results in a pass, fail, or error. When set to `All` all rules
+                  in the policy are processed. The default is `All`.
+                enum:
+                - All
+                - One
+                type: string
               background:
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
@@ -79,17 +89,6 @@ spec:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
                   policy is applied on policy events. Default value is "false".
                 type: boolean
-              ruleSelector:
-                description: RuleSelector controls which rules are applied. The allowed
-                  values are `AllMatch` and `FirstMatch`. Within a policy, rules are
-                  processed in the order of declaration. With `FirstMatch`, processing
-                  stops after the first matching rule is applied. With `AllMatch`
-                  all rules that match are applied, in declaration order. The default
-                  value is `AllMatch`.
-                enum:
-                - AllMatch
-                - FirstMatch
-                type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.

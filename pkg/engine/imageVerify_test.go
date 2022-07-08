@@ -395,16 +395,16 @@ func Test_RuleSelectorImageVerify(t *testing.T) {
 	spec := policyContext.Policy.GetSpec()
 	spec.Rules = append(spec.Rules, *rule)
 
-	allMatch := kyverno.AllMatch
-	spec.RuleSelector = &allMatch
+	applyAll := kyverno.ApplyAll
+	spec.ApplyRules = &applyAll
 
 	resp, _ := VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
 	assert.Equal(t, resp.PolicyResponse.Rules[1].Status, response.RuleStatusFail, resp.PolicyResponse.Rules[1].Message)
 
-	firstMatch := kyverno.FirstMatch
-	spec.RuleSelector = &firstMatch
+	applyOne := kyverno.ApplyOne
+	spec.ApplyRules = &applyOne
 	resp, _ = VerifyAndPatchImages(policyContext)
 	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
 	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
