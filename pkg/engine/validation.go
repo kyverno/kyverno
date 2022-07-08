@@ -106,11 +106,6 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 			continue
 		}
 
-		matchCount++
-		if ruleSelector == kyvernov1.FirstMatch && matchCount > 1 {
-			break
-		}
-
 		log.V(3).Info("processing validation rule", "matchCount", matchCount, "ruleSelector", ruleSelector)
 		ctx.JSONContext.Reset()
 		startTime := time.Now()
@@ -124,6 +119,9 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
+			if ruleSelector == kyvernov1.FirstMatch && resp.PolicyResponse.RulesAppliedCount > 0 {
+				break
+			}
 		}
 	}
 

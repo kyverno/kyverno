@@ -73,8 +73,8 @@ spec:
               ruleSelector:
                 description: RuleSelector controls which rules are applied. The allowed values are `AllMatch` and `FirstMatch`. Within a policy, rules are processed in the order of declaration. With `FirstMatch`, processing stops after the first matching rule is applied. With `AllMatch` all rules that match are applied, in declaration order. The default value is `AllMatch`.
                 enum:
-                - AllMatchingRules
-                - FirstMatchingRule
+                - AllMatch
+                - FirstMatch
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.
@@ -3898,8 +3898,8 @@ spec:
               ruleSelector:
                 description: RuleSelector controls which rules are applied. The allowed values are `AllMatch` and `FirstMatch`. Within a policy, rules are processed in the order of declaration. With `FirstMatch`, processing stops after the first matching rule is applied. With `AllMatch` all rules that match are applied, in declaration order. The default value is `AllMatch`.
                 enum:
-                - AllMatchingRules
-                - FirstMatchingRule
+                - AllMatch
+                - FirstMatch
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains multiple rules and each rule can validate, mutate, or generate resources.

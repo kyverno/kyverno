@@ -103,8 +103,8 @@ spec:
                   all rules that match are applied, in declaration order. The default
                   value is `AllMatch`.
                 enum:
-                - AllMatchingRules
-                - FirstMatchingRule
+                - AllMatch
+                - FirstMatch
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
@@ -6095,8 +6095,8 @@ spec:
                   all rules that match are applied, in declaration order. The default
                   value is `AllMatch`.
                 enum:
-                - AllMatchingRules
-                - FirstMatchingRule
+                - AllMatch
+                - FirstMatch
                 type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains

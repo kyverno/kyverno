@@ -19,7 +19,7 @@ const (
 )
 
 // RulesSelectorType specifies whether all matching rules, or the first matching rule, in a policy is applied.
-// +kubebuilder:validation:Enum=AllMatchingRules;FirstMatchingRule
+// +kubebuilder:validation:Enum=AllMatch;FirstMatch
 type RuleSelectorType string
 
 const (
