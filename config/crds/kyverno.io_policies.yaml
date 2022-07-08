@@ -28,7 +28,7 @@ spec:
       name: Failure Policy
       priority: 1
       type: string
-    - jsonPath: .status.ready
+    - jsonPath: .ready
       name: Ready
       type: string
     name: v1
@@ -4974,9 +4974,9 @@ spec:
                 items:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,
+                    use as an array at the field path .conditions.  For example,
                     type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    current state. // Known .conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
@@ -4997,7 +4997,7 @@ spec:
                     observedGeneration:
                       description: observedGeneration represents the .metadata.generation
                         that the condition was set based upon. For instance, if .metadata.generation
-                        is currently 12, but the .status.conditions[x].observedGeneration
+                        is currently 12, but the .conditions[x].observedGeneration
                         is 9, the condition is out of date with respect to the current
                         state of the instance.
                       format: int64
@@ -5025,7 +5025,7 @@ spec:
                       description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         --- Many .condition.type values are consistent across resources
                         like Available, but because arbitrary conditions can be useful
-                        (see .node.status.conditions), the ability to deconflict is
+                        (see .node.conditions), the ability to deconflict is
                         important. The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$

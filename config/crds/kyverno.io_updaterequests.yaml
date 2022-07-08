@@ -33,7 +33,7 @@ spec:
     - jsonPath: .spec.resource.namespace
       name: ResourceNamespace
       type: string
-    - jsonPath: .status.state
+    - jsonPath: .state
       name: status
       type: string
     - jsonPath: .metadata.creationTimestamp
