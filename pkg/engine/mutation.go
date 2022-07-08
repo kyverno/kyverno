@@ -39,6 +39,8 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	defer policyContext.JSONContext.Restore()
 
 	var err error
+	matchCount := 0
+	ruleSelector := policy.GetSpec().GetRuleSelector()
 
 	for _, rule := range autogen.ComputeRules(policy) {
 		if !rule.HasMutate() {
@@ -57,8 +59,12 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			continue
 		}
 
-		logger.V(3).Info("matched mutate rule")
+		matchCount++
+		if ruleSelector == kyvernov1.FirstMatch && matchCount > 1 {
+			break
+		}
 
+		logger.V(3).Info("processing mutate rule", "matchCount", matchCount, "ruleSelector", ruleSelector)
 		resource, err := policyContext.JSONContext.Query("request.object")
 		policyContext.JSONContext.Reset()
 		if err == nil && resource != nil {

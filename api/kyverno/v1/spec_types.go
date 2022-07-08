@@ -30,6 +30,14 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
+	// RuleSelector controls which rules are applied. The allowed values are `AllMatch`
+	// and `FirstMatch`. Within a policy, rules are processed in the order of declaration.
+	// With `FirstMatch`, processing stops after the first matching rule is applied.
+	// With `AllMatch` all rules that match are applied, in declaration order.
+	// The default value is `AllMatch`.
+	// +optional
+	RuleSelector *RuleSelectorType `json:"ruleSelector,omitempty" yaml:"ruleSelector,omitempty"`
+
 	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
 	// Rules within the same policy share the same failure behavior.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
@@ -69,7 +77,7 @@ type Spec struct {
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
 
-	// GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+	// GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
 	// Defaults to "false" if not specified.
 	// +optional
@@ -189,6 +197,14 @@ func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
 	}
 
 	return s.ValidationFailureAction
+}
+
+// GetFailurePolicy returns the failure policy to be applied
+func (s *Spec) GetRuleSelector() RuleSelectorType {
+	if s.RuleSelector == nil {
+		return AllMatch
+	}
+	return *s.RuleSelector
 }
 
 // ValidateRuleNames checks if the rule names are unique across a policy

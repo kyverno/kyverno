@@ -50,6 +50,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
+	matchCount := 0
+	ruleSelector := policy.GetSpec().GetRuleSelector()
+
 	for i := range rules {
 		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {
@@ -60,8 +63,14 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 			continue
 		}
 
-		policyContext.JSONContext.Restore()
+		matchCount++
+		if ruleSelector == kyvernov1.FirstMatch && matchCount > 1 {
+			break
+		}
 
+		logger.V(3).Info("processing image verification rule", "matchCount", matchCount, "ruleSelector", ruleSelector)
+
+		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
 			appendError(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
 			continue
@@ -96,6 +105,10 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
 			iv.verify(imageVerify, ruleImages)
+		}
+
+		if policy.GetSpec().GetRuleSelector() == kyvernov1.FirstMatch {
+			break
 		}
 	}
 

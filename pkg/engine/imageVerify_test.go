@@ -382,9 +382,63 @@ func Test_SignaturesMultiKeyZeroGoodKey(t *testing.T) {
 	policy = strings.Replace(policy, "KEY2", testOtherKey, -1)
 	policy = strings.Replace(policy, "COUNT", "1", -1)
 	policyContext := buildContext(t, policy, testSampleResource, "")
-	err, _ := VerifyAndPatchImages(policyContext)
-	assert.Equal(t, len(err.PolicyResponse.Rules), 1)
-	assert.Equal(t, err.PolicyResponse.Rules[0].Status, response.RuleStatusFail, err.PolicyResponse.Rules[0].Message)
+	resp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusFail, resp.PolicyResponse.Rules[0].Message)
+}
+
+func Test_RuleSelectorImageVerify(t *testing.T) {
+	cosign.ClearMock()
+
+	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
+	rule := newStaticKeyRule("match-all", "*", testOtherKey)
+	spec := policyContext.Policy.GetSpec()
+	spec.Rules = append(spec.Rules, *rule)
+
+	allMatch := kyverno.AllMatch
+	spec.RuleSelector = &allMatch
+
+	resp, _ := VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(resp.PolicyResponse.Rules), 2)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
+	assert.Equal(t, resp.PolicyResponse.Rules[1].Status, response.RuleStatusFail, resp.PolicyResponse.Rules[1].Message)
+
+	firstMatch := kyverno.FirstMatch
+	spec.RuleSelector = &firstMatch
+	resp, _ = VerifyAndPatchImages(policyContext)
+	assert.Equal(t, len(resp.PolicyResponse.Rules), 1)
+	assert.Equal(t, resp.PolicyResponse.Rules[0].Status, response.RuleStatusPass, resp.PolicyResponse.Rules[0].Message)
+}
+
+func newStaticKeyRule(name, imageReference, key string) *kyverno.Rule {
+	return &kyverno.Rule{
+		Name: name,
+		MatchResources: kyverno.MatchResources{
+			All: kyverno.ResourceFilters{
+				{
+					ResourceDescription: kyverno.ResourceDescription{
+						Kinds: []string{"Pod"},
+					},
+				},
+			},
+		},
+		VerifyImages: []kyverno.ImageVerification{
+			{
+				ImageReferences: []string{"*"},
+				Attestors: []kyverno.AttestorSet{
+					{
+						Entries: []kyverno.Attestor{
+							{
+								Keys: &kyverno.StaticKeyAttestor{
+									PublicKeys: key,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 var testNestedAttestorPolicy = `

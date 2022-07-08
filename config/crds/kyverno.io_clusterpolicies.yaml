@@ -69,7 +69,7 @@ spec:
                 - Fail
                 type: string
               generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls wether to trigger
+                description: GenerateExistingOnPolicyUpdate controls whether to trigger
                   generate rule in existing resources If is set to "true" generate
                   rule will be triggered and applied to existing matched resources.
                   Defaults to "false" if not specified.
@@ -78,6 +78,17 @@ spec:
                 description: MutateExistingOnPolicyUpdate controls if a mutateExisting
                   policy is applied on policy events. Default value is "false".
                 type: boolean
+              ruleSelector:
+                description: RuleSelector controls which rules are applied. The allowed
+                  values are `AllMatch` and `FirstMatch`. Within a policy, rules are
+                  processed in the order of declaration. With `FirstMatch`, processing
+                  stops after the first matching rule is applied. With `AllMatch`
+                  all rules that match are applied, in declaration order. The default
+                  value is `AllMatch`.
+                enum:
+                - AllMatchingRules
+                - FirstMatchingRule
+                type: string
               rules:
                 description: Rules is a list of Rule instances. A Policy contains
                   multiple rules and each rule can validate, mutate, or generate resources.

@@ -80,20 +80,7 @@ func (v *validationHandler) handleValidation(
 		}
 	}
 
-	// If Validation fails then reject the request
-	// no violations will be created on "enforce"
 	blocked := toBlockResource(engineResponses, logger)
-
-	// REPORTING EVENTS
-	// Scenario 1:
-	//   resource is blocked, as there is a policy in "enforce" mode that failed.
-	//   create an event on the policy to inform the resource request was blocked
-	// Scenario 2:
-	//   some/all policies failed to apply on the resource. a policy violation is generated.
-	//   create an event on the resource and the policy that failed
-	// Scenario 3:
-	//   all policies were applied successfully.
-	//   create an event on the resource
 	if deletionTimeStamp == nil {
 		events := generateEvents(engineResponses, blocked, logger)
 		v.eventGen.Add(events...)
@@ -101,10 +88,8 @@ func (v *validationHandler) handleValidation(
 
 	if blocked {
 		logger.V(4).Info("resource blocked")
-		// registering the kyverno_admission_review_duration_seconds metric concurrently
 		admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 		go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-		// registering the kyverno_admission_requests_total metric concurrently
 		go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
 		return false, getEnforceFailureErrorMsg(engineResponses)
 	}

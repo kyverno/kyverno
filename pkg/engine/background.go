@@ -48,9 +48,13 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 		return resp
 	}
 
+	ruleSelector := policyContext.Policy.GetSpec().GetRuleSelector()
 	for _, rule := range autogen.ComputeRules(policyContext.Policy) {
 		if ruleResp := filterRule(rule, policyContext); ruleResp != nil {
 			resp.PolicyResponse.Rules = append(resp.PolicyResponse.Rules, *ruleResp)
+			if ruleSelector == kyvernov1.FirstMatch {
+				break
+			}
 		}
 	}
 
