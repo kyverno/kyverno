@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -173,9 +174,10 @@ func (ws *WebhookServer) resourceMutation(request *admissionv1.AdmissionRequest)
 		return admissionutils.ResponseFailure(false, err.Error())
 	}
 
-	var patches = append(mutatePatches, imagePatches...)
-
-	return admissionutils.ResponseSuccessWithPatch(true, "", patches)
+	patches := jsonutils.JoinPatches(mutatePatches, imagePatches)
+	response := admissionutils.ResponseSuccessWithPatch(true, "", patches)
+	logger.V(4).Info("completed mutate webhook", "patches", string(patches))
+	return response
 }
 
 func (ws *WebhookServer) resourceValidation(request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
