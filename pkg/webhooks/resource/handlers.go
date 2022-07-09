@@ -234,7 +234,12 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "image verification failed")
 		return admissionutils.ResponseFailure(false, err.Error())
 	}
-	return admissionutils.ResponseSuccessWithPatch(true, "", append(mutatePatches, imagePatches...))
+
+	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
+	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
+
+	logger.V(4).Info("mutation webhook completed", "response", admissionResponse)
+	return admissionResponse
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
