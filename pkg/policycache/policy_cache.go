@@ -5,6 +5,7 @@ import (
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Interface ...
@@ -24,6 +25,8 @@ type Interface interface {
 	update(kyverno.PolicyInterface, kyverno.PolicyInterface)
 
 	get(PolicyType, string, string) []string
+
+	informerHasSynced() []cache.InformerSynced
 }
 
 // policyCache ...
@@ -35,10 +38,12 @@ type policyCache struct {
 
 	// npLister can list/get namespace policy from the shared informer's store
 	npLister kyvernolister.PolicyLister
+
+	informersSynced []cache.InformerSynced
 }
 
 // newPolicyCache ...
-func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister) Interface {
+func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernolister.PolicyLister, pSynced, npSynced cache.InformerSynced) Interface {
 	namesCache := map[PolicyType]map[string]bool{
 		Mutate:               make(map[string]bool),
 		ValidateEnforce:      make(map[string]bool),
@@ -55,6 +60,7 @@ func newPolicyCache(pLister kyvernolister.ClusterPolicyLister, npLister kyvernol
 		},
 		pLister,
 		npLister,
+		[]cache.InformerSynced{pSynced, npSynced},
 	}
 }
 
@@ -76,6 +82,10 @@ func (pc *policyCache) GetPolicies(pkey PolicyType, kind, nspace string) []kyver
 	}
 	nsPolicies := pc.getPolicyObject(pkey, kind, nspace)
 	return append(policies, nsPolicies...)
+}
+
+func (pc *policyCache) informerHasSynced() []cache.InformerSynced {
+	return pc.informersSynced
 }
 
 // Remove a policy from cache

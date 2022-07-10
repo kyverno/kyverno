@@ -2,6 +2,7 @@ package webhooks
 
 import (
 	"errors"
+	"reflect"
 
 	"github.com/go-logr/logr"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -11,6 +12,8 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	admissionv1 "k8s.io/api/admission/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 func (ws *WebhookServer) applyImageVerifyPolicies(request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []v1.PolicyInterface, logger logr.Logger) ([]byte, error) {
@@ -49,9 +52,18 @@ func (ws *WebhookServer) handleVerifyImages(request *admissionv1.AdmissionReques
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	ws.prGenerator.Add(prInfos...)
 
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+	}
+
 	blocked := toBlockResource(engineResponses, logger)
-	events := generateEvents(engineResponses, blocked, logger)
-	ws.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, blocked, logger)
+		ws.eventGen.Add(events...)
+	}
 
 	if blocked {
 		logger.V(4).Info("resource blocked")

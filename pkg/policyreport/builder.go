@@ -27,7 +27,8 @@ const (
 	appVersion string = "app.kubernetes.io/version"
 
 	// the following labels are used to list rcr / crcr
-	resourceLabelNamespace string = "kyverno.io/resource.namespace"
+	ResourceLabelNamespace string = "kyverno.io/resource.namespace"
+	policyLabel            string = "kyverno.io/policy-name"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
 	deletedLabelRule       string = "kyverno.io/delete.rule"
 
@@ -35,6 +36,9 @@ const (
 	// there would be a problem if use labels as the value could exceed 63 chars
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
+
+	inactiveLabelKey string = "kyverno.io/report.status"
+	inactiveLabelVal string = "inactive"
 
 	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
@@ -53,7 +57,14 @@ func GeneratePolicyReportName(ns string) string {
 	return name
 }
 
-//GeneratePRsFromEngineResponse generate Violations from engine responses
+func TrimmedName(s string) string {
+	if len(s) > 63 {
+		return s[:63]
+	}
+	return s
+}
+
+// GeneratePRsFromEngineResponse generate Violations from engine responses
 func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
@@ -205,7 +216,8 @@ func set(obj *unstructured.Unstructured, info Info) {
 	}
 
 	obj.SetLabels(map[string]string{
-		resourceLabelNamespace: info.Namespace,
+		ResourceLabelNamespace: info.Namespace,
+		policyLabel:            TrimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
 	})
 }
@@ -219,7 +231,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 		})
 
 		labels := req.GetLabels()
-		labels[resourceLabelNamespace] = info.Results[0].Resource.Namespace
+		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
 		req.SetLabels(labels)
 		return true
 

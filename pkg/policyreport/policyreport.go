@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -10,25 +11,30 @@ import (
 	changerequest "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	changerequestlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreportlister "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/config"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type PolicyReportEraser interface {
-	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error
-	EraseResultsEntries(erase EraseResultsEntries) error
+	CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error
+	EraseResultEntries(erase EraseResultEntries, ns *string) error
 }
 
-type CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister changerequestlister.ReportChangeRequestLister, crcrLister changerequestlister.ClusterReportChangeRequestLister) error
-type EraseResultsEntries = func(pclient kyvernoclient.Interface, reportLister policyreportlister.PolicyReportLister, clusterReportLister policyreportlister.ClusterPolicyReportLister) error
+type (
+	CleanupReportChangeRequests = func(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error
+	EraseResultEntries          = func(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error
+)
 
-func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests) error {
-	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister)
+func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error {
+	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister, labels)
 }
 
-func (g *ReportGenerator) EraseResultsEntries(erase EraseResultsEntries) error {
-	return erase(g.pclient, g.reportLister, g.clusterReportLister)
+func (g *ReportGenerator) EraseResultEntries(erase EraseResultEntries, ns *string) error {
+	return erase(g.pclient, g.reportLister, g.clusterReportLister, ns)
 }
 
 type deletedResource struct {
@@ -50,7 +56,7 @@ func buildLabelForDeletedResource(labels, annotations map[string]string) *delete
 	return &deletedResource{
 		kind: kind,
 		name: name,
-		ns:   labels[resourceLabelNamespace],
+		ns:   labels[ResourceLabelNamespace],
 	}
 }
 
@@ -219,4 +225,42 @@ func isDeletedPolicyKey(key string) (policyName, ruleName string, isDelete bool)
 func mapToStruct(in, out interface{}) error {
 	jsonBytes, _ := json.Marshal(in)
 	return json.Unmarshal(jsonBytes, out)
+}
+
+func CleanupPolicyReport(client kyvernoclient.Interface) error {
+	var errors []string
+	var gracePeriod int64 = 0
+
+	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{LabelSelectorKey: LabelSelectorValue}))
+
+	err := client.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	err = client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	err = client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+
+	reports, err := client.Wgpolicyk8sV1alpha2().PolicyReports(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+	if err != nil {
+		errors = append(errors, err.Error())
+	}
+	for _, report := range reports.Items {
+		err = client.Wgpolicyk8sV1alpha2().PolicyReports(report.Namespace).Delete(context.TODO(), report.Name, metav1.DeleteOptions{})
+		if err != nil {
+			errors = append(errors, err.Error())
+		}
+	}
+	if len(errors) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }

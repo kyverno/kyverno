@@ -94,8 +94,10 @@ func (v *validationHandler) handleValidation(
 	// Scenario 3:
 	//   all policies were applied successfully.
 	//   create an event on the resource
-	events := generateEvents(engineResponses, blocked, logger)
-	v.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, blocked, logger)
+		v.eventGen.Add(events...)
+	}
 
 	if blocked {
 		logger.V(4).Info("resource blocked")

@@ -115,8 +115,10 @@ func (ws *WebhookServer) handleMutation(
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, logger)
-	ws.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, false, logger)
+		ws.eventGen.Add(events...)
+	}
 
 	// debug info
 	func() {
