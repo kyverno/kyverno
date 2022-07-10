@@ -190,6 +190,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
 
+	logger.V(4).Info("completed validating webhook")
 	return admissionutils.ResponseSuccess(true, "")
 }
 
@@ -238,7 +239,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
 	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
 
-	logger.V(4).Info("mutation webhook completed", "response", admissionResponse)
+	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
 	return admissionResponse
 }
 
