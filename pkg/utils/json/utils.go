@@ -1,11 +1,8 @@
 package json
 
 import (
-	"regexp"
 	"strings"
 )
-
-var space = regexp.MustCompile(`\s+`)
 
 // JoinPatches joins array of serialized JSON patches to the single JSONPatch array
 // It accepts patch operations and patches (arrays of patch operations) and returns
@@ -17,16 +14,18 @@ func JoinPatches(patches ...[]byte) []byte {
 
 	var patchOperations []string
 	for _, patch := range patches {
-		patch = space.ReplaceAll(patch, []byte(""))
-		if len(patch) == 0 {
+		str := strings.TrimSpace(string(patch))
+		if len(str) == 0 {
 			continue
 		}
 
-		if string(patch[0]) == "[" {
-			patch = patch[1 : len(patch)-1]
+		if strings.HasPrefix(str, "[") {
+			str = strings.TrimPrefix(str, "[")
+			str = strings.TrimSuffix(str, "]")
+			str = strings.TrimSpace(str)
 		}
 
-		patchOperations = append(patchOperations, string(patch))
+		patchOperations = append(patchOperations, str)
 	}
 
 	if len(patchOperations) == 0 {
