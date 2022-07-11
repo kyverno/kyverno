@@ -190,6 +190,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
 
+	logger.V(4).Info("completed validating webhook")
 	return admissionutils.ResponseSuccess(true, "")
 }
 
@@ -234,7 +235,12 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "image verification failed")
 		return admissionutils.ResponseFailure(false, err.Error())
 	}
-	return admissionutils.ResponseSuccessWithPatch(true, "", append(mutatePatches, imagePatches...))
+
+	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
+	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
+
+	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
+	return admissionResponse
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
