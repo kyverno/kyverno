@@ -6,21 +6,21 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 )
 
-type Patch struct {
+type PatchOperation struct {
 	Path  string      `json:"path"`
 	Op    string      `json:"op"`
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewPatch(path, op string, value interface{}) Patch {
-	return Patch{path, op, value}
+func NewPatchOperation(path, op string, value interface{}) PatchOperation {
+	return PatchOperation{path, op, value}
 }
 
-func (p *Patch) Marshal() ([]byte, error) {
+func (p *PatchOperation) Marshal() ([]byte, error) {
 	return json.Marshal(p)
 }
 
-func (p *Patch) ToPatchBytes() ([]byte, error) {
+func (p *PatchOperation) ToPatchBytes() ([]byte, error) {
 	if patch, err := json.Marshal(p); err != nil {
 		return nil, err
 	} else {
@@ -28,8 +28,8 @@ func (p *Patch) ToPatchBytes() ([]byte, error) {
 	}
 }
 
-func MarshalPatch(path, op string, value interface{}) ([]byte, error) {
-	p := NewPatch(path, op, value)
+func MarshalPatchOperation(path, op string, value interface{}) ([]byte, error) {
+	p := NewPatchOperation(path, op, value)
 	return p.Marshal()
 }
 
@@ -38,8 +38,8 @@ func CheckPatch(patch []byte) error {
 	return err
 }
 
-func UnmarshalPatch(patch []byte) (*Patch, error) {
-	var p Patch
+func UnmarshalPatchOperation(patch []byte) (*PatchOperation, error) {
+	var p PatchOperation
 	if err := json.Unmarshal(patch, &p); err != nil {
 		return nil, err
 	}
