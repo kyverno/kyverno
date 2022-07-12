@@ -42,7 +42,7 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
+func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
@@ -64,18 +64,9 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	switch typedList := list.(type) {
-	case []*unstructured.Unstructured:
-		for _, r := range typedList {
-			if pc.match(*r, rule) {
-				resourceMap[string(r.GetUID())] = *r
-			}
-		}
-	case *unstructured.UnstructuredList:
-		for _, r := range typedList.Items {
-			if pc.match(r, rule) {
-				resourceMap[string(r.GetUID())] = r
-			}
+	for _, r := range list.Items {
+		if pc.match(r, rule) {
+			resourceMap[string(r.GetUID())] = r
 		}
 	}
 
