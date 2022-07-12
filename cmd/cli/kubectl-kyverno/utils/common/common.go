@@ -500,17 +500,17 @@ OuterLoop:
 		AdmissionInfo:   userInfo,
 	}
 
-	// mutateResponse := engine.Mutate(policyContext)
-	// if mutateResponse != nil {
-	// 	engineResponses = append(engineResponses, mutateResponse)
-	// }
+	mutateResponse := engine.Mutate(policyContext)
+	if mutateResponse != nil {
+		engineResponses = append(engineResponses, mutateResponse)
+	}
 
-	// err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
-	// if err != nil {
-	// 	if !sanitizederror.IsErrorSanitized(err) {
-	// 		return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
-	// 	}
-	// }
+	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
+	if err != nil {
+		if !sanitizederror.IsErrorSanitized(err) {
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
+		}
+	}
 
 	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
 		if policy.HasAutoGenAnnotation() {
