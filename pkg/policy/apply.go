@@ -135,7 +135,7 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	var resultPath []string
 	// extract the patch path and value
 	for _, patch := range patches {
-		if data, err := jsonutils.UnmarshalPatch(patch); err != nil {
+		if data, err := jsonutils.UnmarshalPatchOperation(patch); err != nil {
 			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
 			continue
 		} else {
