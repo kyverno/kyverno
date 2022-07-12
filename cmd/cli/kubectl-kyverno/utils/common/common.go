@@ -529,7 +529,7 @@ OuterLoop:
 		}
 	}
 
-	//policyContext.NewResource = mutateResponse.PatchedResource
+	policyContext.NewResource = mutateResponse.PatchedResource
 
 	var info policyreport.Info
 	var validateResponse *response.EngineResponse
