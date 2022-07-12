@@ -283,8 +283,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		path := fmt.Sprintf(".attestors[%d]", i)
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify signature")
-			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+			iv.logger.Error(err, "failed to verify image")
+			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 		}
 	}
@@ -471,7 +471,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
 
-		iv.logger.Info("checking attestation predicate type %s", "predicates", types, "image", imageInfo.String())
+		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
 
 		for _, s := range statements {
 			val, err := iv.checkAttestations(ac, s)
