@@ -108,6 +108,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | autoscaling.cPUUtilizationPercentage | int | `80` | Default CPU target Percentage for horizontal scaling |
 | autoscaling.memoryUtilizationPercentage | int | `80` | Default Memory target Percentage for horizontal scaling |
 | autoscaling.extraMetrics | list | `[]` | Additional and/or custom metrics for the HPA |
+| autoscaling.behavior | object | `{}` | v2/v2beta2 up/down scaling customizations |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | generatecontrollerExtraResources | string | `nil` |  |

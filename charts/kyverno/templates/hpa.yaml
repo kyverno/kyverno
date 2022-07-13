@@ -40,6 +40,10 @@ spec:
   {{ if .Values.autoscaling.extraMetrics }}
   {{ tpl (toYaml (index .Values.autoscaling.extraMetrics )) . | nindent 2 }}
   {{- end }}
+  {{- if .Values.autoscaling.behavior }}
+  behavior:
+  {{ toYaml .Values.autoscaling.behavior | nindent 4 }}
+  {{- end }}
 {{- else if (.Capabilities.APIVersions.Has "autoscaling/v2beta1") }}
 # autoscaling/v2beta1 will be removed in version kubernetes 1.25
 apiVersion: autoscaling/v2beta1

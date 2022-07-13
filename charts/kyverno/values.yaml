@@ -197,6 +197,11 @@ autoscaling:
   #       type: Utilization
   #       averageUtilization: 80
 
+  # -- v2/v2beta2 up/down scaling customizations
+  behavior: {}
+    # scaleDown:
+    #   stabilizationWindowSeconds: 60
+
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
