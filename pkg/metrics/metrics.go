@@ -8,6 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	kconfig "github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -88,12 +89,29 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	return m, nil
 }
 
+func ShutdownExporter(exp *otlpmetric.Exporter, ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := exp.Shutdown(ctx); err != nil {
+		otel.Handle(err)
+	}
+}
+
+func ShutdownController(pusher *controller.Controller, ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	// pushes any last exports to the receiver
+	if err := pusher.Stop(ctx); err != nil {
+		otel.Handle(err)
+	}
+}
+
 func NewOTLPGRPCConfig(endpoint string,
 	metricsConfigData *kconfig.MetricsConfigData,
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, error) {
+) (*MetricsConfig, *otlpmetric.Exporter, *controller.Controller, error) {
 	ctx := context.Background()
 	var client otlpmetric.Client
 
@@ -102,7 +120,7 @@ func NewOTLPGRPCConfig(endpoint string,
 		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
-			return nil, err
+			return nil, nil, nil, err
 		}
 
 		client = otlpmetricgrpc.NewClient(
@@ -120,7 +138,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	metricExp, err := otlpmetric.New(ctx, client)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	res, err := resource.New(context.Background(),
@@ -129,7 +147,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	// create controller and bind the exporter with it
@@ -152,15 +170,15 @@ func NewOTLPGRPCConfig(endpoint string,
 	m, err = initializeMetrics(m)
 	if err != nil {
 		log.Error(err, "Failed initializing metrics")
-		return nil, err
+		return nil, nil, nil, err
 	}
 
 	if err := pusher.Start(ctx); err != nil {
 		log.Error(err, "could not start metric exporter")
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	return m, nil
+	return m, metricExp, pusher, nil
 }
 
 func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
