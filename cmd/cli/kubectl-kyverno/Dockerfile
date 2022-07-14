@@ -25,13 +25,12 @@ RUN --mount=type=bind,target=. \
     CGO_ENABLED=0 xx-go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/cli/kubectl-kyverno/
 
 # Packaging stage
-FROM scratch
+FROM ghcr.io/distroless/static:latest
 
 LABEL maintainer="Kyverno"
 
 COPY --from=builder /output/kyverno /
-COPY --from=builder /etc/passwd /etc/passwd
 
-USER 10001
+USER 65532
 
 ENTRYPOINT ["./kyverno"]

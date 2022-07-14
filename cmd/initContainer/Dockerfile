@@ -25,13 +25,12 @@ RUN --mount=type=bind,target=. \
     CGO_ENABLED=0 xx-go build -o /output/kyvernopre -ldflags="${LD_FLAGS}" -v ./cmd/initContainer/
 
 # Packaging stage
-FROM scratch
+FROM ghcr.io/distroless/static:latest
 
 LABEL maintainer="Kyverno"
 
 COPY --from=builder /output/kyvernopre /
-COPY --from=builder /etc/passwd /etc/passwd
 
-USER 10001
+USER 65532
 
 ENTRYPOINT ["./kyvernopre"]
