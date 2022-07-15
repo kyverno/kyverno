@@ -13,10 +13,15 @@ import (
 
 type reconcileFunc func(string, string, string) error
 
-func Run(logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}) {
+func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) {
 	defer runtime.HandleCrash()
 	logger.Info("starting ...")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
+		return
+	}
+
 	for i := 0; i < n; i++ {
 		go wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, stopCh)
 	}

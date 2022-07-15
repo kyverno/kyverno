@@ -44,7 +44,7 @@ type handlers struct {
 
 	// config
 	configuration config.Configuration
-	promConfig    *metrics.PromConfig
+	metricsConfig *metrics.MetricsConfig
 
 	// cache
 	pCache policycache.Cache
@@ -66,7 +66,7 @@ func NewHandlers(
 	client dclient.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	configuration config.Configuration,
-	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,
@@ -82,7 +82,7 @@ func NewHandlers(
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		configuration:     configuration,
-		promConfig:        promConfig,
+		metricsConfig:     metricsConfig,
 		pCache:            pCache,
 		nsLister:          nsLister,
 		rbLister:          rbLister,
@@ -179,7 +179,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		prGenerator: h.prGenerator,
 	}
 
-	ok, msg := vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
+	ok, msg := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(false, msg)
@@ -190,6 +190,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
 
+	logger.V(4).Info("completed validating webhook")
 	return admissionutils.ResponseSuccess(true, "")
 }
 
@@ -234,7 +235,12 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "image verification failed")
 		return admissionutils.ResponseFailure(false, err.Error())
 	}
-	return admissionutils.ResponseSuccessWithPatch(true, "", append(mutatePatches, imagePatches...))
+
+	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
+	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
+
+	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
+	return admissionResponse
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
@@ -359,8 +365,10 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 	//   all policies were applied successfully.
 	//   create an event on the resource
 	// ADD EVENTS
-	events := generateEvents(engineResponses, false, logger)
-	h.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, false, logger)
+		h.eventGen.Add(events...)
+	}
 
 	// debug info
 	func() {
@@ -430,9 +438,18 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 	h.prGenerator.Add(prInfos...)
 
+	var deletionTimeStamp *metav1.Time
+	if reflect.DeepEqual(policyContext.NewResource, unstructured.Unstructured{}) {
+		deletionTimeStamp = policyContext.NewResource.GetDeletionTimestamp()
+	} else {
+		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
+	}
+
 	blocked := toBlockResource(engineResponses, logger)
-	events := generateEvents(engineResponses, blocked, logger)
-	h.eventGen.Add(events...)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, blocked, logger)
+		h.eventGen.Add(events...)
+	}
 
 	if blocked {
 		logger.V(4).Info("resource blocked")
