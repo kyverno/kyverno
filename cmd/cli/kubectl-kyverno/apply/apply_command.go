@@ -127,7 +127,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			printReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
+			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
 			return nil
 		},
 	}
@@ -346,8 +346,8 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 	return mutateLogPathIsDir, err
 }
 
-// printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+// PrintReportOrViolation - printing policy report/violations
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
