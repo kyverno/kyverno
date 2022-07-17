@@ -9,8 +9,10 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/common"
+	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/pkg/errors"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	"k8s.io/pod-security-admission/api"
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
@@ -18,6 +20,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -137,6 +141,7 @@ type validator struct {
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyverno.Deny
+	podSecurity      kyverno.PodSecurity
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *validator {
@@ -150,6 +155,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyverno.Rule) *vali
 		pattern:          ruleCopy.Validation.Pattern,
 		anyPattern:       ruleCopy.Validation.AnyPattern,
 		deny:             ruleCopy.Validation.Deny,
+		podSecurity:      ruleCopy.Validation.PodSecurity,
 	}
 }
 
@@ -194,6 +200,9 @@ func (v *validator) validate() *response.RuleResponse {
 
 	} else if v.deny != nil {
 		ruleResponse := v.validateDeny()
+		return ruleResponse
+	} else if v.podSecurity.Exclude != nil {
+		ruleResponse := v.validatePodSecurity()
 		return ruleResponse
 	}
 
@@ -338,6 +347,78 @@ func (v *validator) getDenyMessage(deny bool) string {
 	return raw.(string)
 }
 
+// Unstructured
+func (v *validator) validatePodSecurity() *response.RuleResponse {
+	// fmt.Printf("Exludes: %+v\n", v.podSecurity)
+	// fmt.Printf("v.ctx.NewResource: %v\n", v.ctx.NewResource)
+	// fmt.Printf("v.ctx.NewResource Metadata: %v\n", v.ctx.NewResource.Object["metadata"])
+	// fmt.Printf("v.ctx.NewResource Spec: %v\n", v.ctx.NewResource.Object["spec"])
+	// fmt.Printf("v.ctx.Policy.ObjectMeta: %v\n", v.ctx.Policy.ObjectMeta)
+	// fmt.Printf("v.ctx.Policy.Spec: %v\n", v.ctx.Policy.Spec)
+
+	marshalledMetadata, err := json.Marshal(v.ctx.NewResource.Object["metadata"])
+
+	if err != nil {
+		fmt.Printf("Error while marshalling new ressource metadata\n")
+	}
+
+	fmt.Println(marshalledMetadata)
+
+	marshalledSpec, err := json.Marshal(v.ctx.NewResource.Object["spec"])
+
+	if err != nil {
+		fmt.Printf("Error while marshalling new ressource spec\n")
+	}
+
+	fmt.Println(marshalledSpec)
+
+	var metadata v1.ObjectMeta
+	var podSpec corev1.PodSpec
+
+	err = json.Unmarshal(marshalledMetadata, &metadata)
+
+	if err != nil {
+		fmt.Printf("Error while unmarshalling metadata\n")
+	}
+
+	fmt.Printf("%+v\n", metadata)
+
+	err = json.Unmarshal(marshalledSpec, &podSpec)
+
+	if err != nil {
+		fmt.Printf("Error while unmarshalling podSpec\n")
+	}
+
+	fmt.Printf("%+v\n", podSpec)
+
+	level := api.LevelVersion{
+		Level:   v.podSecurity.Level,
+		Version: v.podSecurity.Version,
+	}
+
+	results := pss.EvaluatePSS(level, &metadata, &podSpec)
+	fmt.Printf("%+v\n", results)
+
+	allowed, err := pss.ExemptProfile(&v.podSecurity, &podSpec, nil)
+
+	fmt.Printf("Pod Security: %+v\n", v.podSecurity)
+	fmt.Printf("Allowed: %v\n", allowed)
+
+	var responseStatus response.RuleStatus
+
+	if allowed {
+		responseStatus = response.RuleStatusPass
+	} else {
+		responseStatus = response.RuleStatusFail
+	}
+
+	// Set others fields
+	var ruleResponse *response.RuleResponse = &response.RuleResponse{
+		Status: responseStatus,
+	}
+	return ruleResponse
+}
+
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
 	if !isEmptyUnstructured(&v.ctx.Element) {
 		resp := v.validatePatterns(v.ctx.Element)
@@ -346,12 +427,14 @@ func (v *validator) validateResourceWithRule() *response.RuleResponse {
 
 	// if the OldResource is empty, the request is a CREATE
 	if isEmptyUnstructured(&v.ctx.OldResource) {
+		fmt.Println("Request is a create")
 		resp := v.validatePatterns(v.ctx.NewResource)
 		return resp
 	}
 
 	// if the OldResource is not empty, and the NewResource is empty, the request is a DELETE
 	if isEmptyUnstructured(&v.ctx.NewResource) {
+		fmt.Println("Request is a delete")
 		v.log.V(3).Info("skipping validation on deleted resource")
 		return nil
 	}

@@ -2,6 +2,7 @@ package engine
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -3077,4 +3078,89 @@ func Test_delete_ignore_pattern(t *testing.T) {
 		OldResource: *resourceUnstructured}
 	engineResponseDelete := Validate(policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
+}
+
+func TestValidate_pod_security_standard_baseline_privileged_container(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-baseline-privileged-container"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "validate-baseline-privileged-container",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						]
+					},
+					"namespaces": [
+						"staging"
+					]
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"exclude": [
+							{
+								"restrictedField": "containers[*].securityContext.privileged",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"true"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx-host-network",
+				 "image": "nginx",
+				 "securityContext": {
+					"privileged": true
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	msgs := []string{""}
+
+	for index, r := range er.PolicyResponse.Rules {
+		assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
 }
