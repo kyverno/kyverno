@@ -391,17 +391,34 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 
 	fmt.Printf("%+v\n", podSpec)
 
+	var apiVersion api.Version
+
+	// Version set to "latest" by default
+	if v.podSecurity.Version == "" || v.podSecurity.Version == "latest" {
+		apiVersion = api.LatestVersion()
+	} else {
+		parsedApiVersion, err := api.ParseVersion(v.podSecurity.Version)
+		if err != nil {
+			return ruleError(v.rule, utils.Validation, "failed to parse pod security api version", err)
+		}
+		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
+	}
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	level := api.LevelVersion{
 		Level:   v.podSecurity.Level,
-		Version: v.podSecurity.Version,
+		Version: apiVersion,
 	}
+
+	fmt.Printf("===== Version: %+v\n", level)
 
 	results := pss.EvaluatePSS(level, &metadata, &podSpec)
 	fmt.Printf("%+v\n", results)
 
 	allowed, err := pss.ExemptProfile(&v.podSecurity, &podSpec, nil)
 
-	fmt.Printf("Pod Security: %+v\n", v.podSecurity)
 	fmt.Printf("Allowed: %v\n", allowed)
 
 	var responseStatus response.RuleStatus

@@ -19,9 +19,17 @@ func Test_Baseline_EvaluateHostProcess(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostProcessRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -43,7 +51,7 @@ func Test_Baseline_EvaluateHostProcess(t *testing.T) {
 func newHostProcessRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.windowsOptions.hostProcess
@@ -88,9 +96,17 @@ func Test_Baseline_EvaluateHostNamespaces(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostNamespacesRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -112,7 +128,7 @@ func Test_Baseline_EvaluateHostNamespaces(t *testing.T) {
 func newHostNamespacesRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.hostNetwork
@@ -155,9 +171,17 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newPrivilegedContainersRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -179,7 +203,7 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 func newPrivilegedContainersRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.privileged
@@ -221,11 +245,18 @@ func Test_Baseline_EvaluateHostPathVolumes(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostPathVolumesRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
-
 	podMeta := &metav1.ObjectMeta{
 		Name:      "test",
 		Namespace: "test-namespace",
@@ -245,7 +276,7 @@ func Test_Baseline_EvaluateHostPathVolumes(t *testing.T) {
 func newHostPathVolumesRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.volumes[*].hostPath
@@ -294,9 +325,17 @@ func Test_Baseline_EvaluateHostPorts(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newHostPortsRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -318,7 +357,7 @@ func Test_Baseline_EvaluateHostPorts(t *testing.T) {
 func newHostPortsRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.volumes[*].hostPort
@@ -364,9 +403,17 @@ func Test_Baseline_EvaluateSELinux(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newSELinuxRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -388,7 +435,7 @@ func Test_Baseline_EvaluateSELinux(t *testing.T) {
 func newSELinuxRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.seLinuxOptions.type
@@ -433,9 +480,17 @@ func Test_Baseline_EvaluateProcMountType(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newProcMountTypeRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -457,7 +512,7 @@ func Test_Baseline_EvaluateProcMountType(t *testing.T) {
 func newProcMountTypeRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.procMount
@@ -502,9 +557,17 @@ func Test_Baseline_EvaluateSeccomp(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newSeccompRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -526,7 +589,7 @@ func Test_Baseline_EvaluateSeccomp(t *testing.T) {
 func newSeccompRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.seccompProfile.type
@@ -567,9 +630,17 @@ func Test_Baseline_EvaluateSysctl(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newSysctlRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -591,7 +662,7 @@ func Test_Baseline_EvaluateSysctl(t *testing.T) {
 func newSysctlRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelBaseline,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.seccompProfile.type
@@ -635,9 +706,17 @@ func Test_Restricted_EvaluateVolumeType(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newVolumeTypeRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -709,7 +788,7 @@ func newVolumeTypePodSpec() *corev1.PodSpec {
 func newVolumeTypeRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				RestrictedField: "volumes[*]",
@@ -726,9 +805,17 @@ func Test_Restricted_EvaluatePrivilegeEscalation(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newPrivilegeEscalationRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -775,7 +862,7 @@ func newPrivilegeEscalationPodSpec() *corev1.PodSpec {
 func newPrivilegeEscalationRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.allowPrivilegeEscalation
@@ -793,9 +880,17 @@ func Test_Restricted_EvaluateRunningAsNonRoot(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newRunningAsNonRootRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -842,7 +937,7 @@ func newRunningAsNonRootPodSpec() *corev1.PodSpec {
 func newRunningAsNonRootRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.runAsNonRoot
@@ -929,9 +1024,17 @@ func Test_Restricted_EvaluateSeccomp(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newRestrictedSeccompRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -953,7 +1056,7 @@ func Test_Restricted_EvaluateSeccomp(t *testing.T) {
 func newRestrictedSeccompRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				// spec.containers[*].securityContext.seccompProfile.type
@@ -997,9 +1100,17 @@ func Test_Restricted_EvaluateCapabilites(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podMeta := &metav1.ObjectMeta{
@@ -1021,7 +1132,7 @@ func Test_Restricted_EvaluateCapabilites(t *testing.T) {
 func newRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				RestrictedField: "containers[*].securityContext.capabilities.add",
@@ -1066,9 +1177,17 @@ func Test_Restricted_EvaluateAppArmor(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newAppArmorRule()
 
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
 	lv := api.LevelVersion{
 		Level:   podSecurityRule.Level,
-		Version: podSecurityRule.Version,
+		Version: apiVersionStruct,
 	}
 
 	podObjectMeta := newAppArmorPodObjectMeta()
@@ -1130,7 +1249,7 @@ func newAppArmorPodObjectMeta() *metav1.ObjectMeta {
 func newAppArmorRule() *v1.PodSecurity {
 	return &v1.PodSecurity{
 		Level:   api.LevelRestricted,
-		Version: api.LatestVersion(),
+		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
 				RestrictedField: "metadata.annotations[\"container.apparmor.security.beta.kubernetes.io/*\"]",

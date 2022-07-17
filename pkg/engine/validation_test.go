@@ -3106,6 +3106,7 @@ func TestValidate_pod_security_standard_baseline_privileged_container(t *testing
 				 "validate": {
 					"podSecurity": {
 						"level": "baseline",
+						"version": "v1.24",
 						"exclude": [
 							{
 								"restrictedField": "containers[*].securityContext.privileged",
@@ -3154,6 +3155,9 @@ func TestValidate_pod_security_standard_baseline_privileged_container(t *testing
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
+
+	fmt.Println("Policy ===========")
+	fmt.Printf("%+v\n", policy)
 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
