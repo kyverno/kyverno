@@ -12718,8 +12718,8 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: vyankatesh/kyverno:1.8
-        imagePullPolicy: IfNotPresent
+        image: ghcr.io/kyverno/kyverno:latest
+        imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
           httpGet:
