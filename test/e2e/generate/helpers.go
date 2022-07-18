@@ -383,3 +383,32 @@ func stepResourceNotFound(gvr schema.GroupVersionResource, ns string, name strin
 		return nil
 	}
 }
+
+func loopElement(found bool, elementObj interface{}) bool {
+	if found == true {
+		return found
+	}
+	switch typedelementObj := elementObj.(type) {
+	case map[string]interface{}:
+		for k, v := range typedelementObj {
+			if k == "protocol" {
+				if v == "TCP" {
+					found = true
+					return found
+				}
+			} else {
+				found = loopElement(found, v)
+			}
+		}
+	case []interface{}:
+		found = loopElement(found, typedelementObj[0])
+	case string:
+		return found
+	case int64:
+		return found
+	default:
+		fmt.Println("unexpected type :", fmt.Sprintf("%T", elementObj))
+		return found
+	}
+	return found
+}
