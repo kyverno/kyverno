@@ -2,6 +2,7 @@ package resource
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -10,26 +11,26 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/signal"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
+
+var wg sync.WaitGroup
 
 // createUpdateRequests applies generate and mutateExisting policies, and creates update requests for background reconcile
 func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts int64) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
-
-	go wait.Until(func() {
-		h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
-		h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-		h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-		h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-	}, time.Second, signal.SetupSignalHandler())
+	wg.Add(2)
+	go h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
+	go h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	wg.Wait()
+	go h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
 func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
+	defer wg.Done()
 	logger.V(4).Info("update request")
 
 	if request.Operation == admissionv1.Delete {

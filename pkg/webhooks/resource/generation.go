@@ -34,6 +34,7 @@ func (h *handlers) handleGenerate(
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric *chan []*response.EngineResponse,
 ) {
+	defer wg.Done()
 	logger.V(6).Info("update request")
 
 	var engineResponses []*response.EngineResponse
