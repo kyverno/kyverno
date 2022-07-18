@@ -216,7 +216,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) && ur.Spec.Type == kyvernov1beta1.Mutate {
 			// here only takes care of mutateExisting policies
 			// generate cleanup controller handles policy deletion
 			selector := &metav1.LabelSelector{
@@ -363,7 +363,7 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 	if namespace == "" {
 		return c.cpolLister.Get(name)
 	}
-	return c.polLister.Policies(namespace).Get(key)
+	return c.polLister.Policies(namespace).Get(name)
 }
 
 func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
