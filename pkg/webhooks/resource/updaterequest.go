@@ -24,10 +24,9 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 	go wait.Until(func() {
 		h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
 		h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+		h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+		h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 	}, time.Second, signal.SetupSignalHandler())
-
-	go h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
 func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
