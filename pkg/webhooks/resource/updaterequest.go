@@ -23,9 +23,6 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 
 	go wait.Until(func() {
 		h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
-	}, time.Second, signal.SetupSignalHandler())
-
-	go wait.Until(func() {
 		h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 	}, time.Second, signal.SetupSignalHandler())
 
