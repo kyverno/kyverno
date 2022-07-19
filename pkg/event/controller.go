@@ -1,7 +1,6 @@
 package event
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -169,7 +168,6 @@ func (gen *Generator) processNextWorkItem() bool {
 		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
-	fmt.Println("=====len", gen.queue.Len())
 	err := gen.syncHandler(key)
 	gen.handleErr(err, obj)
 
