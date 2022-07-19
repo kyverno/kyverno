@@ -1,6 +1,7 @@
 package event
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -168,7 +169,7 @@ func (gen *Generator) processNextWorkItem() bool {
 		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
-
+	fmt.Println("=====len", gen.queue.Len())
 	err := gen.syncHandler(key)
 	gen.handleErr(err, obj)
 
@@ -212,7 +213,7 @@ func (gen *Generator) syncHandler(key Info) error {
 	// based on the source of event generation, use different event recorders
 	switch key.Source {
 	case AdmissionController:
-		gen.admissionCtrRecorder.Eventf(robj, eventType, key.Reason, key.messageFmt, []interface{}{key.pName, key.rName, key.rStatus, key.rMessage}...)
+		gen.admissionCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
 	case PolicyController:
 		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
 	case GeneratePolicyController:
