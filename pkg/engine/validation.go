@@ -349,20 +349,12 @@ func (v *validator) getDenyMessage(deny bool) string {
 
 // Unstructured
 func (v *validator) validatePodSecurity() *response.RuleResponse {
-	// fmt.Printf("Exludes: %+v\n", v.podSecurity)
-	// fmt.Printf("v.ctx.NewResource: %v\n", v.ctx.NewResource)
-	// fmt.Printf("v.ctx.NewResource Metadata: %v\n", v.ctx.NewResource.Object["metadata"])
-	// fmt.Printf("v.ctx.NewResource Spec: %v\n", v.ctx.NewResource.Object["spec"])
-	// fmt.Printf("v.ctx.Policy.ObjectMeta: %v\n", v.ctx.Policy.ObjectMeta)
-	// fmt.Printf("v.ctx.Policy.Spec: %v\n", v.ctx.Policy.Spec)
-
+	// Marshal pod metadata and spec
 	marshalledMetadata, err := json.Marshal(v.ctx.NewResource.Object["metadata"])
 
 	if err != nil {
 		fmt.Printf("Error while marshalling new ressource metadata\n")
 	}
-
-	fmt.Println(marshalledMetadata)
 
 	marshalledSpec, err := json.Marshal(v.ctx.NewResource.Object["spec"])
 
@@ -370,8 +362,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		fmt.Printf("Error while marshalling new ressource spec\n")
 	}
 
-	fmt.Println(marshalledSpec)
-
+	// Unmarshall
 	var metadata v1.ObjectMeta
 	var podSpec corev1.PodSpec
 
@@ -381,7 +372,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		fmt.Printf("Error while unmarshalling metadata\n")
 	}
 
-	fmt.Printf("%+v\n", metadata)
+	// fmt.Printf("== Metadata: %+v\n", metadata)
 
 	err = json.Unmarshal(marshalledSpec, &podSpec)
 
@@ -389,8 +380,9 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		fmt.Printf("Error while unmarshalling podSpec\n")
 	}
 
-	fmt.Printf("%+v\n", podSpec)
+	// fmt.Printf("== PodSpec: %+v\n", podSpec)
 
+	// Get pod security admission version
 	var apiVersion api.Version
 
 	// Version set to "latest" by default
@@ -412,28 +404,40 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		Version: apiVersion,
 	}
 
-	fmt.Printf("===== Version: %+v\n", level)
+	fmt.Printf("== Version: %+v\n", level)
 
+	// Evaluate the pod
 	results := pss.EvaluatePSS(level, &metadata, &podSpec)
-	fmt.Printf("%+v\n", results)
 
+	numberOfErrors := len(results)
+	fmt.Printf("== Evaluate PSS results: %+v\n", results)
+	fmt.Printf("== Number of errors: %d\n", numberOfErrors)
+
+	// Check if the returned errors are exempted from the rule
+	// `CheckResult` is not formalized, hence it's difficult to get the path / forbidden values from it
 	allowed, err := pss.ExemptProfile(&v.podSecurity, &podSpec, nil)
 
-	fmt.Printf("Allowed: %v\n", allowed)
+	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
-	var responseStatus response.RuleStatus
+	// var responseStatus response.RuleStatus
 
 	if allowed {
-		responseStatus = response.RuleStatusPass
+		// responseStatus = response.RuleStatusPass
+		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
+		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
+
 	} else {
-		responseStatus = response.RuleStatusFail
+		msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
+		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusFail)
+		// responseStatus = response.RuleStatusFail
 	}
 
 	// Set others fields
-	var ruleResponse *response.RuleResponse = &response.RuleResponse{
-		Status: responseStatus,
-	}
-	return ruleResponse
+	// var ruleResponse *response.RuleResponse = &response.RuleResponse{
+	// 	Status:  responseStatus,
+	// 	Message: "toto",
+	// }
+	// return ruleResponse
 }
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {

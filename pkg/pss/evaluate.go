@@ -111,8 +111,8 @@ func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta 
 			return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
 		}
 
-		fmt.Printf("[Exclude]: %v\n", exclude)
-		fmt.Printf("[Restricted Field Value]: %v\n", value)
+		fmt.Printf("[Exclude]: %+v\n", exclude)
+		fmt.Printf("[Restricted Field Value]: %+v\n", value)
 
 		// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
 		if len(exclude.Values) == 0 {

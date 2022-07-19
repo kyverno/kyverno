@@ -3080,7 +3080,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }
 
-func TestValidate_pod_security_standard_baseline_privileged_container(t *testing.T) {
+func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -3109,12 +3109,9 @@ func TestValidate_pod_security_standard_baseline_privileged_container(t *testing
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "containers[*].securityContext.privileged",
+								"restrictedField": "containers[*].securityContext.capabilities.add",
 								"images": [
 									"nginx"
-								],
-								"values": [
-									"true"
 								]
 							}
 						]
@@ -3141,10 +3138,14 @@ func TestValidate_pod_security_standard_baseline_privileged_container(t *testing
 				 "name": "nginx-host-network",
 				 "image": "nginx",
 				 "securityContext": {
-					"privileged": true
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN"
+						]
+					}
 				 }
 			  }
-		   ]
+			]
 		}
 	 }
 	 `)
@@ -3155,16 +3156,192 @@ func TestValidate_pod_security_standard_baseline_privileged_container(t *testing
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-
-	fmt.Println("Policy ===========")
-	fmt.Printf("%+v\n", policy)
 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	msgs := []string{""}
+	// msgs := []string{""}
 
-	for index, r := range er.PolicyResponse.Rules {
-		assert.Equal(t, r.Message, msgs[index])
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-baseline-privileged-container"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "validate-baseline-privileged-container",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						]
+					},
+					"namespaces": [
+						"staging"
+					]
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"restrictedField": "containers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx-host-network",
+				 "image": "nginx",
+				 "securityContext": {
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN"
+						]
+					}
+				 }
+			  }
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_exclude(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "validate-baseline-privileged-container"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "validate-baseline-privileged-container",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						]
+					},
+					"namespaces": [
+						"staging"
+					]
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"restrictedField": "containers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"example"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx-host-network",
+				 "image": "nginx",
+				 "securityContext": {
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN"
+						]
+					}
+				 }
+			  }
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
 }
