@@ -23,14 +23,7 @@ import (
 )
 
 const (
-	DefaultSignatureAnnotationKey     = "cosign.sigstore.dev/signature"
-	DefaultMessageAnnotationKey       = "cosign.sigstore.dev/message"
-	DefaultAnnotationKeyDomain        = "cosign.sigstore.dev"
-	DefaultSignatureAnnotationMessage = "signature"
-	DefaultMessageAnnotationMessage   = "message"
-	DefaultDryRunNamespace            = ""
-	ValidateLogicMustAll              = "mustAll"
-	ValidateLogicAtLeastOne           = "atLeastOne"
+	DefaultAnnotationKeyDomain = "cosign.sigstore.dev"
 )
 
 //go:embed resources/default-config.yaml
