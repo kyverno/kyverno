@@ -1096,7 +1096,83 @@ func newRestrictedSeccompPodSpec() *corev1.PodSpec {
 }
 
 // Capabilities
-func Test_Restricted_EvaluateCapabilites(t *testing.T) {
+func Test_Restricted_ExemptCapabilities(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newRule()
+
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
+	lv := api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: apiVersionStruct,
+	}
+
+	podMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newPodSpec()
+
+	res := EvaluatePSS(lv, podMeta, podSpec)
+	assert.True(t, len(res) == 1, res)
+
+	allowed, err := ExemptProfile(podSecurityRule, podSpec, nil)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+	fmt.Println("===========")
+}
+
+func newExemptCapabilitiesRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		Level:   api.LevelRestricted,
+		Version: "v1.24",
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				RestrictedField: "containers[*].securityContext.capabilities.add",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				// Values:          []string{"SETGID"},
+			},
+		},
+	}
+}
+
+func newExemptCapabilitiesPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+	// hostPathType := corev1.HostPathDirectory
+
+	podSepc := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "test-container",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					RunAsNonRoot:             &fakeTrue,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+						Add: []corev1.Capability{
+							"SETGID",
+							// "SETUID",
+						},
+					},
+				},
+			},
+		},
+	}
+	return podSepc
+}
+
+func Test_Restricted_EvaluateCapabilities(t *testing.T) {
 	fmt.Println("===========")
 	podSecurityRule := newRule()
 

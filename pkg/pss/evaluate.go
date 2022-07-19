@@ -77,12 +77,12 @@ func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *c
 			res := versionCheck.CheckPod(podMetadata, podSpec)
 			// fmt.Printf("%v, res: %v\n", versionCheck, res)
 			if !res.Allowed {
-				fmt.Printf("[Check Error]: %v\n", res)
+				fmt.Printf("[Check Error]: %+v\n", res)
 				results = append(results, res)
 			}
 		}
 	}
-	return
+	return results
 }
 
 func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
@@ -113,6 +113,11 @@ func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta 
 
 		fmt.Printf("[Exclude]: %v\n", exclude)
 		fmt.Printf("[Restricted Field Value]: %v\n", value)
+
+		// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+		if len(exclude.Values) == 0 {
+			return true, nil
+		}
 
 		if !allowedValues(value, exclude) {
 			return false, nil
