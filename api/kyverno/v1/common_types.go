@@ -458,17 +458,9 @@ type CloneFrom struct {
 }
 
 type Manifests struct {
-	// Verify key condition that the yaml manifest is signed with.
-	// +optional
-	Keys []Key `json:"keys,omitempty" yaml:"keys,omitempty"`
-
-	// KeyOperation should be set mustAll or atLeastOne. Defaults to "atLeastOne" if not specified.
-	// +optional
-	KeyOperation string `json:"keyOperation,omitempty" yaml:"keyOperation,omitempty"`
-
-	// ResourceBundleRef is an image reference in OCI registry
-	// +optional
-	ResourceBundleRef string `json:"resourceBundleRef,omitempty" yaml:"resourceBundleRef,omitempty"`
+	// Attestors specified the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
 	// AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
 	// +optional
@@ -485,15 +477,10 @@ type Manifests struct {
 	// DryRun configuration
 	// +optional
 	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
-}
 
-type Key struct {
-	// Public key condition that the yaml manifest is signed with.
-	// +optional
-	Key string `json:"key,omitempty" yaml:"key,omitempty"`
-	// Subject is the verified identity, for example the email address
-	// +optional
-	Subject string `json:"subject,omitempty" yaml:"subject,omitempty"`
+	// Repository is an optional alternate OCI repository to use for resource bundle reference.
+	// The repository can be overridden per Attestor or Attestation.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
 type DryRunOption struct {

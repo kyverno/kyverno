@@ -616,8 +616,14 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+		},
 	})
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
@@ -632,12 +638,18 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+		},
 	})
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
-	assert.NilError(t, err)
+	assert.Error(t, err, "manigest verification failed; verifiedCount 0; requiredCount 1; .attestors[0].entries[0].keys: failed to verify signature: verification failed for 0 signature. all trials: []")
 	assert.Equal(t, verified, false)
 }
 
@@ -648,8 +660,14 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+		},
 	})
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
@@ -664,16 +682,24 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub2,
+				},
+			},
+		},
 	})
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub2,
-	})
-	verifyRule.KeyOperation = "mustAll"
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
-	assert.NilError(t, err)
+	errMsg := `manigest verification failed; verifiedCount 1; requiredCount 2; .attestors[0].entries[1].keys: failed to verify signature: verification failed for 1 signature. all trials: ["[publickey 1/1] [signature 1/1] error: cosign.VerifyBlobCmd() returned an error: invalid signature when validating ASN.1 encoded signature"]`
+	assert.Error(t, err, errMsg)
 	assert.Equal(t, verified, false)
 }
 
@@ -684,13 +710,20 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub2,
+				},
+			},
+		},
 	})
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub2,
-	})
-	verifyRule.KeyOperation = "mustAll"
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)
 	assert.NilError(t, err)
@@ -704,11 +737,21 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub,
-	})
-	verifyRule.Keys = append(verifyRule.Keys, kyvernov1.Key{
-		Key: ecdsaPub2,
+	count := 1
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Count: &count,
+		Entries: []kyvernov1.Attestor{
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub,
+				},
+			},
+			{
+				Keys: &kyvernov1.StaticKeyAttestor{
+					PublicKeys: ecdsaPub2,
+				},
+			},
+		},
 	})
 	logger := buildLogger(policyContext)
 	verified, _, err := verifyManifest(policyContext, verifyRule, logger)

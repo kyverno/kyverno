@@ -73,10 +73,7 @@ require (
 	google.golang.org/grpc v1.47.0
 )
 
-require (
-	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e
-	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220620025919-87bf46f2b487
-)
+require github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220719082352-b963d2851c69
 
 require (
 	bitbucket.org/creachadair/shell v0.0.6 // indirect
