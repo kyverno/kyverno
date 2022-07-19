@@ -13174,7 +13174,7 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: ghcr.io/rurikudo/kyverno:latest
+        image: ghcr.io/kyverno/kyverno:latest
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
@@ -13231,7 +13231,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/rurikudo/kyvernopre:latest
+        image: ghcr.io/kyverno/kyvernopre:latest
         imagePullPolicy: Always
         name: kyverno-pre
         resources:
