@@ -89,16 +89,8 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	return m, nil
 }
 
-func ShutdownExporter(exp *otlpmetric.Exporter, ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
-	defer cancel()
-	if err := exp.Shutdown(ctx); err != nil {
-		otel.Handle(err)
-	}
-}
-
-func ShutdownController(pusher *controller.Controller, ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, time.Second)
+func ShutdownController(pusher *controller.Controller, ctx context.Context, timeout time.Duration) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	// pushes any last exports to the receiver
 	if err := pusher.Stop(ctx); err != nil {
@@ -111,7 +103,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	certs string,
 	kubeClient kubernetes.Interface,
 	log logr.Logger,
-) (*MetricsConfig, *otlpmetric.Exporter, *controller.Controller, error) {
+) (*MetricsConfig, *controller.Controller, error) {
 	ctx := context.Background()
 	var client otlpmetric.Client
 
@@ -120,7 +112,7 @@ func NewOTLPGRPCConfig(endpoint string,
 		transportCreds, err := kube.FetchCert(ctx, certs, kubeClient)
 		if err != nil {
 			log.Error(err, "Error fetching certificate from secret")
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 
 		client = otlpmetricgrpc.NewClient(
@@ -138,7 +130,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	metricExp, err := otlpmetric.New(ctx, client)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	res, err := resource.New(context.Background(),
@@ -147,7 +139,7 @@ func NewOTLPGRPCConfig(endpoint string,
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	// create controller and bind the exporter with it
@@ -170,15 +162,15 @@ func NewOTLPGRPCConfig(endpoint string,
 	m, err = initializeMetrics(m)
 	if err != nil {
 		log.Error(err, "Failed initializing metrics")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if err := pusher.Start(ctx); err != nil {
 		log.Error(err, "could not start metric exporter")
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
-	return m, metricExp, pusher, nil
+	return m, pusher, nil
 }
 
 func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
