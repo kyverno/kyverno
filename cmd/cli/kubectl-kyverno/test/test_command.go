@@ -467,7 +467,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	if !failonly {
 		fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
 	} else {
-		fmt.Printf("\nTest Summary: %d tests failed\n", rc.Fail)
+		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Printf("\n")
 
