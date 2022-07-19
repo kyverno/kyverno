@@ -416,7 +416,6 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	// Check if the returned errors are exempted from the rule
 	// `CheckResult` is not formalized, hence it's difficult to get the path / forbidden values from it
 	allowed, err := pss.ExemptProfile(&v.podSecurity, &podSpec, nil)
-
 	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
 	// var responseStatus response.RuleStatus
