@@ -193,13 +193,16 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	for i, rule := range er.PolicyResponse.Rules {
 		if rule.Status == response.RuleStatusPass {
 			continue
+		} else if rule.Status == response.RuleStatusSkip {
+			eventResource := event.NewPolicySkippedEvent(event.PolicyController, event.PolicySkipped, er, &er.PolicyResponse.Rules[i])
+			eventInfos = append(eventInfos, eventResource)
+		} else {
+			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
+			eventInfos = append(eventInfos, eventResource)
+
+			eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
+			eventInfos = append(eventInfos, eventPolicy)
 		}
-
-		eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
-		eventInfos = append(eventInfos, eventResource)
-
-		eventPolicy := event.NewPolicyFailEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i], false)
-		eventInfos = append(eventInfos, eventPolicy)
 	}
 
 	if len(eventInfos) > 0 {

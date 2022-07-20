@@ -197,8 +197,10 @@ func (gen *Generator) syncHandler(key Info) error {
 	}
 
 	// set the event type based on reason
+	// if skip/pass, reason will be: NORMAL
+	// else reason will be: WARNING
 	eventType := corev1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() {
+	if key.Reason == PolicyApplied.String() || key.Reason == PolicySkipped.String() {
 		eventType = corev1.EventTypeNormal
 	}
 
