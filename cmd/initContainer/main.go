@@ -352,7 +352,7 @@ func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
+		if cpolr.GetName() == policyreport.GeneratePolicyReportName("", cpolr.GetName()) {
 			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 		}
 	}
@@ -370,7 +370,7 @@ func addPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
+		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace(), polr.GetName()) {
 			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
 		}
 	}

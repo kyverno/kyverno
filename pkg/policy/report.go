@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -96,9 +95,9 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			changeRequestMapperNamespace[ns] = false
 
 			if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, info.Namespace); err != nil {
-				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			} else {
-				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			}
 
 			if info.MapperInactive {
@@ -148,11 +147,7 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	var polrName string
 
 	if ns != nil {
-		if toggle.SplitPolicyReport() {
-			polrName = policyreport.TrimmedName(policyreport.GeneratePolicyReportName(*ns) + "-" + polrName)
-		} else {
-			polrName = policyreport.GeneratePolicyReportName(*ns)
-		}
+		polrName = policyreport.GeneratePolicyReportName(*ns, polrName)
 		if polrName != "" {
 			polr, err := reportLister.PolicyReports(*ns).Get(polrName)
 			if err != nil {
@@ -165,12 +160,7 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
 			}
 		} else {
-			var cpolr *v1alpha2.ClusterPolicyReport
-			if toggle.SplitPolicyReport() {
-				cpolr, err = clusterReportLister.Get(policyreport.TrimmedName(policyreport.GeneratePolicyReportName(*ns) + "-" + polrName))
-			} else {
-				cpolr, err = clusterReportLister.Get(polrName)
-			}
+			cpolr, err := clusterReportLister.Get(policyreport.GeneratePolicyReportName(*ns, polrName))
 
 			if err != nil {
 				errors = append(errors, err.Error())

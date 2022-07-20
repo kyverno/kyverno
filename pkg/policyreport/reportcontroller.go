@@ -364,11 +364,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	}
 
 	var report *policyreportv1alpha2.PolicyReport
-	if toggle.SplitPolicyReport() {
-		report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
-	} else {
-		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
-	}
+	report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace, policyName))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
 			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
@@ -420,11 +416,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 			return nil, nil
 		}
 
-		if toggle.SplitPolicyReport() {
-			report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
-		} else {
-			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
-		}
+		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace, policyName))
 		if err != nil {
 			if apierrors.IsNotFound(err) && new != nil {
 				polr, err := convertToPolr(new)
@@ -444,12 +436,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 			return nil, fmt.Errorf("unable to get policyReport: %v", err)
 		}
 	} else {
-
-		if toggle.SplitPolicyReport() {
-			report, err = g.clusterReportLister.Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
-		} else {
-			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
-		}
+		report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace, policyName))
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				if new != nil {
@@ -730,20 +717,12 @@ func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructure
 	}
 
 	if ns == nil {
-		if toggle.SplitPolicyReport() {
-			reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName("") + "-" + policyname))
-		} else {
-			reportUnstructured.SetName(GeneratePolicyReportName(""))
-		}
+		reportUnstructured.SetName(GeneratePolicyReportName("", policyname))
 		reportUnstructured.SetKind("ClusterPolicyReport")
 		return
 	}
 
-	if toggle.SplitPolicyReport() {
-		reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname))
-	} else {
-		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))
-	}
+	reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName(), policyname))
 	reportUnstructured.SetNamespace(ns.GetName())
 	reportUnstructured.SetKind("PolicyReport")
 }
