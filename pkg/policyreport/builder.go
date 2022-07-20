@@ -48,9 +48,9 @@ const (
 func GeneratePolicyReportName(ns, policyName string) string {
 	if ns == "" {
 		if toggle.SplitPolicyReport() {
-			return clusterpolicyreport + "-" + policyName
+			return TrimmedName(clusterpolicyreport + "-" + policyName)
 		}
-		return TrimmedName(clusterpolicyreport)
+		return clusterpolicyreport
 	}
 
 	var name string
