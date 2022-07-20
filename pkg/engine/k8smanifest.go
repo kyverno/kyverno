@@ -130,7 +130,6 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 }
 
 func verify(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
-
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
@@ -168,13 +167,13 @@ func verify(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSe
 					// prepare env variable for pubkey
 					pubkeyEnv := fmt.Sprintf("_PK_%s_%d", uid, i)
 					err := os.Setenv(pubkeyEnv, Key)
-					defer os.Unsetenv(pubkeyEnv)
 					if err != nil {
 						entryError = errors.Wrapf(err, "failed to set env variable; %s", pubkeyEnv)
 					} else {
 						keyPath := fmt.Sprintf("env://%s", pubkeyEnv)
 						vo.KeyPath = keyPath
 					}
+					defer os.Unsetenv(pubkeyEnv)
 				} else {
 					// this supports Kubernetes secrets and kms
 					vo.KeyPath = Key
@@ -189,34 +188,35 @@ func verify(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSe
 					Cert := a.Certificates.Certificate
 					certEnv := fmt.Sprintf("_CERT_%s_%d", uid, i)
 					err := os.Setenv(certEnv, Cert)
-					defer os.Unsetenv(certEnv)
 					if err != nil {
 						entryError = errors.Wrapf(err, "failed to set env variable; %s", certEnv)
 					} else {
 						certPath := fmt.Sprintf("env://%s", certEnv)
 						vo.Certificate = certPath
 					}
+					defer os.Unsetenv(certEnv)
 				}
 				if a.Certificates.CertificateChain != "" {
 					CertChain := a.Certificates.CertificateChain
 					certChainEnv := fmt.Sprintf("_CC_%s_%d", uid, i)
 					err := os.Setenv(certChainEnv, CertChain)
-					defer os.Unsetenv(certChainEnv)
 					if err != nil {
 						entryError = errors.Wrapf(err, "failed to set env variable; %s", certChainEnv)
 					} else {
 						certChainPath := fmt.Sprintf("env://%s", certChainEnv)
 						vo.CertificateChain = certChainPath
 					}
+					defer os.Unsetenv(certChainEnv)
 				}
 				if a.Certificates.Rekor != nil {
 					vo.RekorURL = a.Keys.Rekor.URL
 				}
 			} else if a.Keyless != nil {
 				subPath = subPath + ".keyless"
+				_ = os.Setenv("COSIGN_EXPERIMENTAL", "1")
+				defer os.Unsetenv("COSIGN_EXPERIMENTAL")
 				if a.Keyless.Rekor != nil {
-					_ = os.Setenv("REKOR_SERVER", a.Keyless.Rekor.URL)
-					defer os.Unsetenv("REKOR_SERVER")
+					vo.RekorURL = a.Keyless.Rekor.URL
 				}
 				if a.Keyless.Roots != "" {
 					Roots := a.Keyless.Roots
