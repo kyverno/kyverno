@@ -70,7 +70,6 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	polInformer kyvernov1informers.PolicyInformer,
 	changeRequestLimit int,
-	splitPolicyReport bool,
 	log logr.Logger,
 ) *Generator {
 	gen := Generator{
@@ -84,7 +83,7 @@ func NewReportChangeRequestGenerator(client kyvernoclient.Interface,
 		dataStore:                        newDataStore(),
 		changeRequestLimit:               changeRequestLimit,
 		CleanupChangeRequest:             make(chan ReconcileInfo, 10),
-		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, splitPolicyReport, log.WithName("requestCreator")),
+		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		log:                              log,
 	}
 

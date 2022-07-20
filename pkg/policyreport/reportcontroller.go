@@ -17,6 +17,7 @@ import (
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
 	corev1 "k8s.io/api/core/v1"
@@ -67,8 +68,6 @@ type ReportGenerator struct {
 	reportChangeRequestLister        kyvernov1alpha2listers.ReportChangeRequestLister
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
 	nsLister                         corev1listers.NamespaceLister
-	// splitPolicyReport enable/disable the PolicyReport split-up per policy feature
-	splitPolicyReport bool
 
 	informersSynced []cache.InformerSynced
 
@@ -93,7 +92,6 @@ func NewReportGenerator(
 	clusterReportReqInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
 	namespace corev1informers.NamespaceInformer,
 	cleanupChangeRequest chan<- ReconcileInfo,
-	splitPolicyReport bool,
 	log logr.Logger,
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
@@ -104,7 +102,6 @@ func NewReportGenerator(
 		reportReqInformer:        reportReqInformer,
 		clusterReportReqInformer: clusterReportReqInformer,
 		queue:                    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), prWorkQueueName),
-		splitPolicyReport:        splitPolicyReport,
 		ReconcileCh:              make(chan bool, 10),
 		cleanupChangeRequest:     cleanupChangeRequest,
 		log:                      log,
@@ -137,7 +134,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if ns == "" {
 			ns = "default"
 		}
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			policy = label[policyLabel]
 			return strings.Join([]string{ns, policy}, "/")
 		} else {
@@ -150,7 +147,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if rule != "" || policy != "" {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			policy = label[policyLabel]
 			return strings.Join([]string{"", policy}, "/")
 		} else {
@@ -344,7 +341,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 	var namespace, policyName string
-	if g.splitPolicyReport {
+	if toggle.SplitPolicyReport() {
 		namespace = strings.Split(key, "/")[0]
 		policyName = strings.Split(key, "/")[1]
 	} else {
@@ -355,7 +352,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
-	if g.splitPolicyReport {
+	if toggle.SplitPolicyReport() {
 		deleteResources := getDeletedResources(aggregatedRequests)
 		if len(deleteResources) != 0 {
 			for _, dr := range deleteResources {
@@ -367,7 +364,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	}
 
 	var report *policyreportv1alpha2.PolicyReport
-	if g.splitPolicyReport {
+	if toggle.SplitPolicyReport() {
 		report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
 	} else {
 		report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
@@ -423,7 +420,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 			return nil, nil
 		}
 
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			report, err = g.reportLister.PolicyReports(namespace).Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
 		} else {
 			report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace))
@@ -448,7 +445,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 		}
 	} else {
 
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			report, err = g.clusterReportLister.Get(TrimmedName(GeneratePolicyReportName(namespace) + "-" + policyName))
 		} else {
 			report, err = g.clusterReportLister.Get(GeneratePolicyReportName(namespace))
@@ -514,7 +511,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if g.splitPolicyReport {
+				if toggle.SplitPolicyReport() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), cpolr.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -566,7 +563,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if g.splitPolicyReport {
+				if toggle.SplitPolicyReport() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -607,7 +604,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 
 	selector := labels.NewSelector()
 	if namespace == "" {
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
@@ -633,7 +630,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))
@@ -733,7 +730,7 @@ func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructure
 	}
 
 	if ns == nil {
-		if g.splitPolicyReport {
+		if toggle.SplitPolicyReport() {
 			reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName("") + "-" + policyname))
 		} else {
 			reportUnstructured.SetName(GeneratePolicyReportName(""))
@@ -742,7 +739,7 @@ func (g *ReportGenerator) setReport(reportUnstructured *unstructured.Unstructure
 		return
 	}
 
-	if g.splitPolicyReport {
+	if toggle.SplitPolicyReport() {
 		reportUnstructured.SetName(TrimmedName(GeneratePolicyReportName(ns.GetName()) + "-" + policyname))
 	} else {
 		reportUnstructured.SetName(GeneratePolicyReportName(ns.GetName()))

@@ -340,6 +340,8 @@ func removePolicyReport(client dclient.Interface, kind string) error {
 	return nil
 }
 
+// Deprecated: New ClusterPolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
@@ -356,6 +358,8 @@ func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 }
 
+// Deprecated: New PolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 

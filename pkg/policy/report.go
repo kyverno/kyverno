@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -150,7 +151,11 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	var polrName string
 
 	if ns != nil {
-		polrName = policyreport.GeneratePolicyReportName(*ns)
+		if toggle.SplitPolicyReport() {
+			polrName = policyreport.TrimmedName(policyreport.GeneratePolicyReportName(*ns) + "-" + polrName)
+		} else {
+			polrName = policyreport.GeneratePolicyReportName(*ns)
+		}
 		if polrName != "" {
 			polr, err := reportLister.PolicyReports(*ns).Get(polrName)
 			if err != nil {
@@ -163,7 +168,13 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
 			}
 		} else {
-			cpolr, err := clusterReportLister.Get(polrName)
+			var cpolr *v1alpha2.ClusterPolicyReport
+			if toggle.SplitPolicyReport() {
+				cpolr, err = clusterReportLister.Get(policyreport.TrimmedName(policyreport.GeneratePolicyReportName(*ns) + "-" + polrName))
+			} else {
+				cpolr, err = clusterReportLister.Get(polrName)
+			}
+
 			if err != nil {
 				errors = append(errors, err.Error())
 			}
