@@ -31,6 +31,4 @@ LABEL maintainer="Kyverno"
 
 COPY --from=builder /output/kyverno /
 
-USER 65532
-
 ENTRYPOINT ["./kyverno"]
