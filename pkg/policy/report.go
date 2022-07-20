@@ -114,22 +114,19 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 	}
 }
 
-func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error {
+func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, nslabels map[string]string) error {
 	var errors []string
-
 	var gracePeriod int64 = 0
 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 
-	selector := &metav1.LabelSelector{
-		MatchLabels: labels,
-	}
+	selector := labels.SelectorFromSet(labels.Set(nslabels))
 
-	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
