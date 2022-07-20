@@ -48,12 +48,10 @@ func registerPolicyExecutionDurationMetric(
 //policy - policy related data
 //engineResponse - resource and rule related data
 func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
-	name, namespace, policyType, backgroundMode, _, _ := metrics.GetPolicyInfos(policy)
-	validationMode, err := metrics.ParsePolicyValidationMode(engineResponse.GetValidationFailureAction())
+	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
 	}
-
 	resourceSpec := engineResponse.PolicyResponse.Resource
 	resourceKind := resourceSpec.Kind
 	resourceNamespace := resourceSpec.Namespace
