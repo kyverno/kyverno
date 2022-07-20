@@ -2,7 +2,6 @@ package tracing
 
 import (
 	"context"
-	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/utils/kube"
@@ -18,9 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func ShutdownController(tp *sdktrace.TracerProvider, ctx context.Context, timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+func ShutDownController(tp *sdktrace.TracerProvider, ctx context.Context) {
 	// pushes any last exports to the receiver
 	if err := tp.Shutdown(ctx); err != nil {
 		otel.Handle(err)

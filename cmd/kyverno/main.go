@@ -290,7 +290,9 @@ func main() {
 	}
 
 	if otel == "grpc" {
-		defer metrics.ShutdownController(metricsPusher, context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(metricsPusher, ctx)
+		defer cancel()
 	}
 
 	if otel == "prometheus" {
@@ -311,7 +313,9 @@ func main() {
 			setupLog.Error(err, "Failed to enable tracing for Kyverno")
 			os.Exit(1)
 		}
-		defer tracing.ShutdownController(tracerProvider, context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer tracing.ShutDownController(tracerProvider, ctx)
+		defer cancel()
 	}
 
 	// POLICY CONTROLLER

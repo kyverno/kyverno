@@ -89,9 +89,7 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 	return m, nil
 }
 
-func ShutdownController(pusher *controller.Controller, ctx context.Context, timeout time.Duration) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+func ShutDownController(pusher *controller.Controller, ctx context.Context) {
 	// pushes any last exports to the receiver
 	if err := pusher.Stop(ctx); err != nil {
 		otel.Handle(err)
