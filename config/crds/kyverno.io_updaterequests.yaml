@@ -42,8 +42,8 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: UpdateRequestStatus is a request to process mutate and generate
-          rules in background.
+        description: UpdateRequest is a request to process mutate and generate rules
+          in background.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
