@@ -9,13 +9,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/pkg/errors"
-
-	"github.com/ghodss/yaml"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	k8smnfutil "github.com/sigstore/k8s-manifest-sigstore/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -41,7 +40,7 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(2).Info(fmt.Sprintf("verifyManifest return err: %s", err.Error()))
-		return ruleError(rule, response.Validation, "error occured during manifest verification", err)
+		return ruleError(rule, response.Validation, "error occurred during manifest verification", err)
 	}
 	logger.V(2).Info(fmt.Sprintf("verifyManifest result: verified %s; %s", strconv.FormatBool(verified), reason))
 	if !verified {
