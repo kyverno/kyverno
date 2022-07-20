@@ -1,3 +1,8 @@
+## v1.7.2-rc2
+
+### Note
+
+- A new flag `maxQueuedEvents` is added to the Kyverno main container, this flag sets the up-limit of the events that are queued internally.
 ## v1.7.2-rc1
 
 ### Note
