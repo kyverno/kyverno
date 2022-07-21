@@ -17,7 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func ShutDownController(tp *sdktrace.TracerProvider, ctx context.Context) {
+func ShutDownController(ctx context.Context, tp *sdktrace.TracerProvider) {
 	// pushes any last exports to the receiver
 	if err := tp.Shutdown(ctx); err != nil {
 		otel.Handle(err)

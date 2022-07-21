@@ -291,7 +291,7 @@ func main() {
 
 	if otel == "grpc" {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(metricsPusher, ctx)
+		defer metrics.ShutDownController(ctx, metricsPusher)
 		defer cancel()
 	}
 
@@ -314,7 +314,7 @@ func main() {
 			os.Exit(1)
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer tracing.ShutDownController(tracerProvider, ctx)
+		defer tracing.ShutDownController(ctx, tracerProvider)
 		defer cancel()
 	}
 
