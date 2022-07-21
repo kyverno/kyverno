@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,12 +45,20 @@ const (
 	SourceValue = "Kyverno"
 )
 
-func GeneratePolicyReportName(ns string) string {
+func GeneratePolicyReportName(ns, policyName string) string {
 	if ns == "" {
+		if toggle.SplitPolicyReport() {
+			return TrimmedName(clusterpolicyreport + "-" + policyName)
+		}
 		return clusterpolicyreport
 	}
 
-	name := fmt.Sprintf("polr-ns-%s", ns)
+	var name string
+	if toggle.SplitPolicyReport() {
+		name = fmt.Sprintf("polr-ns-%s-%s", ns, policyName)
+	} else {
+		name = fmt.Sprintf("polr-ns-%s", ns)
+	}
 	if len(name) > 63 {
 		return name[:63]
 	}

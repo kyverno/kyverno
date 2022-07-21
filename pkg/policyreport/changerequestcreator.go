@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/patrickmn/go-cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,15 +46,14 @@ type changeRequestCreator struct {
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client policyreportclient.Interface, tickerInterval time.Duration, splitPolicyReport bool, log logr.Logger) creator {
+func newChangeRequestCreator(client kyvernoclient.Interface, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
-		client:            client,
-		RCRCache:          cache.New(0, 24*time.Hour),
-		CRCRCache:         cache.New(0, 24*time.Hour),
-		queue:             []string{},
-		tickerInterval:    tickerInterval,
-		splitPolicyReport: splitPolicyReport,
-		log:               log,
+		client:         client,
+		RCRCache:       cache.New(0, 24*time.Hour),
+		CRCRCache:      cache.New(0, 24*time.Hour),
+		queue:          []string{},
+		tickerInterval: tickerInterval,
+		log:            log,
 	}
 }
 
@@ -114,7 +115,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(c.tickerInterval)
 	defer ticker.Stop()
 
-	if c.splitPolicyReport {
+	if toggle.SplitPolicyReport() {
 		err := CleanupPolicyReport(c.client)
 		if err != nil {
 			c.log.Error(err, "failed to delete old reports")
