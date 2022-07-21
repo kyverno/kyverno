@@ -373,6 +373,8 @@ func removePolicyReport(client client.Interface, kind string) error {
 	return nil
 }
 
+// Deprecated: New ClusterPolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addClusterPolicyReportSelectorLabel(client client.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
@@ -383,12 +385,14 @@ func addClusterPolicyReportSelectorLabel(client client.Interface) {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
+		if cpolr.GetName() == policyreport.GeneratePolicyReportName("", "") {
 			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 		}
 	}
 }
 
+// Deprecated: New PolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addPolicyReportSelectorLabel(client client.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
@@ -399,7 +403,7 @@ func addPolicyReportSelectorLabel(client client.Interface) {
 	}
 
 	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
+		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace(), "") {
 			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
 		}
 	}
