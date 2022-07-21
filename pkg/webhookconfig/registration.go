@@ -217,7 +217,12 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		if retry {
 			go func() {
 				time.Sleep(1 * time.Second)
-				wrc.UpdateWebhookChan <- true
+				select {
+				case wrc.UpdateWebhookChan <- true:
+					return
+				default:
+					return
+				}
 			}()
 		}
 	}
