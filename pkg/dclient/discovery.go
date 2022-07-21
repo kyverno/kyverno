@@ -70,10 +70,10 @@ func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersi
 	if kind == "" {
 		return schema.GroupVersionResource{}, nil
 	}
-
-	_, gvr, err := c.FindResource("", kind)
+	_, k := kubeutils.GetKindFromGVK(kind)
+	_, gvr, err := c.FindResource("", k)
 	if err != nil {
-		logger.Info("schema not found", "kind", kind)
+		logger.Info("schema not found", "kind", k)
 		return schema.GroupVersionResource{}, err
 	}
 
@@ -118,9 +118,9 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 	var serverResources []*metav1.APIResourceList
 	var err error
 	if apiVersion == "" {
-		serverResources, err = discovery.ServerPreferredResources(c.DiscoveryInterface())
+		serverResources, err = c.cachedClient.ServerPreferredResources()
 	} else {
-		_, serverResources, err = discovery.ServerGroupsAndResources(c.DiscoveryInterface())
+		_, serverResources, err = c.cachedClient.ServerGroupsAndResources()
 	}
 
 	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
