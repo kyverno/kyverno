@@ -176,6 +176,32 @@ initResources:
     cpu: 10m
     memory: 64Mi
 
+autoscaling:
+  # -- Toggle autoscaling
+  enabled: false
+  # -- Minimum number of replicas - recommended no lower than 3
+  minReplicas: 3
+  # -- Maximum number of replicas
+  maxReplicas: 10
+  # -- Default CPU target Percentage for horizontal scaling
+  cPUUtilizationPercentage: 80
+  # -- Default Memory target Percentage for horizontal scaling
+  memoryUtilizationPercentage: 80
+
+  # -- Additional and/or custom metrics for the HPA
+  extraMetrics: []
+  # - type: Resource
+  #   resource:
+  #     name: memory
+  #     target:
+  #       type: Utilization
+  #       averageUtilization: 80
+
+  # -- v2/v2beta2 up/down scaling customizations
+  behavior: {}
+    # scaleDown:
+    #   stabilizationWindowSeconds: 60
+
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/

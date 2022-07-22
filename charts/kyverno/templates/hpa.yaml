@@ -1,0 +1,96 @@
+{{- if .Values.autoscaling.enabled }}
+{{- if or (.Capabilities.APIVersions.Has "autoscaling/v2") (.Capabilities.APIVersions.Has "autoscaling/v2beta2") }}
+{{- if (.Capabilities.APIVersions.Has "autoscaling/v2") }}
+# autoscaling/v2 is available as of kubernetes version 1.23
+apiVersion: autoscaling/v2
+{{- else }}
+# autoscaling/v2beta2 will be removed in kubernetes version 1.26
+apiVersion: autoscaling/v2beta2
+{{- end}}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "kyverno.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.autoscaling.cPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.cPUUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.autoscaling.memoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.autoscaling.memoryUtilizationPercentage }}
+  {{- end }}
+  {{ if .Values.autoscaling.extraMetrics }}
+  {{ tpl (toYaml (index .Values.autoscaling.extraMetrics )) . | nindent 2 }}
+  {{- end }}
+  {{- if .Values.autoscaling.behavior }}
+  behavior:
+  {{ toYaml .Values.autoscaling.behavior | nindent 4 }}
+  {{- end }}
+{{- else if (.Capabilities.APIVersions.Has "autoscaling/v2beta1") }}
+# autoscaling/v2beta1 will be removed in version kubernetes 1.25
+apiVersion: autoscaling/v2beta1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "kyverno.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    {{- if .Values.autoscaling.cPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: cpu
+        targetAverageUtilization: {{ .Values.autoscaling.cPUUtilizationPercentage }}
+    {{- end }}
+    {{- if .Values.autoscaling.memoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        targetAverageUtilization: {{ .Values.autoscaling.memoryUtilizationPercentage }}
+    {{- end }}
+{{- else }}
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ template "kyverno.fullname" . }}
+  labels: {{ include "kyverno.labels" . | nindent 4 }}
+    app: kyverno
+  namespace: {{ template "kyverno.namespace" . }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ template "kyverno.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  # autoscaling/v1 can only scale based on CPU percentage 
+  targetCPUUtilizationPercentage: {{ .Values.autoscaling.cPUUtilizationPercentage }}
+
+{{- end }}
+{{- end }}
+
