@@ -157,7 +157,7 @@ func Command() *cobra.Command {
 	var testCase string
 	var testFile []byte
 	var fileName, gitBranch string
-	var registryAccess, failonly bool
+	var registryAccess, failOnly bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -216,7 +216,7 @@ results:
 				return nil
 			}
 			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failonly)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -231,7 +231,7 @@ results:
 	cmd.Flags().BoolP("manifest-mutate", "", false, "prints out a template test manifest for a mutate policy")
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
-	cmd.Flags().BoolVarP(&failonly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
+	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
 	return cmd
 }
 
@@ -318,7 +318,7 @@ type testFilter struct {
 
 var ftable = []Table{}
 
-func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failonly bool) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -438,7 +438,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf, failonly); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf, failOnly); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -450,7 +450,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf, failonly)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf, failOnly)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -464,14 +464,14 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		}
 	}
 
-	if !failonly {
+	if !failOnly {
 		fmt.Printf("\nTest Summary: %d tests passed and %d tests failed\n", rc.Pass+rc.Skip, rc.Fail)
 	} else {
 		fmt.Printf("\nTest Summary: %d out of %d tests failed\n", rc.Fail, rc.Pass+rc.Skip+rc.Fail)
 	}
 	fmt.Printf("\n")
 
-	if rc.Fail > 0 && !failonly {
+	if rc.Fail > 0 && !failOnly {
 		printFailedTestResult()
 		os.Exit(1)
 	}
@@ -479,7 +479,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failonly bool) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -488,7 +488,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf, failonly)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf, failOnly)
 			continue
 		}
 		if file.Name() == fileName {
@@ -504,7 +504,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf, failonly); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf, failOnly); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -818,7 +818,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter, failonly bool) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &Test{}
@@ -1019,7 +1019,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		}
 	}
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
-	resultErr := printTestResult(resultsMap, testResults, rc, failonly)
+	resultErr := printTestResult(resultsMap, testResults, rc, failOnly)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
@@ -1027,7 +1027,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	return
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failonly bool) error {
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly bool) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []Table{}
 	boldGreen := color.New(color.FgGreen).Add(color.Bold)
@@ -1099,7 +1099,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					ftable = append(ftable, *res)
 				}
 
-				if failonly {
+				if failOnly {
 					if res.Result == boldRed.Sprintf("Fail") {
 						table = append(table, *res)
 					}
@@ -1164,7 +1164,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				ftable = append(ftable, *res)
 			}
 
-			if failonly {
+			if failOnly {
 				if res.Result == boldRed.Sprintf("Fail") {
 					table = append(table, *res)
 				}
