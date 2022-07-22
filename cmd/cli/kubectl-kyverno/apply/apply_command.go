@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/kubernetes"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
@@ -176,7 +177,11 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = dclient.NewClient(restConfig, 15*time.Minute, make(chan struct{}))
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return rc, resources, skipInvalidPolicies, pvInfos, err
+		}
+		dClient, err = dclient.NewClient(restConfig, kubeClient, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
