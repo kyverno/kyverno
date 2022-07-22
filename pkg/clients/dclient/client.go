@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -12,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/discovery/cached/memory"
+	"k8s.io/client-go/discovery/cached/disk"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/kubernetes"
@@ -80,15 +81,30 @@ func NewClient(ctx context.Context, config *rest.Config, kclient *kubernetes.Cli
 	}
 
 	// Set discovery client
-	discoveryClient := &serverPreferredResources{
-		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
+
+	cacheDir, err := os.MkdirTemp("", "discovery")
+	if err != nil {
+		return nil, err
 	}
-	// client will invalidate registered resources cache every x seconds,
-	// As there is no way to identify if the registered resource is available or not
-	// we will be invalidating the local cache, so the next request get a fresh cache
-	// If a resource is removed then and cache is not invalidate yet, we will not detect the removal
-	// but the re-sync shall re-evaluate
-	go discoveryClient.Poll(ctx, resync)
+
+	cacheHttp, err := os.MkdirTemp(cacheDir, "http")
+	if err != nil {
+		return nil, err
+	}
+
+	cacheDiscovery, err := os.MkdirTemp(cacheDir, "discovery")
+	if err != nil {
+		return nil, err
+	}
+
+	diskCache, err := disk.NewCachedDiscoveryClientForConfig(config, cacheDiscovery, cacheHttp, resync)
+	if err != nil {
+		return nil, err
+	}
+	discoveryClient := &serverPreferredResources{
+		cachedClient: diskCache,
+	}
+
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
 }

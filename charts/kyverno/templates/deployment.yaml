@@ -97,6 +97,9 @@ spec:
           {{- with .Values.envVarsInit }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp
       containers:
       {{- if .Values.extraContainers }}
         {{- toYaml .Values.extraContainers | nindent 8 }}
@@ -159,6 +162,10 @@ spec:
           volumeMounts:
             - mountPath: {{ .Values.tufRootMountPath }}
               name: sigstore
+            - mountPath: /tmp
+              name: tmp
       volumes:
       - name: sigstore
+        emptyDir: {}
+      - name: tmp
         emptyDir: {}

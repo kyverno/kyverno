@@ -24,6 +24,8 @@ spec:
       volumes:
         - name: sigstore
           emptyDir: {}
+        - name: tmp
+          emptyDir: {}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -71,6 +73,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          volumeMounts:
+          - mountPath: /tmp
+            name: tmp
       containers:
         - name: kyverno
           image: ghcr.io/kyverno/kyverno:latest
@@ -148,6 +153,8 @@ spec:
           volumeMounts:
           - mountPath: /.sigstore
             name: sigstore
+          - mountPath: /tmp
+            name: tmp
   strategy:
     type: RollingUpdate
     rollingUpdate:
