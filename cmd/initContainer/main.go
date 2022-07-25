@@ -82,17 +82,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	// DYNAMIC CLIENT
+	// - client for all registered resources
+	client, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
