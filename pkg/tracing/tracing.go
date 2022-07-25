@@ -17,8 +17,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+func ShutDownController(ctx context.Context, tp *sdktrace.TracerProvider) {
+	// pushes any last exports to the receiver
+	if err := tp.Shutdown(ctx); err != nil {
+		otel.Handle(err)
+	}
+}
+
 // NewTraceConfig generates the initial tracing configuration with 'endpoint' as the endpoint to connect to the Opentelemetry Collector
-func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger) error {
+func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interface, log logr.Logger) (*sdktrace.TracerProvider, error) {
 	ctx := context.Background()
 
 	var client otlptrace.Client
@@ -45,7 +52,7 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 	traceExp, err := otlptrace.New(ctx, client)
 	if err != nil {
 		log.Error(err, "Failed to create the collector exporter")
-		return err
+		return nil, err
 	}
 
 	res, err := resource.New(context.Background(),
@@ -54,7 +61,7 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 	)
 	if err != nil {
 		log.Error(err, "failed creating resource")
-		return err
+		return nil, err
 	}
 
 	bsp := sdktrace.NewBatchSpanProcessor(traceExp)
@@ -68,7 +75,7 @@ func NewTraceConfig(endpoint string, certs string, kubeClient kubernetes.Interfa
 	// set global propagator to tracecontext (the default is no-op).
 	otel.SetTextMapPropagator(propagation.TraceContext{})
 	otel.SetTracerProvider(tp)
-	return nil
+	return tp, nil
 }
 
 // DoInSpan executes function doFn inside new span with `operationName` name and hooking as child to a span found within given context if any.

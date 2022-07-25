@@ -82,17 +82,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	// DYNAMIC CLIENT
+	// - client for all registered resources
+	client, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
@@ -340,6 +340,8 @@ func removePolicyReport(client dclient.Interface, kind string) error {
 	return nil
 }
 
+// Deprecated: New ClusterPolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
@@ -350,12 +352,14 @@ func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
+		if cpolr.GetName() == policyreport.GeneratePolicyReportName("", "") {
 			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 		}
 	}
 }
 
+// Deprecated: New PolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
@@ -366,7 +370,7 @@ func addPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
+		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace(), "") {
 			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
 		}
 	}
