@@ -273,7 +273,7 @@ func main() {
 
 	// Metrics Configuration
 	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, err := metrics.InitMetrics(
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		disableMetricsExport,
 		otel,
 		metricsAddr,
@@ -286,6 +286,12 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "failed to initialize metrics")
 		os.Exit(1)
+	}
+
+	if otel == "grpc" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(ctx, metricsPusher)
+		defer cancel()
 	}
 
 	if otel == "prometheus" {
@@ -301,11 +307,14 @@ func main() {
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.Info("Enabling tracing for Kyverno...")
-		err = tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
+		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
 		if err != nil {
 			setupLog.Error(err, "Failed to enable tracing for Kyverno")
 			os.Exit(1)
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer tracing.ShutDownController(ctx, tracerProvider)
+		defer cancel()
 	}
 
 	// POLICY CONTROLLER
