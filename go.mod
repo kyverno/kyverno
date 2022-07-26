@@ -50,7 +50,6 @@ require (
 	k8s.io/klog/v2 v2.20.0
 	k8s.io/kube-openapi v0.0.0-20211109043538-20434351676c
 	k8s.io/pod-security-admission v0.22.4
-	k8s.io/utils v0.0.0-20210930125809-cb0fa318a74b
 	sigs.k8s.io/controller-runtime v0.8.1
 	sigs.k8s.io/kustomize/api v0.8.8
 	sigs.k8s.io/kustomize/kyaml v0.10.17

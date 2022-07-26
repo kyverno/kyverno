@@ -60,73 +60,268 @@ import (
 // E2E test for one control
 // 1. New package for PSS checks, connect with Kyverno Engine (admission webhook)
 
-func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []policy.CheckResult) {
+type restrictedField struct {
+	path          string
+	allowedValues []interface{}
+}
+
+type PSSCheckResult struct {
+	ID               string
+	CheckResult      policy.CheckResult
+	RestrictedFields []restrictedField
+}
+
+var PSS_Controls = map[string][]restrictedField{
+	// Control name as key, same as ID field in CheckResult
+	"privileged": {
+		{
+			path: "securityContext.privileged",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+	},
+	"runAsNonRoot": {
+		{
+			path: "securityContext.runAsNonRoot",
+			allowedValues: []interface{}{
+				true,
+				nil,
+			},
+		},
+	},
+	"allowPrivilegeEscalation": {
+		{
+			path: "securityContext.allowPrivilegeEscalation",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+	},
+}
+
+// func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
+// 	checks := policy.DefaultChecks()
+
+// 	for _, check := range checks {
+
+// 		// Restricted ? Baseline + Restricted (cumulative)
+// 		// Baseline ? Then ignore checks for Restricted
+// 		// fmt.Printf("current level: %s, check level: %s\n", lv.Level, check.Level)
+// 		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
+// 			continue
+// 		}
+
+// 		// check version
+// 		for _, versionCheck := range check.Versions {
+// 			res := versionCheck.CheckPod(podMetadata, podSpec)
+
+// 			// when pod creation is forbidden
+// 			// if the control name is in the exclude
+// 			if !res.Allowed {
+// 				fmt.Printf("[Check Error]: %+v\n", res)
+// 				results = append(results, PSSCheckResult{
+// 					ID:               check.ID,
+// 					CheckResult:      res,
+// 					RestrictedFields: PSS_Controls[check.ID],
+// 				})
+// 			}
+// 		}
+// 	}
+// 	return results
+// }
+
+// Get containers matching images specified in Exclude values
+func ContainersMatchingImages(exclude []*v1.PodSecurityStandard, containers []corev1.Container) []corev1.Container {
+	var matchingContainers []corev1.Container
+
+	for _, container := range containers {
+		for _, excludeRule := range exclude {
+			if utils.ContainsString(excludeRule.Images, container.Image) {
+				// Add to matchingContainers if either it's empty or is unique
+				if len(matchingContainers) == 0 {
+					matchingContainers = append(matchingContainers, container)
+				} else {
+					for _, matchingContainer := range matchingContainers {
+						if matchingContainer.Name != container.Name {
+							matchingContainers = append(matchingContainers, container)
+						}
+					}
+				}
+			}
+		}
+	}
+	return matchingContainers
+}
+
+// Get containers NOT matching images specified in Exclude values
+func ContainersNotMatchingImages(exclude []*v1.PodSecurityStandard, containers []corev1.Container) []corev1.Container {
+	var notMatchingContainers []corev1.Container
+
+	for _, container := range containers {
+		for _, excludeRule := range exclude {
+			if !utils.ContainsString(excludeRule.Images, container.Image) {
+				// Add to matchingContainers if either it's empty or is unique
+				if len(notMatchingContainers) == 0 {
+					notMatchingContainers = append(notMatchingContainers, container)
+				} else {
+					for _, notMatchingContainer := range notMatchingContainers {
+						if notMatchingContainer.Name != container.Name {
+							notMatchingContainers = append(notMatchingContainers, container)
+						}
+					}
+				}
+			}
+		}
+	}
+	return notMatchingContainers
+}
+
+// Evaluate Pod's specified containers only and get PSSCheckResults
+func EvaluatePSS(containers []corev1.Container, lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
 	checks := policy.DefaultChecks()
+
+	// Remove containers that don't match images
+	copyPodSpec := *podSpec
+	copyPodSpec.Containers = containers
+
+	fmt.Printf("[Containers]: %+v\n", containers)
 
 	for _, check := range checks {
 
 		// Restricted ? Baseline + Restricted (cumulative)
 		// Baseline ? Then ignore checks for Restricted
-		// fmt.Printf("current level: %s, check level: %s\n", lv.Level, check.Level)
 		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
 			continue
 		}
 
-		// check version
-		for _, versionCheck := range check.Versions {
-			res := versionCheck.CheckPod(podMetadata, podSpec)
-			// fmt.Printf("%v, res: %v\n", versionCheck, res)
-			if !res.Allowed {
-				fmt.Printf("[Check Error]: %+v\n", res)
-				results = append(results, res)
+		for _, container := range containers {
+			// check version
+			for _, versionCheck := range check.Versions {
+				res := versionCheck.CheckPod(podMetadata, &copyPodSpec)
+				if !res.Allowed {
+					fmt.Printf("[Container]: %+v\n", container)
+					fmt.Printf("[Check Error]: %+v\n", res)
+					results = append(results, PSSCheckResult{
+						ID:               check.ID,
+						CheckResult:      res,
+						RestrictedFields: PSS_Controls[check.ID],
+					})
+				}
+
 			}
 		}
 	}
 	return results
 }
 
-func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
-	ctx := enginectx.NewContext()
-
-	for _, exclude := range rule.Exclude {
-		if !imagesMatched(podSpec, exclude.Images) {
-			continue
-		}
-
-		// double check if the given RestrictedField violates the specific profile?
-		// need a RestrictedField - check ID map to fetch psa Check
-
-		if podObjectMeta != nil {
-			if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-				return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-			}
-		} else {
-			if err := ctx.AddJSONObject(podSpec); err != nil {
-				return false, errors.Wrap(err, "failed to add podSpec to engine context")
-			}
-		}
-
-		value, err := ctx.Query(exclude.RestrictedField)
-		if err != nil {
-			return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
-		}
-
-		fmt.Printf("[Exclude]: %+v\n", exclude)
-		fmt.Printf("[Restricted Field Value]: %+v\n", value)
-
-		// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
-		if len(exclude.Values) == 0 {
-			return true, nil
-		}
-
-		if !allowedValues(value, exclude) {
-			return false, nil
+func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStandard) bool {
+	for _, restrictedField := range check.RestrictedFields {
+		if restrictedField.path != exclude.RestrictedField {
+			return false
 		}
 	}
+	return true
+}
 
+// Check if all PSSCheckResults are exempted by Exclude values
+func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Container, rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
+	ctx := enginectx.NewContext()
+
+	// The number of CheckResults and Exclude must be the same
+	if len(checks) != len(rule.Exclude) {
+		return false, nil
+	}
+	for _, check := range checks {
+		for _, exclude := range rule.Exclude {
+			// Check if any exclude value is missing from PSSCheckResults
+			if !checkResultMatchesExclude(check, exclude) {
+				continue
+			}
+
+			for _, container := range matchingContainers {
+				fmt.Printf("[Container]: %+v\n", container)
+
+				// if podObjectMeta != nil {
+				// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+				// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+				// 	}
+				// }
+				// if podSpec != nil {
+				if err := ctx.AddJSONObject(container); err != nil {
+					return false, errors.Wrap(err, "failed to add podSpec to engine context")
+				}
+
+				value, err := ctx.Query(exclude.RestrictedField)
+				if err != nil {
+					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+				}
+
+				fmt.Printf("[Exclude]: %+v\n", exclude)
+
+				// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+				if len(exclude.Values) == 0 {
+					return true, nil
+				}
+
+				if !allowedValues(value, exclude) {
+					return false, nil
+				}
+			}
+		}
+	}
 	return true, nil
 }
 
+// If the returned error from EvaluatePSS is exempted
+// func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
+// 	ctx := enginectx.NewContext()
+
+// 	for _, exclude := range rule.Exclude {
+// 		for _, container := range podSpec.Containers {
+// 			// Check if the container image matches the image specified in exclude
+// 			if !utils.ContainsString(exclude.Images, container.Image) {
+// 				continue
+// 			}
+// 			fmt.Printf("[Container]: %+v\n", container)
+// 			// double check if the given RestrictedField violates the specific profile?
+
+// 			// need a RestrictedField - check ID map to fetch psa Check
+
+// 			// if podObjectMeta != nil {
+// 			// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+// 			// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+// 			// 	}
+// 			// }
+// 			// if podSpec != nil {
+// 			if err := ctx.AddJSONObject(container); err != nil {
+// 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
+// 			}
+// 			// }
+
+// 			value, err := ctx.Query(exclude.RestrictedField)
+// 			if err != nil {
+// 				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+// 			}
+
+// 			fmt.Printf("[Exclude]: %+v\n", exclude)
+
+// 			// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+// 			if len(exclude.Values) == 0 {
+// 				return true, nil
+// 			}
+
+// 			if !allowedValues(value, exclude) {
+// 				return false, nil
+// 			}
+// 		}
+// 	}
+// 	return true, nil
+// }
+
+// only matches the rules
 func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 	for _, container := range podSpec.Containers {
 		if utils.ContainsString(images, container.Image) {
@@ -134,6 +329,15 @@ func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
 		}
 	}
 
+	return false
+}
+
+func namespaceMatched(podMetadata *metav1.ObjectMeta, namespace string) bool {
+	fmt.Printf("podMetadata.Namespace: %s\n", podMetadata.Namespace)
+	fmt.Printf("namespace: %s\n", namespace)
+	if podMetadata.Namespace == namespace {
+		return true
+	}
 	return false
 }
 
