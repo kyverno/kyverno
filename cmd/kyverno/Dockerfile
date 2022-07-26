@@ -34,4 +34,4 @@ FROM ghcr.io/distroless/static:latest
 LABEL maintainer="Kyverno"
 COPY --from=builder /output/kyverno /
 
-ENTRYPOINT ["./kyverno"]
+ENTRYPOINT ["/kyverno"]
