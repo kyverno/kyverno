@@ -9,6 +9,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,10 +43,11 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
+func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
+	_, k := kubeutils.GetKindFromGVK(kind)
+	resourceList, err := pc.client.ListResource("", k, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
+		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
 
@@ -64,15 +66,8 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	switch typedList := list.(type) {
-	case []*unstructured.Unstructured:
-		for _, r := range typedList {
-			if pc.match(*r, rule) {
-				resourceMap[string(r.GetUID())] = *r
-			}
-		}
-	case *unstructured.UnstructuredList:
-		for _, r := range typedList.Items {
+	if list != nil {
+		for _, r := range list.Items {
 			if pc.match(r, rule) {
 				resourceMap[string(r.GetUID())] = r
 			}

@@ -56,7 +56,7 @@ func defaultBackgroundFlag(spec *kyvernov1.Spec, log logr.Logger) ([]byte, strin
 	if spec.Background == nil {
 		defaultVal := true
 		log.V(4).Info("setting default value", "spec.background", true)
-		patchByte, err := jsonutils.MarshalPatch("/spec/background", "add", &defaultVal)
+		patchByte, err := jsonutils.MarshalPatchOperation("/spec/background", "add", &defaultVal)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.background", true)
 			return nil, ""
@@ -72,7 +72,7 @@ func defaultvalidationFailureAction(spec *kyvernov1.Spec, log logr.Logger) ([]by
 	if spec.ValidationFailureAction == "" {
 		audit := kyvernov1.Audit
 		log.V(4).Info("setting default value", "spec.validationFailureAction", audit)
-		patchByte, err := jsonutils.MarshalPatch("/spec/validationFailureAction", "add", audit)
+		patchByte, err := jsonutils.MarshalPatchOperation("/spec/validationFailureAction", "add", audit)
 		if err != nil {
 			log.Error(err, "failed to default value", "spec.validationFailureAction", audit)
 			return nil, ""
@@ -88,7 +88,7 @@ func defaultFailurePolicy(spec *kyvernov1.Spec, log logr.Logger) ([]byte, string
 	if spec.FailurePolicy == nil {
 		failurePolicy := string(kyvernov1.Fail)
 		log.V(4).Info("setting default value", "spec.failurePolicy", failurePolicy)
-		patchByte, err := jsonutils.MarshalPatch("/spec/failurePolicy", "add", failurePolicy)
+		patchByte, err := jsonutils.MarshalPatchOperation("/spec/failurePolicy", "add", failurePolicy)
 		if err != nil {
 			log.Error(err, "failed to set default value", "spec.failurePolicy", failurePolicy)
 			return nil, ""
@@ -155,13 +155,13 @@ func defaultPodControllerAnnotation(ann map[string]string, controllers string) (
 	if ann == nil {
 		ann = make(map[string]string)
 		ann[kyvernov1.PodControllersAnnotation] = controllers
-		patchByte, err := jsonutils.MarshalPatch("/metadata/annotations", "add", ann)
+		patchByte, err := jsonutils.MarshalPatchOperation("/metadata/annotations", "add", ann)
 		if err != nil {
 			return nil, err
 		}
 		return patchByte, nil
 	}
-	patchByte, err := jsonutils.MarshalPatch("/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers", "add", controllers)
+	patchByte, err := jsonutils.MarshalPatchOperation("/metadata/annotations/pod-policies.kyverno.io~1autogen-controllers", "add", controllers)
 	if err != nil {
 		return nil, err
 	}

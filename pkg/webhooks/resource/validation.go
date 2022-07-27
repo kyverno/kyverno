@@ -27,7 +27,7 @@ type validationHandler struct {
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func (v *validationHandler) handleValidation(
-	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
@@ -65,9 +65,9 @@ func (v *validationHandler) handleValidation(
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go registerPolicyResultsMetricValidation(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go registerPolicyExecutionDurationMetricValidate(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -90,7 +90,7 @@ func (v *validationHandler) handleValidation(
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
-		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, promConfig, logger)
+		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 		return false, getBlockedMessages(engineResponses), nil
 	}
 
@@ -122,10 +122,10 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 	}
 }
 
-func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp int64, engineResponses []*response.EngineResponse, promConfig *metrics.PromConfig, logger logr.Logger) {
+func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp int64, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
 	// registering the kyverno_admission_review_duration_seconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	// registering the kyverno_admission_requests_total metric concurrently
-	go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
+	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
+	return true, ""
 }

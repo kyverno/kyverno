@@ -44,7 +44,7 @@ type handlers struct {
 
 	// config
 	configuration config.Configuration
-	promConfig    *metrics.PromConfig
+	metricsConfig *metrics.MetricsConfig
 
 	// cache
 	pCache policycache.Cache
@@ -66,7 +66,7 @@ func NewHandlers(
 	client dclient.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	configuration config.Configuration,
-	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 	pCache policycache.Cache,
 	nsLister corev1listers.NamespaceLister,
 	rbLister rbacv1listers.RoleBindingLister,
@@ -82,7 +82,7 @@ func NewHandlers(
 		client:            client,
 		kyvernoClient:     kyvernoClient,
 		configuration:     configuration,
-		promConfig:        promConfig,
+		metricsConfig:     metricsConfig,
 		pCache:            pCache,
 		nsLister:          nsLister,
 		rbLister:          rbLister,
@@ -179,7 +179,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		prGenerator: h.prGenerator,
 	}
 
-	ok, msg, warnings := vh.handleValidation(h.promConfig, request, policies, policyContext, namespaceLabels, requestTime)
+	ok, msg := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
@@ -192,7 +192,8 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		return admissionutils.ResponseSuccessWithWarnings(warnings)
 	}
 
-	return admissionutils.ResponseSuccess()
+	logger.V(4).Info("completed validating webhook")
+	return admissionutils.ResponseSuccess(true, "")
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
@@ -242,13 +243,16 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseFailure(err.Error())
 	}
 
+	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
 	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
 		warnings := append(mutateWarnings, imageVerifyWarnings...)
 		logger.V(2).Info("mutation webhook", "warnings", warnings)
-		return admissionutils.ResponseSuccessWithPatchAndWarnings(append(mutatePatches, imagePatches...), warnings)
+		return admissionutils.ResponseSuccessWithPatchAndWarnings(patch, warnings)
 	}
 
-	return admissionutils.ResponseSuccessWithPatch(append(mutatePatches, imagePatches...))
+	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
+	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
+	return admissionResponse
 }
 
 func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {

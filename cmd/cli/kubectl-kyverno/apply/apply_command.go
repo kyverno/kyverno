@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/kubernetes"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
@@ -127,7 +128,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			printReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
+			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
 			return nil
 		},
 	}
@@ -138,7 +139,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&userInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
-	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
+	cmd.Flags().BoolVarP(&policyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -176,7 +177,11 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = dclient.NewClient(restConfig, 15*time.Minute, make(chan struct{}))
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return rc, resources, skipInvalidPolicies, pvInfos, err
+		}
+		dClient, err = dclient.NewClient(restConfig, kubeClient, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
@@ -260,9 +265,22 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
 
-	msgPolicies := "1 policy"
-	if len(mutatedPolicies) > 1 {
-		msgPolicies = fmt.Sprintf("%d policies", len(policies))
+	var policyRulesCount, mutatedPolicyRulesCount int
+	for _, policy := range policies {
+		policyRulesCount += len(policy.GetSpec().Rules)
+	}
+
+	for _, policy := range mutatedPolicies {
+		mutatedPolicyRulesCount += len(policy.GetSpec().Rules)
+	}
+
+	msgPolicyRules := "1 policy rule"
+	if policyRulesCount > 1 {
+		msgPolicyRules = fmt.Sprintf("%d policy rules", policyRulesCount)
+	}
+
+	if mutatedPolicyRulesCount > policyRulesCount {
+		msgPolicyRules = fmt.Sprintf("%d policy rules", mutatedPolicyRulesCount)
 	}
 
 	msgResources := "1 resource"
@@ -272,7 +290,11 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		if !stdin {
-			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)\n", msgPolicies, msgResources)
+			if mutatedPolicyRulesCount > policyRulesCount {
+				fmt.Printf("\nauto-generated pod policies\nApplying %s to %s...\n", msgPolicyRules, msgResources)
+			} else {
+				fmt.Printf("\nApplying %s to %s...\n", msgPolicyRules, msgResources)
+			}
 		}
 	}
 
@@ -346,8 +368,8 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 	return mutateLogPathIsDir, err
 }
 
-// printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+// PrintReportOrViolation - printing policy report/violations
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
