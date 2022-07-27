@@ -3100,7 +3100,7 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 						]
 					},
 					"namespaces": [
-						"staging"
+						"stagingfndkfndkjjj"
 					]
 				 },
 				 "validate": {
@@ -3202,7 +3202,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 									"nginx"
 								],
 								"values": [
-									"SYS_ADMIN"
+									"example"
 								]
 							}
 						]
@@ -3286,7 +3286,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "containers[*].securityContext.capabilities.add",
+								"restrictedField": "securityContext.capabilities.add",
 								"images": [
 									"nginx"
 								],
@@ -3345,3 +3345,27 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 	}
 	assert.Assert(t, er.IsFailed())
 }
+
+// CheckResult
+// {
+//   "Allowed":false,
+//   "ForbiddenReason":"non-default capabilities",
+//   "ForbiddenDetail":"containers "init-container-nginx-host-network", "nginx-host-network" must not include "SYS_ADMIN", "SYS_NICE" in securityContext.capabilities.add",
+// }
+
+// "non-default capabilities":
+
+// path: "securityContext.capabilities.add"
+// values: [
+// 	"SYS_ADMIN"
+// 	"SYS_ROOT"
+// ]
+
+// static
+// check: [
+// {
+// 	id: {
+// 		path:
+// 		allowedValues:
+// 	},
+// }]

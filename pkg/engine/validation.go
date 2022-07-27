@@ -372,15 +372,11 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		fmt.Printf("Error while unmarshalling metadata\n")
 	}
 
-	// fmt.Printf("== Metadata: %+v\n", metadata)
-
 	err = json.Unmarshal(marshalledSpec, &podSpec)
 
 	if err != nil {
 		fmt.Printf("Error while unmarshalling podSpec\n")
 	}
-
-	// fmt.Printf("== PodSpec: %+v\n", podSpec)
 
 	// Get pod security admission version
 	var apiVersion api.Version
@@ -407,36 +403,18 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	fmt.Printf("== Version: %+v\n", level)
 
 	// Evaluate the pod
-	results := pss.EvaluatePSS(level, &metadata, &podSpec)
-
-	numberOfErrors := len(results)
-	fmt.Printf("== Evaluate PSS results: %+v\n", results)
-	fmt.Printf("== Number of errors: %d\n", numberOfErrors)
-
-	// Check if the returned errors are exempted from the rule
-	// `CheckResult` is not formalized, hence it's difficult to get the path / forbidden values from it
-	allowed, err := pss.ExemptProfile(&v.podSecurity, &podSpec, nil)
+	allowed, err := pss.EvaluatePod(&v.podSecurity, &podSpec, &metadata, &level)
 	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
-	// var responseStatus response.RuleStatus
-
 	if allowed {
-		// responseStatus = response.RuleStatusPass
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
 
 	} else {
-		msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
+		msg := fmt.Sprintf("Pod '%s' could not be created.", v.ctx.NewResource.GetName())
+		// msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
 		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusFail)
-		// responseStatus = response.RuleStatusFail
 	}
-
-	// Set others fields
-	// var ruleResponse *response.RuleResponse = &response.RuleResponse{
-	// 	Status:  responseStatus,
-	// 	Message: "toto",
-	// }
-	// return ruleResponse
 }
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {
