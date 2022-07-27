@@ -186,8 +186,7 @@ func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitG
 	if err == nil {
 		for _, cpol := range cpols.Items {
 			cpol.Status.SetReady(false)
-			_, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{})
-			if err != nil {
+			if _, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set ClusterPolicy status READY=false", "name", cpol.GetName())
 			}
 		}
@@ -199,8 +198,7 @@ func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitG
 	if err == nil {
 		for _, pol := range pols.Items {
 			pol.Status.SetReady(false)
-			_, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{})
-			if err != nil {
+			if _, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set Policy status READY=false", "namespace", pol.GetNamespace(), "name", pol.GetName())
 			}
 		}
