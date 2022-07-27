@@ -189,7 +189,11 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 	}
 
 	podSpec := newPrivilegedContainersPodSpec()
-	allowed, err := EvaluatePod(podSecurityRule, podSpec, podObjectMeta, level)
+	pod := &corev1.Pod{
+		Spec:       *podSpec,
+		ObjectMeta: *podObjectMeta,
+	}
+	allowed, err := EvaluatePod(podSecurityRule, pod, level)
 
 	assert.NoError(t, err)
 	assert.True(t, allowed)
@@ -202,27 +206,27 @@ func newPrivilegedContainersRule() *v1.PodSecurity {
 		Version: "v1.24",
 		Exclude: []*v1.PodSecurityStandard{
 			{
-				RestrictedField: "securityContext.privileged",
+				RestrictedField: "spec.containers[*].securityContext.privileged",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
 				Values:          []string{"true"},
 			},
 			{
-				RestrictedField: "securityContext.runAsNonRoot",
+				RestrictedField: "spec.containers[*].securityContext.runAsNonRoot",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
 				Values:          []string{"false"},
 			},
 			{
-				RestrictedField: "securityContext.allowPrivilegeEscalation",
+				RestrictedField: "spec.containers[*].securityContext.allowPrivilegeEscalation",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
 				Values:          []string{"true"},
 			},
 			{
-				RestrictedField: "securityContext.privileged",
+				RestrictedField: "spec.containers[*].securityContext.privileged",
 				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
 				Values:          []string{"true"},
 			},
 			{
-				RestrictedField: "securityContext.runAsNonRoot",
+				RestrictedField: "spec.containers[*].securityContext.runAsNonRoot",
 				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
 				Values:          []string{"false"},
 			},

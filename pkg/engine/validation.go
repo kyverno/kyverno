@@ -395,7 +395,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	if err != nil {
 		fmt.Printf("error while parsing api version: %+v\n", err)
 	}
-	level := api.LevelVersion{
+	level := &api.LevelVersion{
 		Level:   v.podSecurity.Level,
 		Version: apiVersion,
 	}
@@ -403,7 +403,11 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	fmt.Printf("== Version: %+v\n", level)
 
 	// Evaluate the pod
-	allowed, err := pss.EvaluatePod(&v.podSecurity, &podSpec, &metadata, &level)
+	pod := &corev1.Pod{
+		Spec:       podSpec,
+		ObjectMeta: metadata,
+	}
+	allowed, err := pss.EvaluatePod(&v.podSecurity, pod, level)
 	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
 	if allowed {

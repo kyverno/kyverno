@@ -75,7 +75,7 @@ var PSS_Controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
 	"privileged": {
 		{
-			path: "securityContext.privileged",
+			path: "spec.containers[*].securityContext.privileged",
 			allowedValues: []interface{}{
 				false,
 				nil,
@@ -84,7 +84,7 @@ var PSS_Controls = map[string][]restrictedField{
 	},
 	"runAsNonRoot": {
 		{
-			path: "securityContext.runAsNonRoot",
+			path: "spec.containers[*].securityContext.runAsNonRoot",
 			allowedValues: []interface{}{
 				true,
 				nil,
@@ -93,7 +93,7 @@ var PSS_Controls = map[string][]restrictedField{
 	},
 	"allowPrivilegeEscalation": {
 		{
-			path: "securityContext.allowPrivilegeEscalation",
+			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
 			allowedValues: []interface{}{
 				false,
 				nil,
@@ -201,7 +201,7 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 }
 
 // Check if all PSSCheckResults are exempted by Exclude values
-func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Container, rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
+func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Container, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	// The number of CheckResults must less than exclude values
@@ -228,7 +228,9 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 				// 	}
 				// }
 				// if podSpec != nil {
-				if err := ctx.AddJSONObject(container); err != nil {
+
+				fmt.Printf("[Pod]: %+v\n", pod)
+				if err := ctx.AddJSONObject(pod); err != nil {
 					return false, errors.Wrap(err, "failed to add podSpec to engine context")
 				}
 
@@ -253,18 +255,19 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 	return true, nil
 }
 
-func EvaluatePod(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta, level *api.LevelVersion) (bool, error) {
+// Check if the pod creation is allowed after exempting some PSS controls
+func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, error) {
 	// 1. Evaluate containers that match images specified in exclude
 	fmt.Println("\n== [EvaluatePSS, for containers that maches images specified in exclude] ==")
-	matchingContainers := ContainersMatchingImages(rule.Exclude, podSpec.Containers)
-	pssChecks := EvaluatePSS(matchingContainers, level, podObjectMeta, podSpec)
+	matchingContainers := ContainersMatchingImages(rule.Exclude, pod.Spec.Containers)
+	pssChecks := EvaluatePSS(matchingContainers, level, &pod.ObjectMeta, &pod.Spec)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 
 	// 2. Check if all PSSCheckResults are exempted by exclude values
 	// Yes ? Evaluate pod's other containers
 	// No ? Pod creation forbidden
 	fmt.Println("\n== [ExemptProfile] ==")
-	allowed, err := ExemptProfile(pssChecks, matchingContainers, rule, podSpec, podObjectMeta)
+	allowed, err := ExemptProfile(pssChecks, matchingContainers, rule, pod)
 	if err != nil {
 		return false, err
 	}
@@ -274,8 +277,8 @@ func EvaluatePod(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *m
 
 	// 3. Optional, only when ExemptProfile() returns true
 	fmt.Println("\n== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
-	notMatchingContainers := ContainersNotMatchingImages(rule.Exclude, podSpec.Containers, matchingContainers)
-	pssChecks = EvaluatePSS(notMatchingContainers, level, podObjectMeta, podSpec)
+	notMatchingContainers := ContainersNotMatchingImages(rule.Exclude, pod.Spec.Containers, matchingContainers)
+	pssChecks = EvaluatePSS(notMatchingContainers, level, &pod.ObjectMeta, &pod.Spec)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 	if len(pssChecks) > 0 {
 		return false, nil
@@ -387,6 +390,7 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 		} else {
 			fmt.Println(values, "is something else entirely")
 		}
+		return true
 	}
 	return true
 }

@@ -3286,7 +3286,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "securityContext.capabilities.add",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.add",
 								"images": [
 									"nginx"
 								],
