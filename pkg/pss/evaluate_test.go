@@ -178,39 +178,21 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 	if err != nil {
 		fmt.Printf("error while parsing api version: %+v\n", err)
 	}
-	lv := api.LevelVersion{
+	level := &api.LevelVersion{
 		Level:   podSecurityRule.Level,
 		Version: apiVersionStruct,
 	}
 
-	podMeta := &metav1.ObjectMeta{
+	podObjectMeta := &metav1.ObjectMeta{
 		Name:      "test",
 		Namespace: "test-namespace",
 	}
 
 	podSpec := newPrivilegedContainersPodSpec()
+	allowed, err := EvaluatePod(podSecurityRule, podSpec, podObjectMeta, level)
 
-	// 1. Evaluate containers that match images specified in exclude
-	fmt.Println("\n== [EvaluatePSS, for containers that maches images specified in exclude] ==")
-	matchingContainers := ContainersMatchingImages(podSecurityRule.Exclude, podSpec.Containers)
-	pssChecks := EvaluatePSS(matchingContainers, lv, podMeta, podSpec)
-	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
-
-	// 2. Check if all PSSCheckResults are exempted by exclude values
-	// Yes ? Evaluate pod's other containers
-	// No ? Pod creation forbidden
-	fmt.Println("\n== [ExemptProfile] ==")
-	allowed, err := ExemptProfile(pssChecks, matchingContainers, podSecurityRule, podSpec, podMeta)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
-
-	// 3. Optional, only when ExemptProfile() returns true
-	fmt.Println("\n== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
-	notMatchingContainers := ContainersNotMatchingImages(podSecurityRule.Exclude, podSpec.Containers, matchingContainers)
-	pssChecks = EvaluatePSS(notMatchingContainers, lv, podMeta, podSpec)
-	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
-	assert.True(t, len(pssChecks) == 0, pssChecks)
-	fmt.Println("===========")
 }
 
 func newPrivilegedContainersRule() *v1.PodSecurity {

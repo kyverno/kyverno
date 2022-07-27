@@ -153,7 +153,7 @@ func ContainersNotMatchingImages(exclude []*v1.PodSecurityStandard, containers [
 }
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
-func EvaluatePSS(containers []corev1.Container, lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
+func EvaluatePSS(containers []corev1.Container, level *api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
 	checks := policy.DefaultChecks()
 
 	// Remove containers that don't match images
@@ -166,7 +166,7 @@ func EvaluatePSS(containers []corev1.Container, lv api.LevelVersion, podMetadata
 
 		// Restricted ? Baseline + Restricted (cumulative)
 		// Baseline ? Then ignore checks for Restricted
-		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
+		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			continue
 		}
 
@@ -249,6 +249,36 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 				}
 			}
 		}
+	}
+	return true, nil
+}
+
+func EvaluatePod(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta, level *api.LevelVersion) (bool, error) {
+	// 1. Evaluate containers that match images specified in exclude
+	fmt.Println("\n== [EvaluatePSS, for containers that maches images specified in exclude] ==")
+	matchingContainers := ContainersMatchingImages(rule.Exclude, podSpec.Containers)
+	pssChecks := EvaluatePSS(matchingContainers, level, podObjectMeta, podSpec)
+	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
+
+	// 2. Check if all PSSCheckResults are exempted by exclude values
+	// Yes ? Evaluate pod's other containers
+	// No ? Pod creation forbidden
+	fmt.Println("\n== [ExemptProfile] ==")
+	allowed, err := ExemptProfile(pssChecks, matchingContainers, rule, podSpec, podObjectMeta)
+	if err != nil {
+		return false, err
+	}
+	if !allowed {
+		return false, nil
+	}
+
+	// 3. Optional, only when ExemptProfile() returns true
+	fmt.Println("\n== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
+	notMatchingContainers := ContainersNotMatchingImages(rule.Exclude, podSpec.Containers, matchingContainers)
+	pssChecks = EvaluatePSS(notMatchingContainers, level, podObjectMeta, podSpec)
+	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
+	if len(pssChecks) > 0 {
+		return false, nil
 	}
 	return true, nil
 }
