@@ -3099,7 +3099,7 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 						  "Pod"
 						],
 						"namespaces": [
-							"stagingfndkfndkjjj"
+							"staging"
 						]
 					}
 				 },
@@ -3258,6 +3258,198 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 }
 
 func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_exclude(t *testing.T) {
+
+	// Baseline, fail: missing exclude value for nodejs
+	// rawPolicy := []byte(`
+	// {
+	// 	"apiVersion": "kyverno.io/v1",
+	// 	"kind": "ClusterPolicy",
+	// 	"metadata": {
+	// 	   "name": "validate-baseline-privileged-container"
+	// 	},
+	// 	"spec": {
+	// 		"validationFailureAction": "enforce",
+	// 		"rules": [
+	// 			{
+	// 			"name": "validate-baseline-privileged-container",
+	// 			"match": {
+	// 				"resources": {
+	// 				   "kinds": [
+	// 					  "Pod"
+	// 					],
+	// 					"namespaces": [
+	// 						"staging"
+	// 					]
+	// 				}
+	// 			 },
+	// 			 "validate": {
+	// 				"podSecurity": {
+	// 					"level": "baseline",
+	// 					"version": "v1.24",
+	// 					"exclude": [
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 							"images": [
+	// 								"ghcr.io/example/nginx:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						},
+	// 					]
+	// 				}
+	// 			 }
+	// 		  }
+	// 	   ]
+	// 	}
+	//  }
+	//  `)
+
+	// Baseline, Pass
+	// rawPolicy := []byte(`
+	// {
+	// 	"apiVersion": "kyverno.io/v1",
+	// 	"kind": "ClusterPolicy",
+	// 	"metadata": {
+	// 	   "name": "validate-baseline-privileged-container"
+	// 	},
+	// 	"spec": {
+	// 		"validationFailureAction": "enforce",
+	// 		"rules": [
+	// 			{
+	// 			"name": "validate-baseline-privileged-container",
+	// 			"match": {
+	// 				"resources": {
+	// 				   "kinds": [
+	// 					  "Pod"
+	// 					],
+	// 					"namespaces": [
+	// 						"staging"
+	// 					]
+	// 				}
+	// 			 },
+	// 			 "validate": {
+	// 				"podSecurity": {
+	// 					"level": "restricted",
+	// 					"version": "v1.24",
+	// 					"exclude": [
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 							"images": [
+	// 								"ghcr.io/example/nginx:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						},
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 							"images": [
+	// 								"ghcr.io/example/nodejs:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						}
+	// 					]
+	// 				}
+	// 			 }
+	// 		  }
+	// 	   ]
+	// 	}
+	//  }
+	//  `)
+
+	// Baseline
+	// rawResource := []byte(`
+	//  {
+	// 	"apiVersion": "v1",
+	// 	"kind": "Pod",
+	// 	"metadata": {
+	// 	   "name": "nginx-baseline-privileged-container",
+	// 	   "namespace": "staging"
+	// 	},
+	// 	"spec": {
+	// 	   "hostNetwork": false,
+	// 	   "containers": [
+	// 		{
+	// 			"name": "nginx",
+	// 			"image": "ghcr.io/example/nginx:1.2.3",
+	// 			"securityContext": {
+	// 				"privileged": true,
+	// 				"runAsNonRoot": false,
+	// 				"allowPrivilegeEscalation": true
+	// 			}
+	// 		},
+	// 		{
+	// 			"name": "nodejs",
+	// 			"image": "ghcr.io/example/nodejs:1.2.3",
+	// 			"securityContext": {
+	// 				"privileged": true,
+	// 				"runAsNonRoot": false,
+	// 				"allowPrivilegeEscalation": true
+	// 			}
+	// 		}
+	// 		]
+	// 	}
+	//  }
+	//  `)
+
+	// Restricted, Fail: a PSSCheck didn't match any exclude value: allowPrivilegeEscalation != false for nginx and nodejs containers
+	// rawPolicy := []byte(`
+	// 	{
+	// 		"apiVersion": "kyverno.io/v1",
+	// 		"kind": "ClusterPolicy",
+	// 		"metadata": {
+	// 		   "name": "validate-baseline-privileged-container"
+	// 		},
+	// 		"spec": {
+	// 			"validationFailureAction": "enforce",
+	// 			"rules": [
+	// 				{
+	// 				"name": "validate-baseline-privileged-container",
+	// 				"match": {
+	// 					"resources": {
+	// 					   "kinds": [
+	// 						  "Pod"
+	// 						],
+	// 						"namespaces": [
+	// 							"staging"
+	// 						]
+	// 					}
+	// 				 },
+	// 				 "validate": {
+	// 					"podSecurity": {
+	// 						"level": "restricted",
+	// 						"version": "v1.24",
+	// 						"exclude": [
+	// 							{
+	// 								"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 								"images": [
+	// 									"ghcr.io/example/nginx:1.2.3"
+	// 								],
+	// 								"values": [
+	// 									"true"
+	// 								]
+	// 							},
+	// 							{
+	// 								"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 								"images": [
+	// 									"ghcr.io/example/nodejs:1.2.3"
+	// 								],
+	// 								"values": [
+	// 									"true"
+	// 								]
+	// 							}
+	// 						]
+	// 					}
+	// 				 }
+	// 			  }
+	// 		   ]
+	// 		}
+	// 	 }
+	// 	 `)
+
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -3282,18 +3474,54 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 				 },
 				 "validate": {
 					"podSecurity": {
-						"level": "baseline",
+						"level": "restricted",
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+								"restrictedField": "spec.containers[*].securityContext.privileged",
 								"images": [
-									"nginx"
+									"ghcr.io/example/nginx:1.2.3"
 								],
 								"values": [
-									"SYS_ADMIN"
+									"true"
 								]
 							},
+							{
+								"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
+								"images": [
+									"ghcr.io/example/nginx:1.2.3"
+								],
+								"values": [
+									"false"
+								]
+							},
+							{
+								"restrictedField": "spec.containers[*].securityContext.allowPrivilegeEscalation",
+								"images": [
+									"ghcr.io/example/nginx:1.2.3"
+								],
+								"values": [
+									"true"
+								]
+							},
+							{
+								"restrictedField": "spec.containers[*].securityContext.privileged",
+								"images": [
+									"ghcr.io/example/nodejs:1.2.3"
+								],
+								"values": [
+									"true"
+								]
+							},
+							{
+								"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
+								"images": [
+									"ghcr.io/example/nodejs:1.2.3"
+								],
+								"values": [
+									"false"
+								]
+							}
 						]
 					}
 				 }
@@ -3303,33 +3531,56 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 	 }
 	 `)
 
+	// Restricted
 	rawResource := []byte(`
-	 {
-		"apiVersion": "v1",
-		"kind": "Pod",
-		"metadata": {
-		   "name": "nginx-baseline-privileged-container",
-		   "namespace": "staging"
-		},
-		"spec": {
-		   "hostNetwork": false,
-		   "containers": [
-			  {
-				 "name": "nginx-host-network",
-				 "image": "nginx",
-				 "securityContext": {
-					"privileged": true,
-					"capabilities": { 
-						"add": [
-							"SYS_ADMIN"
+	{
+	   "apiVersion": "v1",
+	   "kind": "Pod",
+	   "metadata": {
+		  "name": "nginx-baseline-privileged-container",
+		  "namespace": "staging"
+	   },
+	   "spec": {
+		  "hostNetwork": false,
+		  "containers": [
+		   {
+			   "name": "nginx",
+			   "image": "ghcr.io/example/nginx:1.2.3",
+			   "securityContext": {
+				   "privileged": true,
+				   "runAsNonRoot": false,
+				   "allowPrivilegeEscalation": true,
+				   "seccompProfile": {
+						"type": "Localhost"
+				   },
+				   "capabilities": {
+						"drop": [
+							"ALL"
+						]
+				   }
+			   }
+		   },
+		   {
+			   "name": "nodejs",
+			   "image": "ghcr.io/example/nodejs:1.2.3",
+			   "securityContext": {
+				   "privileged": true,
+				   "runAsNonRoot": false,
+				   "allowPrivilegeEscalation": true,
+				   "seccompProfile": {
+						"type": "Localhost"
+			   		},
+			   		"capabilities": {
+						"drop": [
+							"ALL"
 						]
 					}
-				 }
-			  }
-			]
-		}
-	 }
-	 `)
+				}
+		   }
+		   ]
+	   }
+	}
+	`)
 
 	var policy kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
@@ -3344,7 +3595,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 		fmt.Printf("== Response: %+v\n", r.Message)
 		// assert.Equal(t, r.Message, msgs[index])
 	}
-	assert.Assert(t, er.IsFailed())
+	assert.Assert(t, er.IsSuccessful())
 }
 
 // CheckResult

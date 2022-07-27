@@ -244,13 +244,15 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 			}
 			matchedExcludeControl = true
 
-			fmt.Printf("[Check]: %+v\n", check)
+			fmt.Printf("\n[Check]: %+v\n", check)
 
 			for _, container := range matchingContainers {
 				// We can have the same Exclude.RestrictedField for multiple containers, select the right one
 				if exclude.Images[0] != container.Image {
 					continue
 				}
+
+				fmt.Printf("[Exclude]: %+v\n", exclude)
 				fmt.Printf("[Container]: %+v\n", container)
 
 				// if podObjectMeta != nil {
@@ -267,8 +269,6 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 				if err != nil {
 					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
 				}
-
-				fmt.Printf("[Exclude]: %+v\n", exclude)
 
 				// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
 				if len(exclude.Values) == 0 {
