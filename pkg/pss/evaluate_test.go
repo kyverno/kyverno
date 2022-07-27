@@ -206,7 +206,7 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 
 	// 3. Optional, only when ExemptProfile() returns true
 	fmt.Println("\n== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
-	notMatchingContainers := ContainersNotMatchingImages(podSecurityRule.Exclude, podSpec.Containers)
+	notMatchingContainers := ContainersNotMatchingImages(podSecurityRule.Exclude, podSpec.Containers, matchingContainers)
 	pssChecks = EvaluatePSS(notMatchingContainers, lv, podMeta, podSpec)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 	assert.True(t, len(pssChecks) == 0, pssChecks)
@@ -233,6 +233,16 @@ func newPrivilegedContainersRule() *v1.PodSecurity {
 				RestrictedField: "securityContext.allowPrivilegeEscalation",
 				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
 				Values:          []string{"true"},
+			},
+			{
+				RestrictedField: "securityContext.privileged",
+				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
+				Values:          []string{"true"},
+			},
+			{
+				RestrictedField: "securityContext.runAsNonRoot",
+				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
+				Values:          []string{"false"},
 			},
 		},
 	}
@@ -262,8 +272,8 @@ func newPrivilegedContainersPodSpec() *corev1.PodSpec {
 				Name:  "nodejs",
 				Image: "ghcr.io/example/nodejs:1.2.3",
 				SecurityContext: &corev1.SecurityContext{
-					Privileged:               &fakeFalse,
-					RunAsNonRoot:             &fakeTrue,
+					Privileged:               &fakeTrue,
+					RunAsNonRoot:             &fakeFalse,
 					AllowPrivilegeEscalation: &fakeFalse,
 					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
 					Capabilities: &corev1.Capabilities{

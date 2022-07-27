@@ -102,36 +102,24 @@ var PSS_Controls = map[string][]restrictedField{
 	},
 }
 
-// func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
-// 	checks := policy.DefaultChecks()
+func containsCheckResult(s []PSSCheckResult, element policy.CheckResult) bool {
+	for _, a := range s {
+		if a.CheckResult == element {
+			return true
+		}
+	}
+	return false
+}
 
-// 	for _, check := range checks {
-
-// 		// Restricted ? Baseline + Restricted (cumulative)
-// 		// Baseline ? Then ignore checks for Restricted
-// 		// fmt.Printf("current level: %s, check level: %s\n", lv.Level, check.Level)
-// 		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
-// 			continue
-// 		}
-
-// 		// check version
-// 		for _, versionCheck := range check.Versions {
-// 			res := versionCheck.CheckPod(podMetadata, podSpec)
-
-// 			// when pod creation is forbidden
-// 			// if the control name is in the exclude
-// 			if !res.Allowed {
-// 				fmt.Printf("[Check Error]: %+v\n", res)
-// 				results = append(results, PSSCheckResult{
-// 					ID:               check.ID,
-// 					CheckResult:      res,
-// 					RestrictedFields: PSS_Controls[check.ID],
-// 				})
-// 			}
-// 		}
-// 	}
-// 	return results
-// }
+func containsContainer(s []corev1.Container, element corev1.Container) bool {
+	for _, a := range s {
+		// Check container name because it's unique within a Pod
+		if a.Name == element.Name {
+			return true
+		}
+	}
+	return false
+}
 
 // Get containers matching images specified in Exclude values
 func ContainersMatchingImages(exclude []*v1.PodSecurityStandard, containers []corev1.Container) []corev1.Container {
@@ -143,12 +131,8 @@ func ContainersMatchingImages(exclude []*v1.PodSecurityStandard, containers []co
 				// Add to matchingContainers if either it's empty or is unique
 				if len(matchingContainers) == 0 {
 					matchingContainers = append(matchingContainers, container)
-				} else {
-					for _, matchingContainer := range matchingContainers {
-						if matchingContainer.Name != container.Name {
-							matchingContainers = append(matchingContainers, container)
-						}
-					}
+				} else if !containsContainer(matchingContainers, container) {
+					matchingContainers = append(matchingContainers, container)
 				}
 			}
 		}
@@ -157,23 +141,12 @@ func ContainersMatchingImages(exclude []*v1.PodSecurityStandard, containers []co
 }
 
 // Get containers NOT matching images specified in Exclude values
-func ContainersNotMatchingImages(exclude []*v1.PodSecurityStandard, containers []corev1.Container) []corev1.Container {
+func ContainersNotMatchingImages(exclude []*v1.PodSecurityStandard, containers []corev1.Container, matchingContainers []corev1.Container) []corev1.Container {
 	var notMatchingContainers []corev1.Container
 
 	for _, container := range containers {
-		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) {
-				// Add to matchingContainers if either it's empty or is unique
-				if len(notMatchingContainers) == 0 {
-					notMatchingContainers = append(notMatchingContainers, container)
-				} else {
-					for _, notMatchingContainer := range notMatchingContainers {
-						if notMatchingContainer.Name != container.Name {
-							notMatchingContainers = append(notMatchingContainers, container)
-						}
-					}
-				}
-			}
+		if !containsContainer(matchingContainers, container) {
+			notMatchingContainers = append(notMatchingContainers, container)
 		}
 	}
 	return notMatchingContainers
@@ -200,13 +173,14 @@ func EvaluatePSS(containers []corev1.Container, lv api.LevelVersion, podMetadata
 		for _, container := range containers {
 			// check version
 			for _, versionCheck := range check.Versions {
-				res := versionCheck.CheckPod(podMetadata, &copyPodSpec)
-				if !res.Allowed {
+				checkResult := versionCheck.CheckPod(podMetadata, &copyPodSpec)
+				// Append only if the checkResult is not already in PSSCheckResults
+				if !checkResult.Allowed && !containsCheckResult(results, checkResult) {
 					fmt.Printf("[Container]: %+v\n", container)
-					fmt.Printf("[Check Error]: %+v\n", res)
+					fmt.Printf("[Check Error]: %+v\n", checkResult)
 					results = append(results, PSSCheckResult{
 						ID:               check.ID,
-						CheckResult:      res,
+						CheckResult:      checkResult,
 						RestrictedFields: PSS_Controls[check.ID],
 					})
 				}
@@ -230,18 +204,22 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Container, rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
 	ctx := enginectx.NewContext()
 
-	// The number of CheckResults and Exclude must be the same
-	if len(checks) != len(rule.Exclude) {
-		return false, nil
-	}
+	// The number of CheckResults must less than exclude values
+	// if len(checks) > len(rule.Exclude) {
+	// 	return false, nil
+	// }
 	for _, check := range checks {
 		for _, exclude := range rule.Exclude {
-			// Check if any exclude value is missing from PSSCheckResults
+			// Check if PSSCheckResult.RestrictedField.path matches the Exclude.restrictedField
 			if !checkResultMatchesExclude(check, exclude) {
 				continue
 			}
 
 			for _, container := range matchingContainers {
+				// We can have the same Exclude.RestrictedField for multiple containers, select the right one
+				if exclude.Images[0] != container.Image {
+					continue
+				}
 				fmt.Printf("[Container]: %+v\n", container)
 
 				// if podObjectMeta != nil {
@@ -274,52 +252,6 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 	}
 	return true, nil
 }
-
-// If the returned error from EvaluatePSS is exempted
-// func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
-// 	ctx := enginectx.NewContext()
-
-// 	for _, exclude := range rule.Exclude {
-// 		for _, container := range podSpec.Containers {
-// 			// Check if the container image matches the image specified in exclude
-// 			if !utils.ContainsString(exclude.Images, container.Image) {
-// 				continue
-// 			}
-// 			fmt.Printf("[Container]: %+v\n", container)
-// 			// double check if the given RestrictedField violates the specific profile?
-
-// 			// need a RestrictedField - check ID map to fetch psa Check
-
-// 			// if podObjectMeta != nil {
-// 			// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-// 			// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-// 			// 	}
-// 			// }
-// 			// if podSpec != nil {
-// 			if err := ctx.AddJSONObject(container); err != nil {
-// 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
-// 			}
-// 			// }
-
-// 			value, err := ctx.Query(exclude.RestrictedField)
-// 			if err != nil {
-// 				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
-// 			}
-
-// 			fmt.Printf("[Exclude]: %+v\n", exclude)
-
-// 			// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
-// 			if len(exclude.Values) == 0 {
-// 				return true, nil
-// 			}
-
-// 			if !allowedValues(value, exclude) {
-// 				return false, nil
-// 			}
-// 		}
-// 	}
-// 	return true, nil
-// }
 
 // only matches the rules
 func imagesMatched(podSpec *corev1.PodSpec, images []string) bool {
@@ -429,7 +361,79 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 	return true
 }
 
-// }
-// func getCheck(path string) policy.Check {
+// func EvaluatePSS(lv api.LevelVersion, podMetadata *metav1.ObjectMeta, podSpec *corev1.PodSpec) (results []PSSCheckResult) {
+// 	checks := policy.DefaultChecks()
 
+// 	for _, check := range checks {
+
+// 		// Restricted ? Baseline + Restricted (cumulative)
+// 		// Baseline ? Then ignore checks for Restricted
+// 		// fmt.Printf("current level: %s, check level: %s\n", lv.Level, check.Level)
+// 		if lv.Level == api.LevelBaseline && check.Level != lv.Level {
+// 			continue
+// 		}
+
+// 		// check version
+// 		for _, versionCheck := range check.Versions {
+// 			res := versionCheck.CheckPod(podMetadata, podSpec)
+
+// 			// when pod creation is forbidden
+// 			// if the control name is in the exclude
+// 			if !res.Allowed {
+// 				fmt.Printf("[Check Error]: %+v\n", res)
+// 				results = append(results, PSSCheckResult{
+// 					ID:               check.ID,
+// 					CheckResult:      res,
+// 					RestrictedFields: PSS_Controls[check.ID],
+// 				})
+// 			}
+// 		}
+// 	}
+// 	return results
+// }
+
+// If the returned error from EvaluatePSS is exempted
+// func ExemptProfile(rule *v1.PodSecurity, podSpec *corev1.PodSpec, podObjectMeta *metav1.ObjectMeta) (bool, error) {
+// 	ctx := enginectx.NewContext()
+
+// 	for _, exclude := range rule.Exclude {
+// 		for _, container := range podSpec.Containers {
+// 			// Check if the container image matches the image specified in exclude
+// 			if !utils.ContainsString(exclude.Images, container.Image) {
+// 				continue
+// 			}
+// 			fmt.Printf("[Container]: %+v\n", container)
+// 			// double check if the given RestrictedField violates the specific profile?
+
+// 			// need a RestrictedField - check ID map to fetch psa Check
+
+// 			// if podObjectMeta != nil {
+// 			// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+// 			// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+// 			// 	}
+// 			// }
+// 			// if podSpec != nil {
+// 			if err := ctx.AddJSONObject(container); err != nil {
+// 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
+// 			}
+// 			// }
+
+// 			value, err := ctx.Query(exclude.RestrictedField)
+// 			if err != nil {
+// 				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+// 			}
+
+// 			fmt.Printf("[Exclude]: %+v\n", exclude)
+
+// 			// If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+// 			if len(exclude.Values) == 0 {
+// 				return true, nil
+// 			}
+
+// 			if !allowedValues(value, exclude) {
+// 				return false, nil
+// 			}
+// 		}
+// 	}
+// 	return true, nil
 // }
