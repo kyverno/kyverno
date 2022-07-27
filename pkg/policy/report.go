@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -95,9 +96,9 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 			changeRequestMapperNamespace[ns] = false
 
 			if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, info.Namespace); err != nil {
-				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			} else {
-				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns))
+				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			}
 
 			if info.MapperInactive {
@@ -113,22 +114,19 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 	}
 }
 
-func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error {
+func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, nslabels map[string]string) error {
 	var errors []string
-
 	var gracePeriod int64 = 0
 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
 
-	selector := &metav1.LabelSelector{
-		MatchLabels: labels,
-	}
+	selector := labels.SelectorFromSet(labels.Set(nslabels))
 
-	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	err := pclient.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
 
-	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	err = pclient.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -150,31 +148,37 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	var polrName string
 
 	if ns != nil {
-		polrName = policyreport.GeneratePolicyReportName(*ns)
-		if polrName != "" {
-			polr, err := reportLister.PolicyReports(*ns).Get(polrName)
+		if toggle.SplitPolicyReport() {
+			err = eraseSplitResultEntries(pclient, ns, selector)
 			if err != nil {
-				return fmt.Errorf("failed to erase results entries for PolicyReport %s: %v", polrName, err)
-			}
-
-			polr.Results = []v1alpha2.PolicyReportResult{}
-			polr.Summary = v1alpha2.PolicyReportSummary{}
-			if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
-				errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
+				errors = append(errors, fmt.Sprintf("%v", err))
 			}
 		} else {
-			cpolr, err := clusterReportLister.Get(polrName)
-			if err != nil {
-				errors = append(errors, err.Error())
-			}
+			polrName = policyreport.GeneratePolicyReportName(*ns, "")
+			if polrName != "" {
+				polr, err := reportLister.PolicyReports(*ns).Get(polrName)
+				if err != nil {
+					return fmt.Errorf("failed to erase results entries for PolicyReport %s: %v", polrName, err)
+				}
 
-			cpolr.Results = []v1alpha2.PolicyReportResult{}
-			cpolr.Summary = v1alpha2.PolicyReportSummary{}
-			if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("failed to erase results entries for ClusterPolicyReport %s: %v", polrName, err)
+				polr.Results = []v1alpha2.PolicyReportResult{}
+				polr.Summary = v1alpha2.PolicyReportSummary{}
+				if _, err = pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+					errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
+				}
+			} else {
+				cpolr, err := clusterReportLister.Get(policyreport.GeneratePolicyReportName(*ns, ""))
+				if err != nil {
+					errors = append(errors, err.Error())
+				}
+
+				cpolr.Results = []v1alpha2.PolicyReportResult{}
+				cpolr.Summary = v1alpha2.PolicyReportSummary{}
+				if _, err = pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), cpolr, metav1.UpdateOptions{}); err != nil {
+					return fmt.Errorf("failed to erase results entries for ClusterPolicyReport %s: %v", polrName, err)
+				}
 			}
 		}
-
 		if len(errors) == 0 {
 			return nil
 		}
@@ -211,6 +215,44 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	}
 
 	return fmt.Errorf("failed to erase results entries %v", strings.Join(errors, ";"))
+}
+
+func eraseSplitResultEntries(pclient kyvernoclient.Interface, ns *string, selector labels.Selector) error {
+	var errors []string
+
+	if ns != nil {
+		if *ns != "" {
+			polrs, err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(*ns).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return fmt.Errorf("failed to list PolicyReports for given namespace %s : %v", *ns, err)
+			}
+			for _, polr := range polrs.Items {
+				polr := polr
+				polr.Results = []v1alpha2.PolicyReportResult{}
+				polr.Summary = v1alpha2.PolicyReportSummary{}
+				if _, err := pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.GetNamespace()).Update(context.TODO(), &polr, metav1.UpdateOptions{}); err != nil {
+					errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", polr.Kind, polr.Namespace, polr.Name, err))
+				}
+			}
+		} else {
+			cpolrs, err := pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
+			if err != nil {
+				return fmt.Errorf("failed to list ClusterPolicyReports : %v", err)
+			}
+			for _, cpolr := range cpolrs.Items {
+				cpolr := cpolr
+				cpolr.Results = []v1alpha2.PolicyReportResult{}
+				cpolr.Summary = v1alpha2.PolicyReportSummary{}
+				if _, err := pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), &cpolr, metav1.UpdateOptions{}); err != nil {
+					errors = append(errors, fmt.Sprintf("%s/%s/%s: %v", cpolr.Kind, cpolr.Namespace, cpolr.Name, err))
+				}
+			}
+		}
+		if len(errors) == 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("failed to erase results entries for split reports in namespace %s: %v", *ns, strings.Join(errors, ";"))
 }
 
 func (pc *PolicyController) requeuePolicies() {

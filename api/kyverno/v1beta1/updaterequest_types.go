@@ -53,7 +53,7 @@ type UpdateRequestStatus struct {
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=ur
 
-// UpdateRequestStatus is a request to process mutate and generate rules in background.
+// UpdateRequest is a request to process mutate and generate rules in background.
 type UpdateRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

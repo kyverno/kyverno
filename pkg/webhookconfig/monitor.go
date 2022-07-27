@@ -116,8 +116,12 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			// update namespaceSelector every 30 seconds
 			go func() {
 				if register.autoUpdateWebhooks {
-					logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
-					register.UpdateWebhookChan <- true
+					select {
+					case register.UpdateWebhookChan <- true:
+						logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
+					default:
+						logger.V(4).Info("skipped sending update webhook signal as the channel was blocking")
+					}
 				}
 			}()
 
