@@ -100,6 +100,27 @@ var PSS_Controls = map[string][]restrictedField{
 			},
 		},
 	},
+	"capabilities_baseline": {
+		{
+			path: "spec.containers[*].securityContext.capabilities.add",
+			allowedValues: []interface{}{
+				nil,
+				"AUDIT_WRITE",
+				"CHOWN",
+				"DAC_OVERRIDE",
+				"FOWNER",
+				"FSETID",
+				"KILL",
+				"MKNOD",
+				"NET_BIND_SERVICE",
+				"SETFCAP",
+				"SETGID",
+				"SETPCAP",
+				"SETUID",
+				"SYS_CHROOT",
+			},
+		},
+	},
 }
 
 func containsCheckResult(s []PSSCheckResult, element policy.CheckResult) bool {
@@ -209,11 +230,21 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 	// 	return false, nil
 	// }
 	for _, check := range checks {
-		for _, exclude := range rule.Exclude {
-			// Check if PSSCheckResult.RestrictedField.path matches the Exclude.restrictedField
+		matchedExcludeControl := false
+		for excludeIndex, exclude := range rule.Exclude {
+			// Check if PSSCheckResult matched an excluded control by looking at the restrictedField
 			if !checkResultMatchesExclude(check, exclude) {
-				continue
+				// Return false if PSSCheckResult didn't match any exclude value
+				if excludeIndex == len(rule.Exclude)-1 && !matchedExcludeControl {
+					fmt.Printf("[PSSCheckResult didn't match any exclude value] Check: %+v\n", check)
+					return false, nil
+				} else {
+					continue
+				}
 			}
+			matchedExcludeControl = true
+
+			fmt.Printf("[Check]: %+v\n", check)
 
 			for _, container := range matchingContainers {
 				// We can have the same Exclude.RestrictedField for multiple containers, select the right one
@@ -228,8 +259,6 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 				// 	}
 				// }
 				// if podSpec != nil {
-
-				fmt.Printf("[Pod]: %+v\n", pod)
 				if err := ctx.AddJSONObject(pod); err != nil {
 					return false, errors.Wrap(err, "failed to add podSpec to engine context")
 				}

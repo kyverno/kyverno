@@ -3097,11 +3097,11 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 					"resources": {
 					   "kinds": [
 						  "Pod"
+						],
+						"namespaces": [
+							"stagingfndkfndkjjj"
 						]
-					},
-					"namespaces": [
-						"stagingfndkfndkjjj"
-					]
+					}
 				 },
 				 "validate": {
 					"podSecurity": {
@@ -3186,10 +3186,10 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 					   "kinds": [
 						  "Pod"
 						]
-					},
-					"namespaces": [
-						"staging"
-					]
+						"namespaces": [
+							"staging"
+						]
+					}
 				 },
 				 "validate": {
 					"podSecurity": {
@@ -3274,11 +3274,11 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 					"resources": {
 					   "kinds": [
 						  "Pod"
+						],
+						"namespaces": [
+							"staging"
 						]
-					},
-					"namespaces": [
-						"staging"
-					]
+					}
 				 },
 				 "validate": {
 					"podSecurity": {
@@ -3291,9 +3291,9 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 									"nginx"
 								],
 								"values": [
-									"example"
+									"SYS_ADMIN"
 								]
-							}
+							},
 						]
 					}
 				 }
@@ -3318,6 +3318,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 				 "name": "nginx-host-network",
 				 "image": "nginx",
 				 "securityContext": {
+					"privileged": true,
 					"capabilities": { 
 						"add": [
 							"SYS_ADMIN"
