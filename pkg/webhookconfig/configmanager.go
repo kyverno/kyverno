@@ -345,6 +345,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	}
 
 	ready := true
+	var updateErr error
 	// build webhook only if auto-update is enabled, otherwise directly update status to ready
 	if m.autoUpdateWebhooks {
 		webhooks, err := m.buildWebhooks(namespace)
@@ -354,7 +355,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 
 		if err := m.updateWebhookConfig(webhooks); err != nil {
 			ready = false
-			logger.Error(err, "failed to update webhook configurations for policy")
+			updateErr = errors.Wrapf(err, "failed to update webhook configurations for policy")
 		}
 
 		// DELETION of the policy
@@ -370,7 +371,7 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	if ready {
 		logger.Info("policy is ready to serve admission requests")
 	}
-	return nil
+	return updateErr
 }
 
 func (m *webhookConfigManager) getPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -94,7 +95,7 @@ func (s *server) Run(stopCh <-chan struct{}) {
 }
 
 func (s *server) Stop(ctx context.Context) {
-	go s.webhookRegister.Remove(s.cleanUp)
+	s.cleanup(ctx)
 	err := s.server.Shutdown(ctx)
 	if err != nil {
 		logger.Error(err, "shutting down server")
@@ -103,6 +104,17 @@ func (s *server) Stop(ctx context.Context) {
 			logger.Error(err, "server shut down failed")
 		}
 	}
+}
+
+func (s *server) cleanup(ctx context.Context) {
+	cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
+	go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
+	wg.Wait()
+	close(s.cleanUp)
 }
 
 func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
