@@ -449,7 +449,7 @@ func main() {
 	go webhookRegisterLeader.Run(ctx)
 
 	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(dynamicClient, stopCh)
+	openAPIController := startOpenAPIController(dynamicClient, 0, stopCh)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -547,7 +547,7 @@ func main() {
 	setupLog.Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
+func startOpenAPIController(client dclient.Interface, workers int, stopCh <-chan struct{}) *openapi.Controller {
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		setupLog.Error(err, "Failed to create openAPIController")
@@ -557,6 +557,6 @@ func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *o
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 	// start openAPI controller, this is used in admission review
 	// thus is required in each instance
-	openAPISync.Run(1, stopCh)
+	openAPISync.Run(workers, stopCh)
 	return openAPIController
 }
