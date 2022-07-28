@@ -139,6 +139,16 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
+// IsSkipped checks if any rule has skipped resource or not.
+func (er EngineResponse) IsSkipped() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusSkip {
+			return true
+		}
+	}
+	return false
+}
+
 // IsFailed checks if any rule has succeeded or not
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
