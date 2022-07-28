@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -233,18 +234,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyvernov1.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
-		if !ok {
-			logger.Info("tombstone container object that is not a policy", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
@@ -332,18 +325,10 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyvernov1.Policy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.Policy)
-		if !ok {
-			logger.Info("tombstone container object that is not a policy", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
