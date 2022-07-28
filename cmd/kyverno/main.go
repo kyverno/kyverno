@@ -60,6 +60,7 @@ var (
 	metricsPort                  string
 	webhookTimeout               int
 	genWorkers                   int
+	maxQueuedEvents              int
 	profile                      bool
 	disableMetricsExport         bool
 	enableTracing                bool
@@ -74,7 +75,6 @@ var (
 	clientRateLimitQPS           float64
 	clientRateLimitBurst         int
 	changeRequestLimit           int
-	splitPolicyReport            bool
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
 )
@@ -83,7 +83,8 @@ func main() {
 	klog.InitFlags(nil)
 	log.SetLogger(klogr.New().WithCallDepth(1))
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
-	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller")
+	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
+	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
@@ -102,8 +103,8 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
-	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "maximum pending report change requests per namespace or for the cluster-wide policy report")
-	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "Set the flag to 'true', to enable the split-up PolicyReports per policy.")
+	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
+	flag.Func(toggle.SplitPolicyReportFlagName, "Set the flag to 'true', to enable the split-up PolicyReports per policy.", toggle.SplitPolicyReportFlag)
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -131,14 +132,14 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
-	if err != nil {
-		setupLog.Error(err, "Failed to create dynamic client")
-		os.Exit(1)
-	}
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+	if err != nil {
+		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
 
@@ -204,7 +205,7 @@ func main() {
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), log.Log.WithName("EventGenerator"))
+	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(kyvernoClient,
@@ -214,7 +215,6 @@ func main() {
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		changeRequestLimit,
-		splitPolicyReport,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
@@ -227,7 +227,6 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		reportReqGen.CleanupChangeRequest,
-		splitPolicyReport,
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {
@@ -274,7 +273,7 @@ func main() {
 
 	// Metrics Configuration
 	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, err := metrics.InitMetrics(
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
 		disableMetricsExport,
 		otel,
 		metricsAddr,
@@ -287,6 +286,12 @@ func main() {
 	if err != nil {
 		setupLog.Error(err, "failed to initialize metrics")
 		os.Exit(1)
+	}
+
+	if otel == "grpc" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(ctx, metricsPusher)
+		defer cancel()
 	}
 
 	if otel == "prometheus" {
@@ -302,11 +307,14 @@ func main() {
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.Info("Enabling tracing for Kyverno...")
-		err = tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
+		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
 		if err != nil {
 			setupLog.Error(err, "Failed to enable tracing for Kyverno")
 			os.Exit(1)
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer tracing.ShutDownController(ctx, tracerProvider)
+		defer cancel()
 	}
 
 	// POLICY CONTROLLER
