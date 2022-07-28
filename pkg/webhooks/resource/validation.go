@@ -95,7 +95,7 @@ func (v *validationHandler) handleValidation(
 	}
 
 	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
-	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, promConfig, logger)
+	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 
 	warnings := getWarningMessages(engineResponses)
 	return true, "", warnings
@@ -127,5 +127,4 @@ func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionReques
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
 	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
-	return true, ""
 }

@@ -22,7 +22,7 @@ import (
 func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.Handlers {
 
 	client := fake.NewSimpleClientset()
-	promConfig, _ := metrics.NewFakePromConfig(client)
+	metricsConfig := metrics.NewFakeMetricsConfig(client)
 
 	informers := informers.NewSharedInformerFactory(client, 0)
 	informers.Start(ctx.Done())
@@ -35,7 +35,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		client:            dclient.NewEmptyFakeClient(),
 		kyvernoClient:     fakekyvernov1.NewSimpleClientset(),
 		configuration:     config.NewFakeConfig(),
-		promConfig:        promConfig,
+		metricsConfig:     metricsConfig,
 		pCache:            policyCache,
 		nsLister:          informers.Core().V1().Namespaces().Lister(),
 		rbLister:          informers.Rbac().V1().RoleBindings().Lister(),

@@ -179,7 +179,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		prGenerator: h.prGenerator,
 	}
 
-	ok, msg := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
+	ok, msg, warnings := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
@@ -193,7 +193,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	}
 
 	logger.V(4).Info("completed validating webhook")
-	return admissionutils.ResponseSuccess(true, "")
+	return admissionutils.ResponseSuccess()
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
@@ -250,7 +250,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseSuccessWithPatchAndWarnings(patch, warnings)
 	}
 
-	admissionResponse := admissionutils.ResponseSuccessWithPatch(true, "", patch)
+	admissionResponse := admissionutils.ResponseSuccessWithPatch(patch)
 	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
 	return admissionResponse
 }
