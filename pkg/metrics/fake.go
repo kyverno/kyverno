@@ -7,8 +7,11 @@ import (
 )
 
 func NewFakeMetricsConfig(client kubernetes.Interface) *MetricsConfig {
-	return &MetricsConfig{
+	mc := &MetricsConfig{
 		Config: config.NewFakeMetricsConfig(client),
 		Log:    klog.NewKlogr(),
 	}
+
+	mc, _ = initializeMetrics(mc)
+	return mc
 }
