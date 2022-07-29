@@ -58,8 +58,12 @@ func (v *validationHandler) handleValidation(
 		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
+		if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+			failurePolicy = kyvernov1.Fail
+		}
+
 		engineResponse := engine.Validate(policyContext)
-		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
+		if engineResponse.IsNil() {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
 			continue
@@ -76,11 +80,6 @@ func (v *validationHandler) handleValidation(
 
 		if len(engineResponse.GetSuccessRules()) > 0 {
 			logger.V(2).Info("validation passed", "policy", policy.GetName())
-		}
-
-		failurePolicy := policy.GetSpec().GetFailurePolicy()
-		if failurePolicy == kyvernov1.Fail {
-			failurePolicy = kyvernov1.Fail
 		}
 	}
 

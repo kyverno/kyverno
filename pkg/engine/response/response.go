@@ -2,6 +2,7 @@ package response
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/kyverno/go-wildcard"
@@ -174,6 +175,11 @@ func (er EngineResponse) IsError() bool {
 // IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
+}
+
+// isNil checks if rule is an empty rule
+func (er EngineResponse) IsNil() bool {
+	return reflect.DeepEqual(er, EngineResponse{})
 }
 
 // GetPatches returns all the patches joined

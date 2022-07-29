@@ -451,8 +451,9 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 			}
 		}
 
-		matchExtensions(cert, issuer, extensions)
-
+		if err := matchExtensions(cert, issuer, extensions); err != nil {
+			return err
+		}
 	}
 
 	return nil
