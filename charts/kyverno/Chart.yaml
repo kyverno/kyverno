@@ -26,5 +26,5 @@ annotations:
       url: https://kyverno.io/docs
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
-    - kind: changed
-      description: Exclude Kyverno namespace by default
+    - kind: added
+      description: Added possibility to define additional init and sidecar container
