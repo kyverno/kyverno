@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	_ "go.uber.org/automaxprocs" // #nosec
+
 	"github.com/kyverno/kyverno/pkg/background"
 	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
