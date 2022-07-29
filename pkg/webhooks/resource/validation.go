@@ -53,6 +53,7 @@ func (v *validationHandler) handleValidation(
 	}
 
 	var engineResponses []*response.EngineResponse
+	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
 		policyContext.Policy = policy
@@ -64,9 +65,7 @@ func (v *validationHandler) handleValidation(
 			continue
 		}
 
-		// registering the kyverno_policy_results_total metric concurrently
 		go registerPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		// registering the kyverno_policy_execution_duration_seconds metric concurrently
 		go registerPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
@@ -78,11 +77,14 @@ func (v *validationHandler) handleValidation(
 		if len(engineResponse.GetSuccessRules()) > 0 {
 			logger.V(2).Info("validation passed", "policy", policy.GetName())
 		}
+
+		failurePolicy := policy.GetSpec().GetFailurePolicy()
+		if failurePolicy == kyvernov1.Fail {
+			failurePolicy = kyvernov1.Fail
+		}
 	}
 
-	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
 	blocked := blockRequest(engineResponses, failurePolicy, logger)
-
 	if deletionTimeStamp == nil {
 		events := generateEvents(engineResponses, blocked, logger)
 		v.eventGen.Add(events...)
@@ -123,7 +125,6 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 }
 
 func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp int64, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
-	// registering the kyverno_admission_review_duration_seconds metric concurrently
 	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
 	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
 	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)

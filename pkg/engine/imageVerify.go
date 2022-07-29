@@ -52,6 +52,8 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 	ivm := &ImageVerificationMetadata{}
 	rules := autogen.ComputeRules(policyContext.Policy)
+	applyRules := policy.GetSpec().GetApplyRules()
+
 	for i := range rules {
 		rule := &rules[i]
 		if len(rule.VerifyImages) == 0 {
@@ -62,8 +64,9 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 			continue
 		}
 
-		policyContext.JSONContext.Restore()
+		logger.V(3).Info("processing image verification rule", "ruleSelector", applyRules)
 
+		policyContext.JSONContext.Restore()
 		if err := LoadContext(logger, rule.Context, policyContext, rule.Name); err != nil {
 			appendError(resp, rule, fmt.Sprintf("failed to load context: %s", err.Error()), response.RuleStatusError)
 			continue
@@ -98,6 +101,10 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 		for _, imageVerify := range ruleCopy.VerifyImages {
 			iv.verify(imageVerify, ruleImages)
+		}
+
+		if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+			break
 		}
 	}
 
@@ -266,6 +273,12 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 	iv.logger.V(2).Info("verifying image signatures", "image", image,
 		"attestors", len(imageVerify.Attestors), "attestations", len(imageVerify.Attestations))
 
+	if err := iv.policyContext.JSONContext.AddImageInfo(imageInfo); err != nil {
+		iv.logger.Error(err, "failed to add image to context")
+		msg := fmt.Sprintf("failed to add image to context %s: %s", image, err.Error())
+		return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
+	}
+
 	var cosignResponse *cosign.Response
 	for i, attestorSet := range imageVerify.Attestors {
 		var err error
@@ -275,7 +288,7 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 			iv.logger.Error(err, "failed to verify signature")
 			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
 
-			// handle registry network errors as a rule error (instead of a failure)
+			// handle registry network errors as a rule error (instead of a policy failure)
 			var netErr *net.OpError
 			if errors.As(err, &netErr) {
 				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
@@ -467,10 +480,10 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
 
-		iv.logger.Info("checking attestation predicate type %s", "predicates", types, "image", imageInfo.String())
+		iv.logger.Info("checking attestation", "predicates", types, "image", imageInfo.String())
 
 		for _, s := range statements {
-			val, err := iv.checkAttestations(ac, s, imageInfo)
+			val, err := iv.checkAttestations(ac, s)
 			if err != nil {
 				return errors.Wrap(err, "failed to check attestations")
 			}
@@ -502,7 +515,7 @@ func buildStatementMap(statements []map[string]interface{}) (map[string][]map[st
 	return results, predicateTypes
 }
 
-func (iv *imageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}, img apiutils.ImageInfo) (bool, error) {
+func (iv *imageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string]interface{}) (bool, error) {
 	if len(a.Conditions) == 0 {
 		return true, nil
 	}
@@ -510,14 +523,13 @@ func (iv *imageVerifier) checkAttestations(a kyvernov1.Attestation, s map[string
 	iv.policyContext.JSONContext.Checkpoint()
 	defer iv.policyContext.JSONContext.Restore()
 
-	return evaluateConditions(a.Conditions, iv.policyContext.JSONContext, s, img, iv.logger)
+	return evaluateConditions(a.Conditions, iv.policyContext.JSONContext, s, iv.logger)
 }
 
 func evaluateConditions(
 	conditions []kyvernov1.AnyAllConditions,
 	ctx context.Interface,
 	s map[string]interface{},
-	img apiutils.ImageInfo,
 	log logr.Logger) (bool, error) {
 
 	predicate, ok := s["predicate"].(map[string]interface{})
@@ -527,10 +539,6 @@ func evaluateConditions(
 
 	if err := context.AddJSONObject(ctx, predicate); err != nil {
 		return false, errors.Wrapf(err, fmt.Sprintf("failed to add Statement to the context %v", s))
-	}
-
-	if err := ctx.AddImageInfo(img); err != nil {
-		return false, errors.Wrapf(err, fmt.Sprintf("failed to add image to the context %v", s))
 	}
 
 	c, err := variables.SubstituteAllInConditions(log, ctx, conditions)
