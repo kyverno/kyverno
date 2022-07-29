@@ -69,6 +69,16 @@ spec:
           spec:
             description: Spec declares policy behaviors.
             properties:
+              applyRules:
+                description: ApplyRules controls how rules in a policy are applied.
+                  Rule are processed in the order of declaration. When set to `One`
+                  processing stops after a rule has been applied i.e. the rule matches
+                  and results in a pass, fail, or error. When set to `All` all rules
+                  in the policy are processed. The default is `All`.
+                enum:
+                - All
+                - One
+                type: string
               background:
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
@@ -86,7 +96,7 @@ spec:
                 - Fail
                 type: string
               generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls wether to trigger
+                description: GenerateExistingOnPolicyUpdate controls whether to trigger
                   generate rule in existing resources If is set to "true" generate
                   rule will be triggered and applied to existing matched resources.
                   Defaults to "false" if not specified.
@@ -6050,6 +6060,16 @@ spec:
           spec:
             description: Spec defines policy behaviors and contains one or more rules.
             properties:
+              applyRules:
+                description: ApplyRules controls how rules in a policy are applied.
+                  Rule are processed in the order of declaration. When set to `One`
+                  processing stops after a rule has been applied i.e. the rule matches
+                  and results in a pass, fail, or error. When set to `All` all rules
+                  in the policy are processed. The default is `All`.
+                enum:
+                - All
+                - One
+                type: string
               background:
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
@@ -6067,7 +6087,7 @@ spec:
                 - Fail
                 type: string
               generateExistingOnPolicyUpdate:
-                description: GenerateExistingOnPolicyUpdate controls wether to trigger
+                description: GenerateExistingOnPolicyUpdate controls whether to trigger
                   generate rule in existing resources If is set to "true" generate
                   rule will be triggered and applied to existing matched resources.
                   Defaults to "false" if not specified.

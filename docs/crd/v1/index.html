@@ -104,6 +104,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -211,7 +228,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -311,6 +328,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -418,7 +452,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -598,6 +632,15 @@ Here, all of the conditions need to pass</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ApplyRulesType">ApplyRulesType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+<p>ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.</p>
+</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
@@ -2892,6 +2935,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -2999,7 +3059,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>

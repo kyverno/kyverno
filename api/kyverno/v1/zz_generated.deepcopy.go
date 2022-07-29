@@ -1085,6 +1085,11 @@ func (in *Spec) DeepCopyInto(out *Spec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.ApplyRules != nil {
+		in, out := &in.ApplyRules, &out.ApplyRules
+		*out = new(ApplyRulesType)
+		**out = **in
+	}
 	if in.FailurePolicy != nil {
 		in, out := &in.FailurePolicy, &out.FailurePolicy
 		*out = new(FailurePolicyType)
