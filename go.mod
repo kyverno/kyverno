@@ -74,6 +74,7 @@ require (
 	go.uber.org/multierr v1.8.0
 	golang.org/x/text v0.3.7
 	google.golang.org/grpc v1.48.0
+	k8s.io/klog v0.4.0
 )
 
 require (
