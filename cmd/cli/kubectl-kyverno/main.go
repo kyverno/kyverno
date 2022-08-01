@@ -38,10 +38,12 @@ func main() {
 }
 
 func configurelog(cli *cobra.Command) {
-	if flag.CommandLine.Lookup("log_dir") == nil {
-		klog.InitFlags(nil)
+	// clear flags initialized in static depedencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
 
+	klog.InitFlags(nil)
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	log.SetLogger(klogr.New())
 

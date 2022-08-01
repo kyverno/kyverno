@@ -47,7 +47,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -82,8 +81,9 @@ var (
 )
 
 func main() {
-	if flag.CommandLine.Lookup("log_dir") == nil {
-		klog.InitFlags(nil)
+	// clear flags initialized in static depedencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
 	log.SetLogger(klogr.New())
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")

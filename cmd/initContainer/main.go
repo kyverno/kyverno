@@ -58,9 +58,12 @@ const (
 )
 
 func main() {
-	if flag.CommandLine.Lookup("log_dir") == nil {
-		klog.InitFlags(nil)
+	// clear flags initialized in static depedencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
+
+	klog.InitFlags(nil) // add the block above before invoking klog.InitFlags()
 	log.SetLogger(klogr.New())
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
