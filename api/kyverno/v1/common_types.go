@@ -468,7 +468,7 @@ type Manifests struct {
 
 	// Fields which will be ignored while comparing manifests.
 	// +optional
-	IgnoreFields k8smanifest.ObjectFieldBindingList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
 
 	// ServiceAccounts which will be allowed without a signature.
 	// +optional
@@ -494,3 +494,7 @@ type ObjectUserBinding struct {
 	Objects k8smanifest.ObjectReferenceList `json:"objects,omitempty" yaml:"objects,omitempty"`
 	Users   []string                        `json:"users,omitempty" yaml:"users,omitempty"`
 }
+
+type IgnoreFieldList []ObjectFieldBinding
+
+type ObjectFieldBinding k8smanifest.ObjectFieldBinding
