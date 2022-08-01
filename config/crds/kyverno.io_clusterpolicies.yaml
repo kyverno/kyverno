@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
+    controller-gen.kubebuilder.io/version: v0.8.0
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -1874,6 +1873,28 @@ spec:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
+                        podSecurity:
+                          properties:
+                            exclude:
+                              items:
+                                properties:
+                                  images:
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    type: string
+                                  values:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: array
+                            level:
+                              type: string
+                            version:
+                              type: string
+                          type: object
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
