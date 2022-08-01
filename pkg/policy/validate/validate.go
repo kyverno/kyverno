@@ -95,6 +95,10 @@ func validationElemCount(v *kyverno.Validation) int {
 		count++
 	}
 
+	if len(v.PodSecurity.Exclude) > 0 {
+		count++
+	}
+
 	return count
 }
 
