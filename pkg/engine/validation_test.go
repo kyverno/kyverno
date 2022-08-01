@@ -3295,7 +3295,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 	// 							"values": [
 	// 								"true"
 	// 							]
-	// 						},
+	// 						}
 	// 					]
 	// 				}
 	// 			 }
@@ -3330,7 +3330,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 	// 			 },
 	// 			 "validate": {
 	// 				"podSecurity": {
-	// 					"level": "restricted",
+	// 					"level": "baseline",
 	// 					"version": "v1.24",
 	// 					"exclude": [
 	// 						{
@@ -3478,6 +3478,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 						"version": "v1.24",
 						"exclude": [
 							{
+								"control": "privileged",
 								"restrictedField": "spec.containers[*].securityContext.privileged",
 								"images": [
 									"ghcr.io/example/nginx:1.2.3"
