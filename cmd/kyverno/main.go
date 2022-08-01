@@ -82,8 +82,10 @@ var (
 )
 
 func main() {
-	klog.InitFlags(nil)
-	log.SetLogger(klogr.New().WithCallDepth(1))
+	if flag.CommandLine.Lookup("log_dir") == nil {
+		klog.InitFlags(nil)
+	}
+	log.SetLogger(klogr.New())
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
