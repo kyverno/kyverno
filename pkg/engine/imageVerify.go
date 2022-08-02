@@ -3,6 +3,7 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -19,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -283,8 +285,15 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		path := fmt.Sprintf(".attestors[%d]", i)
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify image")
-			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+			iv.logger.Error(err, "failed to verify signature")
+			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+
+			// handle registry network errors as a rule error (instead of a policy failure)
+			var netErr *net.OpError
+			if errors.As(err, &netErr) {
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
+			}
+
 			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 		}
 	}
@@ -322,12 +331,12 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
 			cosignResp, entryError = cosign.Verify(*opts)
-			if opts.FetchAttestations && entryError == nil {
+			if entryError == nil && opts.FetchAttestations {
 				entryError = iv.verifyAttestations(cosignResp.Statements, imageVerify, imageInfo)
 			}
 
 			if entryError != nil {
-				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
+				entryError = errors.Wrapf(entryError, attestorPath+subPath)
 			}
 		}
 
@@ -343,7 +352,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 	}
 
 	iv.logger.Info("image verification failed", "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", errorList)
-	err := engineUtils.CombineErrors(errorList)
+	err := multierr.Combine(errorList...)
 	return nil, err
 }
 
