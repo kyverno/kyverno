@@ -2,7 +2,6 @@ package webhookconfig
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -153,19 +152,11 @@ func (m *webhookConfigManager) updateClusterPolicy(old, cur interface{}) {
 }
 
 func (m *webhookConfigManager) deleteClusterPolicy(obj interface{}) {
-	p, ok := obj.(*kyvernov1.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted ClusterPolicy '%s' from tombstone", "name", p.GetName())
+		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+		m.log.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if hasWildcard(&p.Spec) {
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
@@ -195,19 +186,11 @@ func (m *webhookConfigManager) updatePolicy(old, cur interface{}) {
 }
 
 func (m *webhookConfigManager) deletePolicy(obj interface{}) {
-	p, ok := obj.(*kyvernov1.Policy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.Policy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted Policy '%s/%s' from tombstone", "name", p.GetNamespace(), p.GetName())
+		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+		m.log.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if hasWildcard(&p.Spec) {
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
@@ -217,18 +200,10 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 
 func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
+	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.MutatingWebhookConfiguration)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			m.log.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		webhook, ok = tombstone.Obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
-		if !ok {
-			m.log.Info("tombstone contained object that is not a MutatingWebhookConfiguration", "obj", obj)
-			return
-		}
+		m.log.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if webhook.GetName() == config.MutatingWebhookConfigurationName {
 		m.enqueueAllPolicies()
@@ -237,18 +212,10 @@ func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 
 func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
+	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			m.log.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		webhook, ok = tombstone.Obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
-		if !ok {
-			m.log.Info("tombstone contained object that is not a ValidatingWebhookConfiguration", "obj", obj)
-			return
-		}
+		m.log.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if webhook.GetName() == config.ValidatingWebhookConfigurationName {
 		m.enqueueAllPolicies()
