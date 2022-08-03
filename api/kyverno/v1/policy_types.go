@@ -498,6 +498,7 @@ type PodSecurity struct {
 	Exclude []*PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 type PodSecurityStandard struct {
+	ControlName     string   `json:"controlName,omitempty" yaml:"controlName,omitempty"`
 	RestrictedField string   `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
 	Images          []string `json:"images,omitempty" yaml:"images,omitempty"`
 	Values          []string `json:"values,omitempty" yaml:"values,omitempty"`

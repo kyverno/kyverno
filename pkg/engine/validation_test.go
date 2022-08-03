@@ -3450,6 +3450,87 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 	// 	 }
 	// 	 `)
 
+	// rawPolicy := []byte(`
+	// {
+	// 	"apiVersion": "kyverno.io/v1",
+	// 	"kind": "ClusterPolicy",
+	// 	"metadata": {
+	// 	   "name": "validate-baseline-privileged-container"
+	// 	},
+	// 	"spec": {
+	// 		"validationFailureAction": "enforce",
+	// 		"rules": [
+	// 			{
+	// 			"name": "validate-baseline-privileged-container",
+	// 			"match": {
+	// 				"resources": {
+	// 				   "kinds": [
+	// 					  "Pod"
+	// 					],
+	// 					"namespaces": [
+	// 						"staging"
+	// 					]
+	// 				}
+	// 			 },
+	// 			 "validate": {
+	// 				"podSecurity": {
+	// 					"level": "restricted",
+	// 					"version": "v1.24",
+	// 					"exclude": [
+	// 						{
+	// 							"control": "privileged",
+	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 							"images": [
+	// 								"ghcr.io/example/nginx:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						},
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
+	// 							"images": [
+	// 								"ghcr.io/example/nginx:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"false"
+	// 							]
+	// 						},
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.allowPrivilegeEscalation",
+	// 							"images": [
+	// 								"ghcr.io/example/nginx:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						},
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
+	// 							"images": [
+	// 								"ghcr.io/example/nodejs:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"true"
+	// 							]
+	// 						},
+	// 						{
+	// 							"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
+	// 							"images": [
+	// 								"ghcr.io/example/nodejs:1.2.3"
+	// 							],
+	// 							"values": [
+	// 								"false"
+	// 							]
+	// 						}
+	// 					]
+	// 				}
+	// 			 }
+	// 		  }
+	// 	   ]
+	// 	}
+	//  }
+	//  `)
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -3478,49 +3559,9 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 						"version": "v1.24",
 						"exclude": [
 							{
-								"control": "privileged",
-								"restrictedField": "spec.containers[*].securityContext.privileged",
+								"controlName": "capabilities_restricted",
 								"images": [
-									"ghcr.io/example/nginx:1.2.3"
-								],
-								"values": [
-									"true"
-								]
-							},
-							{
-								"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
-								"images": [
-									"ghcr.io/example/nginx:1.2.3"
-								],
-								"values": [
-									"false"
-								]
-							},
-							{
-								"restrictedField": "spec.containers[*].securityContext.allowPrivilegeEscalation",
-								"images": [
-									"ghcr.io/example/nginx:1.2.3"
-								],
-								"values": [
-									"true"
-								]
-							},
-							{
-								"restrictedField": "spec.containers[*].securityContext.privileged",
-								"images": [
-									"ghcr.io/example/nodejs:1.2.3"
-								],
-								"values": [
-									"true"
-								]
-							},
-							{
-								"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
-								"images": [
-									"ghcr.io/example/nodejs:1.2.3"
-								],
-								"values": [
-									"false"
+									"nginx"
 								]
 							}
 						]
@@ -3546,37 +3587,19 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 		  "containers": [
 		   {
 			   "name": "nginx",
-			   "image": "ghcr.io/example/nginx:1.2.3",
+			   "image": "nginx",
 			   "securityContext": {
-				   "privileged": true,
-				   "runAsNonRoot": false,
-				   "allowPrivilegeEscalation": true,
+				   "runAsNonRoot": true,
+				   "allowPrivilegeEscalation": false,
 				   "seccompProfile": {
-						"type": "Localhost"
+						"type": "RuntimeDefault"
 				   },
 				   "capabilities": {
 						"drop": [
-							"ALL"
+							"SYS_ADMIN"
 						]
 				   }
 			   }
-		   },
-		   {
-			   "name": "nodejs",
-			   "image": "ghcr.io/example/nodejs:1.2.3",
-			   "securityContext": {
-				   "privileged": true,
-				   "runAsNonRoot": false,
-				   "allowPrivilegeEscalation": true,
-				   "seccompProfile": {
-						"type": "Localhost"
-			   		},
-			   		"capabilities": {
-						"drop": [
-							"ALL"
-						]
-					}
-				}
 		   }
 		   ]
 	   }

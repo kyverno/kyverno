@@ -120,6 +120,85 @@ var PSS_Controls = map[string][]restrictedField{
 				"SYS_CHROOT",
 			},
 		},
+		{
+			path: "spec.initContainers[*].securityContext.capabilities.add",
+			allowedValues: []interface{}{
+				nil,
+				"AUDIT_WRITE",
+				"CHOWN",
+				"DAC_OVERRIDE",
+				"FOWNER",
+				"FSETID",
+				"KILL",
+				"MKNOD",
+				"NET_BIND_SERVICE",
+				"SETFCAP",
+				"SETGID",
+				"SETPCAP",
+				"SETUID",
+				"SYS_CHROOT",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.capabilities.add",
+			allowedValues: []interface{}{
+				nil,
+				"AUDIT_WRITE",
+				"CHOWN",
+				"DAC_OVERRIDE",
+				"FOWNER",
+				"FSETID",
+				"KILL",
+				"MKNOD",
+				"NET_BIND_SERVICE",
+				"SETFCAP",
+				"SETGID",
+				"SETPCAP",
+				"SETUID",
+				"SYS_CHROOT",
+			},
+		},
+	},
+	"capabilities_restricted": {
+		{
+			path: "spec.containers[*].securityContext.capabilities.drop",
+			allowedValues: []interface{}{
+				"ALL",
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.capabilities.drop",
+			allowedValues: []interface{}{
+				"ALL",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.capabilities.drop",
+			allowedValues: []interface{}{
+				"ALL",
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.capabilities.add",
+			allowedValues: []interface{}{
+				nil,
+				"NET_BIND_SERVICE",
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.capabilities.aad",
+			allowedValues: []interface{}{
+				nil,
+				"NET_BIND_SERVICE",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.capabilities.aad",
+			allowedValues: []interface{}{
+				nil,
+				"NET_BIND_SERVICE",
+			},
+		},
 	},
 }
 
@@ -221,14 +300,26 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 	return true
 }
 
+// When we specify the controlName only we want to exclude all restrictedFields for this control
+// so we remove all PSSChecks related to this control
+func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSCheckResult {
+	fmt.Printf("=== Before === %+v\n", pssChecks)
+	for checkIndex, check := range pssChecks {
+		for _, exclude := range rule.Exclude {
+			if check.ID == exclude.ControlName && exclude.RestrictedField == "" {
+				pssChecks = append(pssChecks[:checkIndex], pssChecks[checkIndex+1:]...)
+			}
+		}
+	}
+	fmt.Printf("=== After === %+v\n", pssChecks)
+	return pssChecks
+
+}
+
 // Check if all PSSCheckResults are exempted by Exclude values
 func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Container, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
-	// The number of CheckResults must less than exclude values
-	// if len(checks) > len(rule.Exclude) {
-	// 	return false, nil
-	// }
 	for _, check := range checks {
 		matchedExcludeControl := false
 		for excludeIndex, exclude := range rule.Exclude {
@@ -285,12 +376,14 @@ func ExemptProfile(checks []PSSCheckResult, matchingContainers []corev1.Containe
 }
 
 // Check if the pod creation is allowed after exempting some PSS controls
-func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, error) {
+func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
 	// 1. Evaluate containers that match images specified in exclude
 	fmt.Println("\n== [EvaluatePSS, for containers that maches images specified in exclude] ==")
 	matchingContainers := ContainersMatchingImages(rule.Exclude, pod.Spec.Containers)
 	pssChecks := EvaluatePSS(matchingContainers, level, &pod.ObjectMeta, &pod.Spec)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
+
+	pssChecks = removePSSChecks(pssChecks, rule)
 
 	// 2. Check if all PSSCheckResults are exempted by exclude values
 	// Yes ? Evaluate pod's other containers
@@ -298,10 +391,11 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	fmt.Println("\n== [ExemptProfile] ==")
 	allowed, err := ExemptProfile(pssChecks, matchingContainers, rule, pod)
 	if err != nil {
-		return false, err
+		return false, pssChecks, err
 	}
+	// Good to have: remove checks that are exempted and return only forbidden ones
 	if !allowed {
-		return false, nil
+		return false, pssChecks, nil
 	}
 
 	// 3. Optional, only when ExemptProfile() returns true
@@ -310,9 +404,9 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	pssChecks = EvaluatePSS(notMatchingContainers, level, &pod.ObjectMeta, &pod.Spec)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 	if len(pssChecks) > 0 {
-		return false, nil
+		return false, pssChecks, nil
 	}
-	return true, nil
+	return true, pssChecks, nil
 }
 
 // only matches the rules

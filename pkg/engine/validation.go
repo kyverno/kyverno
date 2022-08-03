@@ -347,6 +347,14 @@ func (v *validator) getDenyMessage(deny bool) string {
 	return raw.(string)
 }
 
+func formatChecksPrint(checks []pss.PSSCheckResult) string {
+	var str string
+	for _, check := range checks {
+		str += fmt.Sprintf("\n\n- %+v\n", check)
+	}
+	return str
+}
+
 // Unstructured
 func (v *validator) validatePodSecurity() *response.RuleResponse {
 	// Marshal pod metadata and spec
@@ -407,7 +415,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		Spec:       podSpec,
 		ObjectMeta: metadata,
 	}
-	allowed, err := pss.EvaluatePod(&v.podSecurity, pod, level)
+	allowed, pssChecks, err := pss.EvaluatePod(&v.podSecurity, pod, level)
 	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
 	if allowed {
@@ -415,7 +423,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
 
 	} else {
-		msg := fmt.Sprintf("Pod '%s' could not be created.", v.ctx.NewResource.GetName())
+		msg := fmt.Sprintf("Validation rule '%s' failed. You must exclude the following controls: %s", v.rule.Name, formatChecksPrint(pssChecks))
 		// msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
 		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusFail)
 	}
