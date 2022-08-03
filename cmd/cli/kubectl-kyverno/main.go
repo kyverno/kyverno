@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/apply"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/jp"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/testing"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
@@ -28,6 +29,7 @@ func main() {
 		apply.Command(),
 		test.Command(),
 		jp.Command(),
+		testing.Command(),
 	}
 
 	cli.AddCommand(commands...)

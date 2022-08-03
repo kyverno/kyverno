@@ -1,4 +1,4 @@
 subject:
-  kind: ServiceAccount
+- kind: ServiceAccount
   name: another-developer
   namespace: another-namespace

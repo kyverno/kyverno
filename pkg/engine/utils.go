@@ -211,27 +211,31 @@ func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescriptio
 	}
 
 	if len(userInfo.Subjects) > 0 {
-		if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig) {
-			userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+		//testsubject are the subjects mentioned under variables.resources in kyverno-test.yaml
+		mockSubject := store.GetSubjects().Subject
+		for _, testsubject := range mockSubject {
+			if !matchSubjects(userInfo.Subjects, admissionInfo.AdmissionUserInfo, dynamicConfig, testsubject) {
+				userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
+			}
 		}
+
 	}
 	return append(errs, userInfoErrors...)
 }
 
 // matchSubjects return true if one of ruleSubjects exist in userInfo
-func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string) bool {
+func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.UserInfo, dynamicConfig []string, ts rbacv1.Subject) bool {
 	const SaPrefix = "system:serviceaccount:"
 
 	if store.GetMock() {
-		mockSubject := store.GetSubjects().Subject
 		for _, subject := range ruleSubjects {
 			switch subject.Kind {
 			case "ServiceAccount":
-				if subject.Name == mockSubject.Name && subject.Namespace == mockSubject.Namespace {
+				if subject.Name == ts.Name && subject.Namespace == ts.Namespace {
 					return true
 				}
 			case "User", "Group":
-				if mockSubject.Name == subject.Name {
+				if ts.Name == subject.Name {
 					return true
 				}
 			}

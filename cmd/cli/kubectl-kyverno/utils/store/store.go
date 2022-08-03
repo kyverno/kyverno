@@ -93,5 +93,5 @@ func GetSubjects() Subject {
 }
 
 type Subject struct {
-	Subject rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
+	Subject []rbacv1.Subject `json:"subject,omitempty" yaml:"subject,omitempty"`
 }
