@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/pkg/errors"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
-	k8smnfutil "github.com/sigstore/k8s-manifest-sigstore/pkg/util"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -74,11 +73,6 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	// allow dryrun request
 	if adreq.DryRun != nil && *adreq.DryRun {
 		return true, "allowed because of DryRun request", nil
-	}
-
-	// check skipping user
-	if Match(verifyRule.SkipUsers, resource, adreq.UserInfo.Username) {
-		return true, "allowed by skipObjects rule", nil
 	}
 
 	// prepare verifyResource option
@@ -339,20 +333,6 @@ func loadDefaultConfig() *k8smanifest.VerifyResourceOption {
 func addDefaultConfig(vo *k8smanifest.VerifyResourceOption) *k8smanifest.VerifyResourceOption {
 	dvo := loadDefaultConfig()
 	return addConfig(vo, dvo)
-}
-
-func Match(skipList kyvernov1.ObjectUserBindingList, obj unstructured.Unstructured, username string) bool {
-	if len(skipList) == 0 {
-		return false
-	}
-	for _, u := range skipList {
-		if u.Objects.Match(obj) {
-			if k8smnfutil.MatchWithPatternArray(username, u.Users) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func loadCertPool(roots []byte) (*x509.CertPool, error) {

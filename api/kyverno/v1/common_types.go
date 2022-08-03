@@ -470,10 +470,6 @@ type Manifests struct {
 	// +optional
 	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
 
-	// ServiceAccounts which will be allowed without a signature.
-	// +optional
-	SkipUsers ObjectUserBindingList `json:"skipUsers,omitempty" yaml:"skipUsers,omitempty"`
-
 	// DryRun configuration
 	// +optional
 	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
@@ -486,13 +482,6 @@ type Manifests struct {
 type DryRunOption struct {
 	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
-}
-
-type ObjectUserBindingList []ObjectUserBinding
-
-type ObjectUserBinding struct {
-	Objects k8smanifest.ObjectReferenceList `json:"objects,omitempty" yaml:"objects,omitempty"`
-	Users   []string                        `json:"users,omitempty" yaml:"users,omitempty"`
 }
 
 type IgnoreFieldList []ObjectFieldBinding

@@ -2287,32 +2287,6 @@ spec:
                                 repository to use for resource bundle reference. The
                                 repository can be overridden per Attestor or Attestation.
                               type: string
-                            skipUsers:
-                              description: ServiceAccounts which will be allowed without
-                                a signature.
-                              items:
-                                properties:
-                                  objects:
-                                    items:
-                                      properties:
-                                        group:
-                                          type: string
-                                        kind:
-                                          type: string
-                                        name:
-                                          type: string
-                                        namespace:
-                                          type: string
-                                        version:
-                                          type: string
-                                      type: object
-                                    type: array
-                                  users:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         message:
                           description: Message specifies a custom message to be displayed
@@ -5030,32 +5004,6 @@ spec:
                                     The repository can be overridden per Attestor
                                     or Attestation.
                                   type: string
-                                skipUsers:
-                                  description: ServiceAccounts which will be allowed
-                                    without a signature.
-                                  items:
-                                    properties:
-                                      objects:
-                                        items:
-                                          properties:
-                                            group:
-                                              type: string
-                                            kind:
-                                              type: string
-                                            name:
-                                              type: string
-                                            namespace:
-                                              type: string
-                                            version:
-                                              type: string
-                                          type: object
-                                        type: array
-                                      users:
-                                        items:
-                                          type: string
-                                        type: array
-                                    type: object
-                                  type: array
                               type: object
                             message:
                               description: Message specifies a custom message to be
@@ -8740,32 +8688,6 @@ spec:
                                 repository to use for resource bundle reference. The
                                 repository can be overridden per Attestor or Attestation.
                               type: string
-                            skipUsers:
-                              description: ServiceAccounts which will be allowed without
-                                a signature.
-                              items:
-                                properties:
-                                  objects:
-                                    items:
-                                      properties:
-                                        group:
-                                          type: string
-                                        kind:
-                                          type: string
-                                        name:
-                                          type: string
-                                        namespace:
-                                          type: string
-                                        version:
-                                          type: string
-                                      type: object
-                                    type: array
-                                  users:
-                                    items:
-                                      type: string
-                                    type: array
-                                type: object
-                              type: array
                           type: object
                         message:
                           description: Message specifies a custom message to be displayed
@@ -11484,32 +11406,6 @@ spec:
                                     The repository can be overridden per Attestor
                                     or Attestation.
                                   type: string
-                                skipUsers:
-                                  description: ServiceAccounts which will be allowed
-                                    without a signature.
-                                  items:
-                                    properties:
-                                      objects:
-                                        items:
-                                          properties:
-                                            group:
-                                              type: string
-                                            kind:
-                                              type: string
-                                            name:
-                                              type: string
-                                            namespace:
-                                              type: string
-                                            version:
-                                              type: string
-                                          type: object
-                                        type: array
-                                      users:
-                                        items:
-                                          type: string
-                                        type: array
-                                    type: object
-                                  type: array
                               type: object
                             message:
                               description: Message specifies a custom message to be
