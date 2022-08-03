@@ -143,6 +143,20 @@ envVars: {}
 extraArgs:
   - --autogenInternals=false
 
+# -- Array of extra init containers
+extraInitContainers: []
+# Example:
+# - name: init-container
+#   image: busybox
+#   command: ['sh', '-c', 'echo Hello']
+
+# -- Array of extra containers to run alongside kyverno
+extraContainers: []
+# Example:
+# - name: myapp-container
+#   image: busybox
+#   command: ['sh', '-c', 'echo Hello && sleep 3600']
+
 # -- Image pull secrets for image verify and imageData policies.
 # This will define the `--imagePullSecrets` Kyverno argument.
 imagePullSecrets: {}
