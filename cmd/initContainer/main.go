@@ -195,7 +195,7 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	if err != nil {
 		log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
-		log.Log.Info("Leader was elected, quiting")
+		log.Log.Info("Leader was elected, quitting")
 		os.Exit(0)
 	}
 
