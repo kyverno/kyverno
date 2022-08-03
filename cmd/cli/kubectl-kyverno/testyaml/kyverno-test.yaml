@@ -1,0 +1,23 @@
+apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: test-check-nvidia-gpus
+spec:
+  policies: 
+  - policy.yaml
+  resources:
+    my_resource_pool: 
+    - resource.yaml
+  results:
+  - policy: test-multiple-key
+    rule: test-multiple-key
+    resources:
+    - old: test-resource-pass
+    kind: Pod
+    result: pass
+  - policy: test-multiple-key
+    rule: test-multiple-key
+    resources:
+    - old: test-resource-fail
+    kind: Pod
+    result: fail
