@@ -430,9 +430,6 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 		verifiedImageData.Merge(ivm)
 	}
 
-	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	h.prGenerator.Add(prInfos...)
-
 	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
 	blocked := blockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
@@ -444,6 +441,9 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 		logger.V(4).Info("admission request blocked")
 		return false, getBlockedMessages(engineResponses), nil, nil
 	}
+
+	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+	h.prGenerator.Add(prInfos...)
 
 	if !verifiedImageData.IsEmpty() {
 		hasAnnotations := hasAnnotations(policyContext)
