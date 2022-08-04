@@ -6,10 +6,35 @@ import (
 
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/dynamic/fake"
+	kubefake "k8s.io/client-go/kubernetes/fake"
 )
+
+// NewFakeClient ---testing utilities
+func NewFakeClient(scheme *runtime.Scheme, gvrToListKind map[schema.GroupVersionResource]string, objects ...runtime.Object) (Interface, error) {
+	c := fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...)
+	// the typed and dynamic client are initialized with similar resources
+	kclient := kubefake.NewSimpleClientset(objects...)
+	return &client{
+		client:  c,
+		kclient: kclient,
+	}, nil
+}
+
+func NewEmptyFakeClient() Interface {
+	gvrToListKind := map[schema.GroupVersionResource]string{}
+	objects := []runtime.Object{}
+	scheme := runtime.NewScheme()
+
+	return &client{
+		client:  fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...),
+		kclient: kubefake.NewSimpleClientset(objects...),
+	}
+}
 
 // NewFakeDiscoveryClient returns a fakediscovery client
 func NewFakeDiscoveryClient(registeredResources []schema.GroupVersionResource) *fakeDiscoveryClient {

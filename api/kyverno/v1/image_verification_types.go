@@ -344,25 +344,28 @@ func (iv *ImageVerification) Convert() *ImageVerification {
 		copy.ImageReferences = append(copy.ImageReferences, iv.Image)
 	}
 
-	attestor := Attestor{
-		Annotations: iv.Annotations,
-	}
-
-	if iv.Key != "" {
-		attestor.Keys = &StaticKeyAttestor{
-			PublicKeys: iv.Key,
-		}
-	} else if iv.Issuer != "" {
-		attestor.Keyless = &KeylessAttestor{
-			Issuer:  iv.Issuer,
-			Subject: iv.Subject,
-			Roots:   iv.Roots,
-		}
-	}
-
 	attestorSet := AttestorSet{}
-	attestorSet.Entries = append(attestorSet.Entries, attestor)
-	copy.Attestors = append(copy.Attestors, attestorSet)
+	if len(iv.Annotations) > 0 || iv.Key != "" || iv.Issuer != "" {
+		attestor := Attestor{
+			Annotations: iv.Annotations,
+		}
+
+		if iv.Key != "" {
+			attestor.Keys = &StaticKeyAttestor{
+				PublicKeys: iv.Key,
+			}
+		} else if iv.Issuer != "" {
+			attestor.Keyless = &KeylessAttestor{
+				Issuer:  iv.Issuer,
+				Subject: iv.Subject,
+				Roots:   iv.Roots,
+			}
+		}
+
+		attestorSet.Entries = append(attestorSet.Entries, attestor)
+		copy.Attestors = append(copy.Attestors, attestorSet)
+	}
+
 	copy.Attestations = iv.Attestations
 	return copy
 }
