@@ -26,6 +26,10 @@ import (
 
 type concurrentMap struct{ cmap.ConcurrentMap }
 
+type ValidateInterface interface {
+	ValidateResource(resource unstructured.Unstructured, apiVersion, kind string) error
+}
+
 // Controller represents OpenAPIController
 type Controller struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}

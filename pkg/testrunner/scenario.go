@@ -366,7 +366,7 @@ func getClient(t *testing.T, files []string) dclient.Interface {
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := dclient.NewMockClient(scheme, nil, objects...)
+	c, err := dclient.NewFakeClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil
