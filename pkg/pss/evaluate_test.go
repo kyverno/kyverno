@@ -193,8 +193,9 @@ func Test_Baseline_EvaluatePrivilegedContainers(t *testing.T) {
 		Spec:       *podSpec,
 		ObjectMeta: *podObjectMeta,
 	}
-	allowed, err := EvaluatePod(podSecurityRule, pod, level)
+	allowed, checks, err := EvaluatePod(podSecurityRule, pod, level)
 
+	fmt.Printf("== Checks: %+v", checks)
 	assert.NoError(t, err)
 	assert.True(t, allowed)
 }
@@ -1368,3 +1369,126 @@ func newPrivilegedContainersPodSpec() *corev1.PodSpec {
 // 		},
 // 	}
 // }
+
+func Test_Baseline_EvaluatePrivileged_Containers_InitContainers(t *testing.T) {
+	fmt.Println("===========")
+	podSecurityRule := newPrivilegedContainersInitContainersRule()
+
+	// Parse version (string) to get `major`, `minor`, `latest`
+	apiVersion, err := api.ParseVersion(podSecurityRule.Version)
+	// Get api.Struct
+	apiVersionStruct := api.MajorMinorVersion(apiVersion.Major(), apiVersion.Minor())
+
+	if err != nil {
+		fmt.Printf("error while parsing api version: %+v\n", err)
+	}
+	level := &api.LevelVersion{
+		Level:   podSecurityRule.Level,
+		Version: apiVersionStruct,
+	}
+
+	podObjectMeta := &metav1.ObjectMeta{
+		Name:      "test",
+		Namespace: "test-namespace",
+	}
+
+	podSpec := newPrivilegedContainersInitContainersPodSpec()
+	pod := &corev1.Pod{
+		Spec:       *podSpec,
+		ObjectMeta: *podObjectMeta,
+	}
+	allowed, checks, err := EvaluatePod(podSecurityRule, pod, level)
+
+	fmt.Printf("== Checks: %+v", checks)
+	assert.NoError(t, err)
+	assert.True(t, allowed)
+}
+
+func newPrivilegedContainersInitContainersRule() *v1.PodSecurity {
+	return &v1.PodSecurity{
+		// Level: api.LevelBaseline,
+		Level:   api.LevelRestricted,
+		Version: "v1.24",
+		Exclude: []*v1.PodSecurityStandard{
+			{
+				RestrictedField: "spec.containers[*].securityContext.privileged",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"true"},
+			},
+			{
+				RestrictedField: "spec.containers[*].securityContext.runAsNonRoot",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"false"},
+			},
+			{
+				RestrictedField: "spec.containers[*].securityContext.allowPrivilegeEscalation",
+				Images:          []string{"ghcr.io/example/nginx:1.2.3"},
+				Values:          []string{"true"},
+			},
+			{
+				RestrictedField: "spec.containers[*].securityContext.privileged",
+				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
+				Values:          []string{"true"},
+			},
+			{
+				RestrictedField: "spec.containers[*].securityContext.runAsNonRoot",
+				Images:          []string{"ghcr.io/example/nodejs:1.2.3"},
+				Values:          []string{"false"},
+			},
+		},
+	}
+}
+
+func newPrivilegedContainersInitContainersPodSpec() *corev1.PodSpec {
+	fakeTrue := true
+	fakeFalse := false
+
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:  "nginx",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					Privileged: &fakeTrue,
+					// RunAsNonRoot: &fakeTrue,
+					RunAsNonRoot:             &fakeFalse,
+					AllowPrivilegeEscalation: &fakeTrue,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+			{
+				Name:  "nodejs",
+				Image: "ghcr.io/example/nodejs:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					Privileged:               &fakeTrue,
+					RunAsNonRoot:             &fakeFalse,
+					AllowPrivilegeEscalation: &fakeFalse,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+		InitContainers: []corev1.Container{
+			{
+				Name:  "init-nginx",
+				Image: "ghcr.io/example/nginx:1.2.3",
+				SecurityContext: &corev1.SecurityContext{
+					Privileged: &fakeTrue,
+					// RunAsNonRoot: &fakeTrue,
+					RunAsNonRoot:             &fakeFalse,
+					AllowPrivilegeEscalation: &fakeTrue,
+					SeccompProfile:           &corev1.SeccompProfile{Type: "Localhost"},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{"ALL"},
+					},
+				},
+			},
+		},
+	}
+	return podSpec
+}
