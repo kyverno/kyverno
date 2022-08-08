@@ -293,11 +293,11 @@ func EvaluatePSS(containers []corev1.Container, level *api.LevelVersion, podMeta
 
 func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStandard) bool {
 	for _, restrictedField := range check.RestrictedFields {
-		if restrictedField.path != exclude.RestrictedField {
-			return false
+		if restrictedField.path == exclude.RestrictedField {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // When we specify the controlName only we want to exclude all restrictedFields for this control
@@ -593,4 +593,29 @@ func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) b
 // 		}
 // 	}
 // 	return true, nil
+// }
+
+// Create issue, PR
+// {
+// 	"Allowed":false,
+// 	"ForbiddenReason":"non-default capabilities",
+// 	"ForbiddenDetail":"containers "init-container-nginx-host-network", "nginx-host-network" must not include "SYS_ADMIN", "SYS_NICE" in securityContext.capabilities.add",
+
+// 	// Fields to add
+// 	"RestrictedFields":[
+// 	{
+// 		"Path":"spec.containers[*].securityContext.capabilities.add",
+// 		"ForbiddenValues": {
+// 			"nginx-host-network": [
+// 				"SYS_ADMIN",
+// 				"SYS_NICE"
+// 			],
+// 			"another_nginx": [
+// 				"SYS_ADMIN",
+// 				"SYS_NICE",
+// 				"SYS_TIME"
+// 			],
+// 		}
+// 	 }
+// 	]
 // }
