@@ -72,19 +72,35 @@ func ResponseStatus(allowed bool, status, msg string) *admissionv1.AdmissionResp
 	return r
 }
 
-func ResponseFailure(allowed bool, msg string) *admissionv1.AdmissionResponse {
-	return ResponseStatus(allowed, metav1.StatusFailure, msg)
+func ResponseFailure(msg string) *admissionv1.AdmissionResponse {
+	return ResponseStatus(false, metav1.StatusFailure, msg)
 }
 
-func ResponseSuccess(allowed bool, msg string) *admissionv1.AdmissionResponse {
-	return ResponseStatus(allowed, metav1.StatusSuccess, msg)
+func ResponseSuccess() *admissionv1.AdmissionResponse {
+	return Response(true)
 }
 
-func ResponseSuccessWithPatch(allowed bool, msg string, patch []byte) *admissionv1.AdmissionResponse {
-	r := ResponseSuccess(allowed, msg)
+func ResponseSuccessWithWarnings(warnings []string) *admissionv1.AdmissionResponse {
+	r := Response(true)
+	r.Warnings = warnings
+	return r
+}
+
+func ResponseSuccessWithPatch(patch []byte) *admissionv1.AdmissionResponse {
+	r := Response(true)
 	if len(patch) > 0 {
 		r.Patch = patch
 	}
+	return r
+}
+
+func ResponseSuccessWithPatchAndWarnings(patch []byte, warnings []string) *admissionv1.AdmissionResponse {
+	r := Response(true)
+	if len(patch) > 0 {
+		r.Patch = patch
+	}
+
+	r.Warnings = warnings
 	return r
 }
 
