@@ -16,6 +16,10 @@ includeOtherPolicies: []
 # For more info https://kyverno.io/docs/writing-policies/validate.
 validationFailureAction: audit
 
+# -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
+# For more info: https://kyverno.io/docs/writing-policies/policy-settings/
+failurePolicy: Fail
+
 # -- Define validationFailureActionOverrides for specific policies.
 # The overrides for `all` will apply to all policies.
 validationFailureActionOverrides:

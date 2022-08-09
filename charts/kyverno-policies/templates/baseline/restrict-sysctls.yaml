@@ -26,6 +26,7 @@ spec:
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: check-sysctls
       match:
