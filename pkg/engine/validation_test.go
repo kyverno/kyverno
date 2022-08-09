@@ -3080,19 +3080,28 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
 }
 
-func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
+// Pod security admission
+// Baseline
+
+// Control: HostProcess, check.ID: "windowsHostProcess"
+// Only ControlName: exclude all restrictedFields for `Capabilities` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// 1 * Container: nginx
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation allowed
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProcesses(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "name": "validate-baseline-privileged-container"
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
 		},
 		"spec": {
 			"validationFailureAction": "enforce",
 			"rules": [
 				{
-				"name": "validate-baseline-privileged-container",
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
 				"match": {
 					"resources": {
 					   "kinds": [
@@ -3109,7 +3118,7 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "containers[*].securityContext.capabilities.add",
+								"controlName": "HostProcess",
 								"images": [
 									"nginx"
 								]
@@ -3134,18 +3143,38 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 		"spec": {
 		   "hostNetwork": false,
 		   "containers": [
-			  {
-				 "name": "nginx-host-network",
+			{
+				 "name": "nginx",
 				 "image": "nginx",
 				 "securityContext": {
-					"capabilities": { 
-						"add": [
-							"SYS_ADMIN"
-						]
+					"windowsOptions": { 
+						"hostProcess": true
 					}
 				 }
 			  }
-			]
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"windowsOptions": { 
+							"hostProcess": true
+						}
+				 	}
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"windowsOptions": { 
+							"hostProcess": true
+						}
+				 	}
+				}
+			  ]
 		}
 	 }
 	 `)
@@ -3168,24 +3197,31 @@ func TestValidate_pod_security_baseline_capabilities(t *testing.T) {
 	assert.Assert(t, er.IsSuccessful())
 }
 
-func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t *testing.T) {
+// Control: Capabilities, check.ID: "capabilities_baseline"
+
+// Only ControlName: exclude all restrictedFields for `Capabilities` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// 1 * Container: nginx
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation allowed
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_capabilities(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "name": "validate-baseline-privileged-container"
+		   "name": "enforce-baseline-exclude-all-capabilities-all-containers-nginx"
 		},
 		"spec": {
 			"validationFailureAction": "enforce",
 			"rules": [
 				{
-				"name": "validate-baseline-privileged-container",
+				"name": "enforce-baseline-exclude-all-capabilities-all-containers-nginx",
 				"match": {
 					"resources": {
 					   "kinds": [
 						  "Pod"
-						]
+						],
 						"namespaces": [
 							"staging"
 						]
@@ -3197,12 +3233,155 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 						"version": "v1.24",
 						"exclude": [
 							{
-								"restrictedField": "containers[*].securityContext.capabilities.add",
+								"controlName": "Capabilities",
+								"images": [
+									"nginx"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN"
+						]
+					}
+				 }
+			  }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN"
+						  ]
+					  }
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN"
+						  ]
+					  }
+				   }
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+// Exclude `SYS_ADMIN` and `SYS_TIME` values for `Capabilites` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// 1 * Container: nginx
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation allowed
+func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-some-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-some-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.add",
 								"images": [
 									"nginx"
 								],
 								"values": [
-									"example"
+									"SYS_ADMIN",
+									"SYS_TIME"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN",
+									"SYS_TIME"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN",
+									"SYS_TIME"
 								]
 							}
 						]
@@ -3231,12 +3410,41 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 				 "securityContext": {
 					"capabilities": { 
 						"add": [
-							"SYS_ADMIN"
+							"SYS_ADMIN",
+							"SYS_TIME"
 						]
 					}
 				 }
 			  }
-			]
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ]
 		}
 	 }
 	 `)
@@ -3257,292 +3465,315 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_exclude(t 
 	assert.Assert(t, er.IsSuccessful())
 }
 
-func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_exclude(t *testing.T) {
-
-	// Baseline, fail: missing exclude value for nodejs
-	// rawPolicy := []byte(`
-	// {
-	// 	"apiVersion": "kyverno.io/v1",
-	// 	"kind": "ClusterPolicy",
-	// 	"metadata": {
-	// 	   "name": "validate-baseline-privileged-container"
-	// 	},
-	// 	"spec": {
-	// 		"validationFailureAction": "enforce",
-	// 		"rules": [
-	// 			{
-	// 			"name": "validate-baseline-privileged-container",
-	// 			"match": {
-	// 				"resources": {
-	// 				   "kinds": [
-	// 					  "Pod"
-	// 					],
-	// 					"namespaces": [
-	// 						"staging"
-	// 					]
-	// 				}
-	// 			 },
-	// 			 "validate": {
-	// 				"podSecurity": {
-	// 					"level": "baseline",
-	// 					"version": "v1.24",
-	// 					"exclude": [
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 							"images": [
-	// 								"ghcr.io/example/nginx:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						}
-	// 					]
-	// 				}
-	// 			 }
-	// 		  }
-	// 	   ]
-	// 	}
-	//  }
-	//  `)
-
-	// Baseline, Pass
-	// rawPolicy := []byte(`
-	// {
-	// 	"apiVersion": "kyverno.io/v1",
-	// 	"kind": "ClusterPolicy",
-	// 	"metadata": {
-	// 	   "name": "validate-baseline-privileged-container"
-	// 	},
-	// 	"spec": {
-	// 		"validationFailureAction": "enforce",
-	// 		"rules": [
-	// 			{
-	// 			"name": "validate-baseline-privileged-container",
-	// 			"match": {
-	// 				"resources": {
-	// 				   "kinds": [
-	// 					  "Pod"
-	// 					],
-	// 					"namespaces": [
-	// 						"staging"
-	// 					]
-	// 				}
-	// 			 },
-	// 			 "validate": {
-	// 				"podSecurity": {
-	// 					"level": "baseline",
-	// 					"version": "v1.24",
-	// 					"exclude": [
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 							"images": [
-	// 								"ghcr.io/example/nginx:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						},
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 							"images": [
-	// 								"ghcr.io/example/nodejs:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						}
-	// 					]
-	// 				}
-	// 			 }
-	// 		  }
-	// 	   ]
-	// 	}
-	//  }
-	//  `)
-
-	// Baseline
-	// rawResource := []byte(`
-	//  {
-	// 	"apiVersion": "v1",
-	// 	"kind": "Pod",
-	// 	"metadata": {
-	// 	   "name": "nginx-baseline-privileged-container",
-	// 	   "namespace": "staging"
-	// 	},
-	// 	"spec": {
-	// 	   "hostNetwork": false,
-	// 	   "containers": [
-	// 		{
-	// 			"name": "nginx",
-	// 			"image": "ghcr.io/example/nginx:1.2.3",
-	// 			"securityContext": {
-	// 				"privileged": true,
-	// 				"runAsNonRoot": false,
-	// 				"allowPrivilegeEscalation": true
-	// 			}
-	// 		},
-	// 		{
-	// 			"name": "nodejs",
-	// 			"image": "ghcr.io/example/nodejs:1.2.3",
-	// 			"securityContext": {
-	// 				"privileged": true,
-	// 				"runAsNonRoot": false,
-	// 				"allowPrivilegeEscalation": true
-	// 			}
-	// 		}
-	// 		]
-	// 	}
-	//  }
-	//  `)
-
-	// Restricted, Fail: a PSSCheck didn't match any exclude value: allowPrivilegeEscalation != false for nginx and nodejs containers
-	// rawPolicy := []byte(`
-	// 	{
-	// 		"apiVersion": "kyverno.io/v1",
-	// 		"kind": "ClusterPolicy",
-	// 		"metadata": {
-	// 		   "name": "validate-baseline-privileged-container"
-	// 		},
-	// 		"spec": {
-	// 			"validationFailureAction": "enforce",
-	// 			"rules": [
-	// 				{
-	// 				"name": "validate-baseline-privileged-container",
-	// 				"match": {
-	// 					"resources": {
-	// 					   "kinds": [
-	// 						  "Pod"
-	// 						],
-	// 						"namespaces": [
-	// 							"staging"
-	// 						]
-	// 					}
-	// 				 },
-	// 				 "validate": {
-	// 					"podSecurity": {
-	// 						"level": "restricted",
-	// 						"version": "v1.24",
-	// 						"exclude": [
-	// 							{
-	// 								"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 								"images": [
-	// 									"ghcr.io/example/nginx:1.2.3"
-	// 								],
-	// 								"values": [
-	// 									"true"
-	// 								]
-	// 							},
-	// 							{
-	// 								"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 								"images": [
-	// 									"ghcr.io/example/nodejs:1.2.3"
-	// 								],
-	// 								"values": [
-	// 									"true"
-	// 								]
-	// 							}
-	// 						]
-	// 					}
-	// 				 }
-	// 			  }
-	// 		   ]
-	// 		}
-	// 	 }
-	// 	 `)
-
-	// rawPolicy := []byte(`
-	// {
-	// 	"apiVersion": "kyverno.io/v1",
-	// 	"kind": "ClusterPolicy",
-	// 	"metadata": {
-	// 	   "name": "validate-baseline-privileged-container"
-	// 	},
-	// 	"spec": {
-	// 		"validationFailureAction": "enforce",
-	// 		"rules": [
-	// 			{
-	// 			"name": "validate-baseline-privileged-container",
-	// 			"match": {
-	// 				"resources": {
-	// 				   "kinds": [
-	// 					  "Pod"
-	// 					],
-	// 					"namespaces": [
-	// 						"staging"
-	// 					]
-	// 				}
-	// 			 },
-	// 			 "validate": {
-	// 				"podSecurity": {
-	// 					"level": "restricted",
-	// 					"version": "v1.24",
-	// 					"exclude": [
-	// 						{
-	// 							"control": "privileged",
-	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 							"images": [
-	// 								"ghcr.io/example/nginx:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						},
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
-	// 							"images": [
-	// 								"ghcr.io/example/nginx:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"false"
-	// 							]
-	// 						},
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.allowPrivilegeEscalation",
-	// 							"images": [
-	// 								"ghcr.io/example/nginx:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						},
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.privileged",
-	// 							"images": [
-	// 								"ghcr.io/example/nodejs:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"true"
-	// 							]
-	// 						},
-	// 						{
-	// 							"restrictedField": "spec.containers[*].securityContext.runAsNonRoot",
-	// 							"images": [
-	// 								"ghcr.io/example/nodejs:1.2.3"
-	// 							],
-	// 							"values": [
-	// 								"false"
-	// 							]
-	// 						}
-	// 					]
-	// 				}
-	// 			 }
-	// 		  }
-	// 	   ]
-	// 	}
-	//  }
-	//  `)
+// Exclude `SYS_ADMIN` value for `Capabilites` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// 1 * Container: nginx
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation forbidden: missing `SYS_TIME` value in exclude
+func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities_missing_exclude_value(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "ClusterPolicy",
 		"metadata": {
-		   "name": "validate-restricted-privileged-container"
+		   "name":  "enforce-baseline-exclude-some-capabilities-all-containers-nginx"
 		},
 		"spec": {
 			"validationFailureAction": "enforce",
 			"rules": [
 				{
-				"name": "validate-restricted-privileged-container",
+				"name": "enforce-baseline-exclude-some-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN",
+							"SYS_TIME"
+						]
+					}
+				 }
+			  }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// Exclude `SYS_ADMIN`, `SYS_TIME` values for `Capabilites` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// 1 * Container: nginx
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation forbidden: missing exclude block for ephemeralContainers:
+// {
+// 	"controlName": "Capabilities",
+// 	"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.add",
+// 	"images": [
+// 		"nginx"
+// 	],
+// 	"values": [
+// 		"SYS_ADMIN",
+// 		"SYS_TIME"
+// 	]
+// }
+func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities_missing_exclude_restrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name":  "enforce-baseline-exclude-some-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-some-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN",
+									"SYS_TIME"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.add",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN",
+									"SYS_TIME"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			  {
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"capabilities": { 
+						"add": [
+							"SYS_ADMIN",
+							"SYS_TIME"
+						]
+					}
+				 }
+			  }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+					  "capabilities": { 
+						  "add": [
+							  "SYS_ADMIN",
+							  "SYS_TIME"
+						  ]
+					  }
+				   }
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// Only ControlName: exclude all restrictedFields for `privileged containers` control running with images `nginx`
+// 2 * Container: nginx / nodejs
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation allowed
+func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_containers_initContainers_ephemeralContainers_single_image(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-privileged-container-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-privileged-container-nginx-nodejs",
 				"match": {
 					"resources": {
 					   "kinds": [
@@ -3561,7 +3792,8 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 							{
 								"controlName": "privileged",
 								"images": [
-									"nginx"
+									"nginx",
+									"nodejs"
 								]
 							}
 						]
@@ -3601,24 +3833,7 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 						]
 					}
 				}
-			},
-			{
-				"name": "nodejs",
-				"image": "nodejs",
-				"securityContext": {
-					 "privileged": true,
-					 "runAsNonRoot": true,
-					 "allowPrivilegeEscalation": false,
-					 "seccompProfile": {
-						 "type": "RuntimeDefault"
-					 },
-					 "capabilities": {
-						 "drop": [
-							 "ALL"
-						 ]
-					 }
-				 }
-			 }
+			}
 			],
 			"initContainers": [
 				{
@@ -3673,36 +3888,16 @@ func TestValidate_pod_security_admission_restricted_capabilities_with_incorrect_
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
 
-// CheckResult
-// {
-//   "Allowed":false,
-//   "ForbiddenReason":"non-default capabilities",
-//   "ForbiddenDetail":"containers "init-container-nginx-host-network", "nginx-host-network" must not include "SYS_ADMIN", "SYS_NICE" in securityContext.capabilities.add",
-// }
-
-// "non-default capabilities":
-
-// path: "securityContext.capabilities.add"
-// values: [
-// 	"SYS_ADMIN"
-// 	"SYS_ROOT"
-// ]
-
-// static
-// check: [
-// {
-// 	id: {
-// 		path:
-// 		allowedValues:
-// 	},
-// }]
-
-func TestValidate_enforce_restricted_exclude_privileged_containers_initContainers_ephemeralContainers(t *testing.T) {
+// Only ControlName: exclude all restrictedFields for `privileged containers` control running with images `nginx` or `nodejs`
+// 2 * Container: nginx / nodejs
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation allowed
+func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_containers_initContainers_ephemeralContainers_multiples_images(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -3850,7 +4045,12 @@ func TestValidate_enforce_restricted_exclude_privileged_containers_initContainer
 	assert.Assert(t, er.IsSuccessful())
 }
 
-func TestValidate_enforce_restricted_exclude_containers_initContainers_ephemeralContainers_missing_exclude(t *testing.T) {
+// Only ControlName: exclude all restrictedFields for `privileged containers` control running with images `nginx`
+// 2 * Container: nginx / nodejs
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Pod creation forbidden: missing exclude for container running with `nodejs` image
+func TestValidate_pod_security_admission_enforce_restricted_exclude_containers_initContainers_ephemeralContainers_missing_exclude(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -3997,7 +4197,15 @@ func TestValidate_enforce_restricted_exclude_containers_initContainers_ephemeral
 	assert.Assert(t, er.IsFailed())
 }
 
-func TestValidate_enforce_restricted_exclude_privileged_containers_only(t *testing.T) {
+// Exclude spec.containers[*].securityContext.privileged for containers running `nginx` image
+// 2 * Container: nginx / nodejs
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Fail -> We have to exclude restrictedFields for initContainers and ephemeralContainers:
+// - spec.initContainers[*].securityContext.privileged
+// - spec.ephemeralContainers[*].securityContext.privileged
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_containers_missing_restrictedFields(t *testing.T) {
 	rawPolicy := []byte(`
 	{
 		"apiVersion": "kyverno.io/v1",
@@ -4028,6 +4236,185 @@ func TestValidate_enforce_restricted_exclude_privileged_containers_only(t *testi
 							{
 								"controlName": "privileged",
 								"restrictedField": "spec.containers[*].securityContext.privileged",
+								"values": [
+									"true"
+								],
+								"images": [
+									"nginx"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	// Restricted
+	rawResource := []byte(`
+	{
+	   "apiVersion": "v1",
+	   "kind": "Pod",
+	   "metadata": {
+		  "name": "nginx-baseline-privileged-container",
+		  "namespace": "staging"
+	   },
+	   "spec": {
+		  "hostNetwork": false,
+		  "containers": [
+		   {
+			   "name": "nginx",
+			   "image": "nginx",
+			   "securityContext": {
+					"privileged": true,
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"ALL"
+						]
+					}
+				}
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					 "privileged": true,
+					 "runAsNonRoot": true,
+					 "allowPrivilegeEscalation": false,
+					 "seccompProfile": {
+						 "type": "RuntimeDefault"
+					 },
+					 "capabilities": {
+						 "drop": [
+							 "ALL"
+						 ]
+					 }
+				 }
+			 }
+			],
+			"initContainers": [
+				{
+					"name": "init-nginx",
+					"image": "nginx",
+					"securityContext": {
+						 "privileged": true,
+						 "runAsNonRoot": true,
+						 "allowPrivilegeEscalation": false,
+						 "seccompProfile": {
+							 "type": "RuntimeDefault"
+						 },
+						 "capabilities": {
+							 "drop": [
+								 "ALL"
+							 ]
+						 }
+					 }
+				 }
+			],
+			"ephemeralContainers": [
+				{
+					"name": "ephemeral-nginx",
+					"image": "nginx",
+					"securityContext": {
+						 "privileged": true,
+						 "runAsNonRoot": true,
+						 "allowPrivilegeEscalation": false,
+						 "seccompProfile": {
+							 "type": "RuntimeDefault"
+						 },
+						 "capabilities": {
+							 "drop": [
+								 "ALL"
+							 ]
+						 }
+					 }
+				 }
+			]
+	   }
+	}
+	`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// Exclude spec.containers[*].securityContext.privileged for containers running `nginx` image
+// Exclude spec.initContainers[*].securityContext.privileged for initContainers running `nginx` image
+// Exclude spec.ephemeralContainers[*].securityContext.privileged for ephemeralContainers running `nginx` image
+// 2 * Container: nginx / nodejs
+// 1 * InitContainer: nginx
+// 1 * EphemeralContainer: nginx
+// Fail -> We have to exclude restrictedFields for containers running with `nodejs` image:
+// - spec.containers[*].securityContext.privileged
+func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_containers(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-privileged-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-privileged-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "privileged",
+								"restrictedField": "spec.containers[*].securityContext.privileged",
+								"values": [
+									"true"
+								],
+								"images": [
+									"nginx"
+								]
+							},
+							{
+								"controlName": "privileged",
+								"restrictedField": "spec.initContainers[*].securityContext.privileged",
+								"values": [
+									"true"
+								],
+								"images": [
+									"nginx"
+								]
+							},
+							{
+								"controlName": "privileged",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.privileged",
 								"values": [
 									"true"
 								],
