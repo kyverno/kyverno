@@ -69,6 +69,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | includeOtherPolicies | list | `[]` | Additional policies to include from `other`. |
 | validationFailureAction | string | `"audit"` | Validation failure action (`audit`, `enforce`). For more info https://kyverno.io/docs/writing-policies/validate. |
 | validationFailureActionOverrides | object | `{"all":[]}` | Define validationFailureActionOverrides for specific policies. The overrides for `all` will apply to all policies. |
+| failurePolicy | string | `"Fail"` | FailurePolicy defines how unrecognized errors from the admission endpoint are handled.|
 | policyExclude | object | `{}` | Exclude resources from individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map. |
 | policyPreconditions | object | `{}` | Add preconditions to individual policies. Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyPreconditions` map. |
 | nameOverride | string | `nil` | Name override. |

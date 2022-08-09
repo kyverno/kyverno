@@ -22,6 +22,7 @@ spec:
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: run-as-non-root-user
       match:

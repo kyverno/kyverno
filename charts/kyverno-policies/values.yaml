@@ -29,6 +29,10 @@ validationFailureActionOverrides:
   #     namespaces:
   #       - fluent
 
+# -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
+# For more info: https://kyverno.io/docs/writing-policies/policy-settings/
+failurePolicy: Fail
+
 # -- Exclude resources from individual policies.
 # Policies with multiple rules can have individual rules excluded by using the name of the rule as the key in the `policyExclude` map.
 policyExclude: {}
