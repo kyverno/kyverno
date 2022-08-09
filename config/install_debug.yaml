@@ -12361,8 +12361,7 @@ metadata:
   name: kyverno:events
 rules:
 - apiGroups:
-  - ""
-  - events.k8s.io
+  - '*'
   resources:
   - events
   verbs:
