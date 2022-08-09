@@ -3083,8 +3083,21 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // Pod security admission
 // Baseline
 
-// Control: HostProcess, check.ID: "windowsHostProcess"
-// Only ControlName: exclude all restrictedFields for `Capabilities` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
+// Control: "HostProcess", check.ID: "windowsHostProcess"
+// Control: "Privileged Containers", check.ID: "privileged"
+// Control: "Host Ports", check.ID: "hostPorts"
+// Control: "SELinux", check.ID: "seLinuxOptions"
+// Control: "/proc Mount Type", check.ID: "procMount"
+// Control: "Seccomp", check.ID: "seccompProfile_baseline"
+
+// Restricted
+// Control: "Privilege Escalation", check.ID: "allowPrivilegeEscalation"
+// Control: "Running as Non-root", check.ID: "runAsNonRoot"
+// Control: "Running as Non-root user", check.ID: "runAsUser"
+// Control: "Seccomp", check.ID: "seccompProfile_restricted"
+// Control: "Capabilities", check.ID: "capabilities_restricted"
+
+// Only ControlName: exclude all restrictedFields for `HostProcess` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
 // 1 * Container: nginx
 // 1 * InitContainer: nginx
 // 1 * EphemeralContainer: nginx
@@ -3197,7 +3210,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProces
 	assert.Assert(t, er.IsSuccessful())
 }
 
-// Control: Capabilities, check.ID: "capabilities_baseline"
+// Control: "Capabilities", check.ID: "capabilities_baseline"
 
 // Only ControlName: exclude all restrictedFields for `Capabilities` control for all containers (containers, initContainers, ephemeralContainers) running with images `nginx`
 // 1 * Container: nginx
