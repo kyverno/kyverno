@@ -1,4 +1,10 @@
-## v1.7.2-rc2
+# v1.7.2-rc3
+
+### Note
+
+- added support for failurePolicy to kyverno-policy helm chart
+
+# v1.7.2-rc2
 
 ### Note
 
@@ -7,7 +13,7 @@
 
 ### Note
 
-- A new flag `maxReportChangeRequests` is added to the Kyverno main container, this flag sets the up-limit of reportchangerequests that a namespace can take, or clusterreportchangerequests if matching kinds are cluster-wide resources. The default limit is set to 1000, and it's recommended to configure it to a small threshold on large clusters. Here the large clusters are considered that a policy report has more than 1k results. 
+- A new flag `maxReportChangeRequests` is added to the Kyverno main container, this flag sets the up-limit of reportchangerequests that a namespace can take, or clusterreportchangerequests if matching kinds are cluster-wide resources. The default limit is set to 1000, and it's recommended to configure it to a small threshold on large clusters. Here the large clusters are considered that a policy report has more than 1k results.
 
 
 ## v1.7.0-rc1
@@ -106,7 +112,7 @@ Thanks to all our contributors! 😊
 
 ## v1.4.3-rc1
 
-### Enhancements 
+### Enhancements
 - CLI variables should be coming from the resources itself (#1996)
 - Adding `ownerRef` with namespace for Kyverno managed webhook configurations (#2263)
 - Support new policy report CRD #1753, (#2376)
@@ -154,7 +160,7 @@ Thanks to all our contributors! 😊
 
 ## v1.4.2
 
-### Enhancements 
+### Enhancements
 - Remove unused variable from Kyverno CLI (#2252)
 
 ## v1.4.2-rc4
