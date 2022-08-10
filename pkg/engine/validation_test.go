@@ -3093,13 +3093,6 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // - spec.initContainers[*].securityContext.seLinuxOptions.type
 // - spec.ephemeralContainers[*].securityContext.seLinuxOptions.type
 
-// Control: "/proc Mount Type", check.ID: "procMount"
-
-// container-level:
-// - spec.containers[*].securityContext.ports[*].hostPort
-// - spec.initContainers[*].securityContext.ports[*].hostPort
-// - spec.ephemeralContainers[*].securityContext.ports[*].hostPort
-
 // Control: "Seccomp", check.ID: "seccompProfile_baseline"
 
 // pod-level:
@@ -3501,7 +3494,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_capabilities_w
 		   "hostNetwork": false,
 		   "containers": [
 			  {
-				 "name": "nginx-host-network",
+				 "name": "nginx",
 				 "image": "nginx",
 				 "securityContext": {
 					"capabilities": { 
@@ -5423,6 +5416,517 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_hostPorts_mi
 					]
 				}
 			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// === Control: "/proc Mount Type", check.ID: "procMount"
+
+// container-level:
+// - spec.containers[*].securityContext.procMount
+// - spec.initContainers[*].securityContext.procMount
+// - spec.ephemeralContainers[*].securityContext.procMount
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_procMounts(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"ProcMount": "Unmasked" 
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"ProcMount": "Other" 
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_with_restrictedFields(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.containers[*].securityContext.procMount",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"Unmasked",
+									"Other"
+								]
+							},
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.initContainers[*].securityContext.procMount",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"Unmasked"
+								]
+							},
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.procMount",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"Unmasked"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"ProcMount": "Unmasked" 
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"ProcMount": "Other" 
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.containers[*].securityContext.procMount",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"RandomValue"
+								]
+							},
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.initContainers[*].securityContext.procMount",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"Unmasked"
+								]
+							},
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.procMount",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"Unmasked"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"ProcMount": "Unmasked" 
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"ProcMount": "Other" 
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_missing_exclude_RestrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-procMounts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.containers[*].securityContext.procMount",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"Unmasked",
+									"Other"
+								]
+							},
+							{
+								"controlName": "/proc Mount Type",
+								"restrictedField": "spec.initContainers[*].securityContext.procMount",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"Unmasked"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"ProcMount": "Unmasked" 
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"ProcMount": "Other" 
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"ProcMount": "Unmasked" 
+				   }
+				}
+			]
 		}
 	 }
 	 `)

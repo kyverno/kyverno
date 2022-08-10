@@ -98,7 +98,7 @@ var PSS_controls_to_check_id = map[string][]string{
 		"seLinuxOptions",
 	},
 	"/proc Mount Type": {
-		"hostPorts",
+		"procMount",
 	},
 	"procMount": {
 		"hostPorts",
@@ -192,6 +192,29 @@ var PSS_controls = map[string][]restrictedField{
 			allowedValues: []interface{}{
 				false,
 				0,
+			},
+		},
+	},
+	"procMount": {
+		{
+			path: "spec.containers[*].securityContext.procMount",
+			allowedValues: []interface{}{
+				nil,
+				corev1.DefaultProcMount,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.procMount",
+			allowedValues: []interface{}{
+				nil,
+				corev1.DefaultProcMount,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.procMount",
+			allowedValues: []interface{}{
+				nil,
+				corev1.DefaultProcMount,
 			},
 		},
 	},
@@ -595,6 +618,93 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 					// 	}
 					// }
 					// if podSpec != nil {
+
+					if err := ctx.AddJSONObject(pod); err != nil {
+						return false, errors.Wrap(err, "failed to add podSpec to engine context")
+					}
+
+					// spec.containers[?name=='nodejs'].securityContext.procMount
+					value, err := ctx.Query(exclude.RestrictedField)
+					fmt.Printf("==== image: %s\n", image)
+					fmt.Printf("==== value: %s\n", value)
+					if err != nil {
+						return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+					}
+
+					// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+					// if len(exclude.Values) == 0 {
+					// 	return true, nil
+					// }
+
+					if !allowedValues(value, exclude) {
+						return false, nil
+					}
+					matchedOnce = true
+				}
+			}
+			if !matchedOnce {
+				fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
+				return false, nil
+			}
+		}
+		for _, container := range pod.Spec.InitContainers {
+			fmt.Printf("\n[InitContainer]: %+v\n", container)
+			matchedOnce := false
+			for _, exclude := range rule.Exclude {
+				fmt.Printf("[Exclude]: %+v\n", exclude)
+				for _, image := range exclude.Images {
+					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") || container.Image != image {
+						continue
+					}
+
+					// if podObjectMeta != nil {
+					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+					// 	}
+					// }
+					// if podSpec != nil {
+					if err := ctx.AddJSONObject(pod); err != nil {
+						return false, errors.Wrap(err, "failed to add podSpec to engine context")
+					}
+
+					value, err := ctx.Query(exclude.RestrictedField)
+					if err != nil {
+						return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+					}
+					fmt.Printf("==== image: %s\n", image)
+					fmt.Printf("==== value: %s\n", value)
+					// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+					// if len(exclude.Values) == 0 {
+					// 	return true, nil
+					// }
+
+					if !allowedValues(value, exclude) {
+						return false, nil
+					}
+					matchedOnce = true
+				}
+			}
+			if !matchedOnce {
+				fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
+				return false, nil
+			}
+		}
+		for _, container := range pod.Spec.EphemeralContainers {
+			fmt.Printf("\n[ephemeralContainer]: %+v\n", container)
+			matchedOnce := false
+			for _, exclude := range rule.Exclude {
+				fmt.Printf("[Exclude]: %+v\n", exclude)
+				for _, image := range exclude.Images {
+					// Check only containers that are in PSSCheck.ForbiddenDetail
+					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") || container.Image != image {
+						continue
+					}
+					// if podObjectMeta != nil {
+					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+					// 	}
+					// }
+					// if podSpec != nil {
 					if err := ctx.AddJSONObject(pod); err != nil {
 						return false, errors.Wrap(err, "failed to add podSpec to engine context")
 					}
@@ -614,87 +724,6 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 					}
 					matchedOnce = true
 				}
-				if !matchedOnce {
-					fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
-					return false, nil
-				}
-			}
-		}
-		for _, container := range pod.Spec.InitContainers {
-			fmt.Printf("\n[Container]: %+v\n", container)
-			matchedOnce := false
-			for _, exclude := range rule.Exclude {
-				fmt.Printf("[Exclude]: %+v\n", exclude)
-
-				ContainerIsForbidden := strings.Contains(check.CheckResult.ForbiddenDetail, container.Name)
-				if !ContainerIsForbidden || !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
-					continue
-				}
-
-				// if podObjectMeta != nil {
-				// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-				// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-				// 	}
-				// }
-				// if podSpec != nil {
-				if err := ctx.AddJSONObject(pod); err != nil {
-					return false, errors.Wrap(err, "failed to add podSpec to engine context")
-				}
-
-				value, err := ctx.Query(exclude.RestrictedField)
-				if err != nil {
-					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
-				}
-
-				// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
-				// if len(exclude.Values) == 0 {
-				// 	return true, nil
-				// }
-
-				if !allowedValues(value, exclude) {
-					return false, nil
-				}
-				matchedOnce = true
-			}
-			if !matchedOnce {
-				fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
-				return false, nil
-			}
-		}
-		for _, container := range pod.Spec.EphemeralContainers {
-			fmt.Printf("\n[Container]: %+v\n", container)
-			matchedOnce := false
-			for _, exclude := range rule.Exclude {
-				fmt.Printf("[Exclude]: %+v\n", exclude)
-				// Check only containers that are in PSSCheck.ForbiddenDetail
-				ContainerIsForbidden := strings.Contains(check.CheckResult.ForbiddenDetail, container.Name)
-				if !ContainerIsForbidden || !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
-					continue
-				}
-				// if podObjectMeta != nil {
-				// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-				// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-				// 	}
-				// }
-				// if podSpec != nil {
-				if err := ctx.AddJSONObject(pod); err != nil {
-					return false, errors.Wrap(err, "failed to add podSpec to engine context")
-				}
-
-				value, err := ctx.Query(exclude.RestrictedField)
-				if err != nil {
-					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
-				}
-
-				// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
-				// if len(exclude.Values) == 0 {
-				// 	return true, nil
-				// }
-
-				if !allowedValues(value, exclude) {
-					return false, nil
-				}
-				matchedOnce = true
 			}
 			if !matchedOnce {
 				fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
