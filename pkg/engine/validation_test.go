@@ -3266,264 +3266,271 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // - spec.containers[*].securityContext.windowsOptions.hostProcess
 // - spec.initContainers[*].securityContext.windowsOptions.hostProcess
 // - spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess
-// func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProcesses(t *testing.T) {
-// 	rawPolicy := []byte(`
-// 	{
-// 		"apiVersion": "kyverno.io/v1",
-// 		"kind": "ClusterPolicy",
-// 		"metadata": {
-// 		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
-// 		},
-// 		"spec": {
-// 			"validationFailureAction": "enforce",
-// 			"rules": [
-// 				{
-// 				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
-// 				"match": {
-// 					"resources": {
-// 					   "kinds": [
-// 						  "Pod"
-// 						],
-// 						"namespaces": [
-// 							"staging"
-// 						]
-// 					}
-// 				 },
-// 				 "validate": {
-// 					"podSecurity": {
-// 						"level": "baseline",
-// 						"version": "v1.24",
-// 						"exclude": [
-// 							{
-// 								"controlName": "HostProcess",
-// 								"images": [
-// 									"nginx",
-// 									"nodejs"
-// 								]
-// 							}
-// 						]
-// 					}
-// 				 }
-// 			  }
-// 		   ]
-// 		}
-// 	 }
-// 	 `)
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProcesses(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "HostProcess",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
 
-// 	rawResource := []byte(`
-// 	 {
-// 		"apiVersion": "v1",
-// 		"kind": "Pod",
-// 		"metadata": {
-// 		   "name": "nginx-baseline-privileged-container",
-// 		   "namespace": "staging"
-// 		},
-// 		"spec": {
-// 		   "hostNetwork": false,
-// 		   "securityContext": {
-// 				"windowsOptions": {
-// 					"hostProcess": true
-// 				}
-// 		   },
-// 		   "containers": [
-// 			{
-// 				 "name": "nginx",
-// 				 "image": "nginx",
-// 				 "securityContext": {
-// 					"windowsOptions": {
-// 						"hostProcess": true
-// 					}
-// 				 }
-// 			  },
-// 			{
-// 				"name": "nodejs",
-// 				"image": "nodejs",
-// 				"securityContext": {
-// 				   "windowsOptions": {
-// 					   "hostProcess": true
-// 				   }
-// 				}
-// 			 }
-// 			],
-// 			"initContainers": [
-// 				{
-// 				   "name": "init-nginx",
-// 				   "image": "nginx",
-// 				   "securityContext": {
-// 						"windowsOptions": {
-// 							"hostProcess": true
-// 						}
-// 				   }
-// 				}
-// 			]
-// 		}
-// 	 }
-// 	 `)
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "securityContext": {
+				"windowsOptions": {
+					"hostProcess": true
+				}
+		   },
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			  },
+			{
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		}
+	 }
+	 `)
 
-// 	var policy kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
-// 	assert.NilError(t, err)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
 
-// 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
-// 	assert.NilError(t, err)
-// 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
-// 	fmt.Println(er)
-// 	// msgs := []string{""}
+	fmt.Println(er)
+	// msgs := []string{""}
 
-// 	for _, r := range er.PolicyResponse.Rules {
-// 		fmt.Printf("== Response: %+v\n", r.Message)
-// 		// assert.Equal(t, r.Message, msgs[index])
-// 	}
-// 	assert.Assert(t, er.IsSuccessful())
-// }
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
 
-// func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_with_restrictedFields(t *testing.T) {
-// 	rawPolicy := []byte(`
-// 	{
-// 		"apiVersion": "kyverno.io/v1",
-// 		"kind": "ClusterPolicy",
-// 		"metadata": {
-// 		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
-// 		},
-// 		"spec": {
-// 			"validationFailureAction": "enforce",
-// 			"rules": [
-// 				{
-// 				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
-// 				"match": {
-// 					"resources": {
-// 					   "kinds": [
-// 						  "Pod"
-// 						],
-// 						"namespaces": [
-// 							"staging"
-// 						]
-// 					}
-// 				 },
-// 				 "validate": {
-// 					"podSecurity": {
-// 						"level": "baseline",
-// 						"version": "v1.24",
-// 						"exclude": [
-// 							{
-// 								"controlName": "HostProcess",
-// 								"restrictedField": "spec.containers[*].securityContext.windowsOptions.hostProcess",
-// 								"images": [
-// 									"nginx",
-// 									"nodejs"
-// 								],
-// 								"values": [
-// 									"true"
-// 								]
-// 							},
-// 							{
-// 								"controlName": "HostProcess",
-// 								"restrictedField": "spec.initContainers[*].securityContext.windowsOptions.hostProcess",
-// 								"images": [
-// 									"nginx"
-// 								],
-// 								"values": [
-// 									"true"
-// 								]
-// 							},
-// 							{
-// 								"controlName": "HostProcess",
-// 								"restrictedField": "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess",
-// 								"images": [
-// 									"nginx"
-// 								],
-// 								"values": [
-// 									"true"
-// 								]
-// 							}
-// 						]
-// 					}
-// 				 }
-// 			  }
-// 		   ]
-// 		}
-// 	 }
-// 	 `)
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_with_restrictedFields(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "HostProcess",
+								"restrictedField": "spec.securityContext.windowsOptions.hostProcess",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"restrictedField": "spec.containers[*].securityContext.windowsOptions.hostProcess",
+								"images": [
+									"nginx:1.2.3",
+									"nodejs:1.2.3"
+								],
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"restrictedField": "spec.initContainers[*].securityContext.windowsOptions.hostProcess",
+								"images": [
+									"nginx:1.2.3"
+								],
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess",
+								"images": [
+									"nginx:1.2.3"
+								],
+								"values": [
+									"true"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
 
-// 	rawResource := []byte(`
-// 	 {
-// 		"apiVersion": "v1",
-// 		"kind": "Pod",
-// 		"metadata": {
-// 		   "name": "nginx-baseline-privileged-container",
-// 		   "namespace": "staging"
-// 		},
-// 		"spec": {
-// 		   "hostNetwork": false,
-// 		   "securityContext": {
-// 				"windowsOptions": {
-// 					"hostProcess": true
-// 				}
-// 		   },
-// 		   "containers": [
-// 			{
-// 				 "name": "nginx",
-// 				 "image": "nginx",
-// 				 "securityContext": {
-// 					"windowsOptions": {
-// 						"hostProcess": true
-// 					}
-// 				 }
-// 			},
-// 			{
-// 				"name": "nodejs",
-// 				"image": "nodejs",
-// 				"securityContext": {
-// 				   "windowsOptions": {
-// 					   "hostProcess": true
-// 				   }
-// 				}
-// 			 }
-// 			],
-// 			"initContainers": [
-// 				{
-// 				   "name": "init-nginx",
-// 				   "image": "nginx",
-// 				   "securityContext": {
-// 						"windowsOptions": {
-// 							"hostProcess": true
-// 						}
-// 				   }
-// 				}
-// 			  ],
-// 			"ephemeralContainers": [
-// 				{
-// 				   "name": "ephemeral-nginx",
-// 				   "image": "nginx",
-// 				   "securityContext": {
-// 						"windowsOptions": {
-// 							"hostProcess": true
-// 						}
-// 				   }
-// 				}
-// 			]
-// 		}
-// 	 }
-// 	 `)
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "securityContext": {
+				"windowsOptions": {
+					"hostProcess": true
+				}
+		   },
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		}
+	 }
+	 `)
 
-// 	var policy kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
-// 	assert.NilError(t, err)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
 
-// 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
-// 	assert.NilError(t, err)
-// 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
-// 	fmt.Println(er)
-// 	// msgs := []string{""}
+	fmt.Println(er)
+	// msgs := []string{""}
 
-// 	for _, r := range er.PolicyResponse.Rules {
-// 		fmt.Printf("== Response: %+v\n", r.Message)
-// 		// assert.Equal(t, r.Message, msgs[index])
-// 	}
-// 	assert.Assert(t, er.IsSuccessful())
-// }
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
 
 // === Control: "Capabilities", check.ID: "capabilities_baseline"
 // pod-level restrictedFields:
