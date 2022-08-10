@@ -74,9 +74,7 @@ type PSSCheckResult struct {
 
 // Translate PSS control to Check.ID so that we can use PSS control in Kyverno policy
 var PSS_controls_to_check_id = map[string][]string{
-	"HostProcess": {
-		"windowsHostProcess",
-	},
+	// Controls with 2 different controls for each level
 	"Capabilities": {
 		"capabilities_baseline",
 		"capabilities_restricted",
@@ -85,14 +83,42 @@ var PSS_controls_to_check_id = map[string][]string{
 		"seccompProfile_baseline",
 		"seccompProfile_restricted",
 	},
+
+	// Baseline
+	"HostProcess": {
+		"windowsHostProcess",
+	},
 	"Privileged Containers": {
 		"privileged",
+	},
+	"Host Ports": {
+		"hostPorts",
+	},
+	"SELinux": {
+		"seLinuxOptions",
+	},
+	"/proc Mount Type": {
+		"hostPorts",
+	},
+	"procMount": {
+		"hostPorts",
+	},
+
+	// Restricted
+	"Privilege Escalation": {
+		"allowPrivilegeEscalation",
+	},
+	"Running as Non-root": {
+		"runAsNonRoot",
+	},
+	"Running as Non-root user": {
+		"runAsUser",
 	},
 }
 
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
-	"HostProcess": {
+	"windowsHostProcess": {
 		{
 			path: "spec.securityContext.windowsOptions.hostProcess",
 			allowedValues: []interface{}{
@@ -122,7 +148,7 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
-	"Privileged Containers": {
+	"privileged": {
 		{
 			path: "spec.containers[*].securityContext.privileged",
 			allowedValues: []interface{}{
@@ -418,7 +444,7 @@ func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *cor
 
 	for _, container := range pod.Spec.Containers {
 		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.Containers) == 0 || !containsContainer(podCopy.Spec.Containers, container.Name) {
 					podCopy.Spec.Containers = append(podCopy.Spec.Containers, container)
@@ -428,7 +454,7 @@ func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *cor
 	}
 	for _, container := range pod.Spec.InitContainers {
 		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.initContainers[*]") {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.InitContainers) == 0 || !containsContainer(podCopy.Spec.InitContainers, container.Name) {
 					podCopy.Spec.InitContainers = append(podCopy.Spec.InitContainers, container)
@@ -438,7 +464,7 @@ func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *cor
 	}
 	for _, container := range pod.Spec.EphemeralContainers {
 		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.ephemeralContainers[*]") {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.EphemeralContainers) == 0 || !containsContainer(podCopy.Spec.EphemeralContainers, container.Name) {
 					podCopy.Spec.EphemeralContainers = append(podCopy.Spec.EphemeralContainers, container)
@@ -447,6 +473,18 @@ func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *cor
 		}
 	}
 	return podCopy
+}
+
+// Get restrictedFields from Check.ID
+func getRestrictedFields(check policy.Check) []restrictedField {
+	for _, control := range PSS_controls_to_check_id {
+		for _, checkID := range control {
+			if check.ID == checkID {
+				return PSS_controls[checkID]
+			}
+		}
+	}
+	return nil
 }
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
@@ -469,7 +507,7 @@ func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 				results = append(results, PSSCheckResult{
 					ID:               check.ID,
 					CheckResult:      checkResult,
-					RestrictedFields: PSS_controls[check.ID],
+					RestrictedFields: getRestrictedFields(check),
 				})
 			}
 
@@ -512,44 +550,50 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
+	// Verify if every container present in the Check.FordibbenDetail is exempted
+	// --> works only for controls with restrictedFields: containers, initContainers, ephemeralContainers
+	// What about other pod-level restrictedFields ? spec.hostNetwork, spec.securityContext.windowsOptions.hostProcess etc ...
 	for _, check := range checks {
 		for _, container := range pod.Spec.Containers {
 			fmt.Printf("\n[Container]: %+v\n", container)
 			matchedOnce := false
 			for _, exclude := range rule.Exclude {
 				fmt.Printf("[Exclude]: %+v\n", exclude)
-				// Check only containers that are in PSSCheck.ForbiddenDetail
-				if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
-					continue
-				}
-				// if podObjectMeta != nil {
-				// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-				// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-				// 	}
-				// }
-				// if podSpec != nil {
-				if err := ctx.AddJSONObject(pod); err != nil {
-					return false, errors.Wrap(err, "failed to add podSpec to engine context")
-				}
+				// We can have multiple images in exclude block.
+				for _, image := range exclude.Images {
+					// Check only containers that are in PSSCheck.ForbiddenDetail and match the image in exclude.images
+					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.containers[*]") || container.Image != image {
+						continue
+					}
+					// if podObjectMeta != nil {
+					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
+					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
+					// 	}
+					// }
+					// if podSpec != nil {
+					if err := ctx.AddJSONObject(pod); err != nil {
+						return false, errors.Wrap(err, "failed to add podSpec to engine context")
+					}
 
-				value, err := ctx.Query(exclude.RestrictedField)
-				if err != nil {
-					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+					value, err := ctx.Query(exclude.RestrictedField)
+					if err != nil {
+						return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
+					}
+
+					// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
+					// if len(exclude.Values) == 0 {
+					// 	return true, nil
+					// }
+
+					if !allowedValues(value, exclude) {
+						return false, nil
+					}
+					matchedOnce = true
 				}
-
-				// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
-				// if len(exclude.Values) == 0 {
-				// 	return true, nil
-				// }
-
-				if !allowedValues(value, exclude) {
+				if !matchedOnce {
+					fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
 					return false, nil
 				}
-				matchedOnce = true
-			}
-			if !matchedOnce {
-				fmt.Printf("Container `%s` didn't match any exclude rule (container name must be in CheckResult.ForbiddenDetails and restrictedField match the container type)\n", container.Name)
-				return false, nil
 			}
 		}
 		for _, container := range pod.Spec.InitContainers {
