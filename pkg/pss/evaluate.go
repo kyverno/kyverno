@@ -118,6 +118,7 @@ var PSS_controls_to_check_id = map[string][]string{
 
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
+
 	// Baseline
 	"windowsHostProcess": {
 		{
@@ -241,29 +242,6 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
-	"allowPrivilegeEscalation": {
-		{
-			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.initContainers[*].securityContext.allowPrivilegeEscalation",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-	},
 	"capabilities_baseline": {
 		{
 			path: "spec.containers[*].securityContext.capabilities.add",
@@ -320,6 +298,28 @@ var PSS_controls = map[string][]restrictedField{
 				"SETPCAP",
 				"SETUID",
 				"SYS_CHROOT",
+			},
+		},
+	},
+
+	// Restricted
+	"allowPrivilegeEscalation": {
+		{
+			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
+			allowedValues: []interface{}{
+				false,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.allowPrivilegeEscalation",
+			allowedValues: []interface{}{
+				false,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.allowPrivilegeEscalation",
+			allowedValues: []interface{}{
+				false,
 			},
 		},
 	},
