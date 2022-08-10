@@ -489,6 +489,10 @@ func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *cor
 	podCopy.Spec.InitContainers = []corev1.Container{}
 	podCopy.Spec.EphemeralContainers = []corev1.EphemeralContainer{}
 
+	// Set these restrictedFields to nil because we've tested them before in `ExemptProfile()`
+	// HostProcess
+	// podCopy.Spec.SecurityContext.WindowsOptions.HostProcess = nil
+
 	for _, container := range pod.Spec.Containers {
 		for _, excludeRule := range exclude {
 			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") {
@@ -535,7 +539,7 @@ func getRestrictedFields(check policy.Check) []restrictedField {
 }
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
-func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckResult, podSpecWithMatchingContainers corev1.PodSpec) {
+func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckResult) {
 	checks := policy.DefaultChecks()
 
 	for _, check := range checks {
@@ -560,7 +564,7 @@ func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 
 		}
 	}
-	return results, podSpecWithMatchingContainers
+	return results
 }
 
 func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStandard) bool {
@@ -618,13 +622,6 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.containers[*]") || container.Image != image {
 						continue
 					}
-					// if podObjectMeta != nil {
-					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-					// 	}
-					// }
-					// if podSpec != nil {
-
 					if err := ctx.AddJSONObject(pod); err != nil {
 						return false, errors.Wrap(err, "failed to add podSpec to engine context")
 					}
@@ -662,13 +659,6 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") || container.Image != image {
 						continue
 					}
-
-					// if podObjectMeta != nil {
-					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-					// 	}
-					// }
-					// if podSpec != nil {
 					if err := ctx.AddJSONObject(pod); err != nil {
 						return false, errors.Wrap(err, "failed to add podSpec to engine context")
 					}
@@ -678,7 +668,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 						return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given RestrictedField %s", exclude.RestrictedField))
 					}
 					fmt.Printf("==== image: %s\n", image)
-					fmt.Printf("==== value: %s\n", value)
+					fmt.Printf("==== value: %+v\n", value)
 					// // If exclude.Values is empty it means that we want to exclude all values for the restrictedField
 					// if len(exclude.Values) == 0 {
 					// 	return true, nil
@@ -705,12 +695,6 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 					if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) || !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") || container.Image != image {
 						continue
 					}
-					// if podObjectMeta != nil {
-					// 	if err := ctx.AddJSONObject(podObjectMeta); err != nil {
-					// 		return false, errors.Wrap(err, "failed to add podObjectMeta to engine context")
-					// 	}
-					// }
-					// if podSpec != nil {
 					if err := ctx.AddJSONObject(pod); err != nil {
 						return false, errors.Wrap(err, "failed to add podSpec to engine context")
 					}
@@ -751,9 +735,8 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	podWithMatchingContainers = getPodWithMatchingContainers(rule.Exclude, pod)
 	fmt.Printf("== [podWithMatchingContainers]: %+v\n", podWithMatchingContainers)
 
-	pssChecks, podSpecWithMatchingContainers := EvaluatePSS(level, &podWithMatchingContainers)
+	pssChecks := EvaluatePSS(level, &podWithMatchingContainers)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
-	fmt.Printf("[podSpecWithMatchingContainers]: %+v\n", podSpecWithMatchingContainers)
 
 	pssChecks = removePSSChecks(pssChecks, rule)
 
@@ -777,7 +760,7 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	podWithNotMatchingContainers = getPodWithNotMatchingContainers(rule.Exclude, pod)
 	fmt.Printf("== [podWithNotMatchingContainers]: %+v\n", podWithNotMatchingContainers)
 
-	pssChecks, _ = EvaluatePSS(level, &podWithNotMatchingContainers)
+	pssChecks = EvaluatePSS(level, &podWithNotMatchingContainers)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 	if len(pssChecks) > 0 {
 		return false, pssChecks, nil
