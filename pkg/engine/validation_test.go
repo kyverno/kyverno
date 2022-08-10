@@ -3083,13 +3083,6 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // Pod security admission
 // Baseline
 
-// Control: "Host Ports", check.ID: "hostPorts"
-
-// container-level:
-// - spec.containers[*].securityContext.ports[*].hostPort
-// - spec.initContainers[*].securityContext.ports[*].hostPort
-// - spec.ephemeralContainers[*].securityContext.ports[*].hostPort
-
 // Control: "SELinux", check.ID: "seLinuxOptions"
 
 // pod-level:
@@ -3294,7 +3287,9 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // 	assert.Assert(t, er.IsSuccessful())
 // }
 
-// Control: "Capabilities", check.ID: "capabilities_baseline"
+// ====== Baseline ======
+
+// === Control: "Capabilities", check.ID: "capabilities_baseline"
 // pod-level restrictedFields:
 // - spec.containers[*].securityContext.capabilities.add
 // - spec.initContainers[*].securityContext.capabilities.add
@@ -3857,7 +3852,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 	assert.Assert(t, er.IsFailed())
 }
 
-// Control: "Privileged Containers", check.ID: "privileged"
+// === Control: "Privileged Containers", check.ID: "privileged"
 
 // container-level:
 // - spec.containers[*].securityContext.securityContext.privileged
@@ -4845,6 +4840,607 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_c
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// === Control: "Host Ports", check.ID: "hostPorts"
+
+// container-level:
+// - spec.containers[*].securityContext.ports[*].hostPort
+// - spec.initContainers[*].securityContext.ports[*].hostPort
+// - spec.ephemeralContainers[*].securityContext.ports[*].hostPort
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostPorts(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Ports",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				 ]
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				]
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_with_restrictedFields(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.containers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							},
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.initContainers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							},
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.ephemeralContainers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				 ]
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				]
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.containers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080"
+								]
+							},
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.initContainers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							},
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.ephemeralContainers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				 ]
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				]
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_hostPorts_missing_exclude_restrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostPorts-all-containers-nginx-nodejs",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.containers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							},
+							{
+								"controlName": "Host Ports",
+								"restrictedField": "spec.initContainers[*].ports[*].hostPort",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"8080",
+									"9000"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				 ]
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"ports": [
+					{
+						"hostPort": 8080
+					},
+					{
+						"hostPort": 9000
+					}
+				]
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "ports": [
+						{
+							"hostPort": 8080
+						},
+						{
+							"hostPort": 9000
+						}
+					]
+				}
+			  ]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }

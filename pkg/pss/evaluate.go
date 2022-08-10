@@ -118,6 +118,7 @@ var PSS_controls_to_check_id = map[string][]string{
 
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
+	// Baseline
 	"windowsHostProcess": {
 		{
 			path: "spec.securityContext.windowsOptions.hostProcess",
@@ -168,6 +169,29 @@ var PSS_controls = map[string][]restrictedField{
 			allowedValues: []interface{}{
 				false,
 				nil,
+			},
+		},
+	},
+	"hostPorts": {
+		{
+			path: "spec.containers[*].ports[*].hostPort",
+			allowedValues: []interface{}{
+				false,
+				0,
+			},
+		},
+		{
+			path: "spec.initContainers[*].ports[*].hostPort",
+			allowedValues: []interface{}{
+				false,
+				0,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].ports[*].hostPort",
+			allowedValues: []interface{}{
+				false,
+				0,
 			},
 		},
 	},
