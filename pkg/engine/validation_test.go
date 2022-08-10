@@ -3133,15 +3133,6 @@ func Test_delete_ignore_pattern(t *testing.T) {
 // - spec.initContainers[*].securityContext.seccompProfile.type
 // - spec.ephemeralContainers[*].securityContext.seccompProfile.type
 
-// Control: "Capabilities", check.ID: "capabilities_restricted"
-// container-level:
-// - spec.containers[*].securityContext.capabilities.drop
-// - spec.initContainers[*].securityContext.capabilities.drop
-// - spec.ephemeralContainers[*].securityContext.capabilities.drop
-// - spec.containers[*].securityContext.capabilities.add
-// - spec.initContainers[*].securityContext.capabilities.add
-// - spec.ephemeralContainers[*].securityContext.capabilities.add
-
 // Control: "HostProcess", check.ID: "windowsHostProcess"
 // pod-level:
 // - spec.securityContext.windowsOptions.hostProcess
@@ -6570,6 +6561,673 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 						},
 						"runAsNonRoot": true,
 						"allowPrivilegeEscalation": true
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+// === Control: "Capabilities", check.ID: "capabilities_restricted"
+// container-level:
+// - spec.containers[*].securityContext.capabilities.drop
+// - spec.initContainers[*].securityContext.capabilities.drop
+// - spec.ephemeralContainers[*].securityContext.capabilities.drop
+// - spec.containers[*].securityContext.capabilities.add
+// - spec.initContainers[*].securityContext.capabilities.add
+// - spec.ephemeralContainers[*].securityContext.capabilities.add
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabilities(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"add": [
+							"SYS_TIME"
+						],
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"add": [
+							"SYS_TIME"
+						],
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"add": [
+								"SYS_TIME"
+							],
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"add": [
+								"SYS_TIME"
+							],
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabilities_with_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabilities_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"SYS_TIME"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabilities_missing_restrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-restricted-exclude-all-capabilities-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.containers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							},
+							{
+								"controlName": "Capabilities",
+								"restrictedField": "spec.initContainers[*].securityContext.capabilities.drop",
+								"images": [
+									"nginx"
+								],
+								"values": [
+									"SYS_ADMIN"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			  {
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"SYS_ADMIN"
+						]
+					},
+					"runAsNonRoot": true,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"SYS_ADMIN"
+							]
+						},
+						"runAsNonRoot": true,
+						"allowPrivilegeEscalation": false
 				   }
 				}
 			]

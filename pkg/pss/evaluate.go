@@ -575,16 +575,22 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 // When we specify the controlName only we want to exclude all restrictedFields for this control
 // so we remove all PSSChecks related to this control
 func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSCheckResult {
-	fmt.Printf("=== Remove all restrictedFields when we only specify the controlName. PSSChecks: %+v\n", pssChecks)
+	fmt.Printf("=== Remove all restrictedFields when we only specify the controlName.\n")
 	fmt.Printf("=== Before: %+v\n", pssChecks)
+
+	// Keep in memory the number of checks that have been removed
+	// to avoid panics when removing a new check.
+	removedChecks := 0
 	for checkIndex, check := range pssChecks {
+		fmt.Printf("======= Check: %+v\n", check)
 		for _, exclude := range rule.Exclude {
 			// Translate PSS control to check_id and remove it from PSSChecks if it's specified in exclude block
-			for _, control := range PSS_controls_to_check_id {
-				for _, checkID := range control {
-					if check.ID == checkID && exclude.RestrictedField == "" && checkIndex < len(pssChecks) {
-						pssChecks = append(pssChecks[:checkIndex], pssChecks[checkIndex+1:]...)
-					}
+			for _, CheckID := range PSS_controls_to_check_id[exclude.ControlName] {
+				if check.ID == CheckID && exclude.RestrictedField == "" && checkIndex <= len(pssChecks) {
+					fmt.Printf("=== check.ID to remove: %s\n", check.ID)
+					index := checkIndex - removedChecks
+					pssChecks = append(pssChecks[:index], pssChecks[index+1:]...)
+					removedChecks++
 				}
 			}
 		}
