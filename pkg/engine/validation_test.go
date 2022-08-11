@@ -3832,6 +3832,643 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 	assert.Assert(t, er.IsFailed())
 }
 
+// === Control: "Host Namespaces", check.ID: "hostNamespaces"
+
+// pod-level:
+// - spec.securityContext.seLinuxOptions.type
+
+// container-level:
+// - spec.hostNetwork
+// - spec.hostPID
+// - spec.hostIPC
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostNamespaces(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces"
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "hostPID":     true
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_with_restrictedFields_and_containers(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostNetwork",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostIPC",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostPID",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"images": [
+									"nginx:1.2.3",
+									"nodejs:1.2.3"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "hostPID":     true,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		   
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_with_restrictedFields_and_forbidden_containers(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostNetwork",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostIPC",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostPID",
+								"values": [
+									"true"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "hostPID":     true,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		   
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostNetwork",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostIPC",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostPID",
+								"values": [
+									"randomValue"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"images": [
+									"nginx:1.2.3",
+									"nodejs:1.2.3"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "hostPID":     true,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		   
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_missing_restrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostNetwork",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostIPC",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"images": [
+									"nginx:1.2.3",
+									"nodejs:1.2.3"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "hostPID":     true,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		   
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
 // === Control: "Capabilities", check.ID: "capabilities_baseline"
 // pod-level restrictedFields:
 // - spec.containers[*].securityContext.capabilities.add

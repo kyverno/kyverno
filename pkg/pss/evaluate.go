@@ -84,10 +84,8 @@ var PSS_controls_to_check_id = map[string][]string{
 		"seccompProfile_restricted",
 	},
 
-	// Baseline
-	"HostProcess": {
-		"windowsHostProcess",
-	},
+	// === Baseline
+	// Container-level controls
 	"Privileged Containers": {
 		"privileged",
 	},
@@ -102,6 +100,16 @@ var PSS_controls_to_check_id = map[string][]string{
 	},
 	"procMount": {
 		"hostPorts",
+	},
+
+	// Container and pod-level controls
+	"HostProcess": {
+		"windowsHostProcess",
+	},
+
+	// Pod-level controls
+	"Host Namespaces": {
+		"hostNamespaces",
 	},
 
 	// Restricted
@@ -119,37 +127,8 @@ var PSS_controls_to_check_id = map[string][]string{
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
 
-	// Baseline
-	"windowsHostProcess": {
-		{
-			path: "spec.securityContext.windowsOptions.hostProcess",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.containers[*].securityContext.windowsOptions.hostProcess",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.initContainers[*].securityContext.windowsOptions.hostProcess",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-	},
+	// === Baseline
+	// Container-level controls
 	"privileged": {
 		{
 			path: "spec.containers[*].securityContext.privileged",
@@ -302,7 +281,64 @@ var PSS_controls = map[string][]restrictedField{
 		},
 	},
 
-	// Restricted
+	// Container and pod-level controls
+	"windowsHostProcess": {
+		{
+			path: "spec.securityContext.windowsOptions.hostProcess",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.windowsOptions.hostProcess",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.windowsOptions.hostProcess",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+	},
+
+	// Pod-level controls
+	"hostNamespaces": {
+		{
+			path: "spec.hostNetwork",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+		{
+			path: "spec.hostPID",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+		{
+			path: "spec.hostIPC",
+			allowedValues: []interface{}{
+				false,
+				nil,
+			},
+		},
+	},
+
+	// === Restricted
 	"allowPrivilegeEscalation": {
 		{
 			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
@@ -483,45 +519,27 @@ func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1
 }
 
 // Get containers NOT matching images specified in Exclude values
-func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
 	// Only copy containers because we have already evaluated the pod-level controls
 	// e.g.: spec.securityContext.hostProcess
 	podCopy.Spec.Containers = []corev1.Container{}
 	podCopy.Spec.InitContainers = []corev1.Container{}
 	podCopy.Spec.EphemeralContainers = []corev1.EphemeralContainer{}
 
-	// Set these restrictedFields to nil because we've tested them before in `ExemptProfile()`
-	// HostProcess
-	// podCopy.Spec.SecurityContext.WindowsOptions.HostProcess = nil
-
+	// Append containers that are not in podWithMatchingContainers already evaluated in EvaluatePod()
 	for _, container := range pod.Spec.Containers {
-		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") {
-				// Add to matchingContainers if either it's empty or is unique
-				if len(podCopy.Spec.Containers) == 0 || !containsContainer(podCopy.Spec.Containers, container.Name) {
-					podCopy.Spec.Containers = append(podCopy.Spec.Containers, container)
-				}
-			}
+		if !containsContainer(podWithMatchingContainers.Spec.Containers, container.Name) {
+			podCopy.Spec.Containers = append(podCopy.Spec.Containers, container)
 		}
 	}
 	for _, container := range pod.Spec.InitContainers {
-		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.initContainers[*]") {
-				// Add to matchingContainers if either it's empty or is unique
-				if len(podCopy.Spec.InitContainers) == 0 || !containsContainer(podCopy.Spec.InitContainers, container.Name) {
-					podCopy.Spec.InitContainers = append(podCopy.Spec.InitContainers, container)
-				}
-			}
+		if !containsContainer(podWithMatchingContainers.Spec.InitContainers, container.Name) {
+			podCopy.Spec.InitContainers = append(podCopy.Spec.InitContainers, container)
 		}
 	}
 	for _, container := range pod.Spec.EphemeralContainers {
-		for _, excludeRule := range exclude {
-			if !utils.ContainsString(excludeRule.Images, container.Image) && strings.Contains(excludeRule.RestrictedField, "spec.ephemeralContainers[*]") {
-				// Add to matchingContainers if either it's empty or is unique
-				if len(podCopy.Spec.EphemeralContainers) == 0 || !containsContainer(podCopy.Spec.EphemeralContainers, container.Name) {
-					podCopy.Spec.EphemeralContainers = append(podCopy.Spec.EphemeralContainers, container)
-				}
-			}
+		if !containsContainer(podWithMatchingContainers.Spec.EphemeralContainers, container.Name) {
+			podCopy.Spec.EphemeralContainers = append(podCopy.Spec.EphemeralContainers, container)
 		}
 	}
 	return podCopy
@@ -635,6 +653,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+			fmt.Println("=== Didn't match any exclude rule")
 			return false, nil
 		}
 	}
@@ -665,6 +684,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+			fmt.Println("=== Didn't match any exclude rule")
 			return false, nil
 		}
 	}
@@ -695,6 +715,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+			fmt.Println("=== Didn't match any exclude rule")
 			return false, nil
 		}
 	}
@@ -727,6 +748,7 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 				matchedOnce = true
 			}
 			if !matchedOnce {
+				fmt.Println("=== Didn't match any exclude rule")
 				return false, nil
 			}
 		}
@@ -749,17 +771,16 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 				return false, nil
 			}
 		}
-		// do the same for pod-level
-		// do not loop through exclude because there could be a missing pod, container-level restrictedField
-		if strings.Contains(check.CheckResult.ForbiddenDetail, "pod") {
-			allowed, err := checkPodLevelFields(ctx, pod, check, rule.Exclude)
-			if err != nil {
-				return false, errors.Wrap(err, err.Error())
-			}
-			if !allowed {
-				return false, nil
-			}
+		// `container and pod-level control` and `pod-level control`:
+		// if strings.Contains(check.CheckResult.ForbiddenDetail, "pod") || check.ID == "hostNamespaces" {
+		allowed, err := checkPodLevelFields(ctx, pod, check, rule.Exclude)
+		if err != nil {
+			return false, errors.Wrap(err, err.Error())
 		}
+		if !allowed {
+			return false, nil
+		}
+		// }
 	}
 	return true, nil
 }
@@ -770,10 +791,10 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	var podWithMatchingContainers corev1.Pod
 
 	// 1. Evaluate containers that match images specified in exclude
-	fmt.Println("\n== [EvaluatePSS, for containers that matches images specified in exclude] ==")
+	fmt.Println("\n=== [EvaluatePSS, for containers that matches images specified in exclude] ==")
 
 	podWithMatchingContainers = getPodWithMatchingContainers(rule.Exclude, pod)
-	fmt.Printf("== [podWithMatchingContainers]: %+v\n", podWithMatchingContainers)
+	fmt.Printf("=== [podWithMatchingContainers]: %+v\n", podWithMatchingContainers)
 
 	pssChecks := EvaluatePSS(level, &podWithMatchingContainers)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
@@ -783,7 +804,7 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	// 2. Check if all PSSCheckResults are exempted by exclude values
 	// Yes ? Evaluate pod's other containers
 	// No ? Pod creation forbidden
-	fmt.Println("\n== [ExemptProfile] ==")
+	fmt.Println("\n=== [ExemptProfile] ===")
 	allowed, err := ExemptProfile(pssChecks, rule, &podWithMatchingContainers)
 	if err != nil {
 		return false, pssChecks, err
@@ -794,11 +815,11 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	}
 
 	// 3. Optional, only when ExemptProfile() returns true
-	fmt.Println("\n== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
+	fmt.Println("\n=== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
 	var podWithNotMatchingContainers corev1.Pod
 
-	podWithNotMatchingContainers = getPodWithNotMatchingContainers(rule.Exclude, pod)
-	fmt.Printf("== [podWithNotMatchingContainers]: %+v\n", podWithNotMatchingContainers)
+	podWithNotMatchingContainers = getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
+	fmt.Printf("=== [podWithNotMatchingContainers]: %+v\n", podWithNotMatchingContainers)
 
 	pssChecks = EvaluatePSS(level, &podWithNotMatchingContainers)
 	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
