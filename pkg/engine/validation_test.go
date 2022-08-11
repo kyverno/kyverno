@@ -3718,8 +3718,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 								"controlName": "HostProcess",
 								"restrictedField": "spec.containers[*].securityContext.windowsOptions.hostProcess",
 								"images": [
-									"nginx:1.2.3",
-									"nodejs:1.2.3"
+									"nginx:1.2.3"
 								],
 								"values": [
 									"true"

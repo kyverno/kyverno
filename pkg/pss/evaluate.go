@@ -607,6 +607,7 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 
 func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard) (bool, error) {
 	for _, container := range pod.Spec.Containers {
+		fmt.Printf("=== Container: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
@@ -615,12 +616,8 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
-			if !imagesMatched(pod.Spec.Containers, exclude.Images) {
-				fmt.Printf("Container `%s` is in check.ForbiddenDetail but doesn't match any image in exclude.\n", container.Name)
-				return false, nil
-			}
-
-			fmt.Printf("=== Container `%+v` is in check.ForbiddenDetail\n", container)
+			// No need to check if exclude.Images contains container.Image
+			// Since we only have containers matching the exclude.images with getPodWithMatchingContainers()
 
 			if err := ctx.AddJSONObject(pod); err != nil {
 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
@@ -642,6 +639,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 	}
 	for _, container := range pod.Spec.InitContainers {
+		fmt.Printf("=== iniContainer: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
@@ -650,12 +648,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
-			if !imagesMatched(pod.Spec.InitContainers, exclude.Images) {
-				fmt.Printf("Container `%s` is in check.ForbiddenDetail but doesn't match any image in exclude.\n", container.Name)
-				return false, nil
-			}
-
-			fmt.Printf("=== Container `%+v` is in check.ForbiddenDetail\n", container)
 
 			if err := ctx.AddJSONObject(pod); err != nil {
 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
@@ -677,6 +669,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 	}
 	for _, container := range pod.Spec.EphemeralContainers {
+		fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
@@ -685,12 +678,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
-			if !imagesMatched(pod.Spec.EphemeralContainers, exclude.Images) {
-				fmt.Printf("Container `%s` is in check.ForbiddenDetail but doesn't match any image in exclude.\n", container.Name)
-				return false, nil
-			}
-
-			fmt.Printf("=== Container `%+v` is in check.ForbiddenDetail\n", container)
 
 			if err := ctx.AddJSONObject(pod); err != nil {
 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
@@ -751,16 +738,16 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 	ctx := enginectx.NewContext()
 
 	// Verify if every container present in the Check.FordibbenDetail is exempted
-	// --> works only for controls with restrictedFields: containers, initContainers, ephemeralContainers
-	// What about other pod-level restrictedFields ? spec.hostNetwork, spec.securityContext.windowsOptions.hostProcess etc ...
 	for _, check := range checks {
-		fmt.Printf("=== Check: %+v\n", check)
-		allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude)
-		if err != nil {
-			return false, errors.Wrap(err, err.Error())
-		}
-		if !allowed {
-			return false, nil
+		fmt.Printf("\n===== Check: %+v\n", check)
+		if strings.Contains(check.CheckResult.ForbiddenDetail, "container") {
+			allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude)
+			if err != nil {
+				return false, errors.Wrap(err, err.Error())
+			}
+			if !allowed {
+				return false, nil
+			}
 		}
 		// do the same for pod-level
 		// do not loop through exclude because there could be a missing pod, container-level restrictedField
@@ -783,7 +770,7 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	var podWithMatchingContainers corev1.Pod
 
 	// 1. Evaluate containers that match images specified in exclude
-	fmt.Println("\n== [EvaluatePSS, for containers that maches images specified in exclude] ==")
+	fmt.Println("\n== [EvaluatePSS, for containers that matches images specified in exclude] ==")
 
 	podWithMatchingContainers = getPodWithMatchingContainers(rule.Exclude, pod)
 	fmt.Printf("== [podWithMatchingContainers]: %+v\n", podWithMatchingContainers)
