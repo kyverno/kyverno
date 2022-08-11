@@ -32,8 +32,8 @@ rules:
   - apiGroups:
       - wgpolicyk8s.io
     resources:
-      - policyreport
-      - clusterpolicyreport
+      - policyreports
+      - clusterpolicyreports
     verbs:
       - create
       - delete

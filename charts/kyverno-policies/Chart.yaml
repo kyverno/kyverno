@@ -29,3 +29,5 @@ annotations:
       description: Fix Kyverno version check when image tag contains registry port number
     - kind: fixed
       description: Ensure preconditions are present with default values
+    - kind: added
+      description: Support for failurePolicy setting in kyverno-policies helm chart
