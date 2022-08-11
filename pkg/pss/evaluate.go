@@ -623,7 +623,7 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 
 }
 
-func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard) (bool, error) {
+func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
 	for _, container := range pod.Spec.Containers {
 		fmt.Printf("=== Container: `%+v`\n", container)
 		matchedOnce := false
@@ -722,36 +722,32 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 	return true, nil
 }
 
-func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard) (bool, error) {
-	for _, restrictedField := range check.RestrictedFields {
-		if !strings.Contains(restrictedField.path, "ontainers[*]") {
-			fmt.Printf("Is a pod-level restrictedField: %s\n", restrictedField.path)
+func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
+	fmt.Printf("Is a pod-level restrictedField: %s\n", restrictedField.path)
 
-			matchedOnce := false
-			for _, exclude := range exclude {
-				// No exclude for this specific pod-level restrictedField
-				if !strings.Contains(exclude.RestrictedField, restrictedField.path) {
-					continue
-				}
-				if err := ctx.AddJSONObject(pod); err != nil {
-					return false, errors.Wrap(err, "failed to add podSpec to engine context")
-				}
-
-				value, err := ctx.Query(exclude.RestrictedField)
-				if err != nil {
-					return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
-				}
-				fmt.Printf("=== Value: %+v\n", value)
-				if !allowedValues(value, exclude) {
-					return false, nil
-				}
-				matchedOnce = true
-			}
-			if !matchedOnce {
-				fmt.Println("=== Didn't match any exclude rule")
-				return false, nil
-			}
+	matchedOnce := false
+	for _, exclude := range exclude {
+		// No exclude for this specific pod-level restrictedField
+		if !strings.Contains(exclude.RestrictedField, restrictedField.path) {
+			continue
 		}
+		if err := ctx.AddJSONObject(pod); err != nil {
+			return false, errors.Wrap(err, "failed to add podSpec to engine context")
+		}
+
+		value, err := ctx.Query(exclude.RestrictedField)
+		if err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
+		}
+		fmt.Printf("=== Value: %+v\n", value)
+		if !allowedValues(value, exclude) {
+			return false, nil
+		}
+		matchedOnce = true
+	}
+	if !matchedOnce {
+		fmt.Println("=== Didn't match any exclude rule")
+		return false, nil
 	}
 	return true, nil
 }
@@ -759,28 +755,41 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
-	// Verify if every container present in the Check.FordibbenDetail is exempted
+	// 1. Iterate over check.RestrictedFields
+	// 2. Check if it's a `container-level` or `pod-level` restrictedField
+	// - `container-level`: container has a disallowed check (container name in check.ForbiddenDetail) && exempted by an exclude rule ? good : pod creation is forbbiden
+	// - `pod-level`: Exempted by an exclude rule ? good : pod creation is forbbiden
+
+	// Problems:
+	// 1. When we have a control with multiple `pod-level` restrictedFields. How to check if a specific RestrictedField is disallowed by the check ?
+	// e.g.: `Host Namespaces` control:
+
+	// 2. `Container-level` restrictedField that can have multiple values (capabilities), we have to get the values for each container not for every containers:
+	// `spec.containers[*].securityContext.capabilities.add` --> `spec.containers[?name==nginx].securityContext.capabilities.add`
 	for _, check := range checks {
 		fmt.Printf("\n===== Check: %+v\n", check)
-		if strings.Contains(check.CheckResult.ForbiddenDetail, "container") {
-			allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude)
-			if err != nil {
-				return false, errors.Wrap(err, err.Error())
+		for _, restrictedField := range check.RestrictedFields {
+			// Is a container-level restrictedField
+			if strings.Contains(restrictedField.path, "ontainers[*]") {
+				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
+				if err != nil {
+					return false, errors.Wrap(err, err.Error())
+				}
+				if !allowed {
+					return false, nil
+				}
 			}
-			if !allowed {
-				return false, nil
+			// Is a pod-level restrictedField
+			if !strings.Contains(restrictedField.path, "ontainers[*]") {
+				allowed, err := checkPodLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
+				if err != nil {
+					return false, errors.Wrap(err, err.Error())
+				}
+				if !allowed {
+					return false, nil
+				}
 			}
 		}
-		// `container and pod-level control` and `pod-level control`:
-		// if strings.Contains(check.CheckResult.ForbiddenDetail, "pod") || check.ID == "hostNamespaces" {
-		allowed, err := checkPodLevelFields(ctx, pod, check, rule.Exclude)
-		if err != nil {
-			return false, errors.Wrap(err, err.Error())
-		}
-		if !allowed {
-			return false, nil
-		}
-		// }
 	}
 	return true, nil
 }
