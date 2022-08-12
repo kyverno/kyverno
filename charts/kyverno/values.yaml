@@ -230,6 +230,10 @@ generatecontrollerExtraResources:
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
 
+# -- resourceFilter namespace exclude
+# Namespaces to exclude from the default resourceFilters
+resourceFiltersExcludeNamespaces: []
+
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.
   # Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list.
