@@ -318,8 +318,16 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 			v.log.Info("skip rule", "reason", r.Message)
 			continue
 		} else if r.Status != response.RuleStatusPass {
+			if r.Status == response.RuleStatusError {
+				if i < len(elements)-1 {
+					continue
+				}
+				msg := fmt.Sprintf("validation failure: %v", r.Message)
+				return ruleResponse(*v.rule, response.Validation, msg, r.Status, nil), applyCount
+			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
 			return ruleResponse(*v.rule, response.Validation, msg, r.Status, nil), applyCount
+
 		}
 
 		applyCount++
