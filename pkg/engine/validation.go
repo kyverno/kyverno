@@ -327,7 +327,6 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
 			return ruleResponse(*v.rule, response.Validation, msg, r.Status, nil), applyCount
-
 		}
 
 		applyCount++
