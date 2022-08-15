@@ -92,9 +92,6 @@ var PSS_controls_to_check_id = map[string][]string{
 	"Host Ports": {
 		"hostPorts",
 	},
-	"SELinux": {
-		"seLinuxOptions",
-	},
 	"/proc Mount Type": {
 		"procMount",
 	},
@@ -105,6 +102,9 @@ var PSS_controls_to_check_id = map[string][]string{
 	// Container and pod-level controls
 	"HostProcess": {
 		"windowsHostProcess",
+	},
+	"SELinux": {
+		"seLinuxOptions",
 	},
 
 	// Pod-level controls
@@ -131,6 +131,10 @@ var PSS_controls = map[string][]restrictedField{
 	// Container-level controls
 	"privileged": {
 		{
+			// type:
+			// - container-level
+			// - pod-container-level
+			// - pod level
 			path: "spec.containers[*].securityContext.privileged",
 			allowedValues: []interface{}{
 				false,
@@ -180,21 +184,21 @@ var PSS_controls = map[string][]restrictedField{
 			path: "spec.containers[*].securityContext.procMount",
 			allowedValues: []interface{}{
 				nil,
-				corev1.DefaultProcMount,
+				"Default",
 			},
 		},
 		{
 			path: "spec.initContainers[*].securityContext.procMount",
 			allowedValues: []interface{}{
 				nil,
-				corev1.DefaultProcMount,
+				"Default",
 			},
 		},
 		{
 			path: "spec.ephemeralContainers[*].securityContext.procMount",
 			allowedValues: []interface{}{
 				nil,
-				corev1.DefaultProcMount,
+				"Default",
 			},
 		},
 	},
@@ -308,6 +312,97 @@ var PSS_controls = map[string][]restrictedField{
 			path: "spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess",
 			allowedValues: []interface{}{
 				false,
+				nil,
+			},
+		},
+	},
+	"seLinuxOptions": {
+		// type
+		{
+			path: "spec.securityContext.seLinuxOptions.type",
+			allowedValues: []interface{}{
+				nil,
+				"container_t",
+				"container_init_t",
+				"container_kvm_t",
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.seLinuxOptions.type",
+			allowedValues: []interface{}{
+				nil,
+				"container_t",
+				"container_init_t",
+				"container_kvm_t",
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.seLinuxOptions.type",
+			allowedValues: []interface{}{
+				nil,
+				"container_t",
+				"container_init_t",
+				"container_kvm_t",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.seLinuxOptions.type",
+			allowedValues: []interface{}{
+				nil,
+				"container_t",
+				"container_init_t",
+				"container_kvm_t",
+			},
+		},
+
+		// user
+		{
+			path: "spec.securityContext.seLinuxOptions.user",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.seLinuxOptions.user",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.seLinuxOptions.user",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].seLinuxOptions.user",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+
+		// role
+		{
+			path: "spec.securityContext.seLinuxOptions.role",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.seLinuxOptions.role",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.seLinuxOptions.role",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].seLinuxOptions.role",
+			allowedValues: []interface{}{
 				nil,
 			},
 		},
@@ -623,9 +718,27 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 
 }
 
+func forbiddenValuesExempted(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude *v1.PodSecurityStandard, restrictedField string) (bool, error) {
+	if err := ctx.AddJSONObject(pod); err != nil {
+		return false, errors.Wrap(err, "failed to add podSpec to engine context")
+	}
+
+	// spec.containers[*].securityContext.privileged
+	// -> spec.containers[?name=="nginx"].securityContext.privileged
+	value, err := ctx.Query(restrictedField)
+	if err != nil {
+		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
+	}
+	fmt.Printf("=== Value: %+v\n", value)
+	if !allowedValues(value, exclude, PSS_controls[check.ID]) {
+		return false, nil
+	}
+	return true, nil
+}
+
 func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
+	fmt.Printf("=== Is a container-level restrictedField\n")
 	for _, container := range pod.Spec.Containers {
-		fmt.Printf("=== Container: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
@@ -634,19 +747,17 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
+			fmt.Printf("=== Container: `%+v`\n", container)
+
+			//	Get values of this container only.
+			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
+
 			// No need to check if exclude.Images contains container.Image
 			// Since we only have containers matching the exclude.images with getPodWithMatchingContainers()
 
-			if err := ctx.AddJSONObject(pod); err != nil {
-				return false, errors.Wrap(err, "failed to add podSpec to engine context")
-			}
-
-			value, err := ctx.Query(exclude.RestrictedField)
-			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
-			}
-			fmt.Printf("=== Value: %+v\n", value)
-			if !allowedValues(value, exclude) {
+			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+			if err != nil || !exempted {
 				return false, nil
 			}
 			matchedOnce = true
@@ -658,7 +769,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 	}
 	for _, container := range pod.Spec.InitContainers {
-		fmt.Printf("=== iniContainer: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
@@ -667,17 +777,14 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
+			fmt.Printf("=== iniContainer: `%+v`\n", container)
 
-			if err := ctx.AddJSONObject(pod); err != nil {
-				return false, errors.Wrap(err, "failed to add podSpec to engine context")
-			}
+			//	Get values of this container only.
+			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
 
-			value, err := ctx.Query(exclude.RestrictedField)
-			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
-			}
-			fmt.Printf("=== Value: %+v\n", value)
-			if !allowedValues(value, exclude) {
+			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+			if err != nil || !exempted {
 				return false, nil
 			}
 			matchedOnce = true
@@ -689,7 +796,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 		}
 	}
 	for _, container := range pod.Spec.EphemeralContainers {
-		fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
 		matchedOnce := false
 		for _, exclude := range exclude {
 			if !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
@@ -698,17 +804,18 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
+			fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
+
+			//	Get values of this container only.
+			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
 
 			if err := ctx.AddJSONObject(pod); err != nil {
 				return false, errors.Wrap(err, "failed to add podSpec to engine context")
 			}
 
-			value, err := ctx.Query(exclude.RestrictedField)
-			if err != nil {
-				return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
-			}
-			fmt.Printf("=== Value: %+v\n", value)
-			if !allowedValues(value, exclude) {
+			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+			if err != nil || !exempted {
 				return false, nil
 			}
 			matchedOnce = true
@@ -722,11 +829,40 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 	return true, nil
 }
 
-func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
-	fmt.Printf("Is a pod-level restrictedField: %s\n", restrictedField.path)
+func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
+	fmt.Printf("=== Is a pod-level restrictedField\n")
+
+	// Unlike containers, we don't know which pod-level restrictedField is forbidden.
+
+	// Check if value is allowed
+	// podCopy := corev1.Pod{}
+	//
+
+	if err := ctx.AddJSONObject(pod); err != nil {
+		return false, errors.Wrap(err, "failed to add podSpec to engine context")
+	}
+
+	value, err := ctx.Query(restrictedField.path)
+	// fmt.Printf("=== restrictedField.path: %+v\n", restrictedField.path)
+	// Return an error if the value is nil:
+	if err != nil {
+
+		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", restrictedField.path))
+	}
+	fmt.Printf("=== Value: %+v\n", value)
+	// if !allowedValues(value, exclude, PSS_controls[check.ID]) {
+	// 	return false, nil
+	// }
+
+	// reflect.ValueOf(podCopy).Elem().FieldByName(restrictedField.path).Set(value)
+	// fmt.Printf("-------- podCopy: %+v", podCopy)
+
+	// 	EvaluatePSS(rule.Level)
+	// yes -> next restrictedField
+	// no -> check if an exclude exempt the forbidden value
 
 	matchedOnce := false
-	for _, exclude := range exclude {
+	for _, exclude := range rule.Exclude {
 		// No exclude for this specific pod-level restrictedField
 		if !strings.Contains(exclude.RestrictedField, restrictedField.path) {
 			continue
@@ -735,12 +871,8 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 			return false, errors.Wrap(err, "failed to add podSpec to engine context")
 		}
 
-		value, err := ctx.Query(exclude.RestrictedField)
-		if err != nil {
-			return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
-		}
-		fmt.Printf("=== Value: %+v\n", value)
-		if !allowedValues(value, exclude) {
+		exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, exclude.RestrictedField)
+		if err != nil || !exempted {
 			return false, nil
 		}
 		matchedOnce = true
@@ -749,6 +881,7 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 		fmt.Println("=== Didn't match any exclude rule")
 		return false, nil
 	}
+	fmt.Println("=== allowed")
 	return true, nil
 }
 
@@ -769,6 +902,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 	for _, check := range checks {
 		fmt.Printf("\n===== Check: %+v\n", check)
 		for _, restrictedField := range check.RestrictedFields {
+			fmt.Printf("\n=== restrictedField: %s\n", restrictedField.path)
 			// Is a container-level restrictedField
 			if strings.Contains(restrictedField.path, "ontainers[*]") {
 				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
@@ -781,7 +915,10 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 			}
 			// Is a pod-level restrictedField
 			if !strings.Contains(restrictedField.path, "ontainers[*]") {
-				allowed, err := checkPodLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
+				// if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") {
+				// 	continue
+				// }
+				allowed, err := checkPodLevelFields(ctx, pod, check, rule, &restrictedField)
 				if err != nil {
 					return false, errors.Wrap(err, err.Error())
 				}
@@ -866,6 +1003,10 @@ func namespaceMatched(podMetadata *metav1.ObjectMeta, namespace string) bool {
 	return false
 }
 
+func containsBool(list []bool, value bool) {
+
+}
+
 // default setting of the encoding/json decoder when unmarshaling JSON numbers into interface{} values.
 // -----------------------------------------
 // JSON booleans: bool
@@ -874,14 +1015,37 @@ func namespaceMatched(podMetadata *metav1.ObjectMeta, namespace string) bool {
 // JSON arrays: []interface{}
 // JSON objects: map[string]interface{}
 // JSON null: nil
-func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard) bool {
+func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard, controls []restrictedField) bool {
 	// Use `switch` keyword in golang
+	fmt.Printf("====== Before exclude.Values: %+v\n", exclude.Values)
+
+	for _, control := range controls {
+		if control.path == exclude.RestrictedField {
+			for _, allowedValue := range control.allowedValues {
+				switch v := allowedValue.(type) {
+				case string:
+					if !utils.ContainsString(exclude.Values, v) {
+						exclude.Values = append(exclude.Values, v)
+					}
+					// case for nil pointers
+				}
+			}
+		}
+	}
+	fmt.Printf("====== After exclude.Values: %+v\n", exclude.Values)
 
 	// Is a Bool / String / Float
 	// When resourceValue is a bool (Host Namespaces control)
 	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
 		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
 		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
+			return false
+		}
+		return true
+	}
+	if reflect.TypeOf(resourceValue).Kind() == reflect.String {
+		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
+		if !utils.ContainsString(exclude.Values, resourceValue.(string)) {
 			return false
 		}
 		return true
