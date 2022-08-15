@@ -66,7 +66,7 @@ func ProcessStrategicMergePatch(ruleName string, overlay interface{}, resource u
 	if err != nil {
 		msg := fmt.Sprintf("failed to generated JSON patches from patched resource: %v", err.Error())
 		resp.Status = response.RuleStatusFail
-		log.Info(msg)
+		log.V(4).Info(msg)
 		resp.Message = msg
 		return resp, patchedResource
 	}

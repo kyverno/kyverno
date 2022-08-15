@@ -165,7 +165,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	var ok bool
 	if key, ok = obj.(Info); !ok {
 		gen.queue.Forget(obj)
-		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
+		gen.log.V(4).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
 	err := gen.syncHandler(key)

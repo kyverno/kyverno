@@ -44,10 +44,10 @@ func ValidateValueWithPattern(log logr.Logger, value, pattern interface{}) bool 
 	case map[string]interface{}:
 		return validateValueWithMapPattern(log, value, typedPattern)
 	case []interface{}:
-		log.Info("arrays are not supported as patterns")
+		log.V(4).Info("arrays are not supported as patterns")
 		return false
 	default:
-		log.Info("Unknown type", "type", fmt.Sprintf("%T", typedPattern), "value", typedPattern)
+		log.V(4).Info("Unknown type", "type", fmt.Sprintf("%T", typedPattern), "value", typedPattern)
 		return false
 	}
 }
@@ -57,7 +57,7 @@ func validateValueWithMapPattern(log logr.Logger, value interface{}, typedPatter
 	// we only check for existence of object, not the equality of content and value
 	_, ok := value.(map[string]interface{})
 	if !ok {
-		log.Info("Expected type map[string]interface{}", "type", fmt.Sprintf("%T", value), "value", value)
+		log.V(4).Info("Expected type map[string]interface{}", "type", fmt.Sprintf("%T", value), "value", value)
 		return false
 	}
 	return true
@@ -76,7 +76,7 @@ func validateValueWithIntPattern(log logr.Logger, value interface{}, pattern int
 			return int64(typedValue) == pattern
 		}
 
-		log.Info("Expected type int", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
+		log.V(4).Info("Expected type int", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
 		return false
 	case string:
 		// extract int64 from string
@@ -87,7 +87,7 @@ func validateValueWithIntPattern(log logr.Logger, value interface{}, pattern int
 		}
 		return int64Num == pattern
 	default:
-		log.Info("Expected type int", "type", fmt.Sprintf("%T", value), "value", value)
+		log.V(4).Info("Expected type int", "type", fmt.Sprintf("%T", value), "value", value)
 		return false
 	}
 }
@@ -100,14 +100,14 @@ func validateValueWithFloatPattern(log logr.Logger, value interface{}, pattern f
 		if pattern == math.Trunc(pattern) {
 			return int(pattern) == value
 		}
-		log.Info("Expected type float", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
+		log.V(4).Info("Expected type float", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
 		return false
 	case int64:
 		// check that float has no fraction
 		if pattern == math.Trunc(pattern) {
 			return int64(pattern) == value
 		}
-		log.Info("Expected type float", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
+		log.V(4).Info("Expected type float", "type", fmt.Sprintf("%T", typedValue), "value", typedValue)
 		return false
 	case float64:
 		return typedValue == pattern
@@ -120,7 +120,7 @@ func validateValueWithFloatPattern(log logr.Logger, value interface{}, pattern f
 		}
 		return float64Num == pattern
 	default:
-		log.Info("Expected type float", "type", fmt.Sprintf("%T", value), "value", value)
+		log.V(4).Info("Expected type float", "type", fmt.Sprintf("%T", value), "value", value)
 		return false
 	}
 }
@@ -141,10 +141,10 @@ func validateValueWithNilPattern(log logr.Logger, value interface{}) bool {
 	case nil:
 		return true
 	case map[string]interface{}, []interface{}:
-		log.Info("Maps and arrays could not be checked with nil pattern")
+		log.V(4).Info("Maps and arrays could not be checked with nil pattern")
 		return false
 	default:
-		log.Info("Unknown type as value when checking for nil pattern", "type", fmt.Sprintf("%T", value), "value", value)
+		log.V(4).Info("Unknown type as value when checking for nil pattern", "type", fmt.Sprintf("%T", value), "value", value)
 		return false
 	}
 }
@@ -259,7 +259,7 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 
 		return wildcardResult
 	}
-	log.Info("Operators >, >=, <, <= are not applicable to strings")
+	log.V(4).Info("Operators >, >=, <, <= are not applicable to strings")
 	return false
 }
 

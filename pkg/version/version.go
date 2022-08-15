@@ -14,7 +14,7 @@ var (
 
 // PrintVersionInfo displays the kyverno version - git version
 func PrintVersionInfo(log logr.Logger) {
-	log.Info("Kyverno", "Version", BuildVersion)
-	log.Info("Kyverno", "BuildHash", BuildHash)
-	log.Info("Kyverno", "BuildTime", BuildTime)
+	log.V(4).Info("Kyverno", "Version", BuildVersion)
+	log.V(4).Info("Kyverno", "BuildHash", BuildHash)
+	log.V(4).Info("Kyverno", "BuildTime", BuildTime)
 }

@@ -122,7 +122,7 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 		return false
 	}
 
-	log.Log.Info("CRD found", "gvr", gvr.String())
+	log.Log.V(4).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 

@@ -232,7 +232,7 @@ func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
 	if ok {
 		g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
 	} else {
-		g.log.Info("Failed to get deleted object", "obj", obj)
+		g.log.V(3).Info("Failed to get deleted object", "obj", obj)
 	}
 	g.ReconcileCh <- false
 }
@@ -299,7 +299,7 @@ func (g *ReportGenerator) processNextWorkItem() bool {
 	keyStr, ok := key.(string)
 	if !ok {
 		g.queue.Forget(key)
-		g.log.Info("incorrect type; expecting type 'string'", "obj", key)
+		g.log.V(4).Info("incorrect type; expecting type 'string'", "obj", key)
 		return true
 	}
 
@@ -367,7 +367,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace, policyName))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
-			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
+			g.log.V(3).Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
 			return aggregatedRequests, nil
 		}
 	}

@@ -160,7 +160,7 @@ func main() {
 
 	if profile {
 		addr := ":" + profilePort
-		setupLog.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		setupLog.V(4).Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
 		go func() {
 			if err := http.ListenAndServe(addr, nil); err != nil {
 				setupLog.Error(err, "Failed to enable profiling")
@@ -303,7 +303,7 @@ func main() {
 
 	if otel == "prometheus" {
 		go func() {
-			setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			setupLog.V(4).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
 			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
 				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
 			}
@@ -313,7 +313,7 @@ func main() {
 
 	// Tracing Configuration
 	if enableTracing {
-		setupLog.Info("Enabling tracing for Kyverno...")
+		setupLog.V(4).Info("Enabling tracing for Kyverno...")
 		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
 		if err != nil {
 			setupLog.Error(err, "Failed to enable tracing for Kyverno")
@@ -551,7 +551,7 @@ func main() {
 	// resource cleanup
 	// remove webhook configurations
 	<-cleanUp
-	setupLog.Info("Kyverno shutdown successful")
+	setupLog.V(4).Info("Kyverno shutdown successful")
 }
 
 func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
