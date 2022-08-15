@@ -522,10 +522,8 @@ func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
 		printer.RowLengthTitle = func(rowsLength int) bool {
 			return rowsLength > 10
 		}
-
 		fmt.Printf("\n")
 		printer.Print(print_table)
-
 	}
 
 	return nil
