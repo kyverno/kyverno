@@ -450,8 +450,8 @@ func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
 				i++
 				table := new(Table)
 				table.ID = i
-				table.Policy = boldFgCyan.Sprintf(string(res.Policy))
-				table.Rule = boldFgCyan.Sprintf(string(res.Rule))
+				table.Policy = boldFgCyan.Sprintf(res.Policy)
+				table.Rule = boldFgCyan.Sprintf(res.Rule)
 				//table.Message = boldFgCyan.Sprintf(string(res.Message))
 				if res.Result == policyreportv1alpha2.StatusPass {
 					table.Result = boldGreen.Sprintf("Pass")
@@ -462,7 +462,7 @@ func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
 				}
 				if res.Resources != nil {
 					for _, rs := range res.Resources {
-						table.Resource = boldFgCyan.Sprintf(string(rs.Namespace)) + "/" + boldFgCyan.Sprintf(string(rs.Kind)) + "/" + boldFgCyan.Sprintf(string(rs.Name))
+						table.Resource = boldFgCyan.Sprintf(rs.Namespace) + "/" + boldFgCyan.Sprintf(rs.Kind) + "/" + boldFgCyan.Sprintf(rs.Name)
 					}
 
 				}
@@ -495,8 +495,8 @@ func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
 				i++
 				table := new(Table)
 				table.ID = i
-				table.Policy = string(res.Policy)
-				table.Rule = string(res.Rule)
+				table.Policy = res.Policy
+				table.Rule = res.Rule
 				//table.Message = boldFgCyan.Sprintf(string(res.Message))
 				if res.Result == policyreportv1alpha2.StatusPass {
 					table.Result = "Pass"
@@ -507,7 +507,7 @@ func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
 				}
 				if res.Resources != nil {
 					for _, rs := range res.Resources {
-						table.Resource = string(rs.Namespace) + "/" + string(rs.Kind) + "/" + string(rs.Name)
+						table.Resource = rs.Namespace + "/" + rs.Kind + "/" + rs.Name
 					}
 
 				}
