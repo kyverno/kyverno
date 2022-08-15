@@ -407,6 +407,70 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
+	"seccompProfile_baseline": {
+		{
+			path: "spec.securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				nil,
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+	},
+	"seccompProfile_restricted": {
+		{
+			path: "spec.securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.seccompProfile.type",
+			allowedValues: []interface{}{
+				"RuntimeDefault",
+				"Localhost",
+			},
+		},
+	},
 
 	// Pod-level controls
 	"hostNamespaces": {
@@ -777,7 +841,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
 				continue
 			}
-			fmt.Printf("=== iniContainer: `%+v`\n", container)
+			fmt.Printf("=== initContainer: `%+v`\n", container)
 
 			//	Get values of this container only.
 			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
