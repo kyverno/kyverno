@@ -321,7 +321,7 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.securityContext.seLinuxOptions.type",
 			allowedValues: []interface{}{
-				nil,
+				"",
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
@@ -330,7 +330,7 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.containers[*].securityContext.seLinuxOptions.type",
 			allowedValues: []interface{}{
-				nil,
+				"",
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
@@ -339,7 +339,7 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.initContainers[*].securityContext.seLinuxOptions.type",
 			allowedValues: []interface{}{
-				nil,
+				"",
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
@@ -348,7 +348,7 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.ephemeralContainers[*].securityContext.seLinuxOptions.type",
 			allowedValues: []interface{}{
-				nil,
+				"",
 				"container_t",
 				"container_init_t",
 				"container_kvm_t",
@@ -359,25 +359,25 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.securityContext.seLinuxOptions.user",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.containers[*].securityContext.seLinuxOptions.user",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.initContainers[*].securityContext.seLinuxOptions.user",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.ephemeralContainers[*].seLinuxOptions.user",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 
@@ -385,25 +385,25 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.securityContext.seLinuxOptions.role",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.containers[*].securityContext.seLinuxOptions.role",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.initContainers[*].securityContext.seLinuxOptions.role",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 		{
 			path: "spec.ephemeralContainers[*].seLinuxOptions.role",
 			allowedValues: []interface{}{
-				nil,
+				"",
 			},
 		},
 	},
@@ -838,18 +838,19 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 	// podCopy := corev1.Pod{}
 	//
 
-	if err := ctx.AddJSONObject(pod); err != nil {
-		return false, errors.Wrap(err, "failed to add podSpec to engine context")
-	}
+	// if err := ctx.AddJSONObject(pod); err != nil {
+	// 	return false, errors.Wrap(err, "failed to add podSpec to engine context")
+	// }
 
-	value, err := ctx.Query(restrictedField.path)
-	// fmt.Printf("=== restrictedField.path: %+v\n", restrictedField.path)
-	// Return an error if the value is nil:
-	if err != nil {
+	// value, err := ctx.Query(restrictedField.path)
+	// // fmt.Printf("=== restrictedField.path: %+v\n", restrictedField.path)
+	// // Return an error if the value is nil:
+	// if err != nil {
 
-		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", restrictedField.path))
-	}
-	fmt.Printf("=== Value: %+v\n", value)
+	// 	return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", restrictedField.path))
+	// }
+	// fmt.Printf("=== Value: %+v\n", value)
+
 	// if !allowedValues(value, exclude, PSS_controls[check.ID]) {
 	// 	return false, nil
 	// }
