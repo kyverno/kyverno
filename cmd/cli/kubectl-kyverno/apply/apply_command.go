@@ -7,8 +7,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/kataras/tablewriter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -16,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -41,6 +45,14 @@ type Values struct {
 type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
+}
+type Table struct {
+	ID       int    `header:"#"`
+	Policy   string `header:"policy"`
+	Rule     string `header:"rule"`
+	Resource string `header:"resource"`
+	Result   string `header:"result"`
+	//Message  string `header:"message"`
 }
 
 var applyHelp = `
@@ -107,7 +119,7 @@ More info: https://kyverno.io/docs/kyverno-cli/
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-	var cluster, policyReport, stdin, registryAccess bool
+	var cluster, policyReport, stdin, registryAccess, removeColor bool
 	var mutateLogPath, variablesString, valuesFile, namespace, userInfoPath string
 	cmd = &cobra.Command{
 		Use:     "apply",
@@ -128,7 +140,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
+			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos, removeColor)
 			return nil
 		},
 	}
@@ -143,6 +155,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
+	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove color from output")
 	return cmd
 }
 
@@ -369,8 +382,12 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 }
 
 // PrintReportOrViolation - printing policy report/violations
-func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info, removeColor bool) {
 	divider := "----------------------------------------------------------------------"
+	resultErr := printTestResult(pvInfos, removeColor)
+	if resultErr != nil {
+		fmt.Printf("Error: failed to create Apply Result\nCause: %s\n", resultErr)
+	}
 
 	if len(skipInvalidPolicies.skipped) > 0 {
 		fmt.Println(divider)
@@ -412,6 +429,106 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
 	}
+}
+
+func printTestResult(pvInfos []policyreport.Info, removeColor bool) error {
+
+	if !removeColor {
+		printer := tableprinter.New(os.Stdout)
+		print_table := []Table{}
+		boldGreen := color.New(color.FgGreen).Add(color.Bold)
+		boldRed := color.New(color.FgRed).Add(color.Bold)
+		boldYellow := color.New(color.FgYellow).Add(color.Bold)
+		boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
+		result := buildPolicyResults(pvInfos)
+		i := 0
+
+		for _, result := range result {
+
+			fmt.Printf("no way")
+			for _, res := range result {
+				i++
+				table := new(Table)
+				table.ID = i
+				table.Policy = boldFgCyan.Sprintf(string(res.Policy))
+				table.Rule = boldFgCyan.Sprintf(string(res.Rule))
+				//table.Message = boldFgCyan.Sprintf(string(res.Message))
+				if res.Result == policyreportv1alpha2.StatusPass {
+					table.Result = boldGreen.Sprintf("Pass")
+				} else if res.Result == policyreportv1alpha2.StatusFail {
+					table.Result = boldRed.Sprintf("Fail")
+				} else {
+					table.Result = boldYellow.Sprintf(string(res.Result))
+				}
+				if res.Resources != nil {
+					for _, rs := range res.Resources {
+						table.Resource = boldFgCyan.Sprintf(string(rs.Namespace)) + "/" + boldFgCyan.Sprintf(string(rs.Kind)) + "/" + boldFgCyan.Sprintf(string(rs.Name))
+					}
+
+				}
+				print_table = append(print_table, *table)
+			}
+		}
+		printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+		printer.CenterSeparator = "│"
+		printer.ColumnSeparator = "│"
+		printer.RowSeparator = "─"
+		printer.RowCharLimit = 300
+		printer.RowLengthTitle = func(rowsLength int) bool {
+			return rowsLength > 10
+		}
+
+		printer.HeaderBgColor = tablewriter.BgBlackColor
+		printer.HeaderFgColor = tablewriter.FgGreenColor
+		fmt.Printf("\n")
+		printer.Print(print_table)
+	} else {
+		printer := tableprinter.New(os.Stdout)
+		print_table := []Table{}
+		result := buildPolicyResults(pvInfos)
+		i := 0
+
+		for _, result := range result {
+
+			fmt.Printf("no way")
+			for _, res := range result {
+				i++
+				table := new(Table)
+				table.ID = i
+				table.Policy = string(res.Policy)
+				table.Rule = string(res.Rule)
+				//table.Message = boldFgCyan.Sprintf(string(res.Message))
+				if res.Result == policyreportv1alpha2.StatusPass {
+					table.Result = "Pass"
+				} else if res.Result == policyreportv1alpha2.StatusFail {
+					table.Result = "Fail"
+				} else {
+					table.Result = string(res.Result)
+				}
+				if res.Resources != nil {
+					for _, rs := range res.Resources {
+						table.Resource = string(rs.Namespace) + "/" + string(rs.Kind) + "/" + string(rs.Name)
+					}
+
+				}
+				print_table = append(print_table, *table)
+			}
+		}
+		printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+		printer.CenterSeparator = "│"
+		printer.ColumnSeparator = "│"
+		printer.RowSeparator = "─"
+		printer.RowCharLimit = 300
+		printer.RowLengthTitle = func(rowsLength int) bool {
+			return rowsLength > 10
+		}
+
+		fmt.Printf("\n")
+		printer.Print(print_table)
+
+	}
+
+	return nil
 }
 
 // createFileOrFolder - creating file or folder according to path provided
