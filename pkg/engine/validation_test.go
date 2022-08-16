@@ -3469,7 +3469,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 		}
 	 }
 	 `)
-
 	rawResource := []byte(`
 	 {
 		"apiVersion": "v1",

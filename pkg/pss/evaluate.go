@@ -129,6 +129,11 @@ var PSS_controls_to_check_id = map[string][]string{
 	"Running as Non-root user": {
 		"runAsUser",
 	},
+
+	// Pod-level controls
+	"Volume Types": {
+		"hostPathVolumes",
+	},
 }
 var toto corev1.HostPathVolumeSource
 var PSS_controls = map[string][]restrictedField{
@@ -525,6 +530,21 @@ var PSS_controls = map[string][]restrictedField{
 	},
 
 	// === Restricted
+	"restrictedVolumes": {
+		{
+			path: "spec.volumes[*]",
+			allowedValues: []interface{}{
+				"configMap",
+				"downwardAPI",
+				"emptyDir",
+				"projected",
+				"secret",
+				"csi",
+				"persistentVolumeClaim",
+				"ephemeral",
+			},
+		},
+	},
 	"Running as Non-root": {
 		{
 			path: "spec.securityContext.runAsNonRoot",
