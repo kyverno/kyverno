@@ -112,7 +112,8 @@ var PSS_controls_to_check_id = map[string][]string{
 		"hostNamespaces",
 	},
 
-	// Restricted
+	// === Restricted
+	// Container and pod-level controls
 	"Privilege Escalation": {
 		"allowPrivilegeEscalation",
 	},
@@ -498,6 +499,32 @@ var PSS_controls = map[string][]restrictedField{
 	},
 
 	// === Restricted
+	"Running as Non-root": {
+		{
+			path: "spec.securityContext.runAsNonRoot",
+			allowedValues: []interface{}{
+				true,
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.runAsNonRoot",
+			allowedValues: []interface{}{
+				true,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.runAsNonRoot",
+			allowedValues: []interface{}{
+				true,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.runAsNonRoot",
+			allowedValues: []interface{}{
+				true,
+			},
+		},
+	},
 	"allowPrivilegeEscalation": {
 		{
 			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
