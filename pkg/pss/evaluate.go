@@ -525,6 +525,36 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
+	"Running as Non-root user": {
+		{
+			path: "spec.securityContext.runAsUser",
+			allowedValues: []interface{}{
+				"",
+				nil,
+			},
+		},
+		{
+			path: "spec.containers[*].securityContext.runAsUser",
+			allowedValues: []interface{}{
+				"",
+				nil,
+			},
+		},
+		{
+			path: "spec.initContainers[*].securityContext.runAsUser",
+			allowedValues: []interface{}{
+				"",
+				nil,
+			},
+		},
+		{
+			path: "spec.ephemeralContainers[*].securityContext.runAsUser",
+			allowedValues: []interface{}{
+				"",
+				nil,
+			},
+		},
+	},
 	"allowPrivilegeEscalation": {
 		{
 			path: "spec.containers[*].securityContext.allowPrivilegeEscalation",
