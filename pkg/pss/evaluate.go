@@ -545,14 +545,14 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 		{
-			path: "spec.initContainers[*].securityContext.capabilities.aad",
+			path: "spec.initContainers[*].securityContext.capabilities.add",
 			allowedValues: []interface{}{
 				nil,
 				"NET_BIND_SERVICE",
 			},
 		},
 		{
-			path: "spec.ephemeralContainers[*].securityContext.capabilities.aad",
+			path: "spec.ephemeralContainers[*].securityContext.capabilities.add",
 			allowedValues: []interface{}{
 				nil,
 				"NET_BIND_SERVICE",
@@ -646,7 +646,10 @@ func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1
 
 	for _, container := range pod.Spec.Containers {
 		for _, excludeRule := range exclude {
-			if utils.ContainsString(excludeRule.Images, container.Image) {
+			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
+			controlNameOnly := excludeRule.RestrictedField == ""
+			if strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
+				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.Containers) == 0 || !containsContainer(podCopy.Spec.Containers, container.Name) {
 					podCopy.Spec.Containers = append(podCopy.Spec.Containers, container)
@@ -656,7 +659,10 @@ func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1
 	}
 	for _, container := range pod.Spec.InitContainers {
 		for _, excludeRule := range exclude {
-			if utils.ContainsString(excludeRule.Images, container.Image) {
+			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
+			controlNameOnly := excludeRule.RestrictedField == ""
+			if strings.Contains(excludeRule.RestrictedField, "spec.initContainers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
+				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.InitContainers) == 0 || !containsContainer(podCopy.Spec.InitContainers, container.Name) {
 					podCopy.Spec.InitContainers = append(podCopy.Spec.InitContainers, container)
@@ -666,7 +672,10 @@ func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1
 	}
 	for _, container := range pod.Spec.EphemeralContainers {
 		for _, excludeRule := range exclude {
-			if utils.ContainsString(excludeRule.Images, container.Image) {
+			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
+			controlNameOnly := excludeRule.RestrictedField == ""
+			if strings.Contains(excludeRule.RestrictedField, "spec.ephemeralContainers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
+				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.EphemeralContainers) == 0 || !containsContainer(podCopy.Spec.EphemeralContainers, container.Name) {
 					podCopy.Spec.EphemeralContainers = append(podCopy.Spec.EphemeralContainers, container)
@@ -794,7 +803,7 @@ func forbiddenValuesExempted(ctx *enginectx.Context, pod *corev1.Pod, check PSSC
 		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
 	}
 	fmt.Printf("=== Value: %+v\n", value)
-	if !allowedValues(value, exclude, PSS_controls[check.ID]) {
+	if !allowedValues(value, *exclude, PSS_controls[check.ID]) {
 		return false, nil
 	}
 	return true, nil
@@ -802,94 +811,118 @@ func forbiddenValuesExempted(ctx *enginectx.Context, pod *corev1.Pod, check PSSC
 
 func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
 	fmt.Printf("=== Is a container-level restrictedField\n")
-	for _, container := range pod.Spec.Containers {
-		matchedOnce := false
-		for _, exclude := range exclude {
-			if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
+
+	if strings.Contains(restrictedField.path, "spec.containers[*]") {
+		for _, container := range pod.Spec.Containers {
+			matchedOnce := false
+			// Container.Name with double quotes
+			containerName := fmt.Sprintf(`"%s"`, container.Name)
+			fmt.Printf("ContainerName: %s\n", containerName)
+			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
 				continue
 			}
-			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
-				continue
+			for _, exclude := range exclude {
+				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
+				if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
+					fmt.Println("2")
+					continue
+				}
+
+				fmt.Printf("=== Container: `%+v`\n", container)
+
+				//	Get values of this container only.
+				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
+
+				// No need to check if exclude.Images contains container.Image
+				// Since we only have containers matching the exclude.images with getPodWithMatchingContainers()
+
+				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				if err != nil || !exempted {
+					return false, nil
+				}
+				matchedOnce = true
+				fmt.Printf("====== MATCHED\n")
 			}
-			fmt.Printf("=== Container: `%+v`\n", container)
-
-			//	Get values of this container only.
-			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
-			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
-
-			// No need to check if exclude.Images contains container.Image
-			// Since we only have containers matching the exclude.images with getPodWithMatchingContainers()
-
-			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
-			if err != nil || !exempted {
+			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
+			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+				fmt.Printf("=== Container `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
-			matchedOnce = true
-		}
-		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
-		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-			fmt.Println("=== Didn't match any exclude rule")
-			return false, nil
 		}
 	}
-	for _, container := range pod.Spec.InitContainers {
-		matchedOnce := false
-		for _, exclude := range exclude {
-			if !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
+	if strings.Contains(restrictedField.path, "spec.initContainers[*]") {
+		for _, container := range pod.Spec.InitContainers {
+			matchedOnce := false
+			// Container.Name with double quotes
+			containerName := fmt.Sprintf(`"%s"`, container.Name)
+			fmt.Printf("ContainerName: %s\n", containerName)
+			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
 				continue
 			}
-			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
-				continue
+			for _, exclude := range exclude {
+				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
+				if !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
+					continue
+				}
+				fmt.Printf("=== initContainer: `%+v`\n", container)
+
+				//	Get values of this container only.
+				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
+
+				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				if err != nil || !exempted {
+					return false, nil
+				}
+				matchedOnce = true
 			}
-			fmt.Printf("=== initContainer: `%+v`\n", container)
-
-			//	Get values of this container only.
-			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
-			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
-
-			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
-			if err != nil || !exempted {
+			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
+			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+				fmt.Printf("=== initContainer `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
-			matchedOnce = true
-		}
-		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
-		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-			fmt.Println("=== Didn't match any exclude rule")
-			return false, nil
 		}
 	}
-	for _, container := range pod.Spec.EphemeralContainers {
-		matchedOnce := false
-		for _, exclude := range exclude {
-			if !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
-				continue
-			}
-			if !strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) {
-				continue
-			}
+	if strings.Contains(restrictedField.path, "spec.ephemeralContainers[*]") {
+		for _, container := range pod.Spec.EphemeralContainers {
 			fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
-
-			//	Get values of this container only.
-			// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
-			newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
-
-			if err := ctx.AddJSONObject(pod); err != nil {
-				return false, errors.Wrap(err, "failed to add podSpec to engine context")
+			matchedOnce := false
+			// Container.Name with double quotes
+			containerName := fmt.Sprintf(`"%s"`, container.Name)
+			fmt.Printf("ContainerName: %s\n", containerName)
+			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
+				continue
 			}
+			for _, exclude := range exclude {
+				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
+				if !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
+					continue
+				}
+				fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
 
-			exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
-			if err != nil || !exempted {
+				//	Get values of this container only.
+				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
+				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
+
+				if err := ctx.AddJSONObject(pod); err != nil {
+					return false, errors.Wrap(err, "failed to add podSpec to engine context")
+				}
+
+				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				if err != nil || !exempted {
+					return false, nil
+				}
+				matchedOnce = true
+			}
+			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
+			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
+				fmt.Printf("=== ephemeralContainer `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
-			matchedOnce = true
-		}
-		// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
-		if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-			fmt.Println("=== Didn't match any exclude rule")
-			return false, nil
 		}
 	}
+	fmt.Println("=== allowed")
 	return true, nil
 }
 
@@ -1080,7 +1113,7 @@ func containsBool(list []bool, value bool) {
 // JSON arrays: []interface{}
 // JSON objects: map[string]interface{}
 // JSON null: nil
-func allowedValues(resourceValue interface{}, exclude *v1.PodSecurityStandard, controls []restrictedField) bool {
+func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, controls []restrictedField) bool {
 	// Use `switch` keyword in golang
 	fmt.Printf("====== Before exclude.Values: %+v\n", exclude.Values)
 
