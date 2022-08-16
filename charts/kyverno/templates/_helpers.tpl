@@ -123,6 +123,13 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- if .Values.excludeKyvernoNamespace }}
   {{- $resourceFilters = prepend .Values.config.resourceFilters (printf "[*,%s,*]" (include "kyverno.namespace" .)) }}
 {{- end }}
+{{- range $exclude := .Values.resourceFiltersExcludeNamespaces }}
+  {{- range $filter := $resourceFilters }}
+    {{- if (contains (printf ",%s," $exclude) $filter) }}
+      {{- $resourceFilters = without $resourceFilters $filter }}
+    {{- end }}
+  {{- end }}
+{{- end }}
 {{- tpl (join "" $resourceFilters) . }}
 {{- end }}
 
