@@ -118,6 +118,11 @@ var PSS_controls_to_check_id = map[string][]string{
 		"sysctls",
 	},
 
+	// Metadata-level control
+	"AppArmor": {
+		"appArmorProfile",
+	},
+
 	// === Restricted
 	// Container and pod-level controls
 	"Privilege Escalation": {
@@ -132,7 +137,7 @@ var PSS_controls_to_check_id = map[string][]string{
 
 	// Pod-level controls
 	"Volume Types": {
-		"hostPathVolumes",
+		"restrictedVolumes",
 	},
 }
 var toto corev1.HostPathVolumeSource
@@ -525,6 +530,19 @@ var PSS_controls = map[string][]restrictedField{
 			allowedValues: []interface{}{
 				false,
 				nil,
+			},
+		},
+	},
+
+	// metadata-level controls
+	"appArmorProfile": {
+		{
+			path: "metadata.annotations['container.apparmor.security.beta.kubernetes.io/*']",
+			allowedValues: []interface{}{
+				nil,
+				"",
+				"runtime/default",
+				"localhost/*",
 			},
 		},
 	},
