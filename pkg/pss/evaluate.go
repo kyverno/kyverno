@@ -111,6 +111,12 @@ var PSS_controls_to_check_id = map[string][]string{
 	"Host Namespaces": {
 		"hostNamespaces",
 	},
+	"HostPath Volumes": {
+		"hostPathVolumes",
+	},
+	"Sysctls": {
+		"sysctls",
+	},
 
 	// === Restricted
 	// Container and pod-level controls
@@ -124,7 +130,7 @@ var PSS_controls_to_check_id = map[string][]string{
 		"runAsUser",
 	},
 }
-
+var toto corev1.HostPathVolumeSource
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
 
@@ -474,6 +480,26 @@ var PSS_controls = map[string][]restrictedField{
 	},
 
 	// Pod-level controls
+	"sysctls": {
+		{
+			path: "spec.securityContext.sysctls[*].name",
+			allowedValues: []interface{}{
+				"kernel.shm_rmid_forced",
+				"net.ipv4.ip_local_port_range",
+				"net.ipv4.tcp_syncookies",
+				"net.ipv4.ping_group_range",
+				"net.ipv4.ip_unprivileged_port_start",
+			},
+		},
+	},
+	"hostPathVolumes": {
+		{
+			path: "spec.volumes[*].hostPath",
+			allowedValues: []interface{}{
+				nil,
+			},
+		},
+	},
 	"hostNamespaces": {
 		{
 			path: "spec.hostNetwork",
@@ -986,36 +1012,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
 	fmt.Printf("=== Is a pod-level restrictedField\n")
 
-	// Unlike containers, we don't know which pod-level restrictedField is forbidden.
-
-	// Check if value is allowed
-	// podCopy := corev1.Pod{}
-	//
-
-	// if err := ctx.AddJSONObject(pod); err != nil {
-	// 	return false, errors.Wrap(err, "failed to add podSpec to engine context")
-	// }
-
-	// value, err := ctx.Query(restrictedField.path)
-	// // fmt.Printf("=== restrictedField.path: %+v\n", restrictedField.path)
-	// // Return an error if the value is nil:
-	// if err != nil {
-
-	// 	return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", restrictedField.path))
-	// }
-	// fmt.Printf("=== Value: %+v\n", value)
-
-	// if !allowedValues(value, exclude, PSS_controls[check.ID]) {
-	// 	return false, nil
-	// }
-
-	// reflect.ValueOf(podCopy).Elem().FieldByName(restrictedField.path).Set(value)
-	// fmt.Printf("-------- podCopy: %+v", podCopy)
-
-	// 	EvaluatePSS(rule.Level)
-	// yes -> next restrictedField
-	// no -> check if an exclude exempt the forbidden value
-
 	matchedOnce := false
 	for _, exclude := range rule.Exclude {
 		// No exclude for this specific pod-level restrictedField
@@ -1269,7 +1265,6 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 		} else {
 			fmt.Println(values, "is something else entirely")
 		}
-		return true
 	}
 	return true
 }
