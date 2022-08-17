@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<title>Kyverno API</title>
+<style>
+.bg-blue {
+color: #ffffff;
+background-color: #1589dd;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<a class="navbar-brand" href="#"><p><b>Packages : </b></p></a>
+<ul style="list-style:none">
+<li>
+<a href="#kyverno.io%2fv1alpha2"><b style="color: white">kyverno.io/v1alpha2</b></a>
+</li>
+</ul>
+</nav>
+<h2 id="kyverno.io/v1alpha2">kyverno.io/v1alpha2</h2>
+<p>
+<p>Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group</p>
+</p>
+Resource Types:
+<ul><li>
+<a href="#kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest</a>
+</li><li>
+<a href="#kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest</a>
+</li></ul>
+<hr />
+<h3 id="kyverno.io/v1alpha2.ClusterReportChangeRequest">ClusterReportChangeRequest
+</h3>
+<p>
+<p>ClusterReportChangeRequest is the Schema for the ClusterReportChangeRequests API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code></br>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code></br>
+string
+</td>
+<td><code>ClusterReportChangeRequest</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>scope</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
+Kubernetes core/v1.ObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scopeSelector</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
+Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code></br>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code></br>
+<em>
+[]github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.ReportChangeRequest">ReportChangeRequest
+</h3>
+<p>
+<p>ReportChangeRequest is the Schema for the ReportChangeRequests API</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code></br>
+string</td>
+<td>
+<code>
+kyverno.io/v1alpha2
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code></br>
+string
+</td>
+<td><code>ReportChangeRequest</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>scope</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectreference-v1-core">
+Kubernetes core/v1.ObjectReference
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Scope is an optional reference to the report scope (e.g. a Deployment, Namespace, or Node)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>scopeSelector</code></br>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ScopeSelector is an optional selector for multiple scopes (e.g. Pods).
+Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>summary</code></br>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code></br>
+<em>
+[]github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+</div>
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+</body>
+</html>

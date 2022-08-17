@@ -3,7 +3,7 @@ package resourcecache
 import (
 	"fmt"
 
-	"github.com/kyverno/kyverno/pkg/common"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // CreateInformers ...
@@ -44,7 +44,7 @@ func (resc *resourceCache) CreateGVKInformer(gvk string) (GenericCache, error) {
 	if ok {
 		return gc, nil
 	}
-	gv, k := common.GetKindFromGVK(gvk)
+	gv, k := kubeutils.GetKindFromGVK(gvk)
 	apiResource, gvr, err := resc.dclient.DiscoveryClient.FindResource(gv, k)
 	if err != nil {
 		return nil, fmt.Errorf("cannot find API resource %s", gvk)

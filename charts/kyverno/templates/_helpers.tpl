@@ -104,3 +104,15 @@ minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
+
+{{- define "kyverno.securityContext" -}}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
+{{ toYaml (omit .Values.securityContext "seccompProfile") }}
+{{- else }}
+{{ toYaml .Values.securityContext }}
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.imagePullSecret" }}
+{{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
+{{- end }}

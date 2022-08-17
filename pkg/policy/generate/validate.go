@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"reflect"
 
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
+
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	dclient "github.com/kyverno/kyverno/pkg/dclient"
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
@@ -36,7 +37,7 @@ func NewGenerateFactory(client *dclient.Client, rule kyverno.Generation, log log
 //Validate validates the 'generate' rule
 func (g *Generate) Validate() (string, error) {
 	rule := g.rule
-	if rule.Data != nil && rule.Clone != (kyverno.CloneFrom{}) {
+	if rule.GetData() != nil && rule.Clone != (kyverno.CloneFrom{}) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
@@ -55,10 +56,10 @@ func (g *Generate) Validate() (string, error) {
 			return fmt.Sprintf("clone.%s", path), err
 		}
 	}
-	if rule.Data != nil {
+	if target := rule.GetData(); target != nil {
 		//TODO: is this required ?? as anchors can only be on pattern and not resource
 		// we can add this check by not sure if its needed here
-		if path, err := common.ValidatePattern(rule.Data, "/", []commonAnchors.IsAnchor{}); err != nil {
+		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{}); err != nil {
 			return fmt.Sprintf("data.%s", path), fmt.Errorf("anchors not supported on generate resources: %v", err)
 		}
 	}
@@ -88,7 +89,7 @@ func (g *Generate) validateClone(c kyverno.CloneFrom, kind string) (string, erro
 			return "", err
 		}
 		if !ok {
-			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
+			return "", fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 	} else {
 		g.log.V(4).Info("name & namespace uses variables, so cannot be resolved. Skipping Auth Checks.")
@@ -108,7 +109,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'create' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// UPDATE
 		ok, err = authCheck.CanIUpdate(kind, namespace)
@@ -117,7 +118,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'update' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 		// GET
 		ok, err = authCheck.CanIGet(kind, namespace)
@@ -126,7 +127,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'get' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 
 		// DELETE
@@ -136,7 +137,7 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:generatecontroller'", kind, namespace)
+			return fmt.Errorf("kyverno does not have permissions to 'delete' resource %s/%s. Update permissions in ClusterRole 'kyverno:generate'", kind, namespace)
 		}
 
 	} else {

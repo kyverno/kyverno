@@ -3,7 +3,7 @@ package validate
 import (
 	"container/list"
 
-	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor/common"
+	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 )
 
 // Checks if pattern has anchors

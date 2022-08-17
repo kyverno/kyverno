@@ -1,0 +1,26 @@
+apiVersion : kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-resources
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: "none"
+spec:
+  background: false
+  rules:
+    - name: add-default-requests
+      match:
+        resources:
+          kinds:
+            - Pod
+      mutate:
+        foreach:
+        - list: "request.object.spec.containers"
+          patchesJson6902: |-
+            - path: /spec/containers/{{elementIndex}}/resources/requests/memory
+              op: add
+              value: "100Mi"
+        - list: "request.object.spec.containers"
+          patchesJson6902: |-
+            - path: /spec/containers/{{elementIndex}}/resources/requests/cpu
+              op: add
+              value: "100m"

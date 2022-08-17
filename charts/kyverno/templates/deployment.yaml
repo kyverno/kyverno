@@ -6,9 +6,9 @@ metadata:
     app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
-  replicas: {{ .Values.replicaCount }}
   {{- if .Values.updateStrategy }}
   strategy:
     {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
@@ -30,19 +30,20 @@ spec:
       {{- with .Values.podSecurityContext }}
       securityContext: {{ tpl (toYaml .) $ | nindent 8 }}
       {{- end }}
-      {{- if .Values.antiAffinity.enable }}
+      {{- if or .Values.antiAffinity.enable .Values.podAffinity .Values.nodeAffinity }}
       affinity:
+        {{- if and .Values.antiAffinity.enable .Values.podAntiAffinity }}
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 1
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values:
-                  - kyverno
-              topologyKey: {{ .Values.antiAffinity.topologyKey }}
+          {{- toYaml .Values.podAntiAffinity | nindent 10 }}
+        {{- end }}
+        {{- if .Values.podAffinity }}
+        podAffinity:
+          {{- toYaml .Values.podAffinity | nindent 10 }}
+        {{- end }}
+        {{- if .Values.nodeAffinity }}
+        nodeAffinity:
+          {{- toYaml .Values.nodeAffinity | nindent 10 }}
+        {{- end }}
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector: {{ tpl (toYaml .) $ | nindent 8 }}
@@ -70,14 +71,9 @@ spec:
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - all
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
@@ -85,6 +81,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_DEPLOYMENT
+            value: {{ template "kyverno.fullname" . }}
           {{- with .Values.envVarsInit }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
@@ -92,20 +90,21 @@ spec:
         - name: kyverno
           image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.extraArgs }}
-          args: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          args:
+            {{- if .Values.extraArgs -}}
+              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.imagePullSecrets }}
+            - --imagePullSecrets={{ keys .Values.imagePullSecrets | join "," }}
+            {{- end }}
           {{- end }}
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - all
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           ports:
           - containerPort: 9443
             name: https

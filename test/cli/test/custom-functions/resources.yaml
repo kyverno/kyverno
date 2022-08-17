@@ -31,3 +31,64 @@ metadata:
   name: pattern-match-test-no-match
   labels:
     value: test
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mount-containerd-sock
+spec:
+  volumes:
+  - name: test
+    emptyDir: {}
+  - name: sock
+    hostPath:
+      path: ///var/run/containerd///containerd.sock
+  containers:
+  - name: mount-containerd-sock
+    image: nginx
+    volumeMounts:
+    - name: sock
+      mountPath: /sock
+    - name: test
+      mountPath: /test 
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-test
+  annotations:
+    test: |
+      {"a": "b"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invalid-test
+  annotations:
+    test: |
+      {"a": "not-b"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: valid-yaml-test
+  annotations:
+    test: |
+      value: a
+      array:
+        - a
+        - b
+        - c 
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invalid-yaml-test
+  annotations:
+    test: |
+      value: b
+      array:
+        - d
+        - e
+        - f
+

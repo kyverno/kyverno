@@ -18,4 +18,4 @@ expected:
         - name: pEP
           type: Mutation
           status: pass
-          message: successfully process JSON patches
+          message: mutated Endpoints/test-endpoint

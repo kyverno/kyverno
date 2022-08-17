@@ -1,0 +1,16 @@
+name: test-image-digest
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: require-image-digest
+    rule: check-digest
+    resource: no-digest
+    kind: Pod
+    status: fail
+  - policy: require-image-digest
+    rule: check-digest
+    resource: with-digest
+    kind: Pod
+    status: pass

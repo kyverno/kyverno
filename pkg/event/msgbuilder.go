@@ -5,7 +5,7 @@ import (
 	"regexp"
 )
 
-//MsgKey is an identified to determine the preset message formats
+//MsgKey is an identifier to determine the preset message formats
 type MsgKey int
 
 //Message id for pre-defined messages

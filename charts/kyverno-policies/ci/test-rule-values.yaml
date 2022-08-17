@@ -1,0 +1,25 @@
+podSecurityStandard: restricted
+includeOtherPolicies:
+- require-non-root-groups
+policyExclude:
+  disallow-host-path:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - fluent
+  require-non-root-groups:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - fluent
+  check-runasgroup:
+    any:
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - kube-system

@@ -1,9 +1,9 @@
 package tls
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"time"
@@ -11,17 +11,19 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 const (
 	// ManagedByLabel is added to Kyverno managed secrets
-	ManagedByLabel string = "cert.kyverno.io/managed-by"
+	ManagedByLabel      string = "cert.kyverno.io/managed-by"
+	MasterDeploymentUID string = "cert.kyverno.io/master-deployment-uid"
 
 	SelfSignedAnnotation    string = "self-signed-cert"
 	RootCAKey               string = "rootCA.crt"
@@ -32,7 +34,7 @@ const (
 // webhook configurations and webhook server
 // renews RootCA at the given interval
 type CertRenewer struct {
-	client               *client.Client
+	client               kubernetes.Interface
 	clientConfig         *rest.Config
 	certRenewalInterval  time.Duration
 	certValidityDuration time.Duration
@@ -44,7 +46,7 @@ type CertRenewer struct {
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client *client.Client, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) *CertRenewer {
+func NewCertRenewer(client kubernetes.Interface, clientConfig *rest.Config, certRenewalInterval, certValidityDuration time.Duration, serverIP string, log logr.Logger) *CertRenewer {
 	return &CertRenewer{
 		client:               client,
 		clientConfig:         clientConfig,
@@ -55,7 +57,7 @@ func NewCertRenewer(client *client.Client, clientConfig *rest.Config, certRenewa
 	}
 }
 
-func (c *CertRenewer) Client() *client.Client {
+func (c *CertRenewer) Client() kubernetes.Interface {
 	return c.client
 }
 
@@ -115,50 +117,64 @@ func (c *CertRenewer) buildTLSPemPairAndWriteToSecrets(props CertificateProps, s
 // WriteCACertToSecret stores the CA cert in secret
 func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps) error {
 	logger := c.log.WithName("CAcert")
-	name := generateRootCASecretName(props)
+	name := GenerateRootCASecretName(props)
 
-	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
+	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+
+	deplHash := ""
+	if err == nil {
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+
 	if err != nil {
-		secret := &v1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: props.Namespace,
-				Annotations: map[string]string{
-					SelfSignedAnnotation: "true",
+		if k8errors.IsNotFound(err) {
+			secret = &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
 				},
-				Labels: map[string]string{
-					ManagedByLabel: "kyverno",
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: props.Namespace,
+					Annotations: map[string]string{
+						SelfSignedAnnotation: "true",
+						MasterDeploymentUID:  deplHash,
+					},
+					Labels: map[string]string{
+						ManagedByLabel: "kyverno",
+					},
 				},
-			},
-			Data: map[string][]byte{
-				RootCAKey: caPEM.Certificate,
-			},
-			Type: v1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					RootCAKey: caPEM.Certificate,
+				},
+				Type: v1.SecretTypeOpaque,
+			}
+			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			if err == nil {
+				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			}
 		}
-
-		_, err := c.client.CreateResource("", "Secret", props.Namespace, secret, false)
+		return err
+	} else if CanAddAnnotationToSecret(deplHash, secret) {
+		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
-			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}
 		return err
 	}
 
-	if _, ok := secretUnstr.GetAnnotations()[SelfSignedAnnotation]; !ok {
-		secretUnstr.SetAnnotations(map[string]string{SelfSignedAnnotation: "true"})
+	if _, ok := secret.GetAnnotations()[SelfSignedAnnotation]; !ok {
+		secret.SetAnnotations(map[string]string{SelfSignedAnnotation: "true"})
 	}
 
-	dataMap := map[string]interface{}{
-		RootCAKey: base64.StdEncoding.EncodeToString(caPEM.Certificate)}
-
-	if err := unstructured.SetNestedMap(secretUnstr.Object, dataMap, "data"); err != nil {
-		return err
+	dataMap := map[string][]byte{
+		RootCAKey: caPEM.Certificate,
 	}
 
-	_, err = c.client.UpdateResource("", "Secret", props.Namespace, secretUnstr, false)
+	secret.Data = dataMap
+	_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -171,31 +187,50 @@ func (c *CertRenewer) WriteCACertToSecret(caPEM *PemPair, props CertificateProps
 func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemPair) error {
 	logger := c.log.WithName("WriteTLSPair")
 
-	name := generateTLSPairSecretName(props)
-	secretUnstr, err := c.client.GetResource("", "Secret", props.Namespace, name)
-	if err != nil {
-		secret := &v1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: props.Namespace,
-				Labels: map[string]string{
-					ManagedByLabel: "kyverno",
-				},
-			},
-			Data: map[string][]byte{
-				v1.TLSCertKey:       pemPair.Certificate,
-				v1.TLSPrivateKeyKey: pemPair.PrivateKey,
-			},
-			Type: v1.SecretTypeTLS,
-		}
+	name := GenerateTLSPairSecretName(props)
 
-		_, err := c.client.CreateResource("", "Secret", props.Namespace, secret, false)
+	depl, err := c.client.AppsV1().Deployments(props.Namespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
+
+	deplHash := ""
+	if err == nil {
+		deplHash = fmt.Sprintf("%v", depl.GetUID())
+	}
+
+	secret, err := c.client.CoreV1().Secrets(props.Namespace).Get(context.TODO(), name, metav1.GetOptions{})
+
+	if err != nil {
+		if k8errors.IsNotFound(err) {
+			secret = &v1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: props.Namespace,
+					Annotations: map[string]string{
+						MasterDeploymentUID: deplHash,
+					},
+					Labels: map[string]string{
+						ManagedByLabel: "kyverno",
+					},
+				},
+				Data: map[string][]byte{
+					v1.TLSCertKey:       pemPair.Certificate,
+					v1.TLSPrivateKeyKey: pemPair.PrivateKey,
+				},
+				Type: v1.SecretTypeTLS,
+			}
+			_, err = c.client.CoreV1().Secrets(props.Namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+			if err == nil {
+				logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			}
+		}
+		return err
+	} else if CanAddAnnotationToSecret(deplHash, secret) {
+		_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err == nil {
-			logger.Info("secret created", "name", name, "namespace", props.Namespace)
+			logger.Info("secret updated", "name", name, "namespace", props.Namespace)
 		}
 		return err
 	}
@@ -205,13 +240,9 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 		v1.TLSPrivateKeyKey: pemPair.PrivateKey,
 	}
 
-	secret, err := convertToSecret(secretUnstr)
-	if err != nil {
-		return err
-	}
-
 	secret.Data = dataMap
-	_, err = c.client.UpdateResource("", "Secret", props.Namespace, secret, false)
+
+	_, err = c.client.CoreV1().Secrets(props.Namespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -224,35 +255,23 @@ func (c *CertRenewer) WriteTLSPairToSecret(props CertificateProps, pemPair *PemP
 // It is used when the rootCA is renewed, the restart of
 // Kyverno pod will register webhook server with new cert
 func (c *CertRenewer) RollingUpdate() error {
-
 	update := func() error {
-		deploy, err := c.client.GetResource("", "Deployment", config.KyvernoNamespace, config.KyvernoDeploymentName)
+		deploy, err := c.client.AppsV1().Deployments(config.KyvernoNamespace).Get(context.TODO(), config.KyvernoDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "failed to find Kyverno")
 		}
 
-		if IsKyvernoInRollingUpdate(deploy.UnstructuredContent(), c.log) {
+		if IsKyvernoInRollingUpdate(deploy, c.log) {
 			return nil
 		}
 
-		annotations, ok, err := unstructured.NestedStringMap(deploy.UnstructuredContent(), "spec", "template", "metadata", "annotations")
-		if err != nil {
-			return errors.Wrap(err, "bad annotations")
+		if deploy.Spec.Template.Annotations == nil {
+			deploy.Spec.Template.Annotations = map[string]string{}
 		}
 
-		if !ok {
-			annotations = map[string]string{}
-		}
+		deploy.Spec.Template.Annotations[rollingUpdateAnnotation] = time.Now().String()
 
-		annotations[rollingUpdateAnnotation] = time.Now().String()
-		if err = unstructured.SetNestedStringMap(deploy.UnstructuredContent(),
-			annotations,
-			"spec", "template", "metadata", "annotations",
-		); err != nil {
-			return errors.Wrapf(err, "set annotation %s", rollingUpdateAnnotation)
-		}
-
-		if _, err = c.client.UpdateResource("", "Deployment", config.KyvernoNamespace, deploy, false); err != nil {
+		if _, err = c.client.AppsV1().Deployments(config.KyvernoNamespace).Update(context.TODO(), deploy, metav1.UpdateOptions{}); err != nil {
 			return errors.Wrap(err, "update Kyverno deployment")
 		}
 		return nil
@@ -274,6 +293,41 @@ func (c *CertRenewer) RollingUpdate() error {
 // ValidCert validates the CA Cert
 func (c *CertRenewer) ValidCert() (bool, error) {
 	logger := c.log.WithName("ValidCert")
+
+	certProps, err := GetTLSCertProps(c.clientConfig)
+	if err != nil {
+		return false, nil
+	}
+	var managedByKyverno bool
+	snameTLS := GenerateTLSPairSecretName(certProps)
+	snameCA := GenerateRootCASecretName(certProps)
+	secret, err := c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameTLS, metav1.GetOptions{})
+	if err != nil {
+		return false, nil
+	}
+
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+
+	_, ok := secret.GetAnnotations()[MasterDeploymentUID]
+	if managedByKyverno && !ok {
+		return false, nil
+	}
+
+	secret, err = c.client.CoreV1().Secrets(certProps.Namespace).Get(context.TODO(), snameCA, metav1.GetOptions{})
+	if err != nil {
+		return false, nil
+	}
+
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+
+	_, ok = secret.GetAnnotations()[MasterDeploymentUID]
+	if managedByKyverno && !ok {
+		return false, nil
+	}
 
 	rootCA, err := ReadRootCASecret(c.clientConfig, c.client)
 	if err != nil {
@@ -333,16 +387,12 @@ func (c *CertRenewer) ValidCert() (bool, error) {
 }
 
 // IsKyvernoInRollingUpdate returns true if Kyverno is in rolling update
-func IsKyvernoInRollingUpdate(deploy map[string]interface{}, logger logr.Logger) bool {
-	replicas, _, err := unstructured.NestedInt64(deploy, "spec", "replicas")
-	if err != nil {
-		logger.Error(err, "unable to fetch spec.replicas")
+func IsKyvernoInRollingUpdate(deploy *appsv1.Deployment, logger logr.Logger) bool {
+	var replicas int32 = 1
+	if deploy.Spec.Replicas != nil {
+		replicas = *deploy.Spec.Replicas
 	}
-
-	nonTerminatedReplicas, _, err := unstructured.NestedInt64(deploy, "status", "replicas")
-	if err != nil {
-		logger.Error(err, "unable to fetch status.replicas")
-	}
+	nonTerminatedReplicas := deploy.Status.Replicas
 
 	if nonTerminatedReplicas > replicas {
 		logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
@@ -352,10 +402,22 @@ func IsKyvernoInRollingUpdate(deploy map[string]interface{}, logger logr.Logger)
 	return false
 }
 
-func generateTLSPairSecretName(props CertificateProps) string {
+func GenerateTLSPairSecretName(props CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-pair"
 }
 
-func generateRootCASecretName(props CertificateProps) string {
+func GenerateRootCASecretName(props CertificateProps) string {
 	return generateInClusterServiceName(props) + ".kyverno-tls-ca"
+}
+
+func CanAddAnnotationToSecret(deplHash string, secret *v1.Secret) bool {
+	var deplHashSec string = "default"
+	var ok, managedByKyverno bool
+
+	if label, ok := secret.GetLabels()[ManagedByLabel]; ok {
+		managedByKyverno = label == "kyverno"
+	}
+	deplHashSec, ok = secret.GetAnnotations()[MasterDeploymentUID]
+
+	return managedByKyverno && (!ok || deplHashSec != deplHash)
 }

@@ -15,7 +15,7 @@ spec:
           namespaces:
             - test-foo-*
       mutate:
-        overlay:
+        patchStrategicMerge:
           spec:
             template:
               spec:

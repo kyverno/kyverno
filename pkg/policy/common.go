@@ -6,10 +6,11 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/pkg/wildcard"
+	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -41,22 +42,6 @@ func transformResource(resource unstructured.Unstructured) []byte {
 	return data
 }
 
-// convertPoliciesToClusterPolicies - convert array of Policy to array of ClusterPolicy
-func convertPoliciesToClusterPolicies(nsPolicies []*kyverno.Policy) []*kyverno.ClusterPolicy {
-	var cpols []*kyverno.ClusterPolicy
-	for _, pol := range nsPolicies {
-		cpol := kyverno.ClusterPolicy(*pol)
-		cpols = append(cpols, &cpol)
-	}
-	return cpols
-}
-
-// ConvertPolicyToClusterPolicy - convert Policy to ClusterPolicy
-func ConvertPolicyToClusterPolicy(nsPolicies *kyverno.Policy) *kyverno.ClusterPolicy {
-	cpol := kyverno.ClusterPolicy(*nsPolicies)
-	return &cpol
-}
-
 func ParseNamespacedPolicy(key string) (string, string, bool) {
 	namespace := ""
 	index := strings.Index(key, "/")
@@ -85,7 +70,7 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 
 	var wildcards []string
 	for _, nsName := range rule.MatchResources.Namespaces {
-		if HasWildcard(nsName) {
+		if stringutils.ContainsWildcard(nsName) {
 			wildcards = append(wildcards, nsName)
 		}
 
@@ -98,15 +83,6 @@ func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Lo
 	}
 
 	return pc.configHandler.FilterNamespaces(matchedNS)
-}
-
-// HasWildcard ...
-func HasWildcard(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	return strings.Contains(s, "*") || strings.Contains(s, "?")
 }
 
 // GetMatchingNamespaces ...
@@ -144,32 +120,6 @@ func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []stri
 }
 
 func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	list, err := func() (list []*unstructured.Unstructured, err error) {
-		var selector labels.Selector
-		if labelSelector == nil {
-			selector = labels.Everything()
-		} else {
-			if selector, err = metav1.LabelSelectorAsSelector(labelSelector); err != nil {
-				return nil, err
-			}
-		}
-
-		genericCache, _ := pc.resCache.GetGVRCache(kind)
-
-		if namespace != "" {
-			list, err = genericCache.NamespacedLister(namespace).List(selector)
-		} else {
-			list, err = genericCache.Lister().List(selector)
-		}
-		return list, err
-	}()
-
-	if err != nil {
-		log.V(3).Info("failed to list resource using lister, try to query from the API server", "err", err.Error())
-	} else {
-		return list
-	}
-
 	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
 	if err != nil {
 		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
@@ -179,7 +129,10 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 	return resourceList
 }
 
-// GetResourcesPerNamespace ...
+// GetResourcesPerNamespace returns
+// - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
+// - Namespaced resources in the given namespace
+// - Cluster-wide resources for Cluster-wide Kind
 func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 

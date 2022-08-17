@@ -10,46 +10,32 @@ import (
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/go-logr/logr"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/autogen"
+	gencommon "github.com/kyverno/kyverno/pkg/background/common"
+	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
-	"github.com/kyverno/kyverno/pkg/engine/context"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	gen "github.com/kyverno/kyverno/pkg/generate"
-	"github.com/kyverno/kyverno/pkg/metrics"
-	policyExecutionDuration "github.com/kyverno/kyverno/pkg/metrics/policyexecutionduration"
-	policyResults "github.com/kyverno/kyverno/pkg/metrics/policyresults"
-	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
-	"github.com/kyverno/kyverno/pkg/webhooks/generate"
-	"k8s.io/api/admission/v1beta1"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (ws *WebhookServer) applyGeneratePolicies(request *v1beta1.AdmissionRequest, policyContext *engine.PolicyContext, policies []*kyverno.ClusterPolicy, ts int64, logger logr.Logger) {
-	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
-	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
-	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
-
-	go ws.handleGenerate(request, policies, policyContext.JSONContext, policyContext.AdmissionInfo, ws.configHandler, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-	go registerAdmissionReviewDurationMetricGenerate(logger, *ws.promConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go registerAdmissionRequestsMetricGenerate(logger, *ws.promConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
-}
-
 //handleGenerate handles admission-requests for policies with generate rules
 func (ws *WebhookServer) handleGenerate(
-	request *v1beta1.AdmissionRequest,
-	policies []*kyverno.ClusterPolicy,
-	ctx *context.Context,
-	userRequestInfo kyverno.RequestInfo,
-	dynamicConfig config.Interface,
+	request *admissionv1.AdmissionRequest,
+	policies []kyverno.PolicyInterface,
+	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp int64,
 	latencySender *chan int64,
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
@@ -57,34 +43,17 @@ func (ws *WebhookServer) handleGenerate(
 ) {
 
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
-	logger.V(6).Info("generate request")
+	logger.V(6).Info("update request")
 
 	var engineResponses []*response.EngineResponse
-	if (request.Operation == v1beta1.Create || request.Operation == v1beta1.Update) && len(policies) != 0 {
-		// convert RAW to unstructured
-		new, old, err := kyvernoutils.ExtractResources(nil, request)
-		if err != nil {
-			logger.Error(err, "failed to extract resource")
-		}
-
-		policyContext := &engine.PolicyContext{
-			NewResource:         new,
-			OldResource:         old,
-			AdmissionInfo:       userRequestInfo,
-			ExcludeGroupRole:    dynamicConfig.GetExcludeGroupRole(),
-			ExcludeResourceFunc: ws.configHandler.ToFilter,
-			ResourceCache:       ws.resCache,
-			JSONContext:         ctx,
-			Client:              ws.client,
-		}
-
+	if (request.Operation == admissionv1.Create || request.Operation == admissionv1.Update) && len(policies) != 0 {
 		for _, policy := range policies {
 			var rules []response.RuleResponse
-			policyContext.Policy = *policy
+			policyContext.Policy = policy
 			if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 				policyContext.NamespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, ws.nsLister, logger)
 			}
-			engineResponse := engine.Generate(policyContext)
+			engineResponse := engine.ApplyBackgroundChecks(policyContext)
 			for _, rule := range engineResponse.PolicyResponse.Rules {
 				if rule.Status != response.RuleStatusPass {
 					ws.deleteGR(logger, engineResponse)
@@ -100,23 +69,22 @@ func (ws *WebhookServer) handleGenerate(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyResultsMetricGeneration(logger, string(request.Operation), policy, *engineResponse)
 
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), *policy, *engineResponse)
+			go ws.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
 		}
 
-		// Adds Generate Request to a channel(queue size 1000) to generators
-		if failedResponse := applyGenerateRequest(request, ws.grGenerator, userRequestInfo, request.Operation, engineResponses...); err != nil {
+		if failedResponse := applyGenerateRequest(request, urkyverno.Generate, ws.grGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
 			// report failure event
 			for _, failedGR := range failedResponse {
-				events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, new)
+				events := failedEvents(fmt.Errorf("failed to create Generate Request: %v", failedGR.err), failedGR.gr, policyContext.NewResource)
 				ws.eventGen.Add(events...)
 			}
 		}
 	}
 
-	if request.Operation == v1beta1.Update {
+	if request.Operation == admissionv1.Update {
 		ws.handleUpdatesForGenerateRules(request, policies)
 	}
 
@@ -127,29 +95,9 @@ func (ws *WebhookServer) handleGenerate(
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses
 }
 
-func (ws *WebhookServer) registerPolicyResultsMetricGeneration(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyResults.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
-	}
-	if err := policyResults.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.Name)
-	}
-}
-
-func (ws *WebhookServer) registerPolicyExecutionDurationMetricGenerate(logger logr.Logger, resourceRequestOperation string, policy kyverno.ClusterPolicy, engineResponse response.EngineResponse) {
-	resourceRequestOperationPromAlias, err := policyExecutionDuration.ParseResourceRequestOperation(resourceRequestOperation)
-	if err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
-	}
-	if err := policyExecutionDuration.ParsePromConfig(*ws.promConfig).ProcessEngineResponse(policy, engineResponse, metrics.AdmissionRequest, "", resourceRequestOperationPromAlias); err != nil {
-		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.Name)
-	}
-}
-
 //handleUpdatesForGenerateRules handles admission-requests for update
-func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy) {
-	if request.Operation != v1beta1.Update {
+func (ws *WebhookServer) handleUpdatesForGenerateRules(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface) {
+	if request.Operation != admissionv1.Update {
 		return
 	}
 
@@ -164,7 +112,7 @@ func (ws *WebhookServer) handleUpdatesForGenerateRules(request *v1beta1.Admissio
 		ws.handleUpdateGenerateSourceResource(resLabels, logger)
 	}
 
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == v1beta1.Update {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
 		ws.handleUpdateGenerateTargetResource(request, policies, resLabels, logger)
 	}
 }
@@ -184,12 +132,12 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 			}
 		} else {
 			selector := labels.SelectorFromSet(labels.Set(map[string]string{
-				"generate.kyverno.io/policy-name": policyName,
+				urkyverno.URGeneratePolicyLabel: policyName,
 			}))
 
-			grList, err := ws.grLister.List(selector)
+			grList, err := ws.urLister.List(selector)
 			if err != nil {
-				logger.Error(err, "failed to get generate request for the resource", "label", "generate.kyverno.io/policy-name")
+				logger.Error(err, "failed to get generate request for the resource", "label", urkyverno.URGeneratePolicyLabel)
 				return
 			}
 
@@ -203,22 +151,35 @@ func (ws *WebhookServer) handleUpdateGenerateSourceResource(resLabels map[string
 
 // updateAnnotationInGR - function used to update GR annotation
 // updating GR will trigger reprocessing of GR and recreation/updation of generated resource
-func (ws *WebhookServer) updateAnnotationInGR(gr *kyverno.GenerateRequest, logger logr.Logger) {
+func (ws *WebhookServer) updateAnnotationInGR(gr *urkyverno.UpdateRequest, logger logr.Logger) {
 	grAnnotations := gr.Annotations
 	if len(grAnnotations) == 0 {
 		grAnnotations = make(map[string]string)
 	}
+	ws.mu.Lock()
 	grAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
 	gr.SetAnnotations(grAnnotations)
-	_, err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Update(contextdefault.TODO(), gr, metav1.UpdateOptions{})
+	ws.mu.Unlock()
+
+	patch := jsonutils.NewPatch(
+		"/metadata/annotations",
+		"replace",
+		gr.Annotations,
+	)
+
+	new, err := gencommon.PatchGenerateRequest(gr, patch, ws.kyvernoClient)
 	if err != nil {
-		logger.Error(err, "failed to update generate request for the resource", "generate request", gr.Name)
+		logger.Error(err, "failed to update generate request update-time annotations for the resource", "generate request", gr.Name)
 		return
+	}
+	new.Status.State = urkyverno.Pending
+	if _, err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).UpdateStatus(contextdefault.TODO(), new, metav1.UpdateOptions{}); err != nil {
+		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", gr.Name)
 	}
 }
 
 //handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.AdmissionRequest, policies []*kyverno.ClusterPolicy, resLabels map[string]string, logger logr.Logger) {
+func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyverno.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -235,13 +196,13 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 		return
 	}
 
-	for _, rule := range policy.Spec.Rules {
+	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, ws.client, rule, logger)
 			if err != nil {
 				logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 			} else {
-				data := updatedRule.Generation.DeepCopy().Data
+				data := updatedRule.Generation.DeepCopy().GetData()
 				if data != nil {
 					if _, err := gen.ValidateResourceWithPattern(logger, newRes.Object, data); err != nil {
 						enqueueBool = true
@@ -270,7 +231,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 
 	if enqueueBool {
 		grName := resLabels["policy.kyverno.io/gr-name"]
-		gr, err := ws.grLister.Get(grName)
+		gr, err := ws.urLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
 			return
@@ -281,7 +242,7 @@ func (ws *WebhookServer) handleUpdateGenerateTargetResource(request *v1beta1.Adm
 
 func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client *client.Client, rule kyverno.Rule, logger logr.Logger) (kyverno.Rule, error) {
 	var apiVersion, kind, name, namespace string
-	sourceRequest := &v1beta1.AdmissionRequest{}
+	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
 	name = resLabels["kyverno.io/generated-by-name"]
 	if kind != "Namespace" {
@@ -375,8 +336,8 @@ func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger
 	return obj, newRes
 }
 
-//HandleDelete handles admission-requests for delete
-func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
+//HandleDelete handles DELETE admission-requests for generate policies
+func (ws *WebhookServer) handleDelete(request *admissionv1.AdmissionRequest) {
 	logger := ws.log.WithValues("action", "generation", "uid", request.UID, "kind", request.Kind, "namespace", request.Namespace, "name", request.Name, "operation", request.Operation, "gvk", request.Kind.String())
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
@@ -384,11 +345,15 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 	}
 
 	resLabels := resource.GetLabels()
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == v1beta1.Delete {
+	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == admissionv1.Delete {
 		grName := resLabels["policy.kyverno.io/gr-name"]
-		gr, err := ws.grLister.Get(grName)
+		gr, err := ws.urLister.Get(grName)
 		if err != nil {
 			logger.Error(err, "failed to get generate request", "name", grName)
+			return
+		}
+
+		if gr.Spec.Type == urkyverno.Mutate {
 			return
 		}
 		ws.updateAnnotationInGR(gr, logger)
@@ -398,40 +363,40 @@ func (ws *WebhookServer) handleDelete(request *v1beta1.AdmissionRequest) {
 func (ws *WebhookServer) deleteGR(logger logr.Logger, engineResponse *response.EngineResponse) {
 	logger.V(4).Info("querying all generate requests")
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		"generate.kyverno.io/policy-name":        engineResponse.PolicyResponse.Policy.Name,
+		urkyverno.URGeneratePolicyLabel:          engineResponse.PolicyResponse.Policy.Name,
 		"generate.kyverno.io/resource-name":      engineResponse.PolicyResponse.Resource.Name,
 		"generate.kyverno.io/resource-kind":      engineResponse.PolicyResponse.Resource.Kind,
 		"generate.kyverno.io/resource-namespace": engineResponse.PolicyResponse.Resource.Namespace,
 	}))
 
-	grList, err := ws.grLister.List(selector)
+	grList, err := ws.urLister.List(selector)
 	if err != nil {
 		logger.Error(err, "failed to get generate request for the resource", "kind", engineResponse.PolicyResponse.Resource.Kind, "name", engineResponse.PolicyResponse.Resource.Name, "namespace", engineResponse.PolicyResponse.Resource.Namespace)
 		return
 	}
 
 	for _, v := range grList {
-		err := ws.kyvernoClient.KyvernoV1().GenerateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
+		err := ws.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace).Delete(contextdefault.TODO(), v.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			logger.Error(err, "failed to update gr")
 		}
 	}
 }
 
-func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generate.GenerateRequests, userRequestInfo kyverno.RequestInfo,
-	action v1beta1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
+func applyGenerateRequest(request *admissionv1.AdmissionRequest, ruleType urkyverno.RequestType, gnGenerator updaterequest.Interface, userRequestInfo urkyverno.RequestInfo,
+	action admissionv1.Operation, engineResponses ...*response.EngineResponse) (failedGenerateRequest []generateRequestResponse) {
 
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
 		logger.Error(err, "error loading request into context")
 	}
-	admissionRequestInfo := kyverno.AdmissionRequestInfoObject{
+	admissionRequestInfo := urkyverno.AdmissionRequestInfoObject{
 		AdmissionRequest: string(requestBytes),
 		Operation:        action,
 	}
 
 	for _, er := range engineResponses {
-		gr := transform(admissionRequestInfo, userRequestInfo, er)
+		gr := transform(admissionRequestInfo, userRequestInfo, er, ruleType)
 		if err := gnGenerator.Apply(gr, action); err != nil {
 			failedGenerateRequest = append(failedGenerateRequest, generateRequestResponse{gr: gr, err: err})
 		}
@@ -440,16 +405,24 @@ func applyGenerateRequest(request *v1beta1.AdmissionRequest, gnGenerator generat
 	return
 }
 
-func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequestInfo kyverno.RequestInfo, er *response.EngineResponse) kyverno.GenerateRequestSpec {
-	gr := kyverno.GenerateRequestSpec{
-		Policy: er.PolicyResponse.Policy.Name,
+func transform(admissionRequestInfo urkyverno.AdmissionRequestInfoObject, userRequestInfo urkyverno.RequestInfo, er *response.EngineResponse, ruleType urkyverno.RequestType) urkyverno.UpdateRequestSpec {
+	var PolicyNameNamespaceKey string
+	if er.PolicyResponse.Policy.Namespace != "" {
+		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Namespace + "/" + er.PolicyResponse.Policy.Name
+	} else {
+		PolicyNameNamespaceKey = er.PolicyResponse.Policy.Name
+	}
+
+	gr := urkyverno.UpdateRequestSpec{
+		Type:   ruleType,
+		Policy: PolicyNameNamespaceKey,
 		Resource: kyverno.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,
 			Name:       er.PolicyResponse.Resource.Name,
 			APIVersion: er.PolicyResponse.Resource.APIVersion,
 		},
-		Context: kyverno.GenerateRequestContext{
+		Context: urkyverno.UpdateRequestSpecContext{
 			UserRequestInfo:      userRequestInfo,
 			AdmissionRequestInfo: admissionRequestInfo,
 		},
@@ -459,7 +432,7 @@ func transform(admissionRequestInfo kyverno.AdmissionRequestInfoObject, userRequ
 }
 
 type generateRequestResponse struct {
-	gr  kyverno.GenerateRequestSpec
+	gr  urkyverno.UpdateRequestSpec
 	err error
 }
 
@@ -471,7 +444,7 @@ func (resp generateRequestResponse) error() string {
 	return resp.err.Error()
 }
 
-func failedEvents(err error, gr kyverno.GenerateRequestSpec, resource unstructured.Unstructured) []event.Info {
+func failedEvents(err error, gr urkyverno.UpdateRequestSpec, resource unstructured.Unstructured) []event.Info {
 	re := event.Info{}
 	re.Kind = resource.GetKind()
 	re.Namespace = resource.GetNamespace()

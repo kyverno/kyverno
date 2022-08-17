@@ -1,7 +1,8 @@
-apiVersion: v1
+apiVersion: v2
+type: application
 name: kyverno
-version: v2.1.3
-appVersion: v1.5.1
+version: v2.3.2
+appVersion: v1.6.2
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -16,5 +17,16 @@ sources:
 maintainers:
   - name: Nirmata
     url: https://kyverno.io/
-engine: gotpl
-kubeVersion: ">=1.10.0-0"
+kubeVersion: ">=1.16.0-0"
+annotations:
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://kyverno.io/docs
+  # valid kinds are: added, changed, deprecated, removed, fixed and security
+  artifacthub.io/changes: |
+    - kind: added
+      description: Support for artifacthub.io/changes annotation
+    - kind: added
+      description: Allow defining imagePullSecrets

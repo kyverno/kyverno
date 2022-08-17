@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/go-wildcard"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
@@ -79,6 +79,11 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 	if err == nil {
 		switch typedValue := value.(type) {
 		case string:
+			if typedValue == "" {
+				if val, ok := value.(string); ok {
+					return !wildcard.Match(val, key)
+				}
+			}
 			resourceValue, err := resource.ParseQuantity(typedValue)
 			if err != nil {
 				neh.log.Error(fmt.Errorf("parse error: "), "Failed to parse value type doesn't match key type")

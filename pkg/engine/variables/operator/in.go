@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/go-wildcard"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -63,7 +63,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}

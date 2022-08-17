@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: default
+  name: test-patched-image
+spec:
+  containers:
+    - args:
+        - --web.listen-address=127.0.0.1:9100
+        - --path.procfs=/host/proc
+        - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
+        - --no-collector.wifi
+        - --no-collector.hwmon
+        - "--collector.filesystem.ignored-mount-points=^/(dev|proc|sys|var/lib/docker/.+)($|/)"
+        - "--collector.filesystem.ignored-fs-types=^(autofs|binfmt_misc|cgroup|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|sysfs|tracefs)$"
+      image: docker.io/prom/node-exporter:v0.18.1
+      imagePullPolicy: IfNotPresent
+      name: node-exporter
+    - args:
+        - --logtostderr
+        - --secure-listen-address=[$(IP)]:9100
+        - --tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256
+        - --upstream=http://127.0.0.1:9100/
+      image: kubesphere/kube-rbac-proxy:v0.8.0
+      imagePullPolicy: IfNotPresent
+      name: kube-rbac-proxy

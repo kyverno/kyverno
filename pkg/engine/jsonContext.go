@@ -2,73 +2,231 @@ package engine
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
-	"k8s.io/client-go/dynamic/dynamiclister"
+	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
 // LoadContext - Fetches and adds external data to the Context.
-func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, resCache resourcecache.ResourceCache, ctx *PolicyContext, ruleName string) error {
+func LoadContext(logger logr.Logger, contextEntries []kyverno.ContextEntry, ctx *PolicyContext, ruleName string) error {
 	if len(contextEntries) == 0 {
 		return nil
 	}
 
-	policyName := ctx.Policy.Name
+	policyName := ctx.Policy.GetName()
 	if store.GetMock() {
+		hasRegistryAccess := store.GetRegistryAccess()
+		for _, entry := range contextEntries {
+			if entry.ImageRegistry != nil && hasRegistryAccess {
+				if err := loadImageData(logger, entry, ctx); err != nil {
+					return err
+				}
+			} else if entry.Variable != nil {
+				if err := loadVariable(logger, entry, ctx); err != nil {
+					return err
+				}
+			}
+		}
 		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
-		if len(rule.Values) == 0 {
-			return fmt.Errorf("No values found for policy %s rule %s", policyName, ruleName)
-		}
-		variables := rule.Values
+		if rule != nil && len(rule.Values) > 0 {
+			variables := rule.Values
+			for key, value := range variables {
+				if trimmedTypedValue := strings.Trim(value, "\n"); strings.Contains(trimmedTypedValue, "\n") {
+					tmp := map[string]interface{}{key: value}
+					tmp = parseMultilineBlockBody(tmp)
+					newVal, _ := json.Marshal(tmp[key])
+					value = string(newVal)
+				}
 
-		for key, value := range variables {
-			if trimmedTypedValue := strings.Trim(value, "\n"); strings.Contains(trimmedTypedValue, "\n") {
-				tmp := map[string]interface{}{key: value}
-				tmp = parseMultilineBlockBody(tmp)
-				newVal, _ := json.Marshal(tmp[key])
-				value = string(newVal)
-			}
-
-			jsonData := pkgcommon.VariableToJSON(key, value)
-
-			if err := ctx.JSONContext.AddJSON(jsonData); err != nil {
-				return err
+				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
+					return err
+				}
 			}
 		}
 
+		if rule != nil && len(rule.ForeachValues) > 0 {
+			for key, value := range rule.ForeachValues {
+				if err := ctx.JSONContext.AddVariable(key, value[store.ForeachElement]); err != nil {
+					return err
+				}
+			}
+		}
 	} else {
-		// get GVR Cache for "configmaps"
-		// can get cache for other resources if the informers are enabled in resource cache
-		gvrC, ok := resCache.GetGVRCache("ConfigMap")
-		if !ok {
-			return errors.New("configmaps GVR Cache not found")
-		}
-
-		lister := gvrC.Lister()
-
 		for _, entry := range contextEntries {
 			if entry.ConfigMap != nil {
-				if err := loadConfigMap(logger, entry, lister, ctx.JSONContext); err != nil {
+				if err := loadConfigMap(logger, entry, ctx); err != nil {
 					return err
 				}
 			} else if entry.APICall != nil {
 				if err := loadAPIData(logger, entry, ctx); err != nil {
 					return err
 				}
+			} else if entry.ImageRegistry != nil {
+				if err := loadImageData(logger, entry, ctx); err != nil {
+					return err
+				}
+			} else if entry.Variable != nil {
+				if err := loadVariable(logger, entry, ctx); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	return nil
+}
+
+func loadVariable(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) (err error) {
+	path := ""
+	if entry.Variable.JMESPath != "" {
+		jp, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.Variable.JMESPath)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.JMESPath, err)
+		}
+		path = jp.(string)
+	}
+	var defaultValue interface{} = nil
+	if entry.Variable.Default != nil {
+		value, err := variables.DocumentToUntyped(entry.Variable.Default)
+		if err != nil {
+			return fmt.Errorf("invalid default for variable %s", entry.Name)
+		}
+		defaultValue, err = variables.SubstituteAll(logger, ctx.JSONContext, value)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Default, err)
+		}
+	}
+	var output interface{} = defaultValue
+	if entry.Variable.Value != nil {
+		value, _ := variables.DocumentToUntyped(entry.Variable.Value)
+		variable, err := variables.SubstituteAll(logger, ctx.JSONContext, value)
+		if err != nil {
+			return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.Variable.Value, err)
+		}
+		if path != "" {
+			variable, err := applyJMESPath(path, variable)
+			if err == nil {
+				output = variable
+			}
+		} else {
+			output = variable
+		}
+	} else {
+		if path != "" {
+			if variable, err := ctx.JSONContext.Query(path); err == nil {
+				output = variable
+			}
+		}
+	}
+	if output == nil {
+		return fmt.Errorf("unable to add context entry for variable %s since it evaluated to nil", entry.Name)
+	}
+	if outputBytes, err := json.Marshal(output); err == nil {
+		return ctx.JSONContext.ReplaceContextEntry(entry.Name, outputBytes)
+	} else {
+		return fmt.Errorf("unable to add context entry for variable %s: %w", entry.Name, err)
+	}
+}
+
+func loadImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
+	if len(registryclient.Secrets) > 0 {
+		if err := registryclient.UpdateKeychain(); err != nil {
+			return fmt.Errorf("unable to load image registry credentials, %w", err)
+		}
+	}
+	imageData, err := fetchImageData(logger, entry, ctx)
+	if err != nil {
+		return err
+	}
+	jsonBytes, err := json.Marshal(imageData)
+	if err != nil {
+		return err
+	}
+	if err := ctx.JSONContext.AddContextEntry(entry.Name, jsonBytes); err != nil {
+		return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
+	}
+	return nil
+}
+
+func fetchImageData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) (interface{}, error) {
+	ref, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ImageRegistry.Reference)
+	if err != nil {
+		return nil, fmt.Errorf("ailed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.Reference, err)
+	}
+	refString, ok := ref.(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid image reference %s, image reference must be a string", ref)
+	}
+	path, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ImageRegistry.JMESPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.ImageRegistry.JMESPath, err)
+	}
+	imageData, err := fetchImageDataMap(refString)
+	if err != nil {
+		return nil, err
+	}
+	if path != "" {
+		imageData, err = applyJMESPath(path.(string), imageData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply JMESPath (%s) results to context entry %s, error: %v", entry.ImageRegistry.JMESPath, entry.Name, err)
+		}
+	}
+	return imageData, nil
+}
+
+// FetchImageDataMap fetches image information from the remote registry.
+func fetchImageDataMap(ref string) (interface{}, error) {
+	parsedRef, err := name.ParseReference(ref)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse image reference: %s, error: %v", ref, err)
+	}
+	desc, err := remote.Get(parsedRef, remote.WithAuthFromKeychain(registryclient.DefaultKeychain))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch image reference: %s, error: %v", ref, err)
+	}
+	image, err := desc.Image()
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve image reference: %s, error: %v", ref, err)
+	}
+	manifest, err := image.Manifest()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch manifest for image reference: %s, error: %v", ref, err)
+	}
+	config, err := image.ConfigFile()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch config for image reference: %s, error: %v", ref, err)
+	}
+	data := map[string]interface{}{
+		"image":         ref,
+		"resolvedImage": fmt.Sprintf("%s@%s", parsedRef.Context().Name(), desc.Digest.String()),
+		"registry":      parsedRef.Context().RegistryStr(),
+		"repository":    parsedRef.Context().RepositoryStr(),
+		"identifier":    parsedRef.Identifier(),
+		"manifest":      manifest,
+		"configData":    config,
+	}
+	// we need to do the conversion from struct types to an interface type so that jmespath
+	// evaluation works correctly. go-jmespath cannot handle function calls like max/sum
+	// for types like integers for eg. the conversion to untyped allows the stdlib json
+	// to convert all the types to types that are compatible with jmespath.
+	jsonDoc, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var untyped interface{}
+	err = json.Unmarshal(jsonDoc, &untyped)
+	if err != nil {
+		return nil, err
+	}
+	return untyped, nil
 }
 
 func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
@@ -78,7 +236,7 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 	}
 
 	if entry.APICall.JMESPath == "" {
-		err = ctx.JSONContext.AddJSON(jsonData)
+		err = ctx.JSONContext.AddContextEntry(entry.Name, jsonData)
 		if err != nil {
 			return fmt.Errorf("failed to add resource data to context: contextEntry: %v, error: %v", entry, err)
 		}
@@ -91,40 +249,41 @@ func loadAPIData(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyCont
 		return fmt.Errorf("failed to substitute variables in context entry %s %s: %v", entry.Name, entry.APICall.JMESPath, err)
 	}
 
-	results, err := applyJMESPath(path.(string), jsonData)
+	results, err := applyJMESPathJSON(path.(string), jsonData)
 	if err != nil {
 		return err
 	}
 
-	contextNamedData := make(map[string]interface{})
-	contextNamedData[entry.Name] = results
-	contextData, err := json.Marshal(contextNamedData)
+	contextData, err := json.Marshal(results)
 	if err != nil {
-		return fmt.Errorf("failed to marshall data %v for context entry %v: %v", contextNamedData, entry, err)
+		return fmt.Errorf("failed to marshall data %v for context entry %v: %v", contextData, entry, err)
 	}
 
-	err = ctx.JSONContext.AddJSON(contextData)
+	err = ctx.JSONContext.AddContextEntry(entry.Name, contextData)
 	if err != nil {
 		return fmt.Errorf("failed to add JMESPath (%s) results to context, error: %v", entry.APICall.JMESPath, err)
 	}
 
-	logger.Info("added APICall context entry", "data", contextNamedData)
+	logger.Info("added APICall context entry", "data", contextData)
 	return nil
 }
 
-func applyJMESPath(jmesPath string, jsonData []byte) (interface{}, error) {
+func applyJMESPath(jmesPath string, data interface{}) (interface{}, error) {
 	jp, err := jmespath.New(jmesPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compile JMESPath: %s, error: %v", jmesPath, err)
 	}
 
+	return jp.Search(data)
+}
+
+func applyJMESPathJSON(jmesPath string, jsonData []byte) (interface{}, error) {
 	var data interface{}
-	err = json.Unmarshal(jsonData, &data)
+	err := json.Unmarshal(jsonData, &data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %s, error: %v", string(jsonData), err)
 	}
-
-	return jp.Search(data)
+	return applyJMESPath(jmesPath, data)
 }
 
 func fetchAPIData(log logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
@@ -186,13 +345,13 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	return r.MarshalJSON()
 }
 
-func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, ctx *context.Context) error {
-	data, err := fetchConfigMap(logger, entry, lister, ctx)
+func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) error {
+	data, err := fetchConfigMap(logger, entry, ctx)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve config map for context entry %s: %v", entry.Name, err)
 	}
 
-	err = ctx.AddJSON(data)
+	err = ctx.JSONContext.AddContextEntry(entry.Name, data)
 	if err != nil {
 		return fmt.Errorf("failed to add config map for context entry %s: %v", entry.Name, err)
 	}
@@ -200,15 +359,15 @@ func loadConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynami
 	return nil
 }
 
-func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynamiclister.Lister, jsonContext *context.Context) ([]byte, error) {
+func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, ctx *PolicyContext) ([]byte, error) {
 	contextData := make(map[string]interface{})
 
-	name, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Name)
+	name, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.name %s: %v", entry.Name, entry.ConfigMap.Name, err)
 	}
 
-	namespace, err := variables.SubstituteAll(logger, jsonContext, entry.ConfigMap.Namespace)
+	namespace, err := variables.SubstituteAll(logger, ctx.JSONContext, entry.ConfigMap.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to substitute variables in context %s configMap.namespace %s: %v", entry.Name, entry.ConfigMap.Namespace, err)
 	}
@@ -217,10 +376,9 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 		namespace = "default"
 	}
 
-	key := fmt.Sprintf("%s/%s", namespace, name)
-	obj, err := lister.Get(key)
+	obj, err := ctx.Client.GetResource("v1", "ConfigMap", namespace.(string), name.(string))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read configmap %s/%s from cache: %v", namespace, name, err)
+		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
 
 	unstructuredObj := obj.DeepCopy().Object
@@ -231,9 +389,7 @@ func fetchConfigMap(logger logr.Logger, entry kyverno.ContextEntry, lister dynam
 	// extract configmap data
 	contextData["data"] = unstructuredObj["data"]
 	contextData["metadata"] = unstructuredObj["metadata"]
-	contextNamedData := make(map[string]interface{})
-	contextNamedData[entry.Name] = contextData
-	data, err := json.Marshal(contextNamedData)
+	data, err := json.Marshal(contextData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal configmap %s/%s: %v", namespace, name, err)
 	}

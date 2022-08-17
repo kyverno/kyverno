@@ -18,8 +18,8 @@ expected:
       - name: annotate-empty-dir
         type: Mutation
         status: pass
-        message: "successfully processed strategic merge patch"
+        message: "mutated Pod/pod-with-emptydir"
       - name: annotate-host-path
         type: Mutation
         status: skip
-        message: "resource does not match pattern"
+        message: "no patches applied"

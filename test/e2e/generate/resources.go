@@ -84,9 +84,8 @@ spec:
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
-              kind: Role
-              name: "ns-role"
-              namespace: "default"
+          name: "ns-role"
+          namespace: "default"
   - name: "gen-role-binding"
     match:
         resources:
@@ -98,7 +97,6 @@ spec:
         namespace: "{{request.object.metadata.name}}"
         synchronize: true
         clone:
-            kind: RoleBinding
             name: "ns-role-binding"
             namespace: default
 `)
@@ -111,8 +109,8 @@ metadata:
   namespace: default
   name: ns-role
 rules:
-- apiGroups: ["*"]
-  resources: ["*"]
+- apiGroups: [""]
+  resources: ["configmaps"]
   verbs: ["get", "watch", "list", "delete", "create"]
 `)
 
@@ -215,6 +213,39 @@ subjects:
 - kind: ServiceAccount
   name: kyverno-service-account
   namespace: kyverno
+`)
+
+// Cluster Policy to clone ClusterRole and ClusterRoleBinding
+var clusterRoleRoleBindingYamlWithClone = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "gen-cluster-policy-3"
+spec:
+  background: false
+  rules:
+  - name: "gen-role"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRole
+        name: "cloned-cluster-role"
+        synchronize: true
+        clone:
+          name: "base-cluster-role"
+  - name: "gen-role-binding"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRoleBinding
+        name: "cloned-cluster-role-binding"
+        synchronize: true
+        clone:
+            name: "base-cluster-role-binding"
 `)
 
 var genNetworkPolicyYaml = []byte(`

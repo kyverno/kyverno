@@ -5,20 +5,22 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	"github.com/kyverno/kyverno/pkg/utils"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
 
-func (pc PromConfig) registerAdmissionReviewDurationMetric(
+func registerAdmissionReviewDurationMetric(
+	pc *metrics.PromConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 	admissionRequestLatency float64,
 ) error {
 	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
-	if (resourceNamespace != "" && resourceNamespace != "-") && metrics.ElementInSlice(resourceNamespace, excludeNamespaces) {
+	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
-	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(resourceNamespace, includeNamespaces) {
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
 		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_review_duration_seconds metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
@@ -30,14 +32,13 @@ func (pc PromConfig) registerAdmissionReviewDurationMetric(
 	return nil
 }
 
-func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(pc *metrics.PromConfig, engineResponses []*response.EngineResponse, admissionReviewLatencyDuration int64, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
 	resourceNamespace, resourceKind := engineResponses[0].PolicyResponse.Resource.Namespace, engineResponses[0].PolicyResponse.Resource.Kind
-	totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount := 0, 0, 0
+	validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 	for _, e := range engineResponses {
-		validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 		for _, rule := range e.PolicyResponse.Rules {
 			switch rule.Type {
 			case "Validation":
@@ -48,18 +49,10 @@ func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineRe
 				generateRulesCount++
 			}
 		}
-		// no rules triggered
-		if validateRulesCount+mutateRulesCount+generateRulesCount == 0 {
-			continue
-		}
-
-		totalValidateRulesCount += validateRulesCount
-		totalMutateRulesCount += mutateRulesCount
-		totalGenerateRulesCount += generateRulesCount
 	}
-	if totalValidateRulesCount+totalMutateRulesCount+totalGenerateRulesCount == 0 {
+	if validateRulesCount == 0 && mutateRulesCount == 0 && generateRulesCount == 0 {
 		return nil
 	}
 	admissionReviewLatencyDurationInSeconds := float64(admissionReviewLatencyDuration) / float64(1000*1000*1000)
-	return pc.registerAdmissionReviewDurationMetric(resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
+	return registerAdmissionReviewDurationMetric(pc, resourceKind, resourceNamespace, resourceRequestOperation, admissionReviewLatencyDurationInSeconds)
 }

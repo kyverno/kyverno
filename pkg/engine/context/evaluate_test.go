@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func TestHasChanged(t *testing.T) {
@@ -27,7 +27,7 @@ func TestHasChanged(t *testing.T) {
 }
 
 func TestRequestNotInitialize(t *testing.T) {
-	request := &v1beta1.AdmissionRequest{}
+	request := &admissionv1.AdmissionRequest{}
 	ctx := NewContext()
 	ctx.AddRequest(request)
 
@@ -36,7 +36,7 @@ func TestRequestNotInitialize(t *testing.T) {
 }
 
 func TestMissingOldObject(t *testing.T) {
-	request := &v1beta1.AdmissionRequest{}
+	request := &admissionv1.AdmissionRequest{}
 	ctx := NewContext()
 	ctx.AddRequest(request)
 	request.Object.Raw = []byte(`{"a": {"b": 1, "c": 2}, "d": 3}`)
@@ -46,7 +46,7 @@ func TestMissingOldObject(t *testing.T) {
 }
 
 func TestMissingObject(t *testing.T) {
-	request := &v1beta1.AdmissionRequest{}
+	request := &admissionv1.AdmissionRequest{}
 	ctx := NewContext()
 	ctx.AddRequest(request)
 	request.OldObject.Raw = []byte(`{"a": {"b": 1, "c": 2}, "d": 3}`)
@@ -55,8 +55,8 @@ func TestMissingObject(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func createTestContext(obj, oldObj string) *Context {
-	request := &v1beta1.AdmissionRequest{}
+func createTestContext(obj, oldObj string) Interface {
+	request := &admissionv1.AdmissionRequest{}
 	request.Operation = "UPDATE"
 	request.Object.Raw = []byte(obj)
 	request.OldObject.Raw = []byte(oldObj)

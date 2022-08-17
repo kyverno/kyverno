@@ -65,7 +65,7 @@ func Test_subVars_success(t *testing.T) {
 	}
 	// context
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -126,7 +126,7 @@ func Test_subVars_failed(t *testing.T) {
 	}
 	// context
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	if err != nil {
 		t.Error(err)
 	}
@@ -220,7 +220,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	output, err := SubstituteAll(log.Log, ctx, pattern)
@@ -279,7 +279,37 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
+	assert.NilError(t, err)
+
+	output, err := SubstituteAll(log.Log, ctx, pattern)
+	assert.NilError(t, err)
+	out, err := json.Marshal(output)
+	assert.NilError(t, err)
+	assert.Equal(t, string(out), expected.String())
+}
+
+func Test_subVars_withMerge(t *testing.T) {
+	patternMap := []byte(`{"map": "{{ merge(` + "`{\\\"a\\\": 1}`, `{\\\"b\\\": 1}`" + `)}}"}`)
+
+	resourceRaw := []byte(`{}`)
+
+	expectedRaw := []byte(`{"map": {"a":1,"b":1}}`)
+
+	var err error
+
+	expected := new(bytes.Buffer)
+	err = json.Compact(expected, expectedRaw)
+	assert.NilError(t, err)
+
+	var pattern, resource interface{}
+	err = json.Unmarshal(patternMap, &pattern)
+	assert.NilError(t, err)
+	err = json.Unmarshal(resourceRaw, &resource)
+	assert.NilError(t, err)
+	// context
+	ctx := context.NewContext()
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	output, err := SubstituteAll(log.Log, ctx, pattern)
@@ -322,7 +352,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 	assert.NilError(t, err)
 	// context
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	output, err := SubstituteAll(log.Log, ctx, pattern)
@@ -366,8 +396,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContext()
-	err = ctx.AddJSON(resourceRaw)
+	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(log.Log, ctx, pattern)
@@ -402,8 +431,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContext()
-	err = ctx.AddJSON(resourceRaw)
+	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(log.Log, ctx, pattern)
@@ -430,7 +458,7 @@ var resourceRaw = []byte(`
 
 func Test_SubstituteSuccess(t *testing.T) {
 	ctx := context.NewContext()
-	assert.Assert(t, ctx.AddResource(resourceRaw))
+	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
@@ -454,7 +482,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 
 func Test_SubstituteRecursiveErrors(t *testing.T) {
 	ctx := context.NewContext()
-	assert.Assert(t, ctx.AddResource(resourceRaw))
+	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
@@ -486,7 +514,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 
 func Test_SubstituteRecursive(t *testing.T) {
 	ctx := context.NewContext()
-	assert.Assert(t, ctx.AddResource(resourceRaw))
+	assert.Assert(t, context.AddResource(ctx, resourceRaw))
 
 	var pattern interface{}
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
@@ -603,9 +631,8 @@ func Test_variableSubstitution_array(t *testing.T) {
 	err := json.Unmarshal(ruleRaw, &rule)
 	assert.NilError(t, err)
 
-	ctx := context.NewContext()
-	ctx.AddJSON(configmapRaw)
-	ctx.AddResource(resourceRaw)
+	ctx := context.NewContextFromRaw(configmapRaw)
+	context.AddResource(ctx, resourceRaw)
 
 	vars, err := SubstituteAllInRule(log.Log, ctx, rule)
 	assert.NilError(t, err)
@@ -651,7 +678,7 @@ func Test_SubstituteNull(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -680,7 +707,7 @@ func Test_SubstituteNullInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -709,7 +736,7 @@ func Test_SubstituteArray(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -738,7 +765,7 @@ func Test_SubstituteArrayInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -767,7 +794,7 @@ func Test_SubstituteInt(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -796,7 +823,7 @@ func Test_SubstituteIntInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -825,7 +852,7 @@ func Test_SubstituteBool(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -854,7 +881,7 @@ func Test_SubstituteBoolInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -883,7 +910,7 @@ func Test_SubstituteString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -912,7 +939,7 @@ func Test_SubstituteStringInString(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	ctx.AddResource(variableObject)
+	context.AddResource(ctx, variableObject)
 
 	resolved, err := SubstituteAll(log.Log, ctx, pattern)
 	assert.NilError(t, err)
@@ -963,7 +990,7 @@ func Test_ReferenceSubstitution(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(jsonRaw)
+	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
 	actualDocument, err := SubstituteAll(log.Log, ctx, document)
@@ -1107,7 +1134,7 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(jsonRaw)
+	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
 	actualDocument, err := SubstituteAll(log.Log, ctx, document)
@@ -1142,8 +1169,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	ctx := context.NewContext()
-	err = ctx.AddJSON(resourceRaw)
+	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
 	pattern, err = SubstituteAll(log.Log, ctx, pattern)
@@ -1156,4 +1182,10 @@ func Test_getJMESPath(t *testing.T) {
 	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/pattern/spec/containers/0"))
 	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/pattern/spec/containers/0/volumes/1"))
 	assert.Equal(t, "[0]", getJMESPath("/mutate/overlay/0"))
+}
+
+func Test_getJMESPathForForeach(t *testing.T) {
+	assert.Equal(t, "spec.containers[0]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0"))
+	assert.Equal(t, "spec.containers[0].volumes[1]", getJMESPath("/validate/foreach/0/pattern/spec/containers/0/volumes/1"))
+	assert.Equal(t, "[0]", getJMESPath("/mutate/foreach/0/overlay/0"))
 }

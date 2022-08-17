@@ -12,8 +12,8 @@ import (
 	report "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,7 +40,7 @@ const (
 	SourceValue = "Kyverno"
 )
 
-func generatePolicyReportName(ns string) string {
+func GeneratePolicyReportName(ns string) string {
 	if ns == "" {
 		return clusterpolicyreport
 	}
@@ -63,6 +63,10 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 		}
 
 		if len(er.PolicyResponse.Rules) == 0 {
+			continue
+		}
+
+		if er.Policy != nil && engine.ManagedPodResource(er.Policy, er.PatchedResource) {
 			continue
 		}
 
@@ -90,11 +94,11 @@ func NewBuilder(cpolLister kyvernolister.ClusterPolicyLister, polLister kyvernol
 }
 
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
-	results := []*report.PolicyReportResult{}
+	results := []report.PolicyReportResult{}
 	req = new(unstructured.Unstructured)
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
-			if rule.Type != utils.Validation.String() {
+			if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 				continue
 			}
 
@@ -156,12 +160,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 	return req, nil
 }
 
-func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) *report.PolicyReportResult {
+func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyverno.ViolatedRule) report.PolicyReportResult {
 	av := builder.fetchAnnotationValues(policy, resource.Namespace)
 
-	result := &report.PolicyReportResult{
+	result := report.PolicyReportResult{
 		Policy: policy,
-		Resources: []*v1.ObjectReference{
+		Resources: []v1.ObjectReference{
 			{
 				Kind:       resource.Kind,
 				Namespace:  resource.Namespace,
@@ -242,7 +246,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 	return false
 }
 
-func calculateSummary(results []*report.PolicyReportResult) (summary report.PolicyReportSummary) {
+func calculateSummary(results []report.PolicyReportResult) (summary report.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {
 		case report.StatusPass:
@@ -279,7 +283,7 @@ func buildViolatedRules(er *response.EngineResponse) []kyverno.ViolatedRule {
 	for _, rule := range er.PolicyResponse.Rules {
 		vrule := kyverno.ViolatedRule{
 			Name:    rule.Name,
-			Type:    rule.Type,
+			Type:    string(rule.Type),
 			Message: rule.Message,
 		}
 

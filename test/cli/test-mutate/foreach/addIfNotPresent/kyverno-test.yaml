@@ -1,0 +1,12 @@
+name: foreach-mutate
+policies:
+  - policies.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: mutate-emptydir
+    rule: setDefault
+    resource: svc-sizelimit-test
+    patchedResource: deploy-patched.yaml
+    kind: Deployment
+    result: pass

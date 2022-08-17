@@ -76,7 +76,7 @@ git add .
 git commit -s -m "Commit message"
 ```
 
-The `-s` signifies that you have signed off the the commit.
+The `-s` signifies that you have signed off the commit.
 
 Go ahead and push your changes to GitHub using this command.
 

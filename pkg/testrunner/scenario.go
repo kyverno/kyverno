@@ -143,7 +143,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	ctx := &engine.PolicyContext{
-		Policy:           *policy,
+		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
 		JSONContext:      context.NewContext(),
@@ -160,7 +160,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 	}
 
 	ctx = &engine.PolicyContext{
-		Policy:           *policy,
+		Policy:           policy,
 		NewResource:      *resource,
 		ExcludeGroupRole: []string{},
 		JSONContext:      context.NewContext(),
@@ -182,7 +182,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 		} else {
 			policyContext := &engine.PolicyContext{
 				NewResource:      *resource,
-				Policy:           *policy,
+				Policy:           policy,
 				Client:           client,
 				ExcludeGroupRole: []string{},
 				ExcludeResourceFunc: func(s1, s2, s3 string) bool {
@@ -191,7 +191,7 @@ func runTestCase(t *testing.T, tc TestCase) bool {
 				JSONContext: context.NewContext(),
 			}
 
-			er = engine.Generate(policyContext)
+			er = engine.ApplyBackgroundChecks(policyContext)
 			t.Log(("---Generation---"))
 			validateResponse(t, er.PolicyResponse, tc.Expected.Generation.PolicyResponse)
 			// Expected generate resource will be in same namespaces as resource
@@ -244,21 +244,17 @@ func validateResource(t *testing.T, responseResource unstructured.Unstructured, 
 }
 
 func validateResponse(t *testing.T, er response.PolicyResponse, expected response.PolicyResponse) {
-	if reflect.DeepEqual(expected, (response.PolicyResponse{})) {
+	if reflect.DeepEqual(expected, response.PolicyResponse{}) {
 		t.Log("no response expected")
 		return
 	}
-	// cant do deepEquals and the stats will be different, or we nil those fields and then do a comparison
-	// forcing only the fields that are specified to be comprared
-	// doing a field by fields comparison will allow us to provied more details logs and granular error reporting
+	// can't do deepEquals and the stats will be different, so we remove those fields and then do a comparison
+	// forcing only the fields that are specified to be compared
+	// doing a field by fields comparison will allow us to provide more details logs and granular error reporting
 	// compare policy spec
 	comparePolicySpec(t, er.Policy, expected.Policy)
 	// compare resource spec
 	compareResourceSpec(t, er.Resource, expected.Resource)
-	// //TODO stats
-	// if er.RulesAppliedCount != expected.RulesAppliedCount {
-	// 	t.Log("RulesAppliedCount: error")
-	// }
 
 	// rules
 	if len(er.Rules) != len(expected.Rules) {

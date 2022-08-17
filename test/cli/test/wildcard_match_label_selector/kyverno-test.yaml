@@ -1,0 +1,31 @@
+name: wildcard-support-in-matchlabels
+policies:
+  -  policy.yaml
+resources:
+  -  resources.yaml
+results:
+  - policy: wildcard-support-in-matchlabels
+    rule: wildcard-label
+    resource: my-service-1
+    kind: Pod
+    result: pass
+  - policy: wildcard-support-in-matchlabels
+    rule: label-end-with-test
+    resource: my-service-2
+    kind: Pod
+    result: pass
+  - policy: wildcard-support-in-matchlabels
+    rule: label-end-with-test
+    resource: my-service-3
+    kind: Pod
+    result: skip
+  - policy: wildcard-support-in-matchlabels
+    rule: label-start-with-test
+    resource: my-service-4
+    kind: Pod
+    result: pass
+  - policy: wildcard-support-in-matchlabels
+    rule: label-start-with-test
+    resource: my-service-5
+    kind: Pod
+    result: skip

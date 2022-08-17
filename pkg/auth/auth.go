@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	client "github.com/kyverno/kyverno/pkg/dclient"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -17,21 +16,16 @@ type CanIOptions struct {
 	verb      string
 	kind      string
 	client    *client.Client
-	log       logr.Logger
 }
 
 //NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client *client.Client, kind, namespace, verb string, log logr.Logger) *CanIOptions {
-	o := CanIOptions{
-		client: client,
-		log:    log,
+func NewCanI(client *client.Client, kind, namespace, verb string) *CanIOptions {
+	return &CanIOptions{
+		namespace: namespace,
+		kind:      kind,
+		verb:      verb,
+		client:    client,
 	}
-
-	o.namespace = namespace
-	o.kind = kind
-	o.verb = verb
-
-	return &o
 }
 
 //RunAccessCheck checks if the caller can perform the operation
@@ -68,7 +62,7 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 	// - verb
 	// - resource
 	// - subresource
-	logger := o.log.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
+	logger := logger.WithValues("kind", sar.Kind, "namespace", sar.Namespace, "name", sar.Name)
 
 	// Create the Resource
 	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)

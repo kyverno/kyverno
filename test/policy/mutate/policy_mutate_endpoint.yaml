@@ -13,10 +13,16 @@ spec :
             matchLabels:
               label : test
       mutate:
-        patches:
-          - path : "/subsets/0/ports/0/port"
-            op : replace
-            value: 9663
-          - path : "/metadata/labels/isMutated"
-            op: add
-            value: "true"
+        patchesJson6902: |-
+          [
+            {
+              "path":"/subsets/0/ports/0/port",
+              "op":"replace",
+              "value":9663
+            },
+            {
+              "path":"/metadata/labels/isMutated",
+              "op":"add",
+              "value":"true"
+            }
+          ]

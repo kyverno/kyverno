@@ -7,16 +7,16 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/pkg/errors"
-
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/minio/pkg/wildcard"
+	"github.com/pkg/errors"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -46,7 +46,7 @@ func checkKind(kinds []string, resource unstructured.Unstructured) bool {
 				return true
 			}
 		} else {
-			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || resource.GroupVersionKind().Version == "*") {
+			if resource.GroupVersionKind().Group == SplitGVK[0] && resource.GroupVersionKind().Kind == strings.Title(SplitGVK[2]) && (resource.GroupVersionKind().Version == SplitGVK[1] || SplitGVK[1] == "*") {
 				return true
 			}
 		}
@@ -126,7 +126,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyverno.ResourceDescription, userInfo kyverno.UserInfo, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -262,7 +262,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 //MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef kyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyverno.Rule, admissionInfoRef urkyverno.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
 
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
@@ -335,7 +335,7 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 
-func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 	if reflect.DeepEqual(admissionInfo, kyverno.RequestInfo{}) {
 		rmr.UserInfo = kyverno.UserInfo{}
@@ -352,7 +352,7 @@ func matchesResourceDescriptionMatchHelper(rmr kyverno.ResourceFilter, admission
 	return errs
 }
 
-func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissionInfo kyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionExcludeHelper(rer kyverno.ResourceFilter, admissionInfo urkyverno.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 	// checking if resource matches the rule
 	if !reflect.DeepEqual(rer.ResourceDescription, kyverno.ResourceDescription{}) ||
@@ -377,7 +377,7 @@ func copyAnyAllConditions(original kyverno.AnyAllConditions) kyverno.AnyAllCondi
 
 // backwards compatibility
 func copyOldConditions(original []kyverno.Condition) []kyverno.Condition {
-	if original == nil || len(original) == 0 {
+	if len(original) == 0 {
 		return []kyverno.Condition{}
 	}
 
@@ -425,8 +425,8 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 // ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyverno.ClusterPolicy, resource unstructured.Unstructured) bool {
-	podControllers, ok := policy.GetAnnotations()[PodControllersAnnotation]
+func ManagedPodResource(policy kyverno.PolicyInterface, resource unstructured.Unstructured) bool {
+	podControllers, ok := policy.GetAnnotations()[kyverno.PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
 		return false
 	}
@@ -448,7 +448,7 @@ func checkPreconditions(logger logr.Logger, ctx *PolicyContext, anyAllConditions
 		return false, errors.Wrapf(err, "failed to substitute variables in preconditions")
 	}
 
-	typeConditions, err := transformConditions(preconditions)
+	typeConditions, err := common.TransformConditions(preconditions)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to parse preconditions")
 	}
@@ -471,18 +471,23 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyverno.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
-	return ruleResponse(rule, ruleType, msg, response.RuleStatusError)
+	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError, nil)
 }
 
-func ruleResponse(rule *kyverno.Rule, ruleType engineUtils.RuleType, msg string, status response.RuleStatus) *response.RuleResponse {
-	return &response.RuleResponse{
+func ruleResponse(rule kyverno.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+	resp := &response.RuleResponse{
 		Name:    rule.Name,
-		Type:    ruleType.String(),
+		Type:    ruleType,
 		Message: msg,
 		Status:  status,
 	}
+
+	if rule.Mutation.Targets != nil {
+		resp.PatchedTarget = patchedResource
+	}
+	return resp
 }
 
 func incrementAppliedCount(resp *response.EngineResponse) {
@@ -491,4 +496,11 @@ func incrementAppliedCount(resp *response.EngineResponse) {
 
 func incrementErrorCount(resp *response.EngineResponse) {
 	resp.PolicyResponse.RulesErrorCount++
+}
+
+// invertedElement inverted the order of element for patchStrategicMerge  policies as kustomize patch revering the order of patch resources.
+func invertedElement(elements []interface{}) {
+	for i, j := 0, len(elements)-1; i < j; i, j = i+1, j-1 {
+		elements[i], elements[j] = elements[j], elements[i]
+	}
 }

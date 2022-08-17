@@ -1,0 +1,11 @@
+name: test-exclude
+policies:
+  - policy.yaml
+resources:
+  - resources.yaml
+results:
+  - policy: restrict-labels
+    rule: restrict-labels
+    resource: kyverno-system-tst
+    kind: Namespace
+    result: fail

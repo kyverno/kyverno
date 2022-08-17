@@ -10,7 +10,7 @@ spec:
         kinds:
         - Pod
     mutate:
-      overlay:
+      patchStrategicMerge:
         spec:
           (serviceAccountName): "*"
           automountServiceAccountToken: false

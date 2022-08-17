@@ -7,21 +7,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// read the conifgMap with name in env:METRICS_CONFIG
-// this configmap stores the information associated with Kyverno's metrics exposure
-const metricsCmName string = "METRICS_CONFIG"
+// metricsConfigEnvVar is the name of an environment variable containing the name of the configmap
+// that stores the information associated with Kyverno's metrics exposure
+const metricsConfigEnvVar string = "METRICS_CONFIG"
 
 // MetricsConfigData stores the metrics-related configuration
 type MetricsConfigData struct {
 	client        kubernetes.Interface
 	cmName        string
 	metricsConfig MetricsConfig
-	log           logr.Logger
 }
 
 // MetricsConfig stores the config for metrics
@@ -56,44 +54,43 @@ func (mcd *MetricsConfigData) GetMetricsConfigMapName() string {
 }
 
 // NewMetricsConfigData ...
-func NewMetricsConfigData(rclient kubernetes.Interface, log logr.Logger) (*MetricsConfigData, error) {
-	// environment var is read at start only
-	if metricsCmName == "" {
-		log.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
-	}
+func NewMetricsConfigData(rclient kubernetes.Interface) (*MetricsConfigData, error) {
+	cmName := os.Getenv(metricsConfigEnvVar)
 
 	mcd := MetricsConfigData{
 		client: rclient,
-		cmName: os.Getenv(metricsCmName),
-		log:    log,
+		cmName: cmName,
+		metricsConfig: MetricsConfig{
+			metricsRefreshInterval: 0,
+			namespaces: namespacesConfig{
+				IncludeNamespaces: []string{},
+				ExcludeNamespaces: []string{},
+			},
+		},
 	}
 
-	kyvernoNamespace := getKyvernoNameSpace()
-	configMap, err := rclient.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), mcd.cmName, metav1.GetOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("error occurred while fetching the metrics configmap at %s/%s: %w", kyvernoNamespace, mcd.cmName, err)
-	}
-	// parsing namespace-related config from the config map
-	namespacesConfigStr, found := configMap.Data["namespaces"]
-	if !found {
-		mcd.metricsConfig.namespaces.IncludeNamespaces = []string{}
-		mcd.metricsConfig.namespaces.ExcludeNamespaces = []string{}
-	} else {
-		mcd.metricsConfig.namespaces.IncludeNamespaces, mcd.metricsConfig.namespaces.ExcludeNamespaces, err = parseIncludeExcludeNamespacesFromNamespacesConfig(namespacesConfigStr)
+	if cmName != "" {
+		kyvernoNamespace := KyvernoNamespace
+		configMap, err := rclient.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), mcd.cmName, metav1.GetOptions{})
 		if err != nil {
-			return nil, fmt.Errorf("error occurred while parsing the 'namespaces' field of metrics config map: %w", err)
+			return nil, fmt.Errorf("error occurred while fetching the metrics configmap at %s/%s: %w", kyvernoNamespace, mcd.cmName, err)
 		}
-	}
-
-	// parsing metricsRefreshInterval from the config map
-	metricsRefreshInterval, found := configMap.Data["metricsRefreshInterval"]
-	if found {
-		mcd.metricsConfig.metricsRefreshInterval, err = time.ParseDuration(metricsRefreshInterval)
-		if err != nil {
-			return nil, fmt.Errorf("error occurred while parsing metricsRefreshInterval: %w", err)
+		namespacesConfigStr, found := configMap.Data["namespaces"]
+		if found {
+			mcd.metricsConfig.namespaces.IncludeNamespaces, mcd.metricsConfig.namespaces.ExcludeNamespaces, err = parseIncludeExcludeNamespacesFromNamespacesConfig(namespacesConfigStr)
+			if err != nil {
+				return nil, fmt.Errorf("error occurred while parsing the 'namespaces' field of metrics config map: %w", err)
+			}
+		}
+		metricsRefreshInterval, found := configMap.Data["metricsRefreshInterval"]
+		if found {
+			mcd.metricsConfig.metricsRefreshInterval, err = time.ParseDuration(metricsRefreshInterval)
+			if err != nil {
+				return nil, fmt.Errorf("error occurred while parsing metricsRefreshInterval: %w", err)
+			}
 		}
 	} else {
-		mcd.metricsConfig.metricsRefreshInterval = 0
+		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
 	}
 
 	return &mcd, nil

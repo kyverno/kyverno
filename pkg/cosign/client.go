@@ -11,12 +11,18 @@ import (
 var client Cosign = &driver{}
 
 type Cosign interface {
-	Verify(ctx context.Context, signedImgRef name.Reference, accessor cosign.Accessor, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+	VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error)
+
+	VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error)
 }
 
 type driver struct {
 }
 
-func (d *driver) Verify(ctx context.Context, signedImgRef name.Reference, accessor cosign.Accessor, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
-	return cosign.Verify(ctx, signedImgRef, accessor, co)
+func (d *driver) VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
+	return cosign.VerifyImageSignatures(ctx, signedImgRef, co)
+}
+
+func (d *driver) VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error) {
+	return cosign.VerifyImageAttestations(ctx, signedImgRef, co)
 }

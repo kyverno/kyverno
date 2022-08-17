@@ -8,10 +8,8 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	client "github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/resourcecache"
 	v1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,8 +39,10 @@ type Generator struct {
 	admissionCtrRecorder record.EventRecorder
 	// events generated at namespaced policy controller to process 'generate' rule
 	genPolicyRecorder record.EventRecorder
-	resCache          resourcecache.ResourceCache
-	log               logr.Logger
+	// events generated at mutateExisting controller
+	mutateExistingRecorder record.EventRecorder
+
+	log logr.Logger
 }
 
 //Interface to generate event
@@ -51,20 +51,19 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, resCache resourcecache.ResourceCache, log logr.Logger) *Generator {
-
+func NewEventGenerator(client *client.Client, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
 	gen := Generator{
-		client:               client,
-		cpLister:             cpInformer.Lister(),
-		cpSynced:             cpInformer.Informer().HasSynced,
-		pLister:              pInformer.Lister(),
-		pSynced:              pInformer.Informer().HasSynced,
-		queue:                workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
-		policyCtrRecorder:    initRecorder(client, PolicyController, log),
-		admissionCtrRecorder: initRecorder(client, AdmissionController, log),
-		genPolicyRecorder:    initRecorder(client, GeneratePolicyController, log),
-		resCache:             resCache,
-		log:                  log,
+		client:                 client,
+		cpLister:               cpInformer.Lister(),
+		cpSynced:               cpInformer.Informer().HasSynced,
+		pLister:                pInformer.Lister(),
+		pSynced:                pInformer.Informer().HasSynced,
+		queue:                  workqueue.NewNamedRateLimitingQueue(rateLimiter(), eventWorkQueueName),
+		policyCtrRecorder:      initRecorder(client, PolicyController, log),
+		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
+		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
+		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
+		log:                    log,
 	}
 	return &gen
 }
@@ -89,10 +88,15 @@ func initRecorder(client *client.Client, eventSource Source, log logr.Logger) re
 	}
 	eventBroadcaster.StartRecordingToSink(
 		&typedcorev1.EventSinkImpl{
-			Interface: eventInterface})
+			Interface: eventInterface,
+		},
+	)
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{Component: eventSource.String()})
+		v1.EventSource{
+			Component: eventSource.String(),
+		},
+	)
 	return recorder
 }
 
@@ -200,7 +204,7 @@ func (gen *Generator) syncHandler(key Info) error {
 			return err
 		}
 	default:
-		robj, err = gen.getResource(key)
+		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
@@ -223,25 +227,12 @@ func (gen *Generator) syncHandler(key Info) error {
 		gen.policyCtrRecorder.Event(robj, eventType, key.Reason, key.Message)
 	case GeneratePolicyController:
 		gen.genPolicyRecorder.Event(robj, eventType, key.Reason, key.Message)
+	case MutateExistingController:
+		gen.mutateExistingRecorder.Event(robj, eventType, key.Reason, key.Message)
 	default:
 		logger.Info("info.source not defined for the request")
 	}
 	return nil
-}
-
-func (gen *Generator) getResource(key Info) (obj *unstructured.Unstructured, err error) {
-	lister, ok := gen.resCache.GetGVRCache(key.Kind)
-	if !ok {
-		if lister, err = gen.resCache.CreateGVKInformer(key.Kind); err != nil {
-			return nil, err
-		}
-	}
-
-	if key.Namespace == "" {
-		return lister.Lister().Get(key.Name)
-	}
-
-	return lister.Lister().Namespace(key.Namespace).Get(key.Name)
 }
 
 //NewEvent builds a event creation request

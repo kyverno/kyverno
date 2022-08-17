@@ -33,4 +33,4 @@ when an individual is representing the project or its community.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior in Kubernetes may be reported by contacting the project maintainer(s).
 
-This Code of Conduct is adapted from the the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and the [Contributor Covenant](https://www.contributor-covenant.org/), [version 1.2.0](https://www.contributor-covenant.org/version/1/2/0/code-of-conduct/).
+This Code of Conduct is adapted from the [CNCF Code of Conduct](https://github.com/cncf/foundation/blob/master/code-of-conduct.md) and the [Contributor Covenant](https://www.contributor-covenant.org/), [version 1.2.0](https://www.contributor-covenant.org/version/1/2/0/code-of-conduct/).

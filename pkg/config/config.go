@@ -1,9 +1,10 @@
 package config
 
 import (
-	"os"
+	"fmt"
+	"math"
 
-	"github.com/go-logr/logr"
+	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -63,18 +64,6 @@ const (
 
 	// ClusterRoleKind define the default clusterrole resource kind
 	ClusterRoleKind = "ClusterRole"
-)
-
-var (
-	//KyvernoNamespace is the Kyverno namespace
-	KyvernoNamespace = getKyvernoNameSpace()
-
-	// KyvernoDeploymentName is the Kyverno deployment name
-	KyvernoDeploymentName = getKyvernoDeploymentName()
-
-	//KyvernoServiceName is the Kyverno service name
-	KyvernoServiceName = getKyvernoServiceName()
-
 	//MutatingWebhookServicePath is the path for mutation webhook
 	MutatingWebhookServicePath = "/mutate"
 
@@ -97,40 +86,37 @@ var (
 	ReadinessServicePath = "/health/readiness"
 )
 
-//CreateClientConfig creates client config
-func CreateClientConfig(kubeconfig string, log logr.Logger) (*rest.Config, error) {
-	logger := log.WithName("CreateClientConfig")
+var (
+	//KyvernoNamespace is the Kyverno namespace
+	KyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
+	// KyvernoDeploymentName is the Kyverno deployment name
+	KyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
+	//KyvernoServiceName is the Kyverno service name
+	KyvernoServiceName = osutils.GetEnvWithFallback("KYVERNO_SVC", "kyverno-svc")
+)
+
+//CreateClientConfig creates client config and applies rate limit QPS and burst
+func CreateClientConfig(kubeconfig string, qps float64, burst int) (*rest.Config, error) {
+	clientConfig, err := createClientConfig(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if qps > math.MaxFloat32 {
+		return nil, fmt.Errorf("client rate limit QPS must not be higher than %e", math.MaxFloat32)
+	}
+	clientConfig.Burst = burst
+	clientConfig.QPS = float32(qps)
+
+	return clientConfig, nil
+}
+
+// createClientConfig creates client config
+func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig == "" {
 		logger.Info("Using in-cluster configuration")
 		return rest.InClusterConfig()
 	}
 	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
-}
-
-// getKubePolicyNameSpace - setting default KubePolicyNameSpace
-func getKyvernoNameSpace() string {
-	kyvernoNamespace := os.Getenv("KYVERNO_NAMESPACE")
-	if kyvernoNamespace == "" {
-		kyvernoNamespace = "kyverno"
-	}
-	return kyvernoNamespace
-}
-
-// getKyvernoServiceName - setting default KyvernoServiceName
-func getKyvernoServiceName() string {
-	webhookServiceName := os.Getenv("KYVERNO_SVC")
-	if webhookServiceName == "" {
-		webhookServiceName = "kyverno-svc"
-	}
-	return webhookServiceName
-}
-
-// getKyvernoDeploymentName - setting default KyvernoServiceName
-func getKyvernoDeploymentName() string {
-	name := os.Getenv("KYVERNO_DEPLOYMENT")
-	if name == "" {
-		name = "kyverno"
-	}
-	return name
 }

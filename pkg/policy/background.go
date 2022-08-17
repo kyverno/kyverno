@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -13,15 +14,21 @@ import (
 )
 
 //ContainsUserVariables returns error if variable that does not start from request.object
-func containsUserVariables(policy *kyverno.ClusterPolicy, vars [][]string) error {
+func containsUserVariables(policy kyverno.PolicyInterface, vars [][]string) error {
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.IsMutateExisting() {
+			return nil
+		}
+	}
+
 	for _, s := range vars {
 		if strings.Contains(s[0], "userInfo") {
 			return fmt.Errorf("variable %s is not allowed", s[0])
 		}
 	}
-
-	for idx := range policy.Spec.Rules {
-		if err := hasUserMatchExclude(idx, &policy.Spec.Rules[idx]); err != nil {
+	rules := autogen.ComputeRules(policy)
+	for idx := range rules {
+		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err
 		}
 	}

@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+    - image: nginx:latest
+      name: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: myapp
+  annotations:
+    inject-certs: enabled
+  name: mypod
+spec:
+  containers:
+    - image: registry.digitalocean.com/runlevl4/nginxasdfasdf:latest
+      name: busybox01
+      args:
+        - sleep
+        - "9999"
+    - image: bbbbbbbbbb-ccccc:1.28
+      name: busybox02
+      args:
+        - sleep
+        - "9999"
+
+   
