@@ -157,7 +157,7 @@ func Command() *cobra.Command {
 	var testCase string
 	var testFile []byte
 	var fileName, gitBranch string
-	var registryAccess, failOnly bool
+	var registryAccess, failOnly, removeColor bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -216,7 +216,7 @@ results:
 				return nil
 			}
 			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -232,6 +232,7 @@ results:
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
+	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
 	return cmd
 }
 
@@ -318,7 +319,7 @@ type testFilter struct {
 
 var ftable = []Table{}
 
-func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool, removeColor bool) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -438,7 +439,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf, failOnly); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf, failOnly, removeColor); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -450,7 +451,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf, failOnly)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf, failOnly, removeColor)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -479,7 +480,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failOnly, removeColor bool) []error {
 	var errors []error
 
 	files, err := ioutil.ReadDir(path)
@@ -488,7 +489,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf, failOnly)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf, failOnly, removeColor)
 			continue
 		}
 		if file.Name() == fileName {
@@ -504,7 +505,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf, failOnly); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf, failOnly, removeColor); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -818,7 +819,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter, failOnly, removeColor bool) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &Test{}
@@ -1019,7 +1020,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		}
 	}
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
-	resultErr := printTestResult(resultsMap, testResults, rc, failOnly)
+	resultErr := printTestResult(resultsMap, testResults, rc, failOnly, removeColor)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
@@ -1027,24 +1028,91 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	return
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly bool) error {
-	printer := tableprinter.New(os.Stdout)
-	table := []Table{}
-	boldGreen := color.New(color.FgGreen).Add(color.Bold)
-	boldRed := color.New(color.FgRed).Add(color.Bold)
-	boldYellow := color.New(color.FgYellow).Add(color.Bold)
-	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly, removeColor bool) error {
 
-	countDeprecatedResource := 0
-	for i, v := range testResults {
-		res := new(Table)
-		res.ID = i + 1
-		res.Policy = boldFgCyan.Sprintf(v.Policy)
-		res.Rule = boldFgCyan.Sprintf(v.Rule)
+	if !removeColor {
+		printer := tableprinter.New(os.Stdout)
+		table := []Table{}
+		boldGreen := color.New(color.FgGreen).Add(color.Bold)
+		boldRed := color.New(color.FgRed).Add(color.Bold)
+		boldYellow := color.New(color.FgYellow).Add(color.Bold)
+		boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 
-		if v.Resources != nil {
-			for _, resource := range v.Resources {
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+		countDeprecatedResource := 0
+		for i, v := range testResults {
+			res := new(Table)
+			res.ID = i + 1
+			res.Policy = boldFgCyan.Sprintf(v.Policy)
+			res.Rule = boldFgCyan.Sprintf(v.Rule)
+
+			if v.Resources != nil {
+				for _, resource := range v.Resources {
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					var ruleNameInResultKey string
+					if v.AutoGeneratedRule != "" {
+						ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
+					} else {
+						ruleNameInResultKey = v.Rule
+					}
+
+					resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, resource)
+					found, _ := isNamespacedPolicy(v.Policy)
+					var ns string
+					ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
+					if found && v.Namespace != "" {
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					} else if found {
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
+						res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
+						res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					} else if v.Namespace != "" {
+						res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					}
+
+					var testRes policyreportv1alpha2.PolicyReportResult
+					if val, ok := resps[resultKey]; ok {
+						testRes = val
+					} else {
+						log.Log.V(2).Info("result not found", "key", resultKey)
+						res.Result = boldYellow.Sprintf("Not found")
+						rc.Fail++
+						table = append(table, *res)
+						ftable = append(ftable, *res)
+						continue
+					}
+
+					if v.Result == "" && v.Status != "" {
+						v.Result = v.Status
+					}
+
+					if testRes.Result == v.Result {
+						res.Result = boldGreen.Sprintf("Pass")
+						if testRes.Result == policyreportv1alpha2.StatusSkip {
+							res.Result = boldGreen.Sprintf("Pass")
+							rc.Skip++
+						} else {
+							res.Result = boldGreen.Sprintf("Pass")
+							rc.Pass++
+						}
+					} else {
+						log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
+						res.Result = boldRed.Sprintf("Fail")
+						rc.Fail++
+						ftable = append(ftable, *res)
+					}
+
+					if failOnly {
+						if res.Result == boldRed.Sprintf("Fail") {
+							table = append(table, *res)
+						}
+					} else {
+						table = append(table, *res)
+					}
+				}
+			} else if v.Resource != "" {
+				countDeprecatedResource++
+				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 				var ruleNameInResultKey string
 				if v.AutoGeneratedRule != "" {
 					ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
@@ -1052,19 +1120,19 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					ruleNameInResultKey = v.Rule
 				}
 
-				resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, resource)
+				resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 				found, _ := isNamespacedPolicy(v.Policy)
 				var ns string
 				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
 				if found && v.Namespace != "" {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 				} else if found {
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
 					res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 				} else if v.Namespace != "" {
-					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
-					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 				}
 
 				var testRes policyreportv1alpha2.PolicyReportResult
@@ -1107,91 +1175,184 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					table = append(table, *res)
 				}
 			}
-		} else if v.Resource != "" {
-			countDeprecatedResource++
-			res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
-			var ruleNameInResultKey string
-			if v.AutoGeneratedRule != "" {
-				ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
-			} else {
-				ruleNameInResultKey = v.Rule
-			}
+		}
 
-			resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-			found, _ := isNamespacedPolicy(v.Policy)
-			var ns string
-			ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
-			if found && v.Namespace != "" {
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-			} else if found {
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
-			} else if v.Namespace != "" {
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
-				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
-			}
+		if countDeprecatedResource > 0 {
+			fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
+		}
+		printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+		printer.CenterSeparator = "│"
+		printer.ColumnSeparator = "│"
+		printer.RowSeparator = "─"
+		printer.RowCharLimit = 300
+		printer.RowLengthTitle = func(rowsLength int) bool {
+			return rowsLength > 10
+		}
 
-			var testRes policyreportv1alpha2.PolicyReportResult
-			if val, ok := resps[resultKey]; ok {
-				testRes = val
-			} else {
-				log.Log.V(2).Info("result not found", "key", resultKey)
-				res.Result = boldYellow.Sprintf("Not found")
-				rc.Fail++
-				table = append(table, *res)
-				ftable = append(ftable, *res)
-				continue
-			}
+		printer.HeaderBgColor = tablewriter.BgBlackColor
+		printer.HeaderFgColor = tablewriter.FgGreenColor
+		fmt.Printf("\n")
+		printer.Print(table)
 
-			if v.Result == "" && v.Status != "" {
-				v.Result = v.Status
-			}
+	} else {
+		printer := tableprinter.New(os.Stdout)
+		table := []Table{}
+		countDeprecatedResource := 0
+		for i, v := range testResults {
+			res := new(Table)
+			res.ID = i + 1
+			res.Policy = v.Policy
+			res.Rule = v.Rule
 
-			if testRes.Result == v.Result {
-				res.Result = boldGreen.Sprintf("Pass")
-				if testRes.Result == policyreportv1alpha2.StatusSkip {
-					res.Result = boldGreen.Sprintf("Pass")
-					rc.Skip++
-				} else {
-					res.Result = boldGreen.Sprintf("Pass")
-					rc.Pass++
+			if v.Resources != nil {
+				for _, resource := range v.Resources {
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+					var ruleNameInResultKey string
+					if v.AutoGeneratedRule != "" {
+						ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
+					} else {
+						ruleNameInResultKey = v.Rule
+					}
+
+					resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, resource)
+					found, _ := isNamespacedPolicy(v.Policy)
+					var ns string
+					ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
+					if found && v.Namespace != "" {
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					} else if found {
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
+						res.Policy = ns + "/" + v.Policy
+						res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+					} else if v.Namespace != "" {
+						res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+						resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
+					}
+
+					var testRes policyreportv1alpha2.PolicyReportResult
+					if val, ok := resps[resultKey]; ok {
+						testRes = val
+					} else {
+						log.Log.V(2).Info("result not found", "key", resultKey)
+						res.Result = "Not found"
+						rc.Fail++
+						table = append(table, *res)
+						ftable = append(ftable, *res)
+						continue
+					}
+
+					if v.Result == "" && v.Status != "" {
+						v.Result = v.Status
+					}
+
+					if testRes.Result == v.Result {
+						res.Result = "Pass"
+						if testRes.Result == policyreportv1alpha2.StatusSkip {
+							res.Result = "Pass"
+							rc.Skip++
+						} else {
+							res.Result = "Pass"
+							rc.Pass++
+						}
+					} else {
+						log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
+						res.Result = "Fail"
+						rc.Fail++
+						ftable = append(ftable, *res)
+					}
+
+					if failOnly {
+						if res.Result == "Fail" {
+							table = append(table, *res)
+						}
+					} else {
+						table = append(table, *res)
+					}
 				}
-			} else {
-				log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-				res.Result = boldRed.Sprintf("Fail")
-				rc.Fail++
-				ftable = append(ftable, *res)
-			}
+			} else if v.Resource != "" {
+				countDeprecatedResource++
+				res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+				var ruleNameInResultKey string
+				if v.AutoGeneratedRule != "" {
+					ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
+				} else {
+					ruleNameInResultKey = v.Rule
+				}
 
-			if failOnly {
-				if res.Result == boldRed.Sprintf("Fail") {
+				resultKey := fmt.Sprintf("%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
+				found, _ := isNamespacedPolicy(v.Policy)
+				var ns string
+				ns, v.Policy = getUserDefinedPolicyNameAndNamespace(v.Policy)
+				if found && v.Namespace != "" {
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
+				} else if found {
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
+					res.Policy = ns + "/" + v.Policy
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+				} else if v.Namespace != "" {
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
+				}
+
+				var testRes policyreportv1alpha2.PolicyReportResult
+				if val, ok := resps[resultKey]; ok {
+					testRes = val
+				} else {
+					log.Log.V(2).Info("result not found", "key", resultKey)
+					res.Result = "Not found"
+					rc.Fail++
+					table = append(table, *res)
+					ftable = append(ftable, *res)
+					continue
+				}
+
+				if v.Result == "" && v.Status != "" {
+					v.Result = v.Status
+				}
+
+				if testRes.Result == v.Result {
+					res.Result = "Pass"
+					if testRes.Result == policyreportv1alpha2.StatusSkip {
+						res.Result = "Pass"
+						rc.Skip++
+					} else {
+						res.Result = "Pass"
+						rc.Pass++
+					}
+				} else {
+					log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
+					res.Result = "Fail"
+					rc.Fail++
+					ftable = append(ftable, *res)
+				}
+
+				if failOnly {
+					if res.Result == "Fail" {
+						table = append(table, *res)
+					}
+				} else {
 					table = append(table, *res)
 				}
-			} else {
-				table = append(table, *res)
 			}
 		}
-	}
 
-	if countDeprecatedResource > 0 {
-		fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
+		if countDeprecatedResource > 0 {
+			fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
+		}
+		printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
+		printer.CenterSeparator = "│"
+		printer.ColumnSeparator = "│"
+		printer.RowSeparator = "─"
+		printer.RowCharLimit = 300
+		printer.RowLengthTitle = func(rowsLength int) bool {
+			return rowsLength > 10
+		}
+		fmt.Printf("\n")
+		printer.Print(table)
 	}
-	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
-	printer.CenterSeparator = "│"
-	printer.ColumnSeparator = "│"
-	printer.RowSeparator = "─"
-	printer.RowCharLimit = 300
-	printer.RowLengthTitle = func(rowsLength int) bool {
-		return rowsLength > 10
-	}
-
-	printer.HeaderBgColor = tablewriter.BgBlackColor
-	printer.HeaderFgColor = tablewriter.FgGreenColor
-	fmt.Printf("\n")
-	printer.Print(table)
 	return nil
 }
+
 func printFailedTestResult() {
 	printer := tableprinter.New(os.Stdout)
 	for i, v := range ftable {
