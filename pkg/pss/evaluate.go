@@ -1281,13 +1281,39 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 				// `Volume`` has 2 fields: `Name` and a `Volume Source` (inline json)
 				// Ignore `Name` field because we want to look at `Volume Source`'s key
 				// https://github.com/kubernetes/api/blob/f18d381b8d0129e7098e1e67a89a8088f2dba7e6/core/v1/types.go#L36
-				if key == "name" {
-					continue
-				}
 				fmt.Printf("[exclude values]: %v\n[key]: %s\n[restricted field values]: %v\n", exclude.Values, key, value)
-				if !utils.ContainsString(exclude.Values, key) {
-					return false
+
+				// "Volume types" control: check the name of the volume type (key)
+				// volumes:
+				// - name: test-volume
+				//   awsElasticBlockStore: <--- Check the volume type as key
+				// 		volumeID: "<volume id>"
+				// 		fsType: ext4
+				if exclude.RestrictedField == "spec.volumes[*]" {
+					if key == "name" {
+						continue
+					}
+					if !utils.ContainsString(exclude.Values, key) {
+						return false
+					}
 				}
+				// "HostPath volume" control: check the path of the hostPath volume since the type is optional
+				// volumes:
+				// - name: test-volume
+				//   hostPath:
+				// 		# directory location on host
+				// 		path: /data <--- Check the path
+				// 		# this field is optional
+				// 		type: Directory
+				if exclude.RestrictedField == "spec.volumes[*].hostPath" {
+					if key != "path" {
+						continue
+					}
+					if !utils.ContainsString(exclude.Values, value.(string)) {
+						return false
+					}
+				}
+
 			}
 		} else if kind == reflect.String {
 			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
