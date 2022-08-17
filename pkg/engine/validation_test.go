@@ -3199,7 +3199,7 @@ func Test_delete_ignore_pattern(t *testing.T) {
 
 // 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 // 	assert.NilError(t, err)
-// 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+// 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 // 	fmt.Println(er)
 // 	// msgs := []string{""}
@@ -3371,11 +3371,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	policyContextCreate := &PolicyContext{
-		Policy:      &policy,
-		JSONContext: context.NewContext(),
-		NewResource: *resourceUnstructured}
-	er := Validate(policyContextCreate)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -3545,7 +3541,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -3714,7 +3710,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -3879,7 +3875,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -3987,7 +3983,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor(
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4094,7 +4090,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor(
 
 // 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 // 	assert.NilError(t, err)
-// 	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+// 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 // 	fmt.Println(er)
 // 	// msgs := []string{""}
@@ -4203,7 +4199,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls(t 
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4312,7 +4308,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4420,7 +4416,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4554,7 +4550,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_seccomp(t 
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4708,7 +4704,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_with_r
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -4862,7 +4858,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_missin
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5006,7 +5002,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_missin
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5152,7 +5148,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_SELinuxOpt
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5322,7 +5318,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5492,7 +5488,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5662,7 +5658,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5782,7 +5778,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProces
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -5936,7 +5932,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6090,7 +6086,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6236,7 +6232,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6319,7 +6315,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostNamesp
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6461,7 +6457,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6596,7 +6592,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6738,7 +6734,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6873,7 +6869,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -6998,7 +6994,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_capabiliti
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -7147,7 +7143,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_capabilities_w
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -7291,7 +7287,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -7438,7 +7434,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -7582,7 +7578,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_privileged
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -7754,7 +7750,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -7931,7 +7927,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -8093,7 +8089,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -8252,7 +8248,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_c
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -8431,7 +8427,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_c
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
@@ -8565,7 +8561,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostPorts(
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -8724,7 +8720,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_with
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -8882,7 +8878,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_miss
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9029,7 +9025,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_hostPorts_mi
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9146,7 +9142,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_procMounts
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9281,7 +9277,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_wit
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9415,7 +9411,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_mis
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9540,7 +9536,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_mis
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9712,7 +9708,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -9882,7 +9878,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10052,7 +10048,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10220,7 +10216,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10387,7 +10383,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10441,12 +10437,23 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 									"0"
 								],
 								"images": [
+									"nginx",
 									"nodejs"
 								]
 							},
 							{
 								"controlName": "Running as Non-root user",
 								"restrictedField": "spec.initContainers[*].securityContext.runAsUser",
+								"values": [
+									"0"
+								],
+								"images": [
+									"nginx"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.runAsUser",
 								"values": [
 									"0"
 								],
@@ -10565,7 +10572,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10575,6 +10582,391 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_as_non_root_user_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.23",
+						"exclude": [
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.securityContext.runAsUser",
+								"values": [
+									"0"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.containers[*].securityContext.runAsUser",
+								"values": [
+									"1"
+								],
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.initContainers[*].securityContext.runAsUser",
+								"values": [
+									"0"
+								],
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.runAsUser",
+								"values": [
+									"0"
+								],
+								"images": [
+									"nginx"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "securityContext": {
+				"seccompProfile": {
+					"type": "RuntimeDefault"
+				},
+				"runAsNonRoot": true,
+				"runAsUser": 0,
+				"allowPrivilegeEscalation": false
+		   },
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"ALL"
+						]
+					},
+					"runAsNonRoot": true,
+					"runAsUser": 0,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			{
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"ALL"
+						]
+					},
+					"runAsNonRoot": true,
+					"runAsUser": 0,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"ALL"
+							]
+						},
+						"runAsNonRoot": true,
+						"runAsUser": 0,
+						"allowPrivilegeEscalation": false
+					}
+				},
+				{
+					"name": "init-nodejs",
+					"image": "nodejs",
+					"securityContext": {
+						 "seccompProfile": {
+							 "type": "RuntimeDefault"
+						 },
+						 "capabilities": {
+							 "drop": [
+								 "ALL"
+							 ]
+						 },
+						 "runAsNonRoot": true,
+						 "runAsUser": 1,
+						 "allowPrivilegeEscalation": false
+					 }
+				 }
+			],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"ALL"
+							]
+						},
+						"runAsNonRoot": true,
+						"runAsUser": 0,
+						"allowPrivilegeEscalation": false
+					}
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_as_non_root_user_missing_restrictedField(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.23",
+						"exclude": [
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.securityContext.runAsUser",
+								"values": [
+									"0"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.initContainers[*].securityContext.runAsUser",
+								"values": [
+									"0"
+								],
+								"images": [
+									"nginx"
+								]
+							},
+							{
+								"controlName": "Running as Non-root user",
+								"restrictedField": "spec.ephemeralContainers[*].securityContext.runAsUser",
+								"values": [
+									"0"
+								],
+								"images": [
+									"nginx"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "securityContext": {
+				"seccompProfile": {
+					"type": "RuntimeDefault"
+				},
+				"runAsNonRoot": true,
+				"runAsUser": 0,
+				"allowPrivilegeEscalation": false
+		   },
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx",
+				 "securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"ALL"
+						]
+					},
+					"runAsNonRoot": true,
+					"runAsUser": 0,
+					"allowPrivilegeEscalation": false
+				 }
+			  },
+			{
+				"name": "nodejs",
+				"image": "nodejs",
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					},
+					"capabilities": {
+						"drop": [
+							"ALL"
+						]
+					},
+					"runAsNonRoot": true,
+					"runAsUser": 0,
+					"allowPrivilegeEscalation": false
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"ALL"
+							]
+						},
+						"runAsNonRoot": true,
+						"runAsUser": 0,
+						"allowPrivilegeEscalation": false
+					}
+				}
+			],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx",
+				   "securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						},
+						"capabilities": {
+							"drop": [
+								"ALL"
+							]
+						},
+						"runAsNonRoot": true,
+						"runAsUser": 0,
+						"allowPrivilegeEscalation": false
+					}
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
 }
 
 // === Control: "Running as Non-root", check.ID: "runAsNonRoot"
@@ -10728,7 +11120,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -10912,7 +11304,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11095,7 +11487,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11268,7 +11660,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11424,7 +11816,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11608,7 +12000,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11792,7 +12184,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -11966,7 +12358,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12119,7 +12511,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12289,7 +12681,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12458,7 +12850,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12617,7 +13009,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12784,7 +13176,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -12954,7 +13346,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -13124,7 +13516,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}
@@ -13284,7 +13676,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
 	// msgs := []string{""}

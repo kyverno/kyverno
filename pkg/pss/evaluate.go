@@ -219,29 +219,6 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
-	"runAsNonRoot": {
-		{
-			path: "spec.containers[*].securityContext.runAsNonRoot",
-			allowedValues: []interface{}{
-				true,
-				nil,
-			},
-		},
-		{
-			path: "spec.initContainers[*].securityContext.runAsNonRoot",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-		{
-			path: "spec.ephemeralContainers[*].securityContext.runAsNonRoot",
-			allowedValues: []interface{}{
-				false,
-				nil,
-			},
-		},
-	},
 	"capabilities_baseline": {
 		{
 			path: "spec.containers[*].securityContext.capabilities.add",
@@ -563,33 +540,30 @@ var PSS_controls = map[string][]restrictedField{
 			},
 		},
 	},
-	"Running as Non-root": {
-		{
-			path: "spec.securityContext.runAsNonRoot",
-			allowedValues: []interface{}{
-				true,
-			},
-		},
+	"runAsNonRoot": {
 		{
 			path: "spec.containers[*].securityContext.runAsNonRoot",
 			allowedValues: []interface{}{
 				true,
+				nil,
 			},
 		},
 		{
 			path: "spec.initContainers[*].securityContext.runAsNonRoot",
 			allowedValues: []interface{}{
-				true,
+				false,
+				nil,
 			},
 		},
 		{
 			path: "spec.ephemeralContainers[*].securityContext.runAsNonRoot",
 			allowedValues: []interface{}{
-				true,
+				false,
+				nil,
 			},
 		},
 	},
-	"Running as Non-root user": {
+	"runAsUser": {
 		{
 			path: "spec.securityContext.runAsUser",
 			allowedValues: []interface{}{
@@ -912,8 +886,8 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 
 }
 
-func forbiddenValuesExempted(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude *v1.PodSecurityStandard, restrictedField string) (bool, error) {
-	if err := ctx.AddJSONObject(pod); err != nil {
+func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude *v1.PodSecurityStandard, restrictedField string) (bool, error) {
+	if err := enginectx.AddJSONObject(ctx, pod); err != nil {
 		return false, errors.Wrap(err, "failed to add podSpec to engine context")
 	}
 
@@ -930,7 +904,7 @@ func forbiddenValuesExempted(ctx *enginectx.Context, pod *corev1.Pod, check PSSC
 	return true, nil
 }
 
-func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
+func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
 	fmt.Printf("=== Is a container-level restrictedField\n")
 
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
@@ -963,7 +937,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 					return false, nil
 				}
 				matchedOnce = true
-				fmt.Printf("====== MATCHED\n")
 			}
 			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
@@ -1026,10 +999,6 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
 				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
 
-				if err := ctx.AddJSONObject(pod); err != nil {
-					return false, errors.Wrap(err, "failed to add podSpec to engine context")
-				}
-
 				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
 				if err != nil || !exempted {
 					return false, nil
@@ -1047,7 +1016,7 @@ func checkContainerLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PS
 	return true, nil
 }
 
-func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
+func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
 	fmt.Printf("=== Is a pod-level restrictedField\n")
 
 	matchedOnce := false
@@ -1055,9 +1024,6 @@ func checkPodLevelFields(ctx *enginectx.Context, pod *corev1.Pod, check PSSCheck
 		// No exclude for this specific pod-level restrictedField
 		if !strings.Contains(exclude.RestrictedField, restrictedField.path) {
 			continue
-		}
-		if err := ctx.AddJSONObject(pod); err != nil {
-			return false, errors.Wrap(err, "failed to add podSpec to engine context")
 		}
 
 		exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, exclude.RestrictedField)
@@ -1239,6 +1205,13 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 		}
 		return true
 	}
+	if reflect.TypeOf(resourceValue).Kind() == reflect.Float64 {
+		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
+		if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", resourceValue)) {
+			return false
+		}
+		return true
+	}
 
 	// Is an array
 	excludeValues := resourceValue.([]interface{})
@@ -1264,7 +1237,7 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 				fmt.Printf("type: %s\n", reflect.TypeOf(value).Kind())
 				if reflect.TypeOf(value).Kind() == reflect.Float64 {
 					fmt.Println(fmt.Sprint((value.(float64))))
-					if !utils.ContainsString(exclude.Values, fmt.Sprint((value.(float64)))) {
+					if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", value)) {
 						return false
 					}
 				} else if reflect.TypeOf(value).Kind() == reflect.String {
@@ -1326,6 +1299,12 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 			if !utils.ContainsString(exclude.Values, strconv.FormatBool(values.(bool))) {
 				return false
 			}
+		} else if kind == reflect.Float64 {
+			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
+			if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", values)) {
+				return false
+			}
+			return true
 		} else {
 			fmt.Println(values, "is something else entirely")
 		}

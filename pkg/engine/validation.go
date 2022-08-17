@@ -457,7 +457,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	} else {
 		parsedApiVersion, err := api.ParseVersion(v.podSecurity.Version)
 		if err != nil {
-			return ruleError(v.rule, utils.Validation, "failed to parse pod security api version", err)
+			return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
 		}
 		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
 	}
@@ -482,12 +482,12 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
-		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusPass)
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 
 	} else {
 		msg := fmt.Sprintf("Validation rule '%s' failed. You must exclude the following controls: %s", v.rule.Name, formatChecksPrint(pssChecks))
 		// msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
-		return ruleResponse(v.rule, utils.Validation, msg, response.RuleStatusFail)
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }
 
