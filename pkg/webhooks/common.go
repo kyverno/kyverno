@@ -48,7 +48,7 @@ func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) strin
 		}
 	}
 	result, _ := yamlv2.Marshal(policyToRule)
-	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
+	return fmt.Sprintf("\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result))
 }
 
 // getErrorMsg gets all failed engine response message

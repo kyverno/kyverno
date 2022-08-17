@@ -2051,16 +2051,23 @@ spec:
                             exclude:
                               items:
                                 properties:
+                                  controlName:
+                                    description: Required
+                                    type: string
                                   images:
                                     items:
                                       type: string
                                     type: array
                                   restrictedField:
+                                    description: Optional
                                     type: string
                                   values:
                                     items:
                                       type: string
                                     type: array
+                                required:
+                                - controlName
+                                - images
                                 type: object
                               type: array
                             level:
@@ -4531,6 +4538,35 @@ spec:
                           description: Pattern specifies an overlay-style pattern
                             used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
+                        podSecurity:
+                          properties:
+                            exclude:
+                              items:
+                                properties:
+                                  controlName:
+                                    description: Required
+                                    type: string
+                                  images:
+                                    items:
+                                      type: string
+                                    type: array
+                                  restrictedField:
+                                    description: Optional
+                                    type: string
+                                  values:
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - controlName
+                                - images
+                                type: object
+                              type: array
+                            level:
+                              type: string
+                            version:
+                              type: string
+                          type: object
                       type: object
                     verifyImages:
                       description: VerifyImages is used to verify image signatures
