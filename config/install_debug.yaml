@@ -5155,11 +5155,11 @@ spec:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the
+                  description: Description is a short user friendly message for the
                     policy rule
                   type: string
                 policy:
-                  description: Policy is the name of the policy
+                  description: Policy is the name or identifier of the policy
                   type: string
                 properties:
                   additionalProperties:
@@ -5168,11 +5168,11 @@ spec:
                     policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -5217,8 +5217,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
                   items:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
@@ -5291,17 +5291,20 @@ spec:
                   - skip
                   type: string
                 rule:
-                  description: Rule is the name of the policy rule
+                  description: Rule is the name or identifier of the rule within the
+                    policy
                   type: string
                 scored:
-                  description: Scored indicates if this policy rule is scored
+                  description: Scored indicates if this result is scored
                   type: boolean
                 severity:
-                  description: Severity indicates policy severity
+                  description: Severity indicates policy check result criticality
                   enum:
+                  - critical
                   - high
                   - low
                   - medium
+                  - info
                   type: string
                 source:
                   description: Source is an identifier for the policy engine that
@@ -5433,8 +5436,8 @@ spec:
                   for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
                 type: integer
             type: object
         type: object
@@ -5520,11 +5523,11 @@ spec:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the
+                  description: Description is a short user friendly message for the
                     policy rule
                   type: string
                 policy:
-                  description: Policy is the name of the policy
+                  description: Policy is the name or identifier of the policy
                   type: string
                 properties:
                   additionalProperties:
@@ -5533,11 +5536,11 @@ spec:
                     policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -5582,8 +5585,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
                   items:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
@@ -5656,17 +5659,20 @@ spec:
                   - skip
                   type: string
                 rule:
-                  description: Rule is the name of the policy rule
+                  description: Rule is the name or identifier of the rule within the
+                    policy
                   type: string
                 scored:
-                  description: Scored indicates if this policy rule is scored
+                  description: Scored indicates if this result is scored
                   type: boolean
                 severity:
-                  description: Severity indicates policy severity
+                  description: Severity indicates policy check result criticality
                   enum:
+                  - critical
                   - high
                   - low
                   - medium
+                  - info
                   type: string
                 source:
                   description: Source is an identifier for the policy engine that
@@ -5798,8 +5804,8 @@ spec:
                   for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
                 type: integer
             type: object
         type: object
@@ -11143,11 +11149,11 @@ spec:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the
+                  description: Description is a short user friendly message for the
                     policy rule
                   type: string
                 policy:
-                  description: Policy is the name of the policy
+                  description: Policy is the name or identifier of the policy
                   type: string
                 properties:
                   additionalProperties:
@@ -11156,11 +11162,11 @@ spec:
                     policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -11205,8 +11211,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
                   items:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
@@ -11279,17 +11285,20 @@ spec:
                   - skip
                   type: string
                 rule:
-                  description: Rule is the name of the policy rule
+                  description: Rule is the name or identifier of the rule within the
+                    policy
                   type: string
                 scored:
-                  description: Scored indicates if this policy rule is scored
+                  description: Scored indicates if this result is scored
                   type: boolean
                 severity:
-                  description: Severity indicates policy severity
+                  description: Severity indicates policy check result criticality
                   enum:
+                  - critical
                   - high
                   - low
                   - medium
+                  - info
                   type: string
                 source:
                   description: Source is an identifier for the policy engine that
@@ -11421,8 +11430,8 @@ spec:
                   for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
                 type: integer
             type: object
         type: object
@@ -11508,11 +11517,11 @@ spec:
                   description: Category indicates policy category
                   type: string
                 message:
-                  description: Message is a short user friendly description of the
+                  description: Description is a short user friendly message for the
                     policy rule
                   type: string
                 policy:
-                  description: Policy is the name of the policy
+                  description: Policy is the name or identifier of the policy
                   type: string
                 properties:
                   additionalProperties:
@@ -11521,11 +11530,11 @@ spec:
                     policy rule
                   type: object
                 resourceSelector:
-                  description: ResourceSelector is an optional selector for policy
-                    results that apply to multiple resources. For example, a policy
-                    result may apply to all pods that match a label. Either a Resource
-                    or a ResourceSelector can be specified. If neither are provided,
-                    the result is assumed to be for the policy report scope.
+                  description: SubjectSelector is an optional label selector for checked
+                    Kubernetes resources. For example, a policy result may apply to
+                    all pods that match a label. Either a Subject or a SubjectSelector
+                    can be specified. If neither are provided, the result is assumed
+                    to be for the policy report scope.
                   properties:
                     matchExpressions:
                       description: matchExpressions is a list of label selector requirements.
@@ -11570,8 +11579,8 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 resources:
-                  description: Resources is an optional reference to the resource
-                    checked by the policy and rule
+                  description: Subjects is an optional reference to the checked Kubernetes
+                    resources
                   items:
                     description: 'ObjectReference contains enough information to let
                       you inspect or modify the referred object. --- New uses of this
@@ -11644,17 +11653,20 @@ spec:
                   - skip
                   type: string
                 rule:
-                  description: Rule is the name of the policy rule
+                  description: Rule is the name or identifier of the rule within the
+                    policy
                   type: string
                 scored:
-                  description: Scored indicates if this policy rule is scored
+                  description: Scored indicates if this result is scored
                   type: boolean
                 severity:
-                  description: Severity indicates policy severity
+                  description: Severity indicates policy check result criticality
                   enum:
+                  - critical
                   - high
                   - low
                   - medium
+                  - info
                   type: string
                 source:
                   description: Source is an identifier for the policy engine that
@@ -11786,8 +11798,8 @@ spec:
                   for evaluation
                 type: integer
               warn:
-                description: Warn provides the count of unscored policies whose requirements
-                  were not met
+                description: Warn provides the count of non-scored policies whose
+                  requirements were not met
                 type: integer
             type: object
         type: object
@@ -12361,7 +12373,8 @@ metadata:
   name: kyverno:events
 rules:
 - apiGroups:
-  - '*'
+  - ""
+  - events.k8s.io
   resources:
   - events
   verbs:
