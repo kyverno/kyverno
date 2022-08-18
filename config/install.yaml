@@ -1320,7 +1320,6 @@ spec:
                                     type: array
                                 required:
                                 - controlName
-                                - images
                                 type: object
                               type: array
                             level:
@@ -2877,7 +2876,6 @@ spec:
                                     type: array
                                 required:
                                 - controlName
-                                - images
                                 type: object
                               type: array
                             level:
@@ -5141,7 +5139,6 @@ spec:
                                     type: array
                                 required:
                                 - controlName
-                                - images
                                 type: object
                               type: array
                             level:
@@ -6698,7 +6695,6 @@ spec:
                                     type: array
                                 required:
                                 - controlName
-                                - images
                                 type: object
                               type: array
                             level:

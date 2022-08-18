@@ -313,7 +313,7 @@ type PodSecurity struct {
 type PodSecurityStandard struct {
 	// Required
 	ControlName string   `json:"controlName" yaml:"controlName"`
-	Images      []string `json:"images" yaml:"images"`
+	Images      []string `json:"images,omitempty" yaml:"images"`
 
 	// Optional
 	RestrictedField string   `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
