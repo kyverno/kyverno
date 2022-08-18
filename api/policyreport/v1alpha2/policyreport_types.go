@@ -82,10 +82,12 @@ func (prs PolicyReportSummary) ToMap() map[string]interface{} {
 type PolicyResult string
 
 // PolicySeverity has one of the following values:
+//   - critical
 //   - high
 //   - low
 //   - medium
-// +kubebuilder:validation:Enum=high;low;medium
+//   - info
+// +kubebuilder:validation:Enum=critical;high;low;medium;info
 type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy
