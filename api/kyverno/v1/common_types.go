@@ -490,6 +490,10 @@ type Manifests struct {
 	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
 }
 
+// DryRunOption is a configuration for dryrun.
+// If enable is set to "true", manifest verification performs "dryrun & compare"
+// which provides robust matching against changes by defaults and other admission controllers.
+// Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml
 type DryRunOption struct {
 	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`

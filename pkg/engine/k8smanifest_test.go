@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var test_policy = `{}`
@@ -710,7 +711,9 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
 	verifyRule := kyvernov1.Manifests{}
+	count := 3
 	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+		Count: &count,
 		Entries: []kyvernov1.Attestor{
 			{
 				Keys: &kyvernov1.StaticKeyAttestor{
@@ -721,6 +724,9 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 				Keys: &kyvernov1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub2,
 				},
+			},
+			{
+				Attestor: &apiextv1.JSON{Raw: []byte(`{"entries":[{"keys":{"publicKeys":"-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY\nBibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==\n-----END PUBLIC KEY-----    "}}]}`)},
 			},
 		},
 	})
