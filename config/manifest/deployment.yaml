@@ -58,6 +58,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           env:
             - name: METRICS_CONFIG
               value: kyverno-metrics
@@ -70,7 +72,6 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: Always
           args:
-          - "--filterK8sResources=[Event,*,*][*,kube-system,*][*,kube-public,*][*,kube-node-lease,*][Node,*,*][APIService,*,*][TokenReview,*,*][SubjectAccessReview,*,*][*,kyverno,kyverno*][Binding,*,*][ReplicaSet,*,*][ReportChangeRequest,*,*][ClusterReportChangeRequest,*,*][PolicyReport,*,*][ClusterPolicyReport,*,*]"
           # customize webhook timeout
           #- "--webhookTimeout=4"
           # enable profiling
@@ -95,6 +96,10 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: KYVERNO_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
             - name: KYVERNO_SVC
               value: kyverno-svc
             - name: TUF_ROOT
@@ -107,6 +112,8 @@ spec:
             capabilities:
               drop:
                 - ALL
+            seccompProfile:
+              type: RuntimeDefault
           resources:
             requests:
               memory: 128Mi

@@ -9,7 +9,7 @@ metadata:
 data:
   # resource types to be skipped by kyverno policy engine
   {{- if .Values.config.resourceFilters }}
-  resourceFilters: {{ tpl (join "" .Values.config.resourceFilters) . | quote }}
+  resourceFilters: {{ include "kyverno.resourceFilters" . | quote }}
   {{- end -}}
   {{- if .Values.config.excludeGroupRole }}
   excludeGroupRole: {{ join "," .Values.config.excludeGroupRole | quote }}
@@ -17,8 +17,12 @@ data:
   {{- if .Values.config.excludeUsername }}
   excludeUsername: {{ join "," .Values.config.excludeUsername | quote }}
   {{- end -}}
-  {{- if .Values.config.webhooks }}
-  webhooks: {{ .Values.config.webhooks  | toJson | quote }}
+  {{- if and .Values.config.webhooks .Values.excludeKyvernoNamespace }}
+  webhooks: {{ include "kyverno.webhooks" . | quote }}
+  {{- else if .Values.config.webhooks }}
+  webhooks: {{ .Values.config.webhooks | toJson | quote }}
+  {{- else if .Values.excludeKyvernoNamespace }}
+  webhooks: '[{"namespaceSelector": {"matchExpressions": [{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include "kyverno.namespace" . }}"]}]}}]'
   {{- end -}}
   {{- if .Values.config.generateSuccessEvents }}
   generateSuccessEvents: {{ .Values.config.generateSuccessEvents | quote }}

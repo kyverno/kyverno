@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   name: generaterequests.kyverno.io
 spec:
@@ -134,7 +134,6 @@ spec:
                     type: string
                   name:
                     description: Name specifies the resource name.
-                    maxLength: 63
                     type: string
                   namespace:
                     description: Namespace specifies resource namespace.
@@ -161,7 +160,6 @@ spec:
                       type: string
                     name:
                       description: Name specifies the resource name.
-                      maxLength: 63
                       type: string
                     namespace:
                       description: Namespace specifies resource namespace.
@@ -184,9 +182,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

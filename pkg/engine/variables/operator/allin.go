@@ -10,7 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-//NewAllInHandler returns handler to manage AllIn operations
+// NewAllInHandler returns handler to manage AllIn operations
 func NewAllInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AllInHandler{
 		ctx: ctx,
@@ -18,13 +18,13 @@ func NewAllInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//AllInHandler provides implementation to handle AllIn Operator
+// AllInHandler provides implementation to handle AllIn Operator
 type AllInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AllIn Operator
+// Evaluate evaluates expression with AllIn Operator
 func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
@@ -38,7 +38,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return allin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		allin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		allin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -46,7 +46,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := allKeyExistsInArray(key, value, allin.log)
 	if invalidType {
-		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -55,7 +55,6 @@ func (allin AllInHandler) validateValueWithStringPattern(key string, value inter
 
 func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
 			if wildcard.Match(key, fmt.Sprint(val)) {
@@ -99,7 +98,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isAllIn := allSetExistsInArray(key, value, allin.log, false)
 	if invalidType {
-		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -112,7 +111,6 @@ func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value 
 // allnotIn argument if set to true will check for allNotIn
 func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {
@@ -202,7 +200,6 @@ func isAllNotIn(key []string, value []string) bool {
 		}
 	}
 	return found != len(key)
-
 }
 
 func (allin AllInHandler) validateValueWithBoolPattern(_ bool, _ interface{}) bool {

@@ -6,10 +6,12 @@ import (
 	"github.com/kyverno/kyverno/test/e2e"
 )
 
-var podGVR = e2e.GetGVR("", "v1", "pods")
-var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
-var configmGVR = e2e.GetGVR("", "v1", "configmaps")
-var secretGVR = e2e.GetGVR("", "v1", "secrets")
+var (
+	podGVR        = e2e.GetGVR("", "v1", "pods")
+	deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+	configmGVR    = e2e.GetGVR("", "v1", "configmaps")
+	secretGVR     = e2e.GetGVR("", "v1", "secrets")
+)
 
 func newNamespaceYaml(name string) []byte {
 	ns := fmt.Sprintf(`
@@ -677,6 +679,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-create-trigger"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-create"
       match:
@@ -745,6 +748,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-delete-trigger"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-delete"
       match:
@@ -818,6 +822,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation-create-policy"
 spec:
+  mutateExistingOnPolicyUpdate: true
   rules:
     - name: "mutate-deploy-on-policy-create"
       match:
@@ -886,6 +891,7 @@ kind: ClusterPolicy
 metadata:
   name: "test-post-mutation"
 spec:
+  mutateExistingOnPolicyUpdate: false
   rules:
     - name: "mutate-deploy-on-configmap-update"
       match:

@@ -35,7 +35,7 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 	return patchedDocument, err
 }
 
-//ApplyPatchNew patches given resource with given joined patches
+// ApplyPatchNew patches given resource with given joined patches
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	jsonpatch, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
@@ -48,10 +48,9 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-
 }
 
-//ConvertToUnstructured converts the resource to unstructured format
+// ConvertToUnstructured converts the resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
@@ -97,22 +96,4 @@ func JsonPointerToJMESPath(jsonPointer string) string {
 	}
 
 	return sb.String()
-}
-
-func CombineErrors(errors []error) error {
-	if len(errors) == 0 {
-		return nil
-	}
-
-	if len(errors) == 1 {
-		return errors[0]
-	}
-
-	messages := make([]string, len(errors))
-	for i := range errors {
-		messages[i] = errors[i].Error()
-	}
-
-	msg := strings.Join(messages, "; ")
-	return fmt.Errorf(msg)
 }

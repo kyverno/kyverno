@@ -327,7 +327,7 @@ func Test_Mutate_Existing(t *testing.T) {
 	for _, test := range mutateExistingTests {
 		By(fmt.Sprintf("\nStart Mutate Existing Tests: %s", test.TestDescription))
 
-		By("======Cleaning up resources======")
+		By("\nCleaning up resources")
 		By("Deleting Cluster Policies...")
 		e2eClient.CleanClusterPolicies(policyGVR)
 
@@ -363,7 +363,7 @@ func Test_Mutate_Existing(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		By("======Done cleaning up resources======")
+		By("Done cleaning up resources\n")
 
 		By(fmt.Sprintf("Creating target Namespace: %s...", test.TargetNamespace))
 		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.TargetNamespace))
@@ -420,7 +420,9 @@ func Test_Mutate_Existing(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 
 			// wait for UR to be completed
-			time.Sleep(3 * time.Second)
+			// TODO: this should be changed to check the UR for the right state.
+			// Any hard-coded timer may fail in some cases.
+			time.Sleep(5 * time.Second)
 
 			res, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
 			Expect(err).NotTo(HaveOccurred())
@@ -575,7 +577,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			By(err.Error())
 		}
 
-		By("Done")
+		By("Done\n\n")
 	}
 }
 

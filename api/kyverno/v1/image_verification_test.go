@@ -15,22 +15,6 @@ func Test_ImageVerification(t *testing.T) {
 		subject ImageVerification
 		errors  func(*ImageVerification) field.ErrorList
 	}{{
-		name: "invalid_key_and_keyless",
-		subject: ImageVerification{
-			Image:       "bla",
-			Key:         "bla",
-			Roots:       "",
-			Subject:     "",
-			Issuer:      "bla",
-			Annotations: map[string]string{"bla": "bla"},
-			Repository:  "bla",
-		},
-		errors: func(i *ImageVerification) field.ErrorList {
-			return field.ErrorList{
-				field.Invalid(path, i, "Either a static key, keyless, or an attestor is required"),
-			}
-		},
-	}, {
 		name: "only key",
 		subject: ImageVerification{
 			ImageReferences: []string{"bla"},
@@ -42,6 +26,14 @@ func Test_ImageVerification(t *testing.T) {
 			ImageReferences: []string{"bla"},
 			Issuer:          "bla",
 			Subject:         "*",
+		},
+		errors: func(i *ImageVerification) field.ErrorList {
+			return field.ErrorList{
+				field.Invalid(
+					path.Child("attestors").Index(0).Child("entries").Index(0).Child("keyless"),
+					i.Attestors[0].Entries[0].Keyless,
+					"Either Rekor URL or roots are required"),
+			}
 		},
 	}, {
 		name: "key roots, issuer, and subject",
@@ -55,11 +47,6 @@ func Test_ImageVerification(t *testing.T) {
 		name: "empty",
 		subject: ImageVerification{
 			ImageReferences: []string{"bla"},
-		},
-		errors: func(i *ImageVerification) field.ErrorList {
-			return field.ErrorList{
-				field.Invalid(path, i, "Either a static key, keyless, or an attestor is required"),
-			}
 		},
 	},
 		{
@@ -91,11 +78,6 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors:       []AttestorSet{},
 			},
-			errors: func(i *ImageVerification) field.ErrorList {
-				return field.ErrorList{
-					field.Invalid(path, i, "Either a static key, keyless, or an attestor is required"),
-				}
-			},
 		},
 		{
 			name: "no entries",
@@ -122,7 +104,7 @@ func Test_ImageVerification(t *testing.T) {
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
 					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0),
-						&i.Attestors[0].Entries[0], "One of static key, keyless, or nested attestor is required"),
+						&i.Attestors[0].Entries[0], "keys, certificates, keyless, or a nested attestor is required"),
 				}
 			},
 		},
@@ -132,14 +114,14 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []AttestorSet{
 					{Entries: []Attestor{{
-						StaticKey: &StaticKeyAttestor{},
+						Keys: &StaticKeyAttestor{},
 					}}},
 				},
 			},
 			errors: func(i *ImageVerification) field.ErrorList {
 				return field.ErrorList{
-					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("staticKey"),
-						i.Attestors[0].Entries[0].StaticKey, "A key is required"),
+					field.Invalid(path.Child("attestors").Index(0).Child("entries").Index(0).Child("keys"),
+						i.Attestors[0].Entries[0].Keys, "A key is required"),
 				}
 			},
 		},
@@ -149,7 +131,7 @@ func Test_ImageVerification(t *testing.T) {
 				ImageReferences: []string{"*"},
 				Attestors: []AttestorSet{
 					{Entries: []Attestor{{
-						StaticKey: &StaticKeyAttestor{Keys: "bla"},
+						Keys: &StaticKeyAttestor{PublicKeys: "bla"},
 					}}},
 				},
 			},
@@ -181,15 +163,34 @@ func Test_ImageVerification(t *testing.T) {
 					}}},
 				},
 			},
-		}}
+		},
+		{
+			name: "valid keyless attestor",
+			subject: ImageVerification{
+				ImageReferences: []string{"*"},
+				Attestations: []Attestation{
+					{
+						PredicateType: "foo",
+					},
+				},
+			},
+			errors: func(i *ImageVerification) field.ErrorList {
+				return field.ErrorList{
+					field.Invalid(path, i, "An attestor is required"),
+				}
+			},
+		},
+	}
 
 	for _, test := range testCases {
-		errs := test.subject.Validate(path)
+		subject := test.subject.Convert()
+		errs := subject.Validate(path)
 		var expectedErrs field.ErrorList
 		if test.errors != nil {
-			expectedErrs = test.errors(&test.subject)
+			expectedErrs = test.errors(subject)
 		}
-		assert.Equal(t, len(errs), len(expectedErrs), fmt.Sprintf("test %s failed, errors %v", test.name, errs))
+
+		assert.Equal(t, len(errs), len(expectedErrs), fmt.Sprintf("test `%s` error count mismatch, errors %v", test.name, errs))
 		if len(errs) != 0 {
 			assert.DeepEqual(t, errs, expectedErrs)
 		}

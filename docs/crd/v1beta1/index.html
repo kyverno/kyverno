@@ -34,7 +34,7 @@ Resource Types:
 <h3 id="kyverno.io/v1beta1.UpdateRequest">UpdateRequest
 </h3>
 <p>
-<p>UpdateRequestStatus is a request to process mutate and generate rules in background.</p>
+<p>UpdateRequest is a request to process mutate and generate rules in background.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -178,7 +178,9 @@ UpdateRequestStatus
 <td>
 <code>admissionRequest</code></br>
 <em>
-string
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#admissionrequest-v1-admission">
+Kubernetes admission/v1.AdmissionRequest
+</a>
 </em>
 </td>
 <td>
@@ -409,6 +411,17 @@ AdmissionRequestInfoObject
 <tbody>
 <tr>
 <td>
+<code>handler</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Handler represents the instance ID that handles the UR</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>state</code></br>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestState">
@@ -417,7 +430,7 @@ UpdateRequestState
 </em>
 </td>
 <td>
-<p>State represents state of the generate request.</p>
+<p>State represents state of the update request.</p>
 </td>
 </tr>
 <tr>

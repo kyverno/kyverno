@@ -1,51 +1,47 @@
 package common
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	utils "github.com/kyverno/kyverno/pkg/utils"
-	admissionv1 "k8s.io/api/admission/v1"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
-	policy kyverno.PolicyInterface, trigger *unstructured.Unstructured,
-	cfg config.Interface, namespaceLabels map[string]string, logger logr.Logger) (*engine.PolicyContext, bool, error) {
-
+func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRequest,
+	policy kyvernov1.PolicyInterface,
+	trigger *unstructured.Unstructured,
+	cfg config.Configuration,
+	namespaceLabels map[string]string,
+	logger logr.Logger,
+) (*engine.PolicyContext, bool, error) {
 	ctx := context.NewContext()
-	requestString := ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest
-	var request admissionv1.AdmissionRequest
+	var new, old unstructured.Unstructured
+	var err error
 
-	err := json.Unmarshal([]byte(requestString), &request)
-	if err != nil {
-		logger.Error(err, "error parsing the request string")
-	}
+	if ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest != nil {
+		if err := ctx.AddRequest(ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest); err != nil {
+			return nil, false, errors.Wrap(err, "failed to load request in context")
+		}
 
-	if err := ctx.AddRequest(&request); err != nil {
-		logger.Error(err, "failed to load request in context")
-		return nil, false, err
-	}
+		new, old, err = utils.ExtractResources(nil, ur.Spec.Context.AdmissionRequestInfo.AdmissionRequest)
+		if err != nil {
+			return nil, false, errors.Wrap(err, "failed to load request in context")
+		}
 
-	new, old, err := utils.ExtractResources(nil, &request)
-	if err != nil {
-		logger.Error(err, "failed to load request in context")
-		return nil, false, err
-	}
-
-	if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
-		if !check(&new, trigger) {
-			err := fmt.Errorf("resources don't match")
-			logger.Error(err, "", "resource", ur.Spec.Resource)
-			return nil, false, err
+		if !reflect.DeepEqual(new, unstructured.Unstructured{}) {
+			if !check(&new, trigger) {
+				err := fmt.Errorf("resources don't match")
+				return nil, false, errors.Wrapf(err, "resource %v", ur.Spec.Resource)
+			}
 		}
 	}
 
@@ -53,28 +49,28 @@ func NewBackgroundContext(dclient *dclient.Client, ur *urkyverno.UpdateRequest,
 		trigger = &old
 	}
 
+	if trigger == nil {
+		return nil, false, errors.New("trigger resource does not exist")
+	}
+
 	err = ctx.AddResource(trigger.Object)
 	if err != nil {
-		logger.Error(err, "failed to load resource in context")
-		return nil, false, err
+		return nil, false, errors.Wrap(err, "failed to load resource in context")
 	}
 
 	err = ctx.AddOldResource(old.Object)
 	if err != nil {
-		logger.Error(err, "failed to load resource in context")
-		return nil, false, err
+		return nil, false, errors.Wrap(err, "failed to load resource in context")
 	}
 
 	err = ctx.AddUserInfo(ur.Spec.Context.UserRequestInfo)
 	if err != nil {
-		logger.Error(err, "failed to load SA in context")
-		return nil, false, err
+		return nil, false, errors.Wrapf(err, "failed to load SA in context")
 	}
 
 	err = ctx.AddServiceAccount(ur.Spec.Context.UserRequestInfo.AdmissionUserInfo.Username)
 	if err != nil {
-		logger.Error(err, "failed to load UserInfo in context")
-		return nil, false, err
+		return nil, false, errors.Wrapf(err, "failed to load UserInfo in context")
 	}
 
 	if err := ctx.AddImageInfos(trigger); err != nil {
@@ -101,7 +97,6 @@ func check(admissionRsc, existingRsc *unstructured.Unstructured) bool {
 	if existingRsc == nil {
 		return admissionRsc == nil
 	}
-
 	if admissionRsc.GetName() != existingRsc.GetName() {
 		return false
 	}

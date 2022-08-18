@@ -6,14 +6,13 @@ import (
 	"reflect"
 	"strconv"
 
-	wildcard "github.com/kyverno/go-wildcard"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/go-logr/logr"
+	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-//NewEqualHandler returns handler to manage Equal operations
+// NewEqualHandler returns handler to manage Equal operations
 func NewEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return EqualHandler{
 		ctx: ctx,
@@ -21,13 +20,13 @@ func NewEqualHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//EqualHandler provides implementation to handle NotEqual Operator
+// EqualHandler provides implementation to handle NotEqual Operator
 type EqualHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with Equal Operator
+// Evaluate evaluates expression with Equal Operator
 func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	// key and value need to be of same type
 	switch typedKey := key.(type) {
@@ -46,7 +45,7 @@ func (eh EqualHandler) Evaluate(key, value interface{}) bool {
 	case []interface{}:
 		return eh.validateValueWithSlicePattern(typedKey, value)
 	default:
-		eh.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		eh.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -55,7 +54,7 @@ func (eh EqualHandler) validateValueWithSlicePattern(key []interface{}, value in
 	if val, ok := value.([]interface{}); ok {
 		return reflect.DeepEqual(key, val)
 	}
-	eh.log.Info("Expected type []interface{}", "value", value, "type", fmt.Sprintf("%T", value))
+	eh.log.V(2).Info("Expected type []interface{}", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }
 
@@ -63,7 +62,7 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 	if val, ok := value.(map[string]interface{}); ok {
 		return reflect.DeepEqual(key, val)
 	}
-	eh.log.Info("Expected type map[string]interface{}", "value", value, "type", fmt.Sprintf("%T", value))
+	eh.log.V(2).Info("Expected type map[string]interface{}", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }
 
@@ -92,7 +91,7 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 		return wildcard.Match(val, key)
 	}
 
-	eh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+	eh.log.V(2).Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 	return false
 }
 
@@ -103,13 +102,13 @@ func (eh EqualHandler) validateValueWithFloatPattern(key float64, value interfac
 		if key == math.Trunc(key) {
 			return int(key) == typedValue
 		}
-		eh.log.Info("Expected type float, found int", "typedValue", typedValue)
+		eh.log.V(2).Info("Expected type float, found int", "typedValue", typedValue)
 	case int64:
 		// check that float has not fraction
 		if key == math.Trunc(key) {
 			return int64(key) == typedValue
 		}
-		eh.log.Info("Expected type float, found int", "typedValue", typedValue)
+		eh.log.V(2).Info("Expected type float, found int", "typedValue", typedValue)
 	case float64:
 		return typedValue == key
 	case string:
@@ -121,7 +120,7 @@ func (eh EqualHandler) validateValueWithFloatPattern(key float64, value interfac
 		}
 		return float64Num == key
 	default:
-		eh.log.Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))
+		eh.log.V(2).Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 	return false
@@ -130,7 +129,7 @@ func (eh EqualHandler) validateValueWithFloatPattern(key float64, value interfac
 func (eh EqualHandler) validateValueWithBoolPattern(key bool, value interface{}) bool {
 	typedValue, ok := value.(bool)
 	if !ok {
-		eh.log.Info("Expected type bool", "value", value, "type", fmt.Sprintf("%T", value))
+		eh.log.V(2).Info("Expected type bool", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 	return key == typedValue
@@ -147,7 +146,7 @@ func (eh EqualHandler) validateValueWithIntPattern(key int64, value interface{})
 		if typedValue == math.Trunc(typedValue) {
 			return int64(typedValue) == key
 		}
-		eh.log.Info("Expected type int, found float", "value", typedValue, "type", fmt.Sprintf("%T", typedValue))
+		eh.log.V(2).Info("Expected type int, found float", "value", typedValue, "type", fmt.Sprintf("%T", typedValue))
 		return false
 	case string:
 		// extract in64 from string
@@ -158,7 +157,7 @@ func (eh EqualHandler) validateValueWithIntPattern(key int64, value interface{})
 		}
 		return int64Num == key
 	default:
-		eh.log.Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
+		eh.log.V(2).Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }

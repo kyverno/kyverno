@@ -6,77 +6,60 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	urlister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	dclient "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cache "k8s.io/client-go/tools/cache"
 )
 
+var ErrEmptyPatch error = fmt.Errorf("empty resource to patch")
+
 type MutateExistingController struct {
-	client *dclient.Client
-
-	// typed client for Kyverno CRDs
-	kyvernoClient *kyvernoclient.Clientset
-
-	// urStatusControl is used to update UR status
+	// clients
+	client        dclient.Interface
 	statusControl common.StatusControlInterface
 
-	// event generator interface
-	eventGen event.Interface
+	// listers
+	policyLister  kyvernov1listers.ClusterPolicyLister
+	npolicyLister kyvernov1listers.PolicyLister
 
-	log logr.Logger
-
-	// urLister can list/get update request from the shared informer's store
-	urLister urlister.UpdateRequestNamespaceLister
-
-	// policyLister can list/get cluster policy from the shared informer's store
-	policyLister kyvernolister.ClusterPolicyLister
-
-	// policyLister can list/get Namespace policy from the shared informer's store
-	npolicyLister kyvernolister.PolicyLister
-
-	Config config.Interface
+	configuration config.Configuration
+	eventGen      event.Interface
+	log           logr.Logger
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
 func NewMutateExistingController(
-	kyvernoClient *kyvernoclient.Clientset,
-	client *dclient.Client,
-	policyLister kyvernolister.ClusterPolicyLister,
-	npolicyLister kyvernolister.PolicyLister,
-	urLister urlister.UpdateRequestNamespaceLister,
+	client dclient.Interface,
+	statusControl common.StatusControlInterface,
+	policyLister kyvernov1listers.ClusterPolicyLister,
+	npolicyLister kyvernov1listers.PolicyLister,
+	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
-	dynamicConfig config.Interface,
-) (*MutateExistingController, error) {
-
+) *MutateExistingController {
 	c := MutateExistingController{
 		client:        client,
-		kyvernoClient: kyvernoClient,
-		eventGen:      eventGen,
-		log:           log,
+		statusControl: statusControl,
 		policyLister:  policyLister,
 		npolicyLister: npolicyLister,
-		urLister:      urLister,
-		Config:        dynamicConfig,
+		configuration: dynamicConfig,
+		eventGen:      eventGen,
+		log:           log,
 	}
-
-	c.statusControl = common.StatusControl{Client: kyvernoClient}
-	return &c, nil
+	return &c
 }
 
-func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error {
+func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger := c.log.WithValues("name", ur.Name, "policy", ur.Spec.Policy, "kind", ur.Spec.Resource.Kind, "apiVersion", ur.Spec.Resource.APIVersion, "namespace", ur.Spec.Resource.Namespace, "name", ur.Spec.Resource.Name)
 	var errs []error
 
@@ -98,7 +81,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.Config, nil, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -128,7 +111,7 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 				}
 
 				if patchedNew == nil {
-					logger.Error(common.ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
+					logger.Error(ErrEmptyPatch, "", "rule", r.Name, "message", r.Message)
 					errs = append(errs, err)
 					continue
 				}
@@ -148,7 +131,8 @@ func (c *MutateExistingController) ProcessUR(ur *urkyverno.UpdateRequest) error 
 		}
 	}
 
-	return updateURStatus(c.statusControl, *ur, engineUtils.CombineErrors(errs))
+	err = multierr.Combine(errs...)
+	return updateURStatus(c.statusControl, *ur, err)
 }
 
 func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
@@ -172,20 +156,25 @@ func (c *MutateExistingController) report(err error, policy, rule string, target
 	}
 
 	if err != nil {
-		events = common.FailedEvents(err, policy, rule, event.MutateExistingController, target, c.log)
+		events = event.NewBackgroundFailedEvent(err, policy, rule, event.MutateExistingController, target)
 	} else {
-		events = common.SucceedEvents(policy, rule, event.MutateExistingController, target, c.log)
+		events = event.NewBackgroundSuccessEvent(policy, rule, event.MutateExistingController, target)
 	}
 
 	c.eventGen.Add(events...)
 }
 
-func updateURStatus(statusControl common.StatusControlInterface, ur urkyverno.UpdateRequest, err error) error {
+func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error) error {
 	if err != nil {
-		return statusControl.Failed(ur, err.Error(), nil)
+		if _, err := statusControl.Failed(ur.GetName(), err.Error(), nil); err != nil {
+			return err
+		}
+	} else {
+		if _, err := statusControl.Success(ur.GetName(), nil); err != nil {
+			return err
+		}
 	}
-
-	return statusControl.Success(ur, nil)
+	return nil
 }
 
 func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
@@ -215,7 +204,7 @@ func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstr
 		rulePatches = append(rulePatches, rp)
 	}
 
-	var annotationContent = make(map[string]string)
+	annotationContent := make(map[string]string)
 	policyName := policy.GetName()
 	if policy.GetNamespace() != "" {
 		policyName = policy.GetNamespace() + "/" + policy.GetName()

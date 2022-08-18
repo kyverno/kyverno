@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.23.3]
+        k8s-version: [v1.23.6]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -86,4 +86,5 @@ jobs:
           kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
           kubectl -n kyverno get pod
           kubectl -n kyverno describe pod | grep -i events -A10
+          kubectl -n kyverno logs deploy/kyverno -p || true
           kubectl -n kyverno logs deploy/kyverno

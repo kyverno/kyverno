@@ -70,7 +70,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface) (*MetricsConfigData, err
 	}
 
 	if cmName != "" {
-		kyvernoNamespace := KyvernoNamespace
+		kyvernoNamespace := kyvernoNamespace
 		configMap, err := rclient.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), mcd.cmName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error occurred while fetching the metrics configmap at %s/%s: %w", kyvernoNamespace, mcd.cmName, err)
@@ -90,7 +90,7 @@ func NewMetricsConfigData(rclient kubernetes.Interface) (*MetricsConfigData, err
 			}
 		}
 	} else {
-		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading no default configuration")
+		logger.Info("ConfigMap name not defined in env:METRICS_CONFIG: loading default configuration")
 	}
 
 	return &mcd, nil

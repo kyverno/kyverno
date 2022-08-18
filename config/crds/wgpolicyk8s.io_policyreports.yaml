@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   name: policyreports.wgpolicyk8s.io
 spec:
@@ -131,6 +131,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource
                     checked by the policy and rule
@@ -194,6 +195,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -282,6 +284,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes
               (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
@@ -325,6 +328,7 @@ spec:
                   contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -353,9 +357,3 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

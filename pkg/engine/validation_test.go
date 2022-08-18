@@ -129,7 +129,7 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	assert.NilError(t, err)
 	msgs := []string{
 		"validation rule 'validate-tag' passed.",
-		"validation error: imagePullPolicy 'Always' required with tag 'latest'. Rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
+		"validation error: imagePullPolicy 'Always' required with tag 'latest'. rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
 
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
@@ -309,7 +309,7 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	assert.Assert(t, !er.IsSuccessful())
 
-	msgs := []string{"validation error: A namespace is required. Rule check-default-namespace[0] failed at path /metadata/namespace/. Rule check-default-namespace[1] failed at path /metadata/namespace/."}
+	msgs := []string{"validation error: A namespace is required. rule check-default-namespace[0] failed at path /metadata/namespace/ rule check-default-namespace[1] failed at path /metadata/namespace/"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -390,7 +390,7 @@ func TestValidate_host_network_port(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host network and port are not allowed. Rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
+	msgs := []string{"validation error: Host network and port are not allowed. rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -435,7 +435,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -524,7 +524,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -568,7 +568,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
+	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -939,7 +939,7 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: pod: validate run as non root user. Rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
+	msgs := []string{"validation error: pod: validate run as non root user. rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -981,7 +981,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1004,7 +1004,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1056,7 +1056,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1079,7 +1079,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1126,7 +1126,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1149,7 +1149,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1196,7 +1196,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1219,7 +1219,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1272,7 +1272,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1317,7 +1317,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
+	msgs := []string{"validation error: Host path is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1360,7 +1360,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1821,7 +1821,7 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
+		"validation error: rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/ rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/")
 }
 
 func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.T) {
@@ -2010,9 +2010,8 @@ func Test_denyFeatureIssue744_BlockUpdate(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2027,9 +2026,8 @@ func Test_denyFeatureIssue744_DenyAll(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2051,9 +2049,8 @@ func Test_denyFeatureIssue744_BlockFields(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2068,9 +2065,8 @@ func Test_BlockLabelRemove(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2092,15 +2088,14 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
-func executeTest(t *testing.T, err error, test testCase) {
+func executeTest(t *testing.T, test testCase) {
 	var policy kyverno.ClusterPolicy
-	err = json.Unmarshal(test.policy, &policy)
+	err := json.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2224,7 +2219,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "restrict-pod-count",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"podcounts": "12",
 						},
 					},
@@ -2739,7 +2734,7 @@ func Test_foreach_context_preconditions(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v2",
 						},
@@ -2834,7 +2829,7 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v1",
 						},
@@ -13699,8 +13694,7 @@ func Test_block_bypass(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
