@@ -618,7 +618,12 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 
 	for _, gvr := range gvrList {
 		dst.groups.Insert(gvr.Group)
-		dst.versions.Insert(gvr.Version)
+		if gvr.Version == "*" {
+			dst.versions = sets.NewString()
+			dst.versions.Insert(gvr.Version)
+		} else if !dst.versions.Has("*") {
+			dst.versions.Insert(gvr.Version)
+		}
 		dst.resources.Insert(gvr.Resource)
 	}
 
