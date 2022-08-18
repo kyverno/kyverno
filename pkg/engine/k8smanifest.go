@@ -202,7 +202,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 	}
 
 	// build verify option
-	vo, subPath, err, envVariables := buildVerifyResourceOptionsAndPath(a, vo, uid, i)
+	vo, subPath, envVariables, err := buildVerifyResourceOptionsAndPath(a, vo, uid, i)
 	// unset env variables after verification
 	defer cleanEnvVariables(envVariables)
 	if err != nil {
@@ -244,7 +244,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 	}
 }
 
-func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, uid string, i int) (*k8smanifest.VerifyResourceOption, string, error, []string) {
+func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, uid string, i int) (*k8smanifest.VerifyResourceOption, string, []string, error) {
 	subPath := ""
 	var entryError error
 	envVariables := []string{}
@@ -325,7 +325,7 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 	if a.Repository != "" {
 		vo.ResourceBundleRef = a.Repository
 	}
-	return vo, subPath, entryError, envVariables
+	return vo, subPath, envVariables, entryError
 }
 
 func cleanEnvVariables(envVariables []string) {
