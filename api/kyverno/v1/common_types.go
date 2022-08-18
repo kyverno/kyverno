@@ -242,6 +242,10 @@ type Mutation struct {
 	// ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachMutation []ForEachMutation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
+
+	// AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+	// set of conditions. The declaration can contain nested `any` or `all` statements.
+	AnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 }
 
 func (m *Mutation) GetPatchStrategicMerge() apiextensions.JSON {

@@ -718,6 +718,7 @@ Kubernetes admission/v1.Operation
 <a href="#kyverno.io/v1.ForEachMutation">ForEachMutation</a>, 
 <a href="#kyverno.io/v1.ForEachValidation">ForEachValidation</a>, 
 <a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1.Mutation">Mutation</a>)
 </p>
 <p>
 <p>AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
@@ -2550,6 +2551,20 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <em>(Optional)</em>
 <p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>preconditions</code></br>
+<em>
+<a href="#kyverno.io/v1.AnyAllConditions">
+AnyAllConditions
+</a>
+</em>
+</td>
+<td>
+<p>AnyAllConditions are used to determine if a policy rule should be applied by evaluating a
+set of conditions. The declaration can contain nested <code>any</code> or <code>all</code> statements.</p>
 </td>
 </tr>
 </tbody>

@@ -144,9 +144,22 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
+
+	// checks preconditions under rules block
 	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
 	if err != nil {
 		return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
+	}
+
+	// Check preconditions under rule.Mutation block
+	if !ctx.AdmissionOperation && rule.IsMutateExisting() {
+		preconditionPassed, err := checkPreconditions(logger, ctx, rule.Mutation.AnyAllConditions)
+		if err != nil {
+			return ruleError(rule, response.Mutation, "failed to evaluate preconditions under rule.Mutation block", err), resource
+		}
+		if !preconditionPassed {
+			return ruleResponse(*rule, response.Mutation, "rule.Mutation.preconditions not met", response.RuleStatusSkip, &resource), resource
+		}
 	}
 
 	if !preconditionsPassed {
