@@ -50,6 +50,6 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		return nil, err
 	}
 
-	log.V(4).Info("fetched trigger resource", "resourceSpec", resourceSpec)
+	log.V(2).Info("fetched trigger resource", "resourceSpec", resourceSpec)
 	return resource, err
 }

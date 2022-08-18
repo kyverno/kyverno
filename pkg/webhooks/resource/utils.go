@@ -169,7 +169,7 @@ func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) 
 func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if engineutils2.BlockRequest(er, failurePolicy) {
-			log.V(4).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
+			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
 	}

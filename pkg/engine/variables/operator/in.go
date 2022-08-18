@@ -39,7 +39,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 		}
 		return in.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		in.log.V(4).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		in.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -47,7 +47,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 func (in InHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := keyExistsInArray(key, value, in.log)
 	if invalidType {
-		in.log.V(4).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -94,7 +94,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isIn := setExistsInArray(key, value, in.log, false)
 	if invalidType {
-		in.log.V(4).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

@@ -129,7 +129,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	request, ok := obj.(*admissionv1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
-		h.log.V(4).Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
+		h.log.V(2).Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
 		return true
 	}
 

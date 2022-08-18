@@ -139,7 +139,7 @@ func main() {
 		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.V(3).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
+			log.Log.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
@@ -148,14 +148,14 @@ func main() {
 		name = tls.GenerateTLSPairSecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.V(3).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
+			log.Log.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
 		}
 
 		if err = acquireLeader(ctx, kubeClient); err != nil {
-			log.Log.V(3).Info("Failed to create lease 'kyvernopre-lock'")
+			log.Log.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
@@ -174,7 +174,7 @@ func main() {
 		}
 		// if there is any failure then we fail process
 		if failure {
-			log.Log.V(3).Info("failed to cleanup prior configurations")
+			log.Log.V(2).Info("failed to cleanup prior configurations")
 			os.Exit(1)
 		}
 
@@ -193,9 +193,9 @@ func main() {
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 	if err != nil {
-		log.Log.V(4).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+		log.Log.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
-		log.Log.V(4).Info("Leader was elected, quitting")
+		log.Log.V(2).Info("Leader was elected, quitting")
 		os.Exit(0)
 	}
 
@@ -417,7 +417,7 @@ func deleteResource(client dclient.Interface, apiversion, kind, ns, name string)
 		return
 	}
 
-	log.Log.V(4).Info("successfully cleaned up resource", "kind", kind, "name", name)
+	log.Log.V(2).Info("successfully cleaned up resource", "kind", kind, "name", name)
 }
 
 func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name string) {
@@ -441,7 +441,7 @@ func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name strin
 		return
 	}
 
-	log.Log.V(4).Info("successfully updated resource labels", "kind", kind, "name", name)
+	log.Log.V(2).Info("successfully updated resource labels", "kind", kind, "name", name)
 }
 
 func convertGR(pclient kyvernoclient.Interface) error {

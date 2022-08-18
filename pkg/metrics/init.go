@@ -26,7 +26,7 @@ func InitMetrics(
 	if !disableMetricsExport {
 		if otel == "grpc" {
 			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
-			log.V(4).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			log.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
 
 			endpoint := otelCollector + metricsAddr
 			metricsConfig, pusher, err = NewOTLPGRPCConfig(

@@ -75,7 +75,7 @@ func managedBy(labels map[string]string) {
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.V(4).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
+			log.Log.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
 			return
 		}
 	}
@@ -103,7 +103,7 @@ func checkGeneratedBy(labels map[string]string, key, value string) {
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.V(4).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
+			log.Log.V(2).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
 			return
 		}
 	}
