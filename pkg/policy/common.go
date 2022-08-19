@@ -8,6 +8,7 @@ import (
 	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +51,7 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
-
+	pc.metricsConfig.RecordClientQueries(metrics.ClientList, k, namespace)
 	return resourceList
 }
 

@@ -4,11 +4,13 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func ownerResourceExists(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) bool {
+func ownerResourceExists(log logr.Logger, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, ur kyvernov1beta1.UpdateRequest) bool {
 	_, err := client.GetResource("", ur.Spec.Resource.Kind, ur.Spec.Resource.Namespace, ur.Spec.Resource.Name)
+	metricsConfig.RecordClientQueries(metrics.ClientGet, ur.Spec.Resource.Kind, ur.Spec.Resource.Namespace)
 	// trigger resources has been deleted
 	if apierrors.IsNotFound(err) {
 		return false
@@ -21,9 +23,10 @@ func ownerResourceExists(log logr.Logger, client dclient.Interface, ur kyvernov1
 	return true
 }
 
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
+		metricsConfig.RecordClientQueries(metrics.ClientDelete, genResource.Kind, genResource.Namespace)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}

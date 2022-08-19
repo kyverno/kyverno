@@ -361,7 +361,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openAPIController, err := openapi.NewOpenAPIController(nil)
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}

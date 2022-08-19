@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pkg/errors"
@@ -48,6 +49,8 @@ type Controller struct {
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
 	kindToAPIVersions concurrentMap
+
+	metricsConfig metrics.MetricsConfigManager
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
@@ -79,7 +82,7 @@ func (m concurrentMap) GetSchema(key string) *openapiv2.Schema {
 }
 
 // NewOpenAPIController initializes a new instance of OpenAPIController
-func NewOpenAPIController() (*Controller, error) {
+func NewOpenAPIController(metricsConfig metrics.MetricsConfigManager) (*Controller, error) {
 	controller := &Controller{
 		definitions:         newConcurrentMap(),
 		gvkToDefinitionName: newConcurrentMap(),
@@ -103,6 +106,9 @@ func NewOpenAPIController() (*Controller, error) {
 		return nil, err
 	}
 
+	if metricsConfig != nil {
+		controller.metricsConfig = metricsConfig
+	}
 	return controller, nil
 }
 

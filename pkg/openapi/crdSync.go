@@ -10,6 +10,7 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
@@ -98,6 +99,8 @@ func (c *crdSync) sync() {
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
+
+	c.controller.metricsConfig.RecordClientQueries(metrics.ClientList, "CustomResourceDefinition", "")
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return

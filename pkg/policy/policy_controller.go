@@ -36,7 +36,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -101,7 +100,6 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
-	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
@@ -495,7 +493,7 @@ func (pc *PolicyController) getPolicy(key string) (kyvernov1.PolicyInterface, er
 	return pc.npLister.Policies(namespace).Get(key)
 }
 
-func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
+func generateTriggers(client dclient.Interface, metricConfig metrics.MetricsConfigManager, rule kyvernov1.Rule, log logr.Logger) []*unstructured.Unstructured {
 	list := &unstructured.UnstructuredList{}
 
 	kinds := fetchUniqueKinds(rule)
@@ -504,7 +502,9 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
+			continue
 		}
+		metricConfig.RecordClientQueries(metrics.ClientList, kind, "")
 		list.Items = append(list.Items, mlist.Items...)
 	}
 	return convertlist(list.Items)

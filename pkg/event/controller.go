@@ -8,6 +8,7 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +39,8 @@ type Generator struct {
 
 	maxQueuedEvents int
 
+	metricsConfig metrics.MetricsConfigManager
+
 	log logr.Logger
 }
 
@@ -47,7 +50,7 @@ type Interface interface {
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
+func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, metricsConfig metrics.MetricsConfigManager, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -58,6 +61,7 @@ func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.C
 		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
 		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
 		maxQueuedEvents:        maxQueuedEvents,
+		metricsConfig:          metricsConfig,
 		log:                    log,
 	}
 	return &gen
@@ -193,6 +197,7 @@ func (gen *Generator) syncHandler(key Info) error {
 		}
 	default:
 		robj, err = gen.client.GetResource("", key.Kind, key.Namespace, key.Name)
+		gen.metricsConfig.RecordClientQueries(metrics.ClientGet, key.Kind, key.Namespace)
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)

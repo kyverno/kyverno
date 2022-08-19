@@ -55,3 +55,13 @@ const (
 	ResourceDeleted   ResourceRequestOperation = "delete"
 	ResourceConnected ResourceRequestOperation = "connect"
 )
+
+type ClientQueryOperation string
+
+const (
+	ClientCreate ClientQueryOperation = "create"
+	ClientGet    ClientQueryOperation = "get"
+	ClientList   ClientQueryOperation = "list"
+	ClientUpdate ClientQueryOperation = "update"
+	ClientDelete ClientQueryOperation = "delete"
+)

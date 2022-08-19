@@ -181,97 +181,6 @@ func main() {
 
 	var registryOptions []registryclient.Option
 
-	// load image registry secrets
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		setupLog.Info("initializing registry credentials", "secrets", secrets)
-		registryOptions = append(
-			registryOptions,
-			registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets),
-		)
-	}
-
-	if allowInsecureRegistry {
-		setupLog.Info("initializing registry with allowing insecure connections to registries")
-		registryOptions = append(
-			registryOptions,
-			registryclient.WithAllowInsecureRegistry(),
-		)
-	}
-
-	// initialize default registry client with our settings
-	registryclient.DefaultClient, err = registryclient.InitClient(registryOptions...)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize registry client")
-		os.Exit(1)
-	}
-
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
-
-	// EVENT GENERATOR
-	// - generate event with retry mechanism
-	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
-
-	// POLICY Report GENERATOR
-	reportReqGen := policyreport.NewReportChangeRequestGenerator(kyvernoClient,
-		dynamicClient,
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		changeRequestLimit,
-		log.Log.WithName("ReportChangeRequestGenerator"),
-	)
-
-	prgen, err := policyreport.NewReportGenerator(
-		kyvernoClient,
-		dynamicClient,
-		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
-		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		reportReqGen.CleanupChangeRequest,
-		log.Log.WithName("PolicyReportGenerator"),
-	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create policy report controller")
-		os.Exit(1)
-	}
-
-	webhookCfg := webhookconfig.NewRegister(
-		clientConfig,
-		dynamicClient,
-		kubeClient,
-		kyvernoClient,
-		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		serverIP,
-		int32(webhookTimeout),
-		debug,
-		autoUpdateWebhooks,
-		stopCh,
-		log.Log,
-	)
-
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize webhookMonitor")
-		os.Exit(1)
-	}
-
-	configuration, err := config.NewConfiguration(kubeClient, prgen.ReconcileCh, webhookCfg.UpdateWebhookChan)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize configuration")
-		os.Exit(1)
-	}
-	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
-
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
 		setupLog.Error(err, "failed to fetch metrics config")
@@ -311,6 +220,97 @@ func main() {
 		}()
 	}
 
+	// load image registry secrets
+	secrets := strings.Split(imagePullSecrets, ",")
+	if imagePullSecrets != "" && len(secrets) > 0 {
+		setupLog.Info("initializing registry credentials", "secrets", secrets)
+		registryOptions = append(
+			registryOptions,
+			registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets),
+		)
+	}
+
+	if allowInsecureRegistry {
+		setupLog.Info("initializing registry with allowing insecure connections to registries")
+		registryOptions = append(
+			registryOptions,
+			registryclient.WithAllowInsecureRegistry(),
+		)
+	}
+
+	// initialize default registry client with our settings
+	registryclient.DefaultClient, err = registryclient.InitClient(registryOptions...)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize registry client")
+		os.Exit(1)
+	}
+
+	if imageSignatureRepository != "" {
+		cosign.ImageSignatureRepository = imageSignatureRepository
+	}
+
+	// EVENT GENERATOR
+	// - generate event with retry mechanism
+	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, metricsConfig, log.Log.WithName("EventGenerator"))
+
+	// POLICY Report GENERATOR
+	reportReqGen := policyreport.NewReportChangeRequestGenerator(
+		kyvernoClient,
+		kyvernoV1alpha2.ReportChangeRequests(),
+		kyvernoV1alpha2.ClusterReportChangeRequests(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
+		changeRequestLimit,
+		log.Log.WithName("ReportChangeRequestGenerator"),
+	)
+
+	prgen, err := policyreport.NewReportGenerator(
+		kyvernoClient,
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
+		kyvernoV1alpha2.ReportChangeRequests(),
+		kyvernoV1alpha2.ClusterReportChangeRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		reportReqGen.CleanupChangeRequest,
+		log.Log.WithName("PolicyReportGenerator"),
+	)
+	if err != nil {
+		setupLog.Error(err, "Failed to create policy report controller")
+		os.Exit(1)
+	}
+
+	webhookCfg := webhookconfig.NewRegister(
+		clientConfig,
+		dynamicClient,
+		kubeClient,
+		kyvernoClient,
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		kubeKyvernoInformer.Apps().V1().Deployments(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1.Policies(),
+		metricsConfig,
+		serverIP,
+		int32(webhookTimeout),
+		debug,
+		autoUpdateWebhooks,
+		stopCh,
+		log.Log,
+	)
+
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize webhookMonitor")
+		os.Exit(1)
+	}
+
+	configuration, err := config.NewConfiguration(kubeClient, prgen.ReconcileCh, webhookCfg.UpdateWebhookChan)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize configuration")
+		os.Exit(1)
+	}
+	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
+
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.Info("Enabling tracing for Kyverno...")
@@ -329,7 +329,6 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -352,7 +351,6 @@ func main() {
 	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
 
 	urc := background.NewController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -362,16 +360,17 @@ func main() {
 		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
+		metricsConfig,
 	)
 
 	grcc := generatecleanup.NewController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
+		metricsConfig,
 	)
 
 	policyCache := policycache.NewCache()
@@ -456,7 +455,7 @@ func main() {
 	go webhookRegisterLeader.Run(ctx)
 
 	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(dynamicClient, stopCh)
+	openAPIController := startOpenAPIController(dynamicClient, metricsConfig, stopCh)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -554,8 +553,8 @@ func main() {
 	setupLog.Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
-	openAPIController, err := openapi.NewOpenAPIController()
+func startOpenAPIController(client dclient.Interface, metricsConfig metrics.MetricsConfigManager, stopCh <-chan struct{}) *openapi.Controller {
+	openAPIController, err := openapi.NewOpenAPIController(metricsConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create openAPIController")
 		os.Exit(1)

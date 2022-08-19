@@ -9,6 +9,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -330,6 +331,7 @@ func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 		return nil, err
 	}
 
+	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientList, p.ResourceType, p.Namespace)
 	return l.MarshalJSON()
 }
 
@@ -343,6 +345,7 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 		return nil, err
 	}
 
+	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientGet, p.ResourceType, p.Namespace)
 	return r.MarshalJSON()
 }
 
@@ -382,6 +385,7 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
 
+	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientGet, "ConfigMap", namespace.(string))
 	unstructuredObj := obj.DeepCopy().Object
 
 	// extract configmap data
@@ -393,4 +397,12 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 	}
 
 	return data, nil
+}
+
+func registerClientQueriesMetric(m metrics.MetricsConfigManager, clientQueryOperation metrics.ClientQueryOperation, resourceKind string, resourceNamespace string) {
+	if m == nil {
+		return
+	}
+
+	m.RecordClientQueries(clientQueryOperation, resourceKind, resourceNamespace)
 }

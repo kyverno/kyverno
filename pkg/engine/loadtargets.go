@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -75,6 +76,8 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
+
+		registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientGet, target.Kind, namespace)
 		return []unstructured.Unstructured{*obj}, nil
 	}
 
@@ -84,6 +87,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		return nil, err
 	}
 
+	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientList, target.Kind, "")
 	for i := range objList.Items {
 		obj := objList.Items[i].DeepCopy()
 		if match(namespace, name, obj.GetNamespace(), obj.GetName()) {

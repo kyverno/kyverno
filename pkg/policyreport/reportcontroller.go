@@ -16,7 +16,6 @@ import (
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
@@ -56,7 +55,6 @@ var LabelSelector = &metav1.LabelSelector{
 // ReportGenerator creates policy report
 type ReportGenerator struct {
 	pclient kyvernoclient.Interface
-	client  dclient.Interface
 
 	clusterReportInformer    policyreportv1alpha2informers.ClusterPolicyReportInformer
 	reportInformer           policyreportv1alpha2informers.PolicyReportInformer
@@ -85,7 +83,6 @@ type ReportGenerator struct {
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
 	pclient kyvernoclient.Interface,
-	dclient dclient.Interface,
 	clusterReportInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
 	reportInformer policyreportv1alpha2informers.PolicyReportInformer,
 	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
@@ -96,7 +93,6 @@ func NewReportGenerator(
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
-		client:                   dclient,
 		clusterReportInformer:    clusterReportInformer,
 		reportInformer:           reportInformer,
 		reportReqInformer:        reportReqInformer,
@@ -524,25 +520,17 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-
-	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
-	if err != nil {
-		return fmt.Errorf("unable to list namespace %v", err)
-	}
-
 	selector, err := metav1.LabelSelectorAsSelector(LabelSelector)
 	if err != nil {
 		g.log.Error(err, "failed to build labelSelector")
 	}
 
 	policyReports := []*policyreportv1alpha2.PolicyReport{}
-	for _, ns := range namespaces.Items {
-		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(selector)
-		if err != nil {
-			return fmt.Errorf("unable to list policyReport for namespace %s %v", ns.GetName(), err)
-		}
-		policyReports = append(policyReports, reports...)
+	reports, err := g.reportLister.PolicyReports(metav1.NamespaceAll).List(selector)
+	if err != nil {
+		return fmt.Errorf("unable to list policyReport %v", err)
 	}
+	policyReports = append(policyReports, reports...)
 
 	for _, r := range policyReports {
 		newRes := []policyreportv1alpha2.PolicyReportResult{}
