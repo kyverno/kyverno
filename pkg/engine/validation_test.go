@@ -9747,8 +9747,8 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 								"controlName": "Volume Types",
 								"restrictedField": "spec.volumes[*]",
 								"values": [
-									"awsElasticBlockStore",
-									"gcePersistentDisk"
+									"spec.volumes[*].awsElasticBlockStore",
+									"spec.volumes[*].gcePersistentDisk"
 								]
 							}
 						]
@@ -9917,8 +9917,8 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 								"controlName": "Volume Types",
 								"restrictedField": "spec.volumes[*]",
 								"values": [
-									"awsElasticBlockStore",
-									"cephfs"
+									"spec.volumes[*].awsElasticBlockStore",
+									"spec.volumes[*].cephfs"
 								]
 							}
 						]

@@ -529,14 +529,14 @@ var PSS_controls = map[string][]restrictedField{
 		{
 			path: "spec.volumes[*]",
 			allowedValues: []interface{}{
-				"configMap",
-				"downwardAPI",
-				"emptyDir",
-				"projected",
-				"secret",
-				"csi",
-				"persistentVolumeClaim",
-				"ephemeral",
+				"spec.volumes[*].configMap",
+				"spec.volumes[*].downwardAPI",
+				"spec.volumes[*].emptyDir",
+				"spec.volumes[*].projected",
+				"spec.volumes[*].secret",
+				"spec.volumes[*].csi",
+				"spec.volumes[*].persistentVolumeClaim",
+				"spec.volumes[*].ephemeral",
 			},
 		},
 	},
@@ -1266,7 +1266,14 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 					if key == "name" {
 						continue
 					}
-					if !utils.ContainsString(exclude.Values, key) {
+					matchedOnce := false
+					for _, excludeValue := range exclude.Values {
+						// Remove `spec.volumes[*].` prefix
+						if strings.TrimPrefix(excludeValue, "spec.volumes[*].") == key {
+							matchedOnce = true
+						}
+					}
+					if !matchedOnce {
 						return false
 					}
 				}
