@@ -1040,20 +1040,27 @@ func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSChec
 	return true, nil
 }
 
+func containsContainerLevelControl(restrictedFields []restrictedField) bool {
+	for _, restrictedField := range restrictedFields {
+		if strings.Contains(restrictedField.path, "ontainers[*]") {
+			return true
+		}
+	}
+	return false
+}
+
 func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	// 1. Iterate over check.RestrictedFields
 	// 2. Check if it's a `container-level` or `pod-level` restrictedField
-	// - `container-level`: container has a disallowed check (container name in check.ForbiddenDetail) && exempted by an exclude rule ? good : pod creation is forbbiden
+	// - `container-level`: container has a disallowed check (container name in check.ForbiddenDetail) && exempted by an exclude rule ? continue : pod creation is forbbiden
 	// - `pod-level`: Exempted by an exclude rule ? good : pod creation is forbbiden
 
 	// Problems:
 	// 1. When we have a control with multiple `pod-level` restrictedFields. How to check if a specific RestrictedField is disallowed by the check ?
 	// e.g.: `Host Namespaces` control:
 
-	// 2. `Container-level` restrictedField that can have multiple values (capabilities), we have to get the values for each container not for every containers:
-	// `spec.containers[*].securityContext.capabilities.add` --> `spec.containers[?name==nginx].securityContext.capabilities.add`
 	for _, check := range checks {
 		fmt.Printf("\n===== Check: %+v\n", check)
 		for _, restrictedField := range check.RestrictedFields {
@@ -1067,12 +1074,13 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 				if !allowed {
 					return false, nil
 				}
-			}
-			// Is a pod-level restrictedField
-			if !strings.Contains(restrictedField.path, "ontainers[*]") {
-				// if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") {
-				// 	continue
-				// }
+			} else {
+				// Is a pod-level restrictedField
+
+				if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
+					fmt.Println("check.CheckResult.ForbiddenDetail does not contain `pod`")
+					continue
+				}
 				allowed, err := checkPodLevelFields(ctx, pod, check, rule, &restrictedField)
 				if err != nil {
 					return false, errors.Wrap(err, err.Error())
