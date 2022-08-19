@@ -514,7 +514,7 @@ var PSS_controls = map[string][]restrictedField{
 	// metadata-level controls
 	"appArmorProfile": {
 		{
-			path: "metadata.annotations['container.apparmor.security.beta.kubernetes.io/*']",
+			path: "metadata.annotations",
 			allowedValues: []interface{}{
 				nil,
 				"",
@@ -895,6 +895,7 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	// -> spec.containers[?name=="nginx"].securityContext.privileged
 	value, err := ctx.Query(restrictedField)
 	if err != nil {
+		fmt.Println(err)
 		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
 	}
 	fmt.Printf("=== Value: %+v\n", value)
@@ -919,7 +920,6 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 			for _, exclude := range exclude {
 				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
 				if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
-					fmt.Println("2")
 					continue
 				}
 
@@ -1209,6 +1209,24 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
 		if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", resourceValue)) {
 			return false
+		}
+		return true
+	}
+	if reflect.TypeOf(resourceValue).Kind() == reflect.Map {
+		// `AppArmor` control
+		for key, value := range resourceValue.(map[string]interface{}) {
+			fmt.Println(key)
+			fmt.Println(value)
+			if !strings.Contains(key, "container.apparmor.security.beta.kubernetes.io/") {
+				continue
+			}
+			// For allowed value: "localhost/*"
+			if strings.Contains(value.(string), "localhost/") {
+				continue
+			}
+			if !utils.ContainsString(exclude.Values, value.(string)) {
+				return false
+			}
 		}
 		return true
 	}

@@ -3990,112 +3990,222 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor(
 	assert.Assert(t, er.IsSuccessful())
 }
 
-// func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor_with_restrictedFields(t *testing.T) {
-// 	rawPolicy := []byte(`
-// 	{
-// 		"apiVersion": "kyverno.io/v1",
-// 		"kind": "ClusterPolicy",
-// 		"metadata": {
-// 		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
-// 		},
-// 		"spec": {
-// 			"validationFailureAction": "enforce",
-// 			"rules": [
-// 				{
-// 				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
-// 				"match": {
-// 					"resources": {
-// 					   "kinds": [
-// 						  "Pod"
-// 						],
-// 						"namespaces": [
-// 							"staging"
-// 						]
-// 					}
-// 				 },
-// 				 "validate": {
-// 					"podSecurity": {
-// 						"level": "baseline",
-// 						"version": "v1.24",
-// 						"exclude": [
-// 							{
-// 								"controlName": "AppArmor",
-// 								"restrictedField": "metadata.annotations['container.apparmor.security.beta.kubernetes.io/*']",
-// 								"values": [
-// 									"bogus"
-// 								]
-// 							}
-// 						]
-// 					}
-// 				 }
-// 			  }
-// 		   ]
-// 		}
-// 	 }
-// 	 `)
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor_with_restrictedFields(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "AppArmor",
+								"restrictedField": "metadata.annotations",
+								"values": [
+									"bogus",
+									"unconfined",
+									"unknown"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
 
-// 	rawResource := []byte(`
-// 	 {
-// 		"apiVersion": "v1",
-// 		"kind": "Pod",
-// 		"metadata": {
-// 		   "name": "nginx-baseline-privileged-container",
-// 		   "namespace": "staging",
-// 		   "annotations": {
-// 				"container.apparmor.security.beta.kubernetes.io/":  "bogus",
-// 				"container.apparmor.security.beta.kubernetes.io/a": "",
-// 				"container.apparmor.security.beta.kubernetes.io/b": "runtime/default",
-// 				"container.apparmor.security.beta.kubernetes.io/c": "localhost/",
-// 				"container.apparmor.security.beta.kubernetes.io/d": "localhost/foo",
-// 				"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
-// 				"container.apparmor.security.beta.kubernetes.io/f": "unknown"
-// 			}
-// 		},
-// 		"spec": {
-// 		   "hostNetwork": false,
-// 		   "containers": [
-// 			{
-// 				 "name": "nginx",
-// 				 "image": "nginx"
-// 			  },
-// 			{
-// 				"name": "nodejs",
-// 				"image": "nodejs"
-// 			 }
-// 			],
-// 			"initContainers": [
-// 				{
-// 				   "name": "init-nginx",
-// 				   "image": "nginx"
-// 				}
-// 			],
-// 			"ephemeralContainers": [
-// 				{
-// 				   "name": "ephemeral-nginx",
-// 				   "image": "nginx"
-// 				}
-// 			]
-// 		}
-// 	 }
-// 	 `)
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging",
+		   "annotations": {
+				"container.apparmor.security.beta.kubernetes.io/":  "bogus",
+				"container.apparmor.security.beta.kubernetes.io/a": "",
+				"container.apparmor.security.beta.kubernetes.io/b": "runtime/default",
+				"container.apparmor.security.beta.kubernetes.io/c": "localhost/",
+				"container.apparmor.security.beta.kubernetes.io/d": "localhost/foo",
+				"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
+				"container.apparmor.security.beta.kubernetes.io/f": "unknown"
+			}
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx"
+			  },
+			{
+				"name": "nodejs",
+				"image": "nodejs"
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx"
+				}
+			],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx"
+				}
+			]
+		}
+	 }
+	 `)
 
-// 	var policy kyverno.ClusterPolicy
-// 	err := json.Unmarshal(rawPolicy, &policy)
-// 	assert.NilError(t, err)
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
 
-// 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
-// 	assert.NilError(t, err)
-// 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
-// 	fmt.Println(er)
-// 	// msgs := []string{""}
+	fmt.Println(er)
+	// msgs := []string{""}
 
-// 	for _, r := range er.PolicyResponse.Rules {
-// 		fmt.Printf("== Response: %+v\n", r.Message)
-// 		// assert.Equal(t, r.Message, msgs[index])
-// 	}
-// 	assert.Assert(t, er.IsSuccessful())
-// }
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor_missing_exclude_value(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "AppArmor",
+								"restrictedField": "metadata.annotations",
+								"values": [
+									"bogus",
+									"unconfined"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging",
+		   "annotations": {
+				"container.apparmor.security.beta.kubernetes.io/":  "bogus",
+				"container.apparmor.security.beta.kubernetes.io/a": "",
+				"container.apparmor.security.beta.kubernetes.io/b": "runtime/default",
+				"container.apparmor.security.beta.kubernetes.io/c": "localhost/",
+				"container.apparmor.security.beta.kubernetes.io/d": "localhost/foo",
+				"container.apparmor.security.beta.kubernetes.io/e": "unconfined",
+				"container.apparmor.security.beta.kubernetes.io/f": "unknown"
+			}
+		},
+		"spec": {
+		   "hostNetwork": false,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx"
+			  },
+			{
+				"name": "nodejs",
+				"image": "nodejs"
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx"
+				}
+			],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx"
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
 
 // === Control: "Sysctls", check.ID: "sysctls"
 
