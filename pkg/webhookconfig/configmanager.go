@@ -155,7 +155,7 @@ func (m *webhookConfigManager) deleteClusterPolicy(obj interface{}) {
 	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
 		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-		m.log.Info("Failed to get deleted object", "obj", obj)
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 	if hasWildcard(&p.Spec) {
@@ -189,7 +189,7 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
 		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-		m.log.Info("Failed to get deleted object", "obj", obj)
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 	if hasWildcard(&p.Spec) {
@@ -202,7 +202,7 @@ func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
 	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.MutatingWebhookConfiguration)
 	if !ok {
-		m.log.Info("Failed to get deleted object", "obj", obj)
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 	if webhook.GetName() == config.MutatingWebhookConfigurationName {
@@ -214,7 +214,7 @@ func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
 	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	if !ok {
-		m.log.Info("Failed to get deleted object", "obj", obj)
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
 		return
 	}
 	if webhook.GetName() == config.ValidatingWebhookConfigurationName {
@@ -249,8 +249,8 @@ func (m *webhookConfigManager) start() {
 	defer utilruntime.HandleCrash()
 	defer m.queue.ShutDown()
 
-	m.log.Info("starting")
-	defer m.log.Info("shutting down")
+	m.log.V(2).Info("starting")
+	defer m.log.V(2).Info("shutting down")
 
 	m.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    m.addClusterPolicy,
@@ -618,7 +618,12 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 
 	for _, gvr := range gvrList {
 		dst.groups.Insert(gvr.Group)
-		dst.versions.Insert(gvr.Version)
+		if gvr.Version == "*" {
+			dst.versions = sets.NewString()
+			dst.versions.Insert(gvr.Version)
+		} else if !dst.versions.Has("*") {
+			dst.versions.Insert(gvr.Version)
+		}
 		dst.resources.Insert(gvr.Resource)
 	}
 

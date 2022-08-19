@@ -142,7 +142,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	}
 
 	if opts.Key != "" {
-		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
+		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
 			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load public key from PEM")
@@ -426,14 +426,17 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 		if digest := p.Critical.Image.DockerManifestDigest; digest != "" {
 			return digest, nil
 		} else {
-			logger.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("unknown image response for " + imgRef)
+			return "", fmt.Errorf("failed to extract image digest from signature payload for " + imgRef)
 		}
 	}
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
 func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+	if subject == "" && issuer == "" && len(extensions) == 0 {
+		return nil
+	}
+
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
 		if err != nil {

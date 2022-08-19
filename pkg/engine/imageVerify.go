@@ -476,7 +476,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 	for _, ac := range imageVerify.Attestations {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
-			iv.logger.Info("attestation predicate type %s not found", "predicates", types, "image", imageInfo.String())
+			iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
 			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
 
@@ -494,7 +494,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 		}
 	}
 
-	iv.logger.V(3).Info("attestation checks passed for %s", imageInfo.String())
+	iv.logger.V(3).Info("attestation checks passed", "image", imageInfo.String())
 	return nil
 }
 
