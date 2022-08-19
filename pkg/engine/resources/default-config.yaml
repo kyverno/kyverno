@@ -65,11 +65,8 @@ ignoreFields:
   - fields:
     - metadata.annotations.pod-policies.kyverno.io/autogen-controllers
     - spec.failurePolicy
-    - spec.rules.*.match.any.0.resources.kinds.*
-    - spec.rules.*.name
-    - spec.rules.*.validate.message
-    - spec.rules.*.validate.deny.conditions.all.*
     - spec.background
+    - spec.validationFailureAction
     objects:
     - kind: ClusterPolicy
     - kind: Policy
