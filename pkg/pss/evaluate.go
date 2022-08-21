@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -800,7 +799,7 @@ func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 	return results
 }
 
-func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStandard) bool {
+func checkResultMatchesExclude(check PSSCheckResult, exclude *kyvernov1.PodSecurityStandard) bool {
 	for _, restrictedField := range check.RestrictedFields {
 		if restrictedField.path == exclude.RestrictedField {
 			return true
@@ -811,7 +810,7 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 
 // When we specify the controlName only we want to exclude all restrictedFields for this control
 // so we remove all PSSChecks related to this control
-func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSCheckResult {
+func removePSSChecks(pssChecks []PSSCheckResult, rule *kyvernov1.PodSecurity) []PSSCheckResult {
 	// Keep in memory the number of checks that have been removed
 	// to avoid panics when removing a new check.
 	removedChecks := 0
@@ -830,7 +829,7 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 	return pssChecks
 }
 
-func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude *v1.PodSecurityStandard, restrictedField string) (bool, error) {
+func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude *kyvernov1.PodSecurityStandard, restrictedField string) (bool, error) {
 	if err := enginectx.AddJSONObject(ctx, pod); err != nil {
 		return false, errors.Wrap(err, "failed to add podSpec to engine context")
 	}
@@ -847,7 +846,7 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	return true, nil
 }
 
-func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
+func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*kyvernov1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
 		for _, container := range pod.Spec.Containers {
 			matchedOnce := false
@@ -941,7 +940,7 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 	return true, nil
 }
 
-func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField restrictedField) (bool, error) {
+func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *kyvernov1.PodSecurity, restrictedField restrictedField) (bool, error) {
 	matchedOnce := false
 	for _, exclude := range rule.Exclude {
 		// No exclude for this specific pod-level restrictedField
@@ -970,7 +969,7 @@ func containsContainerLevelControl(restrictedFields []restrictedField) bool {
 	return false
 }
 
-func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Pod) (bool, error) {
+func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	// 1. Iterate over check.RestrictedFields
@@ -1007,7 +1006,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 }
 
 // Check if the pod creation is allowed after exempting some PSS controls
-func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
+func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
 	// var podWithMatchingContainers corev1.Pod
 
 	// 1. Evaluate containers that match images specified in exclude
@@ -1038,7 +1037,7 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	return true, pssChecks, nil
 }
 
-func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, controls []restrictedField) bool {
+func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStandard, controls []restrictedField) bool {
 	for _, control := range controls {
 		if control.path == exclude.RestrictedField {
 			for _, allowedValue := range control.allowedValues {
