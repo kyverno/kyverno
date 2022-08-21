@@ -494,15 +494,12 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		Version: apiVersion,
 	}
 
-	fmt.Printf("== Version: %+v\n", level)
-
 	// Evaluate the pod
 	pod := &corev1.Pod{
 		Spec:       podSpec,
 		ObjectMeta: metadata,
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
-	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
@@ -510,7 +507,6 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 
 	} else {
 		msg := fmt.Sprintf("Validation rule '%s' failed. You must exclude the following controls: %s", v.rule.Name, formatChecksPrint(pssChecks))
-		// msg := fmt.Sprintf("Pod '%s' could not be created: ForbiddenDetail: %s, FordibbenReason: %s.", v.ctx.NewResource.GetName(), results[0].ForbiddenDetail, results[0].ForbiddenReason)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }

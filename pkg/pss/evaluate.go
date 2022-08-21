@@ -11,55 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/api"
 	"k8s.io/pod-security-admission/policy"
 )
-
-// Problems to address
-// 1. JMESPath:
-// - in PodSpec by default (don't need to specify "spec." prefix in RestrictedField)
-// - Problem with App Armor: cannot query Metadata field inside Pod
-
-// --> Solution: Add Pod object we send `ctx.AddJSONObject(podSpec)`
-
-// 2. HostPathVolumes: container has an allowed volumeSource (emptyDir) —> ExemptProfile() fails
-// exclude.Values = ["hostPath"]
-// key = hostPath (not allowed), emptyDir (allowed)
-// if !utils.ContainsString(exclude.Values, key) {
-//     return false
-// }
-
-// --> Solution:
-
-// Add specific conditions / PSS control:
-// Check the restrictedField and concat allowedValues to excludeValues
-// - if conditions (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_hostPorts.go)
-// - array of allowed values (https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_seLinuxOptions.go)
-
-// --> Solution: skip allowed values
-
-// 3. Values []string -> []interface{} ? HostPorts
-// Have to check if the object inside []interface{} is a:
-
-// - String
-// - Float64
-// - Bool
-// ….
-
-// --> Solution: Use switch to make it more readable
-
-// 4. Cannot find Running as Non-Root User control files in K8S repo
-
-// --> Solution: https://github.com/kubernetes/pod-security-admission/blob/master/policy/check_runAsUser_test.go
-
-// 5. ExcludeValue: undefined for restricted seccomp
-
-// --> Solution: either undefined / null
-
-// TO DO:
-// E2E test for one control
-// 1. New package for PSS checks, connect with Kyverno Engine (admission webhook)
 
 type restrictedField struct {
 	path          string
@@ -682,7 +636,6 @@ func containsContainer(containers interface{}, containerName string) bool {
 		}
 	case []corev1.Container:
 		for _, container := range v {
-			fmt.Printf("container name: %s\n", container.Name)
 			if container.Name == containerName {
 				return true
 			}
@@ -835,8 +788,6 @@ func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 			checkResult := versionCheck.CheckPod(&pod.ObjectMeta, &pod.Spec)
 			// Append only if the checkResult is not already in PSSCheckResults
 			if !checkResult.Allowed {
-				// fmt.Printf("[Container]: %+v\n", container)
-				fmt.Printf("[Check Error]: %+v\n", checkResult)
 				results = append(results, PSSCheckResult{
 					ID:               check.ID,
 					CheckResult:      checkResult,
@@ -861,19 +812,14 @@ func checkResultMatchesExclude(check PSSCheckResult, exclude *v1.PodSecurityStan
 // When we specify the controlName only we want to exclude all restrictedFields for this control
 // so we remove all PSSChecks related to this control
 func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSCheckResult {
-	fmt.Printf("=== Remove all restrictedFields when we only specify the controlName.\n")
-	fmt.Printf("=== Before: %+v\n", pssChecks)
-
 	// Keep in memory the number of checks that have been removed
 	// to avoid panics when removing a new check.
 	removedChecks := 0
 	for checkIndex, check := range pssChecks {
-		fmt.Printf("======= Check: %+v\n", check)
 		for _, exclude := range rule.Exclude {
 			// Translate PSS control to check_id and remove it from PSSChecks if it's specified in exclude block
 			for _, CheckID := range PSS_controls_to_check_id[exclude.ControlName] {
 				if check.ID == CheckID && exclude.RestrictedField == "" && checkIndex <= len(pssChecks) {
-					fmt.Printf("=== check.ID to remove: %s\n", check.ID)
 					index := checkIndex - removedChecks
 					pssChecks = append(pssChecks[:index], pssChecks[index+1:]...)
 					removedChecks++
@@ -881,9 +827,7 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *v1.PodSecurity) []PSSChec
 			}
 		}
 	}
-	fmt.Printf("=== After: %+v\n", pssChecks)
 	return pssChecks
-
 }
 
 func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude *v1.PodSecurityStandard, restrictedField string) (bool, error) {
@@ -895,10 +839,8 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	// -> spec.containers[?name=="nginx"].securityContext.privileged
 	value, err := ctx.Query(restrictedField)
 	if err != nil {
-		fmt.Println(err)
 		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
 	}
-	fmt.Printf("=== Value: %+v\n", value)
 	if !allowedValues(value, *exclude, PSS_controls[check.ID]) {
 		return false, nil
 	}
@@ -906,24 +848,18 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 }
 
 func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
-	fmt.Printf("=== Is a container-level restrictedField\n")
-
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
 		for _, container := range pod.Spec.Containers {
 			matchedOnce := false
 			// Container.Name with double quotes
 			containerName := fmt.Sprintf(`"%s"`, container.Name)
-			fmt.Printf("ContainerName: %s\n", containerName)
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
 				continue
 			}
 			for _, exclude := range exclude {
-				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
 				if !strings.Contains(exclude.RestrictedField, "spec.containers[*]") {
 					continue
 				}
-
-				fmt.Printf("=== Container: `%+v`\n", container)
 
 				//	Get values of this container only.
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
@@ -940,7 +876,6 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 			}
 			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-				fmt.Printf("=== Container `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
 		}
@@ -950,16 +885,13 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 			matchedOnce := false
 			// Container.Name with double quotes
 			containerName := fmt.Sprintf(`"%s"`, container.Name)
-			fmt.Printf("ContainerName: %s\n", containerName)
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
 				continue
 			}
 			for _, exclude := range exclude {
-				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
 				if !strings.Contains(exclude.RestrictedField, "spec.initContainers[*]") {
 					continue
 				}
-				fmt.Printf("=== initContainer: `%+v`\n", container)
 
 				//	Get values of this container only.
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
@@ -973,27 +905,22 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 			}
 			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-				fmt.Printf("=== initContainer `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
 		}
 	}
 	if strings.Contains(restrictedField.path, "spec.ephemeralContainers[*]") {
 		for _, container := range pod.Spec.EphemeralContainers {
-			fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
 			matchedOnce := false
 			// Container.Name with double quotes
 			containerName := fmt.Sprintf(`"%s"`, container.Name)
-			fmt.Printf("ContainerName: %s\n", containerName)
 			if !strings.Contains(check.CheckResult.ForbiddenDetail, containerName) {
 				continue
 			}
 			for _, exclude := range exclude {
-				fmt.Printf("=== exclude.RestrictedField: %s\n", exclude.RestrictedField)
 				if !strings.Contains(exclude.RestrictedField, "spec.ephemeralContainers[*]") {
 					continue
 				}
-				fmt.Printf("=== ephemeralContainer: `%+v`\n", container)
 
 				//	Get values of this container only.
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
@@ -1007,18 +934,14 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 			}
 			// If container name is in check.Forbidden but isn't exempted by an exclude then pod creation is forbidden
 			if strings.Contains(check.CheckResult.ForbiddenDetail, container.Name) && !matchedOnce {
-				fmt.Printf("=== ephemeralContainer `%s` didn't match any exclude rule.\n", container.Name)
 				return false, nil
 			}
 		}
 	}
-	fmt.Println("=== allowed")
 	return true, nil
 }
 
 func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
-	fmt.Printf("=== Is a pod-level restrictedField\n")
-
 	matchedOnce := false
 	for _, exclude := range rule.Exclude {
 		// No exclude for this specific pod-level restrictedField
@@ -1033,10 +956,8 @@ func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSChec
 		matchedOnce = true
 	}
 	if !matchedOnce {
-		fmt.Println("=== Didn't match any exclude rule")
 		return false, nil
 	}
-	fmt.Println("=== allowed")
 	return true, nil
 }
 
@@ -1056,15 +977,8 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 	// 2. Check if it's a `container-level` or `pod-level` restrictedField
 	// - `container-level`: container has a disallowed check (container name in check.ForbiddenDetail) && exempted by an exclude rule ? continue : pod creation is forbbiden
 	// - `pod-level`: Exempted by an exclude rule ? good : pod creation is forbbiden
-
-	// Problems:
-	// 1. When we have a control with multiple `pod-level` restrictedFields. How to check if a specific RestrictedField is disallowed by the check ?
-	// e.g.: `Host Namespaces` control:
-
 	for _, check := range checks {
-		fmt.Printf("\n===== Check: %+v\n", check)
 		for _, restrictedField := range check.RestrictedFields {
-			fmt.Printf("\n=== restrictedField: %s\n", restrictedField.path)
 			// Is a container-level restrictedField
 			if strings.Contains(restrictedField.path, "ontainers[*]") {
 				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
@@ -1076,9 +990,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 				}
 			} else {
 				// Is a pod-level restrictedField
-
 				if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
-					fmt.Println("check.CheckResult.ForbiddenDetail does not contain `pod`")
 					continue
 				}
 				allowed, err := checkPodLevelFields(ctx, pod, check, rule, &restrictedField)
@@ -1096,24 +1008,18 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 
 // Check if the pod creation is allowed after exempting some PSS controls
 func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
-	// var matchingContainers []interface{}
 	var podWithMatchingContainers corev1.Pod
 
 	// 1. Evaluate containers that match images specified in exclude
-	fmt.Println("\n=== [EvaluatePSS, for containers that matches images specified in exclude] ==")
-
 	podWithMatchingContainers = getPodWithMatchingContainers(rule.Exclude, pod)
-	fmt.Printf("=== [podWithMatchingContainers]: %+v\n", podWithMatchingContainers)
 
 	pssChecks := EvaluatePSS(level, &podWithMatchingContainers)
-	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 
 	pssChecks = removePSSChecks(pssChecks, rule)
 
 	// 2. Check if all PSSCheckResults are exempted by exclude values
 	// Yes ? Evaluate pod's other containers
 	// No ? Pod creation forbidden
-	fmt.Println("\n=== [ExemptProfile] ===")
 	allowed, err := ExemptProfile(pssChecks, rule, &podWithMatchingContainers)
 	if err != nil {
 		return false, pssChecks, err
@@ -1124,64 +1030,17 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	}
 
 	// 3. Optional, only when ExemptProfile() returns true
-	fmt.Println("\n=== [EvaluatePSS, all PSSCheckResults were exempted by Exclude values. Evaluate other containers] ==")
 	var podWithNotMatchingContainers corev1.Pod
 
 	podWithNotMatchingContainers = getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
-	fmt.Printf("=== [podWithNotMatchingContainers]: %+v\n", podWithNotMatchingContainers)
-
 	pssChecks = EvaluatePSS(level, &podWithNotMatchingContainers)
-	fmt.Printf("[PSSCheckResult]: %+v\n", pssChecks)
 	if len(pssChecks) > 0 {
 		return false, pssChecks, nil
 	}
 	return true, pssChecks, nil
 }
 
-// only matches the rules
-func imagesMatched(containers interface{}, images []string) bool {
-	switch v := containers.(type) {
-	case []corev1.Container:
-		for _, container := range v {
-			if utils.ContainsString(images, container.Image) {
-				return true
-			}
-		}
-	case []corev1.EphemeralContainer:
-		for _, container := range v {
-			if utils.ContainsString(images, container.Image) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func namespaceMatched(podMetadata *metav1.ObjectMeta, namespace string) bool {
-	fmt.Printf("podMetadata.Namespace: %s\n", podMetadata.Namespace)
-	fmt.Printf("namespace: %s\n", namespace)
-	if podMetadata.Namespace == namespace {
-		return true
-	}
-	return false
-}
-
-func containsBool(list []bool, value bool) {
-
-}
-
-// default setting of the encoding/json decoder when unmarshaling JSON numbers into interface{} values.
-// -----------------------------------------
-// JSON booleans: bool
-// JSON numbers: float64
-// JSON strings: string
-// JSON arrays: []interface{}
-// JSON objects: map[string]interface{}
-// JSON null: nil
 func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, controls []restrictedField) bool {
-	// Use `switch` keyword in golang
-	fmt.Printf("====== Before exclude.Values: %+v\n", exclude.Values)
-
 	for _, control := range controls {
 		if control.path == exclude.RestrictedField {
 			for _, allowedValue := range control.allowedValues {
@@ -1195,36 +1054,27 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 			}
 		}
 	}
-	fmt.Printf("====== After exclude.Values: %+v\n", exclude.Values)
 
-	// Is a Bool / String / Float
-	// When resourceValue is a bool (Host Namespaces control)
-	if reflect.TypeOf(resourceValue).Kind() == reflect.Bool {
-		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
+	v := reflect.TypeOf(resourceValue)
+	switch v.Kind() {
+	case reflect.Bool:
 		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
 			return false
 		}
 		return true
-	}
-	if reflect.TypeOf(resourceValue).Kind() == reflect.String {
-		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
+	case reflect.String:
 		if !utils.ContainsString(exclude.Values, resourceValue.(string)) {
 			return false
 		}
 		return true
-	}
-	if reflect.TypeOf(resourceValue).Kind() == reflect.Float64 {
-		fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, resourceValue)
+	case reflect.Float64:
 		if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", resourceValue)) {
 			return false
 		}
 		return true
-	}
-	if reflect.TypeOf(resourceValue).Kind() == reflect.Map {
+	case reflect.Map:
 		// `AppArmor` control
 		for key, value := range resourceValue.(map[string]interface{}) {
-			fmt.Println(key)
-			fmt.Println(value)
 			if !strings.Contains(key, "container.apparmor.security.beta.kubernetes.io/") {
 				continue
 			}
@@ -1242,52 +1092,23 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 	// Is an array
 	excludeValues := resourceValue.([]interface{})
 
-	// // Allow a RestrictedField to be undefined (Restricted Seccomp control)
-	if len(exclude.Values) == 1 && exclude.Values[0] == "undefined" {
-		if len(excludeValues) == 0 {
-			return true
-		}
-		return false
-	}
-
 	for _, values := range excludeValues {
-		rt := reflect.TypeOf(values)
-		kind := rt.Kind()
-
-		if kind == reflect.Slice {
-			fmt.Println(values, "is a slice with element type", rt.Elem())
+		v := reflect.TypeOf(values)
+		switch v.Kind() {
+		case reflect.Slice:
 			for _, value := range values.([]interface{}) {
-				fmt.Printf("value: %s\n", value)
-
-				// Check value type
-				fmt.Printf("type: %s\n", reflect.TypeOf(value).Kind())
 				if reflect.TypeOf(value).Kind() == reflect.Float64 {
-					fmt.Println(fmt.Sprint((value.(float64))))
 					if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", value)) {
 						return false
 					}
 				} else if reflect.TypeOf(value).Kind() == reflect.String {
-					fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, value)
 					if !utils.ContainsString(exclude.Values, value.(string)) {
 						return false
 					}
 				}
 			}
-		} else if kind == reflect.Map {
-			// For Volume Types control
-			fmt.Println(values, "is a map with element type", rt.Elem())
+		case reflect.Map:
 			for key, value := range values.(map[string]interface{}) {
-				// `Volume`` has 2 fields: `Name` and a `Volume Source` (inline json)
-				// Ignore `Name` field because we want to look at `Volume Source`'s key
-				// https://github.com/kubernetes/api/blob/f18d381b8d0129e7098e1e67a89a8088f2dba7e6/core/v1/types.go#L36
-				fmt.Printf("[exclude values]: %v\n[key]: %s\n[restricted field values]: %v\n", exclude.Values, key, value)
-
-				// "Volume types" control: check the name of the volume type (key)
-				// volumes:
-				// - name: test-volume
-				//   awsElasticBlockStore: <--- Check the volume type as key
-				// 		volumeID: "<volume id>"
-				// 		fsType: ext4
 				if exclude.RestrictedField == "spec.volumes[*]" {
 					if key == "name" {
 						continue
@@ -1321,25 +1142,19 @@ func allowedValues(resourceValue interface{}, exclude v1.PodSecurityStandard, co
 				}
 
 			}
-		} else if kind == reflect.String {
-			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
+		case reflect.String:
 			if !utils.ContainsString(exclude.Values, values.(string)) {
 				return false
 			}
 
-		} else if kind == reflect.Bool {
-			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
+		case reflect.Bool:
 			if !utils.ContainsString(exclude.Values, strconv.FormatBool(values.(bool))) {
 				return false
 			}
-		} else if kind == reflect.Float64 {
-			fmt.Printf("[exclude values]: %v\n[restricted field values]: %v\n", exclude.Values, values)
+		case reflect.Float64:
 			if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", values)) {
 				return false
 			}
-			return true
-		} else {
-			fmt.Println(values, "is something else entirely")
 		}
 	}
 	return true
