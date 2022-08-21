@@ -1,8 +1,8 @@
 name: scenario_validate_healthChecks
 policies:
-   - test/policy/validate/policy_validate_healthChecks.yaml
+   - ../../../../../../test/policy/validate/policy_validate_healthChecks.yaml
 resources:
-   - test/resources/resource_validate_healthChecks.yaml
+   - ../../../../../../test/resources/resource_validate_healthChecks.yaml
 results:
    - policy: check-probe-exists
      resource: probe

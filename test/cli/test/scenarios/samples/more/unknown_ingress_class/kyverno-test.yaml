@@ -1,8 +1,8 @@
 name: scenario_validate_volume_whiltelist
 policies:
-   -  test/more/restrict_ingress_classes.yaml
+   -  ../../../../../../../test/more/restrict_ingress_classes.yaml
 resources:
-   -  test/resources/ingress-haproxy.yaml
+   -  ../../../../../../../test/resources/ingress-haproxy.yaml
 results:
    - policy: restrict-ingress-classes
      resource: test-ingress

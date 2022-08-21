@@ -1,8 +1,8 @@
 name: disallow_bind_mounts_pass
 policies:
-  -  test/best_practices/disallow_bind_mounts.yaml
+  -  ../../../../../../../test/best_practices/disallow_bind_mounts.yaml
 resources:
-  -  test/resources/disallow_host_filesystem_pass.yaml
+  -  ../../../../../../../test/resources/disallow_host_filesystem_pass.yaml
 results:
   - policy: disallow-bind-mounts
     rule: validate-hostPath

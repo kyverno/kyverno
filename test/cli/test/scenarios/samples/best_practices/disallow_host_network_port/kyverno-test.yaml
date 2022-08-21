@@ -1,8 +1,8 @@
 name: disallow_host_network_port
 policies:
-  -  test/best_practices/disallow_host_network_port.yaml
+  -  ../../../../../../../test/best_practices/disallow_host_network_port.yaml
 resources:
-  -  test/resources/disallow_host_network_hostport.yaml
+  -  ../../../../../../../test/resources/disallow_host_network_hostport.yaml
 results:
   - policy: disallow-host-network-port
     rule: validate-host-network

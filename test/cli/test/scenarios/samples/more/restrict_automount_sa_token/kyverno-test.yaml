@@ -1,8 +1,8 @@
 name: restrict_automount_sa_token
 policies:
-   -  test/more/restrict_automount_sa_token.yaml
+   -  ../../../../../../../test/more/restrict_automount_sa_token.yaml
 resources:
-   -  test/resources/disallow_automountingapicred.yaml
+   -  ../../../../../../../test/resources/disallow_automountingapicred.yaml
 results:
    - policy: restrict-automount-sa-token
      resource: myapp-pod

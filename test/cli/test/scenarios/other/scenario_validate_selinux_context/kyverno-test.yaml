@@ -1,8 +1,8 @@
 name: scenario_validate_selinux_context
 policies:
-   -  test/policy/validate/policy_validate_selinux_context.yaml
+   -  ../../../../../../test/policy/validate/policy_validate_selinux_context.yaml
 resources:
-   -  test/resources/resource_validate_selinux_context.yaml
+   -  ../../../../../../test/resources/resource_validate_selinux_context.yaml
 results:
    - policy: validate-selinux-options
      resource: busybox-selinux

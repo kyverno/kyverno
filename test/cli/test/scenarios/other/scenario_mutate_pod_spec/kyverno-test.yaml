@@ -1,11 +1,11 @@
 name: scenario_mutate_pod_spec
 policies:
-   - test/policy/mutate/policy_mutate_pod_spec.yaml
+   - ../../../../../../test/policy/mutate/policy_mutate_pod_spec.yaml
 resources:
-   - test/resources/resource_mutate_pod_spec.yaml
+   - ../../../../../../test/resources/resource_mutate_pod_spec.yaml
 results:
    - policy: mutate-pods-spec
-     patchedResource: test/output/output_mutate_pod_spec.yaml
+     patchedResource: ../../../../../../test/output/output_mutate_pod_spec.yaml
      resource: nginx-deployment
      kind: Deployment
      rule: disable-servicelink-and-token

@@ -1,11 +1,11 @@
 name: scenario_mutate_endpoint
 policies:
-   - test/policy/mutate/policy_mutate_endpoint.yaml
+   - ../../../../../../test/policy/mutate/policy_mutate_endpoint.yaml
 resources:
-   - test/resources/resource_mutate_endpoint.yaml
+   - ../../../../../../test/resources/resource_mutate_endpoint.yaml
 results:
    - policy: policy-endpoints
-     patchedResource: test/output/output_mutate_endpoint.yaml
+     patchedResource: ../../../../../../test/output/output_mutate_endpoint.yaml
      resource: test-endpoint
      kind: Endpoints
      rule: pEP
