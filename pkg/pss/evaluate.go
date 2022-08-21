@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -94,7 +95,7 @@ var PSS_controls_to_check_id = map[string][]string{
 		"restrictedVolumes",
 	},
 }
-var toto corev1.HostPathVolumeSource
+
 var PSS_controls = map[string][]restrictedField{
 	// Control name as key, same as ID field in CheckResult
 
@@ -651,7 +652,7 @@ func containsContainer(containers interface{}, containerName string) bool {
 }
 
 // Get containers matching images specified in Exclude values
-func containersMatchingImages(exclude []*v1.PodSecurityStandard, modularContainers interface{}) []interface{} {
+func containersMatchingImages(exclude []*kyvernov1.PodSecurityStandard, modularContainers interface{}) []interface{} {
 	var matchingContainers []interface{}
 
 	switch v := modularContainers.(type) {
@@ -686,7 +687,7 @@ func containersMatchingImages(exclude []*v1.PodSecurityStandard, modularContaine
 }
 
 // Get copy of pod with containers (containers, initContainers, ephemeralContainers) matching the exclude.image
-func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithMatchingContainers(exclude []*kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
 	podCopy = *pod
 	podCopy.Spec.Containers = []corev1.Container{}
 	podCopy.Spec.InitContainers = []corev1.Container{}
@@ -735,7 +736,7 @@ func getPodWithMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1
 }
 
 // Get containers NOT matching images specified in Exclude values
-func getPodWithNotMatchingContainers(exclude []*v1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithNotMatchingContainers(exclude []*kyvernov1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
 	// Only copy containers because we have already evaluated the pod-level controls
 	// e.g.: spec.securityContext.hostProcess
 	podCopy.Spec.Containers = []corev1.Container{}
@@ -794,7 +795,6 @@ func EvaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 					RestrictedFields: getRestrictedFields(check),
 				})
 			}
-
 		}
 	}
 	return results
@@ -847,7 +847,7 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	return true, nil
 }
 
-func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField *restrictedField) (bool, error) {
+func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*v1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
 		for _, container := range pod.Spec.Containers {
 			matchedOnce := false
@@ -941,7 +941,7 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 	return true, nil
 }
 
-func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField *restrictedField) (bool, error) {
+func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *v1.PodSecurity, restrictedField restrictedField) (bool, error) {
 	matchedOnce := false
 	for _, exclude := range rule.Exclude {
 		// No exclude for this specific pod-level restrictedField
@@ -981,7 +981,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 		for _, restrictedField := range check.RestrictedFields {
 			// Is a container-level restrictedField
 			if strings.Contains(restrictedField.path, "ontainers[*]") {
-				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, &restrictedField)
+				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, restrictedField)
 				if err != nil {
 					return false, errors.Wrap(err, err.Error())
 				}
@@ -993,7 +993,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 				if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
 					continue
 				}
-				allowed, err := checkPodLevelFields(ctx, pod, check, rule, &restrictedField)
+				allowed, err := checkPodLevelFields(ctx, pod, check, rule, restrictedField)
 				if err != nil {
 					return false, errors.Wrap(err, err.Error())
 				}
@@ -1008,10 +1008,10 @@ func ExemptProfile(checks []PSSCheckResult, rule *v1.PodSecurity, pod *corev1.Po
 
 // Check if the pod creation is allowed after exempting some PSS controls
 func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
-	var podWithMatchingContainers corev1.Pod
+	// var podWithMatchingContainers corev1.Pod
 
 	// 1. Evaluate containers that match images specified in exclude
-	podWithMatchingContainers = getPodWithMatchingContainers(rule.Exclude, pod)
+	podWithMatchingContainers := getPodWithMatchingContainers(rule.Exclude, pod)
 
 	pssChecks := EvaluatePSS(level, &podWithMatchingContainers)
 
@@ -1030,9 +1030,7 @@ func EvaluatePod(rule *v1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion)
 	}
 
 	// 3. Optional, only when ExemptProfile() returns true
-	var podWithNotMatchingContainers corev1.Pod
-
-	podWithNotMatchingContainers = getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
+	podWithNotMatchingContainers := getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
 	pssChecks = EvaluatePSS(level, &podWithNotMatchingContainers)
 	if len(pssChecks) > 0 {
 		return false, pssChecks, nil

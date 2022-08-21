@@ -22,7 +22,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -457,7 +457,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	}
 
 	// Unmarshall
-	var metadata v1.ObjectMeta
+	var metadata metav1.ObjectMeta
 	var podSpec corev1.PodSpec
 
 	err = json.Unmarshal(marshalledMetadata, &metadata)
@@ -501,6 +501,10 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
 
+	if err != nil {
+		msg := fmt.Sprintf("Failed to evaluate validation rule `%s`: %v", v.rule.Name, err)
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError, nil)
+	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
