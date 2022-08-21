@@ -1,8 +1,8 @@
 name: disallow_host_pid_ipc
 policies:
-  -  ../../../../../test/best_practices/disallow_host_pid_ipc.yaml
+  -  test/best_practices/disallow_host_pid_ipc.yaml
 resources:
-  -  ../../../../../test/resources/disallow_hostpid_hostipc.yaml
+  -  test/resources/disallow_hostpid_hostipc.yaml
 results:
   - policy: disallow-host-pid-ipc
     rule: validate-hostPID-hostIPC

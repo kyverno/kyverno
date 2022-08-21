@@ -1,8 +1,8 @@
 name: disallow_priviledged
 policies:
-  -  ../../../../../test/best_practices/disallow_privileged.yaml
+  -  test/best_practices/disallow_privileged.yaml
 resources:
-  -  ../../../../../test/resources/disallow_privileged.yaml
+  -  test/resources/disallow_privileged.yaml
 results:
   - policy: disallow-privileged
     rule: validate-privileged

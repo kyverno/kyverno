@@ -1,44 +1,44 @@
 name: add-safe-to-evict
 policies:
-  - ../../../../../test/best_practices/add_safe_to_evict.yaml
+  - test/best_practices/add_safe_to_evict.yaml
 resources:
-  - ../../../../../test/resources/pod-with-emptydir.yaml
-  - ../../../../../test/resources/pod-with-hostpath.yaml
-  - ../../../../../test/resources/pod-with-default-volume.yaml
+  - test/resources/pod-with-emptydir.yaml
+  - test/resources/pod-with-hostpath.yaml
+  - test/resources/pod-with-default-volume.yaml
 results:
   - policy: add-safe-to-evict
     rule: annotate-empty-dir
     resource: pod-with-emptydir
-    patchedresource: ../../../../../test/output/pod-with-emptydir.yaml
+    patchedresource: test/output/pod-with-emptydir.yaml
     kind: Pod
     result: pass
   - policy: add-safe-to-evict
     rule: annotate-host-path
     resource: pod-with-emptydir
-    patchedresource: ../../../../../test/output/pod-with-emptydir.yaml
+    patchedresource: test/output/pod-with-emptydir.yaml
     kind: Pod
     result: skip
   - policy: add-safe-to-evict
     rule: annotate-empty-dir
     resource: pod-with-hostpath
-    patchedresource: ../../../../../test/output/pod-with-hostpath.yaml
+    patchedresource: test/output/pod-with-hostpath.yaml
     kind: Pod
     result: pass
   - policy: add-safe-to-evict
     rule: annotate-host-path
     resource: pod-with-hostpath
-    patchedresource: ../../../../../test/output/pod-with-hostpath.yaml
+    patchedresource: test/output/pod-with-hostpath.yaml
     kind: Pod
     result: pass
   - policy: add-safe-to-evict
     rule: annotate-empty-dir
     resource: pod-with-default-volume
-    patchedresource: ../../../../../test/output/pod-with-default-volume.yaml
+    patchedresource: test/output/pod-with-default-volume.yaml
     kind: Pod
     result: skip
   - policy: add-safe-to-evict
     rule: annotate-host-path
     resource: pod-with-default-volume
-    patchedresource: ../../../../../test/output/pod-with-default-volume.yaml
+    patchedresource: test/output/pod-with-default-volume.yaml
     kind: Pod
     result: skip
