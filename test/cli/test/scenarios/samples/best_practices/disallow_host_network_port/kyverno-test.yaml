@@ -1,0 +1,16 @@
+name: disallow_host_network_port
+policies:
+  -  ../../../../../test/best_practices/disallow_host_network_port.yaml
+resources:
+  -  ../../../../../test/resources/disallow_host_network_hostport.yaml
+results:
+  - policy: disallow-host-network-port
+    rule: validate-host-network
+    resource: nginx-host-network
+    kind: Pod
+    result: pass
+  - policy: disallow-host-network-port
+    rule: validate-host-port
+    resource: nginx-host-network
+    kind: Pod
+    result: fail

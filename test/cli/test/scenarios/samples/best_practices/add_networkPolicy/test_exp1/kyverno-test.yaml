@@ -1,0 +1,12 @@
+name: deny-all-traffic
+policies:
+  - add_network_policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: add-networkpolicy
+    rule: default-deny-ingress
+    resource: hello-world-namespace
+    generatedResource: generatedResource.yaml
+    kind: Namespace
+    result: pass

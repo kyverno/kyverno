@@ -1,0 +1,12 @@
+name: scenario_validate_selinux_context
+policies:
+   -  test/policy/validate/policy_validate_selinux_context.yaml
+resources:
+   -  test/resources/resource_validate_selinux_context.yaml
+results:
+   - policy: validate-selinux-options
+     resource: busybox-selinux
+     kind: Pod
+     rule: validate-selinux-options
+     result: pass
+# it should fail

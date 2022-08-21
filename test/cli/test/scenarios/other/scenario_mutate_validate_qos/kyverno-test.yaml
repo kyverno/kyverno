@@ -1,0 +1,18 @@
+name: scenario_mutate_validate_qos
+policies:
+   -  test/policy/mutate/policy_mutate_validate_qos.yaml
+resources:
+   -  test/resources/resource_mutate_validate_qos.yaml
+results:
+   - policy: policy-qos
+     patchedResource: test/output/output_mutate_validate_qos.yaml
+     resource: qos-demo
+     kind: Deployment
+     rule: add-memory-limit
+     result: fail
+     # it should pass
+   - policy: policy-qos
+     resource: qos-demo
+     kind: Deployment
+     rule: check-cpu-memory-limits
+     result: pass

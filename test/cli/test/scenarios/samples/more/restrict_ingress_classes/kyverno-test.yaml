@@ -1,0 +1,11 @@
+name: restrict_ingress_classes
+policies:
+   -  ../../../../../../test/more/restrict_ingress_classes.yaml
+resources:
+   -  ../../../../../../test/resources/ingress-nginx.yaml
+results:
+   - policy: restrict-ingress-classes
+     resource: test-ingress
+     kind: Ingress
+     rule: validate-ingress
+     result: pass

@@ -1,0 +1,11 @@
+name: scenario_validate_volume_whiltelist
+policies:
+   - test/policy/validate/policy_validate_volume_whitelist.yaml
+resources:
+   - test/resources/resource_validate_volume_whitelist.yaml
+results:
+   - policy: validate-volumes-whitelist
+     resource: test-volumes
+     kind: Pod
+     rule: validate-volumes-whitelist
+     result: pass

@@ -1,0 +1,11 @@
+name: scenario_validate_default_proc_mount
+policies:
+   - test/policy/validate/policy_validate_default_proc_mount.yaml
+resources:
+   - test/resources/resource_validate_default_proc_mount.yaml
+results:
+   - policy: validate-default-proc-mount
+     resource: nginx-proc-mount
+     kind: Pod
+     rule: validate-default-proc-mount
+     result: pass

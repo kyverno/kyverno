@@ -1,0 +1,11 @@
+name: disallow_bind_mounts_fail
+policies:
+  -  ../../../../../test/best_practices/disallow_bind_mounts.yaml
+resources:
+  -  ../../../../../test/resources/disallow_host_filesystem.yaml
+results:
+  - policy: disallow-bind-mounts
+    rule: validate-hostPath
+    resource: image-with-hostpath
+    kind: Pod
+    result: fail
