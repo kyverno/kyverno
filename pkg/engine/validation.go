@@ -180,7 +180,7 @@ type validator struct {
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
-	podSecurity      kyvernov1.PodSecurity
+	podSecurity      *kyvernov1.PodSecurity
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
@@ -501,7 +501,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		Spec:       podSpec,
 		ObjectMeta: metadata,
 	}
-	allowed, pssChecks, err := pss.EvaluatePod(&v.podSecurity, pod, level)
+	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
 	fmt.Printf("== Pod creation allowed?: %v\n", allowed)
 
 	if allowed {

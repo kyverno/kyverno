@@ -308,8 +308,8 @@ type Validation struct {
 
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
-	Deny        *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
-	PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+	Deny        *Deny        `json:"deny,omitempty" yaml:"deny,omitempty"`
+	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 }
 
 type PodSecurity struct {

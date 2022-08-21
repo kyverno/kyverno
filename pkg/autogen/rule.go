@@ -149,6 +149,14 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation = deny
 		return rule
 	}
+	if rule.Validation.PodSecurity != nil {
+		podSecurity := kyvernov1.Validation{
+			Message:     variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
+			PodSecurity: rule.Validation.PodSecurity,
+		}
+		rule.Validation = podSecurity
+		return rule
+	}
 	if rule.Validation.GetAnyPattern() != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
