@@ -146,12 +146,6 @@ func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescriptio
 		}
 	}
 
-	if conditionBlock.Name != "" {
-		if !checkName(conditionBlock.Name, resource.GetName()) {
-			errs = append(errs, fmt.Errorf("name does not match"))
-		}
-	}
-
 	if len(conditionBlock.Names) > 0 {
 		noneMatch := true
 		for i := range conditionBlock.Names {

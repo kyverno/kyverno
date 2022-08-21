@@ -15,12 +15,6 @@ type ResourceDescription struct {
 	// +optional
 	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
 
-	// Name is the name of the resource. The name supports wildcard characters
-	// "*" (matches zero or many characters) and "?" (at least one character).
-	// NOTE: "Name" is being deprecated in favor of "Names".
-	// +optional
-	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
 	// Names are the names of the resources. Each name supports wildcard characters
 	// "*" (matches zero or many characters) and "?" (at least one character).
 	// +optional
@@ -55,9 +49,6 @@ type ResourceDescription struct {
 
 // Validate implements programmatic validation
 func (r *ResourceDescription) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
-	if r.Name != "" && len(r.Names) > 0 {
-		errs = append(errs, field.Invalid(path, r, "Both name and names can not be specified together"))
-	}
 	if r.Selector != nil && !kubeutils.LabelSelectorContainsWildcard(r.Selector) {
 		if selector, err := metav1.LabelSelectorAsSelector(r.Selector); err != nil {
 			errs = append(errs, field.Invalid(path.Child("selector"), r.Selector, err.Error()))

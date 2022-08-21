@@ -217,13 +217,6 @@ spec:
                                     items:
                                       type: string
                                     type: array
-                                  name:
-                                    description: 'Name is the name of the resource.
-                                      The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character). NOTE: "Name" is being deprecated
-                                      in favor of "Names".'
-                                    type: string
                                   names:
                                     description: Names are the names of the resources.
                                       Each name supports wildcard characters "*" (matches
@@ -435,13 +428,6 @@ spec:
                                     items:
                                       type: string
                                     type: array
-                                  name:
-                                    description: 'Name is the name of the resource.
-                                      The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character). NOTE: "Name" is being deprecated
-                                      in favor of "Names".'
-                                    type: string
                                   names:
                                     description: Names are the names of the resources.
                                       Each name supports wildcard characters "*" (matches
@@ -649,12 +635,6 @@ spec:
                               items:
                                 type: string
                               type: array
-                            name:
-                              description: 'Name is the name of the resource. The
-                                name supports wildcard characters "*" (matches zero
-                                or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
-                              type: string
                             names:
                               description: Names are the names of the resources. Each
                                 name supports wildcard characters "*" (matches zero
@@ -936,13 +916,6 @@ spec:
                                     items:
                                       type: string
                                     type: array
-                                  name:
-                                    description: 'Name is the name of the resource.
-                                      The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character). NOTE: "Name" is being deprecated
-                                      in favor of "Names".'
-                                    type: string
                                   names:
                                     description: Names are the names of the resources.
                                       Each name supports wildcard characters "*" (matches
@@ -1154,13 +1127,6 @@ spec:
                                     items:
                                       type: string
                                     type: array
-                                  name:
-                                    description: 'Name is the name of the resource.
-                                      The name supports wildcard characters "*" (matches
-                                      zero or many characters) and "?" (at least one
-                                      character). NOTE: "Name" is being deprecated
-                                      in favor of "Names".'
-                                    type: string
                                   names:
                                     description: Names are the names of the resources.
                                       Each name supports wildcard characters "*" (matches
@@ -1368,12 +1334,6 @@ spec:
                               items:
                                 type: string
                               type: array
-                            name:
-                              description: 'Name is the name of the resource. The
-                                name supports wildcard characters "*" (matches zero
-                                or many characters) and "?" (at least one character).
-                                NOTE: "Name" is being deprecated in favor of "Names".'
-                              type: string
                             names:
                               description: Names are the names of the resources. Each
                                 name supports wildcard characters "*" (matches zero
@@ -2642,13 +2602,6 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                      name:
-                                        description: 'Name is the name of the resource.
-                                          The name supports wildcard characters "*"
-                                          (matches zero or many characters) and "?"
-                                          (at least one character). NOTE: "Name" is
-                                          being deprecated in favor of "Names".'
-                                        type: string
                                       names:
                                         description: Names are the names of the resources.
                                           Each name supports wildcard characters "*"
@@ -2867,13 +2820,6 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                      name:
-                                        description: 'Name is the name of the resource.
-                                          The name supports wildcard characters "*"
-                                          (matches zero or many characters) and "?"
-                                          (at least one character). NOTE: "Name" is
-                                          being deprecated in favor of "Names".'
-                                        type: string
                                       names:
                                         description: Names are the names of the resources.
                                           Each name supports wildcard characters "*"
@@ -3089,13 +3035,6 @@ spec:
                                   items:
                                     type: string
                                   type: array
-                                name:
-                                  description: 'Name is the name of the resource.
-                                    The name supports wildcard characters "*" (matches
-                                    zero or many characters) and "?" (at least one
-                                    character). NOTE: "Name" is being deprecated in
-                                    favor of "Names".'
-                                  type: string
                                 names:
                                   description: Names are the names of the resources.
                                     Each name supports wildcard characters "*" (matches
@@ -3392,13 +3331,6 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                      name:
-                                        description: 'Name is the name of the resource.
-                                          The name supports wildcard characters "*"
-                                          (matches zero or many characters) and "?"
-                                          (at least one character). NOTE: "Name" is
-                                          being deprecated in favor of "Names".'
-                                        type: string
                                       names:
                                         description: Names are the names of the resources.
                                           Each name supports wildcard characters "*"
@@ -3617,13 +3549,6 @@ spec:
                                         items:
                                           type: string
                                         type: array
-                                      name:
-                                        description: 'Name is the name of the resource.
-                                          The name supports wildcard characters "*"
-                                          (matches zero or many characters) and "?"
-                                          (at least one character). NOTE: "Name" is
-                                          being deprecated in favor of "Names".'
-                                        type: string
                                       names:
                                         description: Names are the names of the resources.
                                           Each name supports wildcard characters "*"
@@ -3839,13 +3764,6 @@ spec:
                                   items:
                                     type: string
                                   type: array
-                                name:
-                                  description: 'Name is the name of the resource.
-                                    The name supports wildcard characters "*" (matches
-                                    zero or many characters) and "?" (at least one
-                                    character). NOTE: "Name" is being deprecated in
-                                    favor of "Names".'
-                                  type: string
                                 names:
                                   description: Names are the names of the resources.
                                     Each name supports wildcard characters "*" (matches

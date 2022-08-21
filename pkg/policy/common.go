@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -90,12 +89,6 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Ru
 		}
 	}
 
-	// match name
-	if rule.MatchResources.Name != "" {
-		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
-			return false
-		}
-	}
 	// Skip the filtered resources
 	if pc.configHandler.ToFilter(r.GetKind(), r.GetNamespace(), r.GetName()) {
 		return false
@@ -108,15 +101,6 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Ru
 func excludeResources(included map[string]unstructured.Unstructured, exclude kyvernov1.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
 	if reflect.DeepEqual(exclude, (kyvernov1.ResourceDescription{})) {
 		return
-	}
-	excludeName := func(name string) Condition {
-		if exclude.Name == "" {
-			return NotEvaluate
-		}
-		if wildcard.Match(exclude.Name, name) {
-			return Skip
-		}
-		return Process
 	}
 
 	excludeNamespace := func(namespace string) Condition {
@@ -173,9 +157,6 @@ func excludeResources(included map[string]unstructured.Unstructured, exclude kyv
 		// 2 -> to be exclude
 		excludeEval := []Condition{}
 
-		if ret := excludeName(resource.GetName()); ret != NotEvaluate {
-			excludeEval = append(excludeEval, ret)
-		}
 		if ret := excludeNamespace(resource.GetNamespace()); ret != NotEvaluate {
 			excludeEval = append(excludeEval, ret)
 		}

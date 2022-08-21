@@ -19,16 +19,6 @@ func Test_ResourceDescription(t *testing.T) {
 		namespaced: true,
 		subject:    ResourceDescription{},
 	}, {
-		name:       "name-names",
-		namespaced: true,
-		subject: ResourceDescription{
-			Name:  "foo",
-			Names: []string{"bar", "baz"},
-		},
-		errors: []string{
-			`dummy: Invalid value: v1.ResourceDescription{Kinds:[]string(nil), Name:"foo", Names:[]string{"bar", "baz"}, Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil)}: Both name and names can not be specified together`,
-		},
-	}, {
 		name:       "selector",
 		namespaced: true,
 		subject: ResourceDescription{

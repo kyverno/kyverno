@@ -229,11 +229,6 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 			}
 		}
 	}
-	if r.ExcludeResources.Name != "" {
-		if !wildcard.Match(r.ExcludeResources.Name, r.MatchResources.Name) {
-			return errs
-		}
-	}
 	if len(r.ExcludeResources.Names) > 0 {
 		excludeSlice := r.ExcludeResources.Names
 		matchSlice := r.MatchResources.Names

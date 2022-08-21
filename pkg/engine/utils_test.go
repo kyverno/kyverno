@@ -1026,7 +1026,6 @@ func TestResourceDescriptionMatch_Name(t *testing.T) {
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
-		Name:  "nginx-deployment",
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,
@@ -1086,7 +1085,6 @@ func TestResourceDescriptionMatch_Name_Regex(t *testing.T) {
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
-		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
 			MatchLabels:      nil,
 			MatchExpressions: nil,
@@ -1146,7 +1144,6 @@ func TestResourceDescriptionMatch_Label_Expression_NotMatch(t *testing.T) {
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
-		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -1214,7 +1211,6 @@ func TestResourceDescriptionMatch_Label_Expression_Match(t *testing.T) {
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
-		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -1284,7 +1280,6 @@ func TestResourceDescriptionExclude_Label_Expression_Match(t *testing.T) {
 	}
 	resourceDescription := v1.ResourceDescription{
 		Kinds: []string{"Deployment"},
-		Name:  "nginx-*",
 		Selector: &metav1.LabelSelector{
 			MatchLabels: nil,
 			MatchExpressions: []metav1.LabelSelectorRequirement{
