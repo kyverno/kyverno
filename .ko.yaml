@@ -1,0 +1,15 @@
+builds:
+- id: initContainer
+  main: ./cmd/initContainer
+  ldflags:
+  - "{{ .Env.LD_FLAGS }}"
+
+- id: kyverno
+  main: ./cmd/kyverno
+  ldflags:
+  - "{{ .Env.LD_FLAGS }}"
+
+- id: cli
+  main: ./cmd/cli
+  ldflags:
+  - "{{ .Env.LD_FLAGS }}"
