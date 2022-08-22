@@ -30,3 +30,5 @@ annotations:
       description: Added possibility to define additional init and sidecar container
     - kind: added
       description: Added ability to remove namespaces from default resourceFilters list
+    - kind: added
+      description: Prevent installing Kyverno in namespace kube-system.
