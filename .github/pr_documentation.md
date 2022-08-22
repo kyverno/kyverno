@@ -146,4 +146,4 @@ A new feature which has been implemented for the webhook may often need to be av
 
 ## Cherry Picking for Releases
 
-Kyverno releases are generated from release branches. When the release branch is created, if there's any change that needs to be back ported for patches we cherry-pick commits to include them in the release. To assist in the cherry-pick process, please check the box that this PR is targeting a specific release branch as reviewers wants to make sure current PR has the right milestone and cherry-pick PR targets to the same release branch.
+Kyverno releases are generated from release branches. When the release branch is created, if there's any change that needs to be back ported for patches we cherry-pick commits to include them in the release. To assist in the cherry-pick process, please check the box that this PR is targeting a specific release branch as reviewers want to make sure current PR has the right milestone and cherry-pick PR targets to the same release branch.
