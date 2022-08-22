@@ -45,10 +45,12 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 }
 
 func (c *controller) reconcile(key, namespace, name string) error {
-	logger.Info("reconciling ...", "key", key, "namespace", namespace, "name", name)
+	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
 	if namespace != config.KyvernoNamespace() || name != config.KyvernoConfigMapName() {
+		logger.V(4).Info("ignoring ...")
 		return nil
 	}
+	logger.Info("reconciling ...")
 	configMap, err := c.configmapLister.ConfigMaps(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
