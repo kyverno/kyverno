@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -92,7 +92,9 @@ func ContainsString(list []string, element string) bool {
 }
 
 func compareNamespaces(pattern, ns string) bool {
-	return wildcard.Match(pattern, ns)
+	var g glob.Glob
+	g = glob.MustCompile(pattern)
+	return g.Match(ns)
 }
 
 func compareString(str, name string) bool {

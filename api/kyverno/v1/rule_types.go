@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"reflect"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
+
+var g glob.Glob
 
 type ImageExtractorConfigs map[string][]ImageExtractorConfig
 
@@ -230,7 +232,8 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 	}
 	if r.ExcludeResources.Name != "" {
-		if !wildcard.Match(r.ExcludeResources.Name, r.MatchResources.Name) {
+		g = glob.MustCompile(r.ExcludeResources.Name)
+		if !g.Match(r.MatchResources.Name) {
 			return errs
 		}
 	}
@@ -248,7 +251,8 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		// we want user to fix that
 		for _, matchName := range matchSlice {
 			for _, excludeName := range excludeSlice {
-				if wildcard.Match(excludeName, matchName) {
+					g = glob.MustCompile(excludeName)
+				if g.Match(matchName) {
 					return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 				}
 			}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
@@ -95,14 +95,19 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 }
 
 func match(namespacePattern, namePattern, namespace, name string) bool {
+	var namespacePatternWildcard glob.Glob
+	var namePatternWildCard glob.Glob
+	namespacePatternWildcard = glob.MustCompile(namespacePattern)
+	namePatternWildcard = glob.MustCompile(namePattern)
+	
 	if namespacePattern == "" && namePattern == "" {
 		return true
 	} else if namespacePattern == "" {
-		if wildcard.Match(namePattern, name) {
+		if namespacePatternWildcard.Match(name) {
 			return true
 		}
-	} else if wildcard.Match(namespacePattern, namespace) {
-		if namePattern == "" || wildcard.Match(namePattern, name) {
+	} else if namespacePatternWildcard.Match(namespace) {
+		if namePattern == "" || namePattern.Match(name) {
 			return true
 		}
 	}

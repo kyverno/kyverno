@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
@@ -54,16 +54,19 @@ func (allin AllInHandler) validateValueWithStringPattern(key string, value inter
 }
 
 func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	var g glob.Glob
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			g = glob.MustCompile(key)
+			if g.Match(fmt.Sprint(val)) {
 				return false, true
 			}
 		}
 
 	case string:
-		if wildcard.Match(valuesAvailable, key) {
+		g = glob.MustCompile(valuesAvailable)
+		if g.Match(key) {
 			return false, true
 		}
 
@@ -176,10 +179,14 @@ func allSetExistsInArray(key []string, value interface{}, log logr.Logger, allNo
 
 // isAllIn checks if all values in S1 are in S2
 func isAllIn(key []string, value []string) bool {
+	var valKeyWildcard glob.Glob
+	var valValueWildcard glob.Glob
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			valKeyWildcard = glob.MustCompile(valkey)
+			valValueWildcard = glob.MustCompile(valValue)
+			if valKeyWildcard.Match(valValue) || valValueWildcard.Match(valKey) {
 				found++
 				break
 			}
@@ -190,10 +197,14 @@ func isAllIn(key []string, value []string) bool {
 
 // isAllNotIn checks if all the values in S1 are not in S2
 func isAllNotIn(key []string, value []string) bool {
+	var valKeyWildcard glob.Glob
+	var valValueWildcard glob.Glob
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			valKeyWildcard = glob.MustCompile(valkey)
+			valValueWildcard = glob.MustCompile(valValue)
+			if valKeyWildcard.Match(valValue) || valValueWildcard.Match(valKey) {
 				found++
 				break
 			}

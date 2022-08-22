@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/jmespath"
 )
 
@@ -63,8 +63,10 @@ func (ctx *MockContext) Query(query string) (interface{}, error) {
 }
 
 func (ctx *MockContext) isVariableDefined(variable string) bool {
+	var g glob.Glob
 	for _, pattern := range ctx.getVariables() {
-		if wildcard.Match(pattern, variable) {
+		g = glob.MustCompile(pattern)
+		if g.Match(variable) {
 			return true
 		}
 	}

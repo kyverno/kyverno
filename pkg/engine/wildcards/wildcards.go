@@ -3,7 +3,7 @@ package wildcards
 import (
 	"strings"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,11 +33,16 @@ func replaceWildcardsInMapKeyValues(patternMap map[string]string, resourceMap ma
 }
 
 func expandWildcards(k, v string, resourceMap map[string]string, matchValue, replace bool) (key string, val string) {
+	var vWildcard glob.Glob
+	var kWildcard glob.Glob
+	vWildcard = glob.MustCompile(v)
+	kWildcard = glob.MustCompile(k)
 	for k1, v1 := range resourceMap {
-		if wildcard.Match(k, k1) {
+		
+		if kWildcard.Match(k1) {
 			if !matchValue {
 				return k1, v1
-			} else if wildcard.Match(v, v1) {
+			} else if vWildcard.Match(v1) {
 				return k1, v1
 			}
 		}

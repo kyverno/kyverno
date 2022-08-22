@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -255,8 +255,10 @@ func hasImageVerifiedAnnotationChanged(ctx *PolicyContext, log logr.Logger) bool
 }
 
 func imageMatches(image string, imagePatterns []string) bool {
+	var g glob.Glob`
 	for _, imagePattern := range imagePatterns {
-		if wildcard.Match(imagePattern, image) {
+		
+		if g.Match(image) {
 			return true
 		}
 	}

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 	apiresource "k8s.io/apimachinery/pkg/api/resource"
 )
@@ -224,6 +224,7 @@ func validateValueWithStringPattern(log logr.Logger, value interface{}, pattern 
 
 // Handler for string values
 func validateString(log logr.Logger, value interface{}, pattern string, operatorVariable operator.Operator) bool {
+	var g glob.Glob
 	if operator.NotEqual == operatorVariable || operator.Equal == operatorVariable {
 		var strValue string
 		var ok bool = false
@@ -251,7 +252,8 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 			return false
 		}
 
-		wildcardResult := wildcard.Match(pattern, strValue)
+		g = glob.MustCompile(pattern)
+		wildcardResult := g.Match(strValue)
 
 		if operator.NotEqual == operatorVariable {
 			return !wildcardResult

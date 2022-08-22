@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -227,12 +227,14 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 }
 
 func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
+	var g glob.Glob
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
 		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
 			continue
 		}
 		for _, ns := range v.Namespaces {
-			if wildcard.Match(ns, er.PatchedResource.GetNamespace()) {
+			g = glob.MustCompile(ns)
+			if g.Match(er.PatchedResource.GetNamespace()) {
 				return v.Action
 			}
 		}

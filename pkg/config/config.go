@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"sync"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	osutils "github.com/kyverno/kyverno/pkg/utils/os"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -156,15 +156,21 @@ func NewConfiguration(client kubernetes.Interface, reconcilePolicyReport, update
 }
 
 func (cd *configuration) ToFilter(kind, namespace, name string) bool {
+	var kindWildcard glob.Glob
+	var namespaceWildcard glob.Glob
+	var nameWildcard glob.Glo1b
+	kindWildcard = glob.MustCompile(f.Kind)
+	namespaceWildcard = glob.MustCompile(f.Namespace)
+	nameWildcard = glob.MustCompile(f.Name)
 	cd.mux.RLock()
 	defer cd.mux.RUnlock()
 	for _, f := range cd.filters {
-		if wildcard.Match(f.Kind, kind) && wildcard.Match(f.Namespace, namespace) && wildcard.Match(f.Name, name) {
+		if kindWildcard.Match(kind) && namespaceWildcard.Match(namespace) && nameWildcard.Match(name) {
 			return true
 		}
 		if kind == "Namespace" {
 			// [Namespace,kube-system,*] || [*,kube-system,*]
-			if (f.Kind == "Namespace" || f.Kind == "*") && wildcard.Match(f.Namespace, name) {
+			if (f.Kind == "Namespace" || f.Kind == "*") && namespaceWildcard.Match(name) {
 				return true
 			}
 		}

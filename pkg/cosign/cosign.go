@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -433,6 +433,7 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 }
 
 func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+	var g glob.Glob
 	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
@@ -448,8 +449,9 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 		}
 
 		if subject != "" {
+			g = glob.MustCompile(subject)
 			s := sigs.CertSubject(cert)
-			if !wildcard.Match(subject, s) {
+			if !g.Match(s) {
 				return fmt.Errorf("subject mismatch: expected %s, received %s", s, subject)
 			}
 		}
@@ -463,11 +465,13 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 }
 
 func matchExtensions(cert *x509.Certificate, issuer string, extensions map[string]string) error {
+	var g glob.Glob
 	ce := cosign.CertExtensions{Cert: cert}
 
 	if issuer != "" {
+		g = glob.MustCompile(issuer)
 		val := ce.GetIssuer()
-		if !wildcard.Match(issuer, val) {
+		if !g.Match(val) {
 			return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
 		}
 	}
@@ -478,7 +482,8 @@ func matchExtensions(cert *x509.Certificate, issuer string, extensions map[strin
 			return err
 		}
 
-		if !wildcard.Match(requiredValue, val) {
+		g = glob.MustCompile(requiredValue) 
+		if !g.Match(val) {
 			return fmt.Errorf("extension mismatch: expected %s for key %s, received %s", requiredValue, requiredKey, val)
 		}
 	}

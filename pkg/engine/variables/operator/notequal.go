@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -67,6 +67,7 @@ func (neh NotEqualHandler) validateValueWithMapPattern(key map[string]interface{
 }
 
 func (neh NotEqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	var g glob.Glob
 	// We need to check duration first as it's the only type that can be compared to a different type.
 	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
@@ -80,7 +81,8 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 		case string:
 			if typedValue == "" {
 				if val, ok := value.(string); ok {
-					return !wildcard.Match(val, key)
+					g = glob.MustCompile(val)
+					return !g.Match(key)
 				}
 			}
 			resourceValue, err := resource.ParseQuantity(typedValue)
@@ -93,7 +95,8 @@ func (neh NotEqualHandler) validateValueWithStringPattern(key string, value inte
 	}
 
 	if val, ok := value.(string); ok {
-		return !wildcard.Match(val, key)
+		g = glob.MustCompile(val)
+		return !g.Match(key)
 	}
 
 	neh.log.V(2).Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))

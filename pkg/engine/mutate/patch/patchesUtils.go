@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -126,11 +126,13 @@ func filterInvalidPatches(patches []jsonpatch.JsonPatchOperation) []jsonpatch.Js
 }
 
 func ignorePatch(path string) bool {
+	var g glob.Glob
 	if strings.Contains(path, "/status") {
 		return true
 	}
 
-	if wildcard.Match("*/metadata", path) {
+	g = glob.MustCompile("*/metadata")
+	if g.Match(path) {
 		return false
 	}
 

@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -67,6 +67,7 @@ func (eh EqualHandler) validateValueWithMapPattern(key map[string]interface{}, v
 }
 
 func (eh EqualHandler) validateValueWithStringPattern(key string, value interface{}) bool {
+	var valWildcard glob.Glob
 	// We need to check duration first as it's the only type that can be compared to a different type.
 	durationKey, durationValue, err := parseDuration(key, value)
 	if err == nil {
@@ -88,7 +89,8 @@ func (eh EqualHandler) validateValueWithStringPattern(key string, value interfac
 	}
 
 	if val, ok := value.(string); ok {
-		return wildcard.Match(val, key)
+		valWildcard = glob.MustCompile(val)
+		return valWildcard.Match(key)
 	}
 
 	eh.log.V(2).Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))

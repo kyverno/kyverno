@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -67,17 +67,21 @@ func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind)
 }
 
 func checkName(name, resourceName string) bool {
-	return wildcard.Match(name, resourceName)
+	var g glob.Glob
+	g = glob.MustCompile(name)
+	return g.Match(resourceName)
 }
 
 func checkNameSpace(namespaces []string, resource unstructured.Unstructured) bool {
+	var g glob.Glob
 	resourceNameSpace := resource.GetNamespace()
 	if resource.GetKind() == "Namespace" {
 		resourceNameSpace = resource.GetName()
 	}
 
 	for _, namespace := range namespaces {
-		if wildcard.Match(namespace, resourceNameSpace) {
+		g = glob.MustCompile(namespace)
+		if g.Match(resourceNameSpace) {
 			return true
 		}
 	}
@@ -86,14 +90,19 @@ func checkNameSpace(namespaces []string, resource unstructured.Unstructured) boo
 }
 
 func checkAnnotations(annotations map[string]string, resourceAnnotations map[string]string) bool {
+	var vWildcard glob.Glob
+	var kWildcard glob.Glob
+
 	if len(annotations) == 0 {
 		return true
 	}
 
 	for k, v := range annotations {
+		kWildcard = glob.MustCompile(k)
+		vWildcard = glob.MustCompile(v)
 		match := false
 		for k1, v1 := range resourceAnnotations {
-			if wildcard.Match(k, k1) && wildcard.Match(v, v1) {
+			if kWildcard.Match(k1) && vWildcard.Match(v1) {
 				match = true
 				break
 			}

@@ -16,7 +16,7 @@ import (
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"sigs.k8s.io/yaml"
 )
 
@@ -623,6 +623,7 @@ func jpRegexMatch(arguments []interface{}) (interface{}, error) {
 }
 
 func jpPatternMatch(arguments []interface{}) (interface{}, error) {
+	var g glob.Glob
 	pattern, err := validateArg(regexMatch, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
@@ -633,7 +634,9 @@ func jpPatternMatch(arguments []interface{}) (interface{}, error) {
 		return nil, fmt.Errorf(invalidArgumentTypeError, regexMatch, 2, "String or Real")
 	}
 
-	return wildcard.Match(pattern.String(), src), nil
+	g = glob.MustCompile(pattern.String())
+
+	return g.Match(src), nil
 }
 
 func jpLabelMatch(arguments []interface{}) (interface{}, error) {

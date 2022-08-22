@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
@@ -59,16 +59,21 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 // The value can be a string, an array of strings, or a JSON format
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
+	var valWildcard glob.Glob
+	var keyWildcard glob.Glob
 	switch valuesAvailable := value.(type) {
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
+			valWildcard = glob.MustCompile(fmt.Sprint(val))
+			keyWildcard = glob.MustCompile(key)
+			if valWildcard.Match(key) || keyWildcard.Match(fmt.Sprint(val)) {
 				return false, true
 			}
 		}
 
 	case string:
-		if wildcard.Match(valuesAvailable, key) {
+		var valWildcard = glob.MustCompile(valuesAvailable)
+		if valWildcard.Match(key) {
 			return false, true
 		}
 
@@ -188,9 +193,13 @@ func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNo
 
 // isAnyIn checks if any values in S1 are in S2
 func isAnyIn(key []string, value []string) bool {
+	var valKeyWildcard glob.Glob
+	var valValueWildcard glob.Glob
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			valValueWildcard = glob.MustCompile(valValue)
+			valKeyWildcard = glob.MustCompile(valKey)
+			if valKeyWildcard.Match(valValue) || valValueWildcard.Match(valKey) {
 				return true
 			}
 		}
@@ -200,10 +209,15 @@ func isAnyIn(key []string, value []string) bool {
 
 // isAnyNotIn checks if any of the values in S1 are not in S2
 func isAnyNotIn(key []string, value []string) bool {
+	var valKeyWildcard glob.Glob
+	var valValueWildcard glob.Glob
+	
 	found := 0
 	for _, valKey := range key {
 		for _, valValue := range value {
-			if wildcard.Match(valKey, valValue) || wildcard.Match(valValue, valKey) {
+			valValueWildcard = glob.MustCompile(valValue)
+			valKeyWildcard = glob.MustCompile(valKey)
+			if valKeyWildcard.Match(valValue) || valValueWildcard.Match(valKey) {
 				found++
 				break
 			}
