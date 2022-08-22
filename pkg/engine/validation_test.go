@@ -11162,7 +11162,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 					"type": "RuntimeDefault"
 				},
 				"runAsNonRoot": false,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -11178,7 +11178,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -11194,7 +11194,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": false,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -11212,7 +11212,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -11230,7 +11230,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -11346,7 +11346,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 					"type": "RuntimeDefault"
 				},
 				"runAsNonRoot": false,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -11362,7 +11362,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -11378,7 +11378,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": false,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -11396,7 +11396,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -11414,7 +11414,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -11529,7 +11529,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 					"type": "RuntimeDefault"
 				},
 				"runAsNonRoot": false,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -11545,7 +11545,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -11561,7 +11561,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": false,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -11579,7 +11579,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -11597,7 +11597,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -11702,7 +11702,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 					"type": "RuntimeDefault"
 				},
 				"runAsNonRoot": false,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -11718,7 +11718,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -11734,7 +11734,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 						]
 					},
 					"runAsNonRoot": false,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -11752,7 +11752,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -11770,7 +11770,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 							]
 						},
 						"runAsNonRoot": false,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -11861,7 +11861,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 		   "hostNetwork": false,
 		   "securityContext": {
 				"runAsNonRoot": true,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -11874,7 +11874,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -11890,7 +11890,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -11908,7 +11908,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -11926,7 +11926,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -12042,7 +12042,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 					"type": "Unconfined"
 				},
 				"runAsNonRoot": true,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -12058,7 +12058,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -12074,7 +12074,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -12092,7 +12092,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -12110,7 +12110,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -12226,7 +12226,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 					"type": "Unconfined"
 				},
 				"runAsNonRoot": true,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -12242,7 +12242,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -12258,7 +12258,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -12276,7 +12276,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -12294,7 +12294,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
@@ -12400,7 +12400,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 					"type": "Unconfined"
 				},
 				"runAsNonRoot": true,
-				"allowPrivilegeEscalation": "false"
+				"allowPrivilegeEscalation": false
 		   },
 		   "containers": [
 			{
@@ -12416,7 +12416,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				 }
 			  },
 			{
@@ -12432,7 +12432,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 						]
 					},
 					"runAsNonRoot": true,
-					"allowPrivilegeEscalation": "false"
+					"allowPrivilegeEscalation": false
 				}
 			 }
 			],
@@ -12450,7 +12450,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			],
@@ -12468,7 +12468,7 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 							]
 						},
 						"runAsNonRoot": true,
-						"allowPrivilegeEscalation": "false"
+						"allowPrivilegeEscalation": false
 					}
 				}
 			]
