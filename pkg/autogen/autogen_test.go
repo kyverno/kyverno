@@ -127,6 +127,11 @@ func Test_CanAutoGen(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
 			expectedControllers: "none",
 		},
+		{
+			name:                "rule-with-match-kinds-pod-only-validate-exclude",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","podSecurity": {"level": "baseline","version":"v1.24","exclude":[{"controlName":"SELinux","restrictedField":"spec.containers[*].securityContext.seLinuxOptions.role","images":["nginx"],"values":["baz"]}, {"controlName":"SELinux","restrictedField":"spec.initContainers[*].securityContext.seLinuxOptions.role","images":["nodejs"],"values":["init-baz"]}]}}}]}}`),
+			expectedControllers: PodControllers,
+		},
 	}
 
 	for _, test := range testCases {
@@ -173,7 +178,6 @@ func Test_GetSupportedControllers(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
 			expectedControllers: PodControllers,
 		},
-
 		{
 			name:                "rule-with-match-mixed-kinds-pod-podcontrollers",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"preconditions":{"any":[{"key":"{{request.operation}}","operator":"Equals","value":"CREATE"}]},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
@@ -218,6 +222,11 @@ func Test_GetSupportedControllers(t *testing.T) {
 			name:                "rule-with-only-predefined-valid-controllers",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
 			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-match-kinds-pod-only-validate-exclude",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","podSecurity": {"level": "baseline","version":"v1.24","exclude":[{"controlName":"SELinux","restrictedField":"spec.containers[*].securityContext.seLinuxOptions.role","images":["nginx"],"values":["baz"]}, {"controlName":"SELinux","restrictedField":"spec.initContainers[*].securityContext.seLinuxOptions.role","images":["nodejs"],"values":["init-baz"]}]}}}]}}`),
+			expectedControllers: PodControllers,
 		},
 	}
 
@@ -585,6 +594,39 @@ func Test_Deny(t *testing.T) {
 	expectedPatches := [][]byte{
 		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
 		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-disallow-mount-containerd-sock","match":{"any":[{"resources":{"kinds":["CronJob"]}}],"resources":{"kinds":["Pod"]}},"validate":{"foreach":[{"list":"request.object.spec.jobTemplate.spec.template.spec.volumes[]","deny":{"conditions":{"any":[{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/var/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"/run/containerd/containerd.sock"},{"key":"{{ path_canonicalize(element.hostPath.path) }}","operator":"Equals","value":"\\var\\run\\containerd\\containerd.sock"}]}}}]}}}`),
+	}
+
+	for i, ep := range expectedPatches {
+		assert.Equal(t, string(rulePatches[i]), string(ep),
+			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
+	}
+}
+
+func Test_ValidateExclude(t *testing.T) {
+	dir, err := os.Getwd()
+	baseDir := filepath.Dir(filepath.Dir(dir))
+	assert.NilError(t, err)
+	file, err := ioutil.ReadFile(baseDir + "/test/policy/validate/enforce-baseline-exclude-selinuxoptions.yaml")
+	if err != nil {
+		t.Log(err)
+	}
+	policies, err := utils.GetPolicy(file)
+	if err != nil {
+		t.Log(err)
+	}
+
+	policy := policies[0]
+	spec := policy.GetSpec()
+	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespace"}
+
+	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
+	if len(errs) != 0 {
+		t.Log(errs)
+	}
+
+	expectedPatches := [][]byte{
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"exclude":{"resources":{"namespaces":["fake-namespace"]}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.template.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.template.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["CronJob"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"exclude":{"resources":{"namespaces":["fake-namespace"]}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
 	}
 
 	for i, ep := range expectedPatches {

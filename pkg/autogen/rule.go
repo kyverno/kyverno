@@ -1,6 +1,7 @@
 package autogen
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -284,6 +285,8 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 }
 
 func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
+	fmt.Println("===== updateGenRuleByte")
+	fmt.Printf("=== string(obj): %s\n", string(pbyte))
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 	}
@@ -291,5 +294,20 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
+	return obj
+}
+
+func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
+	fmt.Println("===== updateRestrictedFields")
+	fmt.Printf("=== before: %s\n", string(pbyte))
+	fmt.Printf("=== kind: %s\n", kind)
+	if kind == "Pod" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.template.spec`))
+	}
+	if kind == "Cronjob" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
+	}
+	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
+	fmt.Printf("=== after: %+v\n", string(obj))
 	return obj
 }
