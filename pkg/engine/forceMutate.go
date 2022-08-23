@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -14,7 +14,7 @@ import (
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
 // It is used to validate mutation logic, and for tests.
-func ForceMutate(ctx context.Interface, policy kyverno.PolicyInterface, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
+func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
 	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.GetName(), "kind", resource.GetKind(),
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
@@ -59,7 +59,7 @@ func ForceMutate(ctx context.Interface, policy kyverno.PolicyInterface, resource
 }
 
 // removeConditions mutates the rule to remove AnyAllConditions
-func removeConditions(rule *kyverno.Rule) {
+func removeConditions(rule *kyvernov1.Rule) {
 	if rule.GetAnyAllConditions() != nil {
 		rule.SetAnyAllConditions(nil)
 	}

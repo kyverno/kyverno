@@ -1,4 +1,4 @@
-package client
+package dclient
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -20,6 +21,7 @@ type IDiscovery interface {
 	GetServerVersion() (*version.Info, error)
 	OpenAPISchema() (*openapiv2.Document, error)
 	DiscoveryCache() discovery.CachedDiscoveryInterface
+	DiscoveryInterface() discovery.DiscoveryInterface
 }
 
 // serverPreferredResources stores the cachedClient instance for discovery client
@@ -29,6 +31,11 @@ type serverPreferredResources struct {
 
 // DiscoveryCache gets the discovery client cache
 func (c serverPreferredResources) DiscoveryCache() discovery.CachedDiscoveryInterface {
+	return c.cachedClient
+}
+
+// DiscoveryInterface gets the discovery client
+func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterface {
 	return c.cachedClient
 }
 
@@ -55,6 +62,7 @@ func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 // OpenAPISchema returns the API server OpenAPI schema document
 func (c serverPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
+
 }
 
 // GetGVRFromKind get the Group Version Resource from kind
@@ -62,10 +70,10 @@ func (c serverPreferredResources) GetGVRFromKind(kind string) (schema.GroupVersi
 	if kind == "" {
 		return schema.GroupVersionResource{}, nil
 	}
-
-	_, gvr, err := c.FindResource("", kind)
+	_, k := kubeutils.GetKindFromGVK(kind)
+	_, gvr, err := c.FindResource("", k)
 	if err != nil {
-		logger.Info("schema not found", "kind", kind)
+		logger.Info("schema not found", "kind", k)
 		return schema.GroupVersionResource{}, err
 	}
 
@@ -115,7 +123,7 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 		_, serverResources, err = c.cachedClient.ServerGroupsAndResources()
 	}
 
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "Got empty response for") {
 		if discovery.IsGroupDiscoveryFailedError(err) {
 			logDiscoveryErrors(err, c)
 		} else if isMetricsServerUnavailable(kind, err) {
@@ -126,23 +134,22 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 		}
 	}
 
+	k, subresource := kubeutils.SplitSubresource(kind)
+	if subresource != "" {
+		kind = k
+	}
+
 	for _, serverResource := range serverResources {
 		if apiVersion != "" && serverResource.GroupVersion != apiVersion {
 			continue
 		}
 
 		for _, resource := range serverResource.APIResources {
-			if strings.Contains(resource.Name, "/") {
-				// skip the sub-resources like deployment/status
-				continue
-			}
-
-			// match kind or names (e.g. Namespace, namespaces, namespace)
-			// to allow matching API paths (e.g. /api/v1/namespaces).
-			if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
+			if resourceMatches(resource, kind, subresource) {
+				logger.V(4).Info("matched API resource to kind", "apiResource", resource, "kind", kind)
 				gv, err := schema.ParseGroupVersion(serverResource.GroupVersion)
 				if err != nil {
-					logger.Error(err, "failed to parse groupVersion", "groupVersion", serverResource.GroupVersion)
+					logger.Error(err, "failed to parse GV", "groupVersion", serverResource.GroupVersion)
 					return nil, schema.GroupVersionResource{}, err
 				}
 
@@ -152,4 +159,15 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 	}
 
 	return nil, schema.GroupVersionResource{}, fmt.Errorf("kind '%s' not found in apiVersion '%s'", kind, apiVersion)
+}
+
+// resourceMatches checks the resource Kind, Name, SingularName and a subresource if specified
+// e.g. &apiResource{Name: "taskruns/status", Kind: "TaskRun"} will match "kind=TaskRun, subresource=Status"
+func resourceMatches(resource metav1.APIResource, kind, subresource string) bool {
+	if resource.Kind == kind || resource.Name == kind || resource.SingularName == kind {
+		_, s := kubeutils.SplitSubresource(resource.Name)
+		return strings.EqualFold(s, subresource)
+	}
+
+	return false
 }

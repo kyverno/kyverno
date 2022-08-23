@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewAllNotInHandler returns handler to manage AllNotIn operations
+// NewAllNotInHandler returns handler to manage AllNotIn operations
 func NewAllNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AllNotInHandler{
 		ctx: ctx,
@@ -15,13 +15,13 @@ func NewAllNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHand
 	}
 }
 
-//AllNotInHandler provides implementation to handle AllNotIn Operator
+// AllNotInHandler provides implementation to handle AllNotIn Operator
 type AllNotInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AllNotIn Operator
+// Evaluate evaluates expression with AllNotIn Operator
 func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
@@ -35,7 +35,7 @@ func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return allnin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		allnin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		allnin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -43,7 +43,7 @@ func (allnin AllNotInHandler) Evaluate(key, value interface{}) bool {
 func (allnin AllNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	invalidType, keyExists := allKeyExistsInArray(key, value, allnin.log)
 	if invalidType {
-		allnin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allnin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -53,7 +53,7 @@ func (allnin AllNotInHandler) validateValueWithStringPattern(key string, value i
 func (allnin AllNotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
 	invalidType, isNotIn := allSetExistsInArray(key, value, allnin.log, true)
 	if invalidType {
-		allnin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allnin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

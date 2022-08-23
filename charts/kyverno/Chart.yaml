@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno
-version: v2.3.2
-appVersion: v1.6.2
+version: v2.5.2
+appVersion: v1.7.2
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -27,6 +27,6 @@ annotations:
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
     - kind: added
-      description: Support for artifacthub.io/changes annotation
+      description: Added possibility to define additional init and sidecar container
     - kind: added
-      description: Allow defining imagePullSecrets
+      description: Added ability to remove namespaces from default resourceFilters list

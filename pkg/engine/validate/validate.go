@@ -8,8 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
-
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"go.uber.org/multierr"
 )
 
 type PatternError struct {
@@ -85,7 +84,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
+			return path, fmt.Errorf("validation rule failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
@@ -124,7 +123,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 
 	// Evaluate anchors
 	for key, patternElement := range anchors {
-
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence
@@ -197,7 +195,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  engineUtils.CombineErrors(skipErrors),
+				Err:  multierr.Combine(skipErrors...),
 				Path: path,
 				Skip: true,
 			}
@@ -231,7 +229,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  engineUtils.CombineErrors(skipErrors),
+			Err:  multierr.Combine(skipErrors...),
 			Path: path,
 			Skip: true,
 		}

@@ -8,7 +8,6 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -36,7 +35,7 @@ type Interface interface {
 	AddRequest(request *admissionv1.AdmissionRequest) error
 
 	// AddVariable adds a variable to the context
-	AddVariable(key, value string) error
+	AddVariable(key string, value interface{}) error
 
 	// AddContextEntry adds a context entry to the context
 	AddContextEntry(name string, dataRaw []byte) error
@@ -49,6 +48,9 @@ type Interface interface {
 
 	// AddOldResource merges resource json under request.oldObject
 	AddOldResource(data map[string]interface{}) error
+
+	// AddTargetResource merges resource json under target
+	AddTargetResource(data map[string]interface{}) error
 
 	// AddUserInfo merges userInfo json under kyverno.userInfo
 	AddUserInfo(userInfo kyvernov1beta1.RequestInfo) error
@@ -129,8 +131,8 @@ func (ctx *context) AddRequest(request *admissionv1.AdmissionRequest) error {
 	return addToContext(ctx, request, "request")
 }
 
-func (ctx *context) AddVariable(key, value string) error {
-	return ctx.addJSON(pkgcommon.VariableToJSON(key, value))
+func (ctx *context) AddVariable(key string, value interface{}) error {
+	return addToContext(ctx, value, strings.Split(key, ".")...)
 }
 
 func (ctx *context) AddContextEntry(name string, dataRaw []byte) error {
@@ -164,6 +166,11 @@ func (ctx *context) AddResource(data map[string]interface{}) error {
 // AddOldResource data at path: request.oldObject
 func (ctx *context) AddOldResource(data map[string]interface{}) error {
 	return addToContext(ctx, data, "request", "oldObject")
+}
+
+// AddTargetResource adds data at path: target
+func (ctx *context) AddTargetResource(data map[string]interface{}) error {
+	return addToContext(ctx, data, "target")
 }
 
 // AddUserInfo adds userInfo at path request.userInfo
@@ -234,12 +241,13 @@ func (ctx *context) AddElement(data interface{}, index int) error {
 
 func (ctx *context) AddImageInfo(info apiutils.ImageInfo) error {
 	data := map[string]interface{}{
-		"image":    info.String(),
-		"registry": info.Registry,
-		"path":     info.Path,
-		"name":     info.Name,
-		"tag":      info.Tag,
-		"digest":   info.Digest,
+		"reference":        info.String(),
+		"referenceWithTag": info.ReferenceWithTag(),
+		"registry":         info.Registry,
+		"path":             info.Path,
+		"name":             info.Name,
+		"tag":              info.Tag,
+		"digest":           info.Digest,
 	}
 	return addToContext(ctx, data, "image")
 }

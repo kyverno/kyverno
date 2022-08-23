@@ -1,4 +1,4 @@
-package client
+package dclient
 
 import (
 	"context"
@@ -61,12 +61,8 @@ type client struct {
 }
 
 // NewClient creates new instance of client
-func NewClient(config *rest.Config, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
+func NewClient(config *rest.Config, kclient *kubernetes.Clientset, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
 	dclient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	kclient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +168,6 @@ func (c *client) DeleteResource(apiVersion string, kind string, namespace string
 		options = metav1.DeleteOptions{DryRun: []string{metav1.DryRunAll}}
 	}
 	return c.getResourceInterface(apiVersion, kind, namespace).Delete(context.TODO(), name, options)
-
 }
 
 // CreateResource creates object for the specified resource/namespace

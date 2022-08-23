@@ -1,37 +1,20 @@
 package policy
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	wildcard "github.com/kyverno/go-wildcard"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
-	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-func buildPolicyLabel(policyName string) (labels.Selector, error) {
-	policyLabelmap := map[string]string{"policy": policyName}
-	//NOt using a field selector, as the match function will have to cast the runtime.object
-	// to get the field, while it can get labels directly, saves the cast effort
-	ls := &metav1.LabelSelector{}
-	if err := metav1.Convert_Map_string_To_string_To_v1_LabelSelector(&policyLabelmap, ls, nil); err != nil {
-		return nil, fmt.Errorf("failed to generate label sector of Policy name %s: %v", policyName, err)
-	}
-	policySelector, err := metav1.LabelSelectorAsSelector(ls)
-	if err != nil {
-		return nil, fmt.Errorf("Policy %s has invalid label selector: %v", policyName, err)
-	}
-	return policySelector, nil
-}
 
 func transformResource(resource unstructured.Unstructured) []byte {
 	data, err := resource.MarshalJSON()
@@ -60,69 +43,11 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-// getNamespacesForRule gets the matched namespaces list for the given rule
-func (pc *PolicyController) getNamespacesForRule(rule *kyverno.Rule, log logr.Logger) []string {
-	var matchedNS []string
-	if len(rule.MatchResources.Namespaces) == 0 {
-		matchedNS = GetAllNamespaces(pc.nsLister, log)
-		return pc.configHandler.FilterNamespaces(matchedNS)
-	}
-
-	var wildcards []string
-	for _, nsName := range rule.MatchResources.Namespaces {
-		if stringutils.ContainsWildcard(nsName) {
-			wildcards = append(wildcards, nsName)
-		}
-
-		matchedNS = append(matchedNS, nsName)
-	}
-
-	if len(wildcards) > 0 {
-		wildcardMatches := GetMatchingNamespaces(wildcards, pc.nsLister, log)
-		matchedNS = append(matchedNS, wildcardMatches...)
-	}
-
-	return pc.configHandler.FilterNamespaces(matchedNS)
-}
-
-// GetMatchingNamespaces ...
-func GetMatchingNamespaces(wildcards []string, nslister listerv1.NamespaceLister, log logr.Logger) []string {
-	all := GetAllNamespaces(nslister, log)
-	if len(all) == 0 {
-		return all
-	}
-
-	var results []string
-	for _, wc := range wildcards {
-		for _, ns := range all {
-			if wildcard.Match(wc, ns) {
-				results = append(results, ns)
-			}
-		}
-	}
-
-	return results
-}
-
-// GetAllNamespaces gets all namespaces in the cluster
-func GetAllNamespaces(nslister listerv1.NamespaceLister, log logr.Logger) []string {
-	var results []string
-	namespaces, err := nslister.List(labels.NewSelector())
+func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
+	_, k := kubeutils.GetKindFromGVK(kind)
+	resourceList, err := pc.client.ListResource("", k, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "Failed to list namespaces")
-	}
-	for _, n := range namespaces {
-		name := n.GetName()
-		results = append(results, name)
-	}
-
-	return results
-}
-
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
-	if err != nil {
-		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
+		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
 
@@ -133,7 +58,7 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 // - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
 // - Namespaced resources in the given namespace
 // - Cluster-wide resources for Cluster-wide Kind
-func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyverno.Rule, log logr.Logger) map[string]unstructured.Unstructured {
+func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyvernov1.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 
 	if kind == "Namespace" {
@@ -141,15 +66,8 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	switch typedList := list.(type) {
-	case []*unstructured.Unstructured:
-		for _, r := range typedList {
-			if pc.match(*r, rule) {
-				resourceMap[string(r.GetUID())] = *r
-			}
-		}
-	case *unstructured.UnstructuredList:
-		for _, r := range typedList.Items {
+	if list != nil {
+		for _, r := range list.Items {
 			if pc.match(r, rule) {
 				resourceMap[string(r.GetUID())] = r
 			}
@@ -161,7 +79,7 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	return resourceMap
 }
 
-func (pc *PolicyController) match(r unstructured.Unstructured, rule kyverno.Rule) bool {
+func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Rule) bool {
 	if r.GetDeletionTimestamp() != nil {
 		return false
 	}
@@ -187,8 +105,8 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyverno.Rule
 }
 
 // ExcludeResources ...
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyverno.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
-	if reflect.DeepEqual(exclude, (kyverno.ResourceDescription{})) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyvernov1.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
+	if reflect.DeepEqual(exclude, (kyvernov1.ResourceDescription{})) {
 		return
 	}
 	excludeName := func(name string) Condition {

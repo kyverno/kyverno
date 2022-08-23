@@ -9,5 +9,9 @@ const (
 	URMutatetriggerAPIVersionLabel = "mutate.updaterequest.kyverno.io/trigger-apiversion"
 
 	// URGeneratePolicyLabel adds the policy name to URs for generate policies
-	URGeneratePolicyLabel = "generate.kyverno.io/policy-name"
+	URGeneratePolicyLabel          = "generate.kyverno.io/policy-name"
+	URGenerateResourceNameLabel    = "generate.kyverno.io/resource-name"
+	URGenerateResourceNSLabel      = "generate.kyverno.io/resource-namespace"
+	URGenerateResourceKindLabel    = "generate.kyverno.io/resource-kind"
+	URGenerateRetryCountAnnotation = "generate.kyverno.io/retry-count"
 )

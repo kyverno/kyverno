@@ -2,53 +2,29 @@ package policycache
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	lv1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"gotest.tools/assert"
-	"k8s.io/apimachinery/pkg/labels"
+	kubecache "k8s.io/client-go/tools/cache"
 )
 
-type dummyLister struct {
+func setPolicy(store store, policy kyvernov1.PolicyInterface) {
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	store.set(key, policy)
 }
 
-func (dl dummyLister) List(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (dl dummyLister) Get(name string) (*kyverno.ClusterPolicy, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (dl dummyLister) ListResources(selector labels.Selector) (ret []*kyverno.ClusterPolicy, err error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-// type dymmyNsNamespace struct {}
-
-type dummyNsLister struct {
-}
-
-func (dl dummyNsLister) Policies(name string) lv1.PolicyNamespaceLister {
-	return dummyNsLister{}
-}
-
-func (dl dummyNsLister) List(selector labels.Selector) (ret []*kyverno.Policy, err error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (dl dummyNsLister) Get(name string) (*kyverno.Policy, error) {
-	return nil, fmt.Errorf("not implemented")
+func unsetPolicy(store store, policy kyvernov1.PolicyInterface) {
+	key, _ := kubecache.MetaNamespaceKeyFunc(policy)
+	store.unset(key)
 }
 
 func Test_All(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	//add
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -70,18 +46,18 @@ func Test_All(t *testing.T) {
 	}
 
 	// remove
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	kind := "pod"
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
 func Test_Add_Duplicate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	pCache.add(policy)
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -103,35 +79,34 @@ func Test_Add_Duplicate_Policy(t *testing.T) {
 }
 
 func Test_Add_Validate_Audit(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newPolicy(t)
-	pCache.add(policy)
-	pCache.add(policy)
-
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	policy.Spec.ValidationFailureAction = "audit"
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, "")
-			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
+			if len(validateEnforce) != 0 {
+				t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
 			}
 
 			validateAudit := pCache.get(ValidateAudit, kind, "")
-			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 validate policy, found %v", len(validateAudit))
+			if len(validateAudit) != 1 {
+				t.Errorf("expected 1 validate (audit) policy, found %v", len(validateAudit))
 			}
 		}
 	}
 }
 
 func Test_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newPolicy(t)
 	kind := "Pod"
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(validateEnforce) != 1 {
@@ -148,7 +123,7 @@ func Test_Add_Remove(t *testing.T) {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
@@ -156,10 +131,10 @@ func Test_Add_Remove(t *testing.T) {
 }
 
 func Test_Add_Remove_Any(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newAnyPolicy(t)
 	kind := "Pod"
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 
 	validateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(validateEnforce) != 1 {
@@ -176,7 +151,7 @@ func Test_Add_Remove_Any(t *testing.T) {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, "")
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
@@ -184,13 +159,13 @@ func Test_Add_Remove_Any(t *testing.T) {
 }
 
 func Test_Remove_From_Empty_Cache(t *testing.T) {
-	pCache := newPolicyCache(nil, nil)
+	pCache := newPolicyCache()
 	policy := newPolicy(t)
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 }
 
-func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "test-policy"
@@ -292,14 +267,14 @@ func newPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	  }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newAnyPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 			"name": "test-policy"
@@ -465,14 +440,14 @@ func newAnyPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	}`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newNsPolicy(t *testing.T) kyverno.PolicyInterface {
+func newNsPolicy(t *testing.T) kyvernov1.PolicyInterface {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "test-policy",
@@ -572,14 +547,14 @@ func newNsPolicy(t *testing.T) kyverno.PolicyInterface {
 		}
 	  }`)
 
-	var policy *kyverno.Policy
+	var policy *kyvernov1.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newGVKPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newGVKPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		   "name": "add-networkpolicy1",
@@ -629,14 +604,14 @@ func newGVKPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	 }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newUserTestPolicy(t *testing.T) kyverno.PolicyInterface {
+func newUserTestPolicy(t *testing.T) kyvernov1.PolicyInterface {
 	rawPolicy := []byte(`{
 		"apiVersion": "kyverno.io/v1",
 		"kind": "Policy",
@@ -671,14 +646,14 @@ func newUserTestPolicy(t *testing.T) kyverno.PolicyInterface {
 		}
 	 }`)
 
-	var policy *kyverno.Policy
+	var policy *kyvernov1.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newGeneratePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		   "name": "add-networkpolicy",
@@ -720,13 +695,13 @@ func newgenratePolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	 }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
-func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newMutatePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "logger-sidecar"
@@ -764,13 +739,13 @@ func newMutatePolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	  }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
-func newNsMutatePolicy(t *testing.T) kyverno.PolicyInterface {
+func newNsMutatePolicy(t *testing.T) kyvernov1.PolicyInterface {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "logger-sidecar",
@@ -809,14 +784,14 @@ func newNsMutatePolicy(t *testing.T) kyverno.PolicyInterface {
 		}
 	  }`)
 
-	var policy *kyverno.Policy
+	var policy *kyvernov1.Policy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newValidateAuditPolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newValidateAuditPolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "check-label-app-audit"
@@ -863,14 +838,14 @@ func newValidateAuditPolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	  }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
 	return policy
 }
 
-func newValidateEnforcePolicy(t *testing.T) *kyverno.ClusterPolicy {
+func newValidateEnforcePolicy(t *testing.T) *kyvernov1.ClusterPolicy {
 	rawPolicy := []byte(`{
 		"metadata": {
 		  "name": "check-label-app-enforce"
@@ -917,7 +892,7 @@ func newValidateEnforcePolicy(t *testing.T) *kyverno.ClusterPolicy {
 		}
 	  }`)
 
-	var policy *kyverno.ClusterPolicy
+	var policy *kyvernov1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
@@ -925,10 +900,10 @@ func newValidateEnforcePolicy(t *testing.T) *kyverno.ClusterPolicy {
 }
 
 func Test_Ns_All(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	//add
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	nspace := policy.GetNamespace()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -950,18 +925,18 @@ func Test_Ns_All(t *testing.T) {
 		}
 	}
 	// remove
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	kind := "pod"
 	validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	assert.Assert(t, len(validateEnforce) == 0)
 }
 
 func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	pCache.add(policy)
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	nspace := policy.GetNamespace()
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
@@ -984,42 +959,42 @@ func Test_Ns_Add_Duplicate_Policy(t *testing.T) {
 }
 
 func Test_Ns_Add_Validate_Audit(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	nspace := policy.GetNamespace()
 	policy.GetSpec().ValidationFailureAction = "audit"
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
-			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 validate policy, found %v", len(validateEnforce))
+			if len(validateEnforce) != 0 {
+				t.Errorf("expected 0 validate (enforce) policy, found %v", len(validateEnforce))
 			}
 
 			validateAudit := pCache.get(ValidateAudit, kind, nspace)
-			if len(validateEnforce) != 1 {
-				t.Errorf("expected 1 validate policy, found %v", len(validateAudit))
+			if len(validateAudit) != 1 {
+				t.Errorf("expected 1 validate (audit) policy, found %v", len(validateAudit))
 			}
 		}
 	}
 }
 
 func Test_Ns_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newNsPolicy(t)
 	nspace := policy.GetNamespace()
 	kind := "Pod"
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
@@ -1027,10 +1002,10 @@ func Test_Ns_Add_Remove(t *testing.T) {
 }
 
 func Test_GVk_Cache(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
 	//add
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -1043,16 +1018,16 @@ func Test_GVk_Cache(t *testing.T) {
 }
 
 func Test_GVK_Add_Remove(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newGVKPolicy(t)
 	kind := "ClusterRole"
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	generate := pCache.get(Generate, kind, "")
 	if len(generate) != 1 {
 		t.Errorf("expected 1 generate policy, found %v", len(generate))
 	}
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	deletedGenerate := pCache.get(Generate, kind, "")
 	if len(deletedGenerate) != 0 {
 		t.Errorf("expected 0 generate policy, found %v", len(deletedGenerate))
@@ -1060,11 +1035,11 @@ func Test_GVK_Add_Remove(t *testing.T) {
 }
 
 func Test_Add_Validate_Enforce(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	//add
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 			validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
@@ -1076,17 +1051,17 @@ func Test_Add_Validate_Enforce(t *testing.T) {
 }
 
 func Test_Ns_Add_Remove_User(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newUserTestPolicy(t)
 	nspace := policy.GetNamespace()
 	kind := "Deployment"
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	validateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	if len(validateEnforce) != 1 {
 		t.Errorf("expected 1 validate enforce policy, found %v", len(validateEnforce))
 	}
 
-	pCache.remove(policy)
+	unsetPolicy(pCache, policy)
 	deletedValidateEnforce := pCache.get(ValidateEnforce, kind, nspace)
 	if len(deletedValidateEnforce) != 0 {
 		t.Errorf("expected 0 validate enforce policy, found %v", len(deletedValidateEnforce))
@@ -1094,12 +1069,12 @@ func Test_Ns_Add_Remove_User(t *testing.T) {
 }
 
 func Test_Mutate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
 	//add
-	pCache.add(policy)
-	pCache.add(policy)
-	pCache.add(policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -1113,10 +1088,10 @@ func Test_Mutate_Policy(t *testing.T) {
 }
 
 func Test_Generate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
-	policy := newgenratePolicy(t)
+	pCache := newPolicyCache()
+	policy := newGeneratePolicy(t)
 	//add
-	pCache.add(policy)
+	setPolicy(pCache, policy)
 	for _, rule := range autogen.ComputeRules(policy) {
 		for _, kind := range rule.MatchResources.Kinds {
 
@@ -1130,14 +1105,14 @@ func Test_Generate_Policy(t *testing.T) {
 }
 
 func Test_NsMutate_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy := newMutatePolicy(t)
 	nspolicy := newNsMutatePolicy(t)
 	//add
-	pCache.add(policy)
-	pCache.add(nspolicy)
-	pCache.add(policy)
-	pCache.add(nspolicy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, nspolicy)
+	setPolicy(pCache, policy)
+	setPolicy(pCache, nspolicy)
 
 	nspace := policy.GetNamespace()
 	// get
@@ -1155,11 +1130,11 @@ func Test_NsMutate_Policy(t *testing.T) {
 }
 
 func Test_Validate_Enforce_Policy(t *testing.T) {
-	pCache := newPolicyCache(dummyLister{}, dummyNsLister{})
+	pCache := newPolicyCache()
 	policy1 := newValidateAuditPolicy(t)
 	policy2 := newValidateEnforcePolicy(t)
-	pCache.add(policy1)
-	pCache.add(policy2)
+	setPolicy(pCache, policy1)
+	setPolicy(pCache, policy2)
 
 	validateEnforce := pCache.get(ValidateEnforce, "Pod", "")
 	if len(validateEnforce) != 2 {
@@ -1171,8 +1146,8 @@ func Test_Validate_Enforce_Policy(t *testing.T) {
 		t.Errorf("adding: expected 0 validate audit policy, found %v", len(validateAudit))
 	}
 
-	pCache.remove(policy1)
-	pCache.remove(policy2)
+	unsetPolicy(pCache, policy1)
+	unsetPolicy(pCache, policy2)
 
 	validateEnforce = pCache.get(ValidateEnforce, "Pod", "")
 	if len(validateEnforce) != 0 {

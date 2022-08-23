@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	policyreportclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/patrickmn/go-cache"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,7 +26,7 @@ type creator interface {
 }
 
 type changeRequestCreator struct {
-	client policyreportclient.Interface
+	client kyvernoclient.Interface
 
 	// addCache preserves requests that are to be added to report
 	RCRCache *cache.Cache
@@ -36,12 +37,15 @@ type changeRequestCreator struct {
 	mutex sync.RWMutex
 	queue []string
 
+	// splitPolicyReport enable/disable the PolicyReport split-up per policy feature
+	splitPolicyReport bool
+
 	tickerInterval time.Duration
 
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client policyreportclient.Interface, tickerInterval time.Duration, log logr.Logger) creator {
+func newChangeRequestCreator(client kyvernoclient.Interface, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
 		client:         client,
 		RCRCache:       cache.New(0, 24*time.Hour),
@@ -85,9 +89,9 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 }
 
 func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	ns := ""
+	var ns string
 	if request.GetKind() == "ReportChangeRequest" {
-		ns = config.KyvernoNamespace
+		ns = config.KyvernoNamespace()
 		rcr, err := convertToRCR(request)
 		if err != nil {
 			return err
@@ -110,10 +114,23 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(c.tickerInterval)
 	defer ticker.Stop()
 
+	if toggle.SplitPolicyReport() {
+		err := CleanupPolicyReport(c.client)
+		if err != nil {
+			c.log.Error(err, "failed to delete old reports")
+		}
+	}
+
 	for {
 		select {
 		case <-ticker.C:
-			requests, size := c.mergeRequests()
+			requests := []*unstructured.Unstructured{}
+			var size int
+			if c.splitPolicyReport {
+				requests, size = c.mergeRequestsPerPolicy()
+			} else {
+				requests, size = c.mergeRequests()
+			}
 			for _, request := range requests {
 				if err := c.create(request); err != nil {
 					c.log.Error(err, "failed to create report change request", "req", request.Object)
@@ -177,7 +194,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 
 		if unstr, ok := c.RCRCache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
-				resourceNS := rcr.GetLabels()[resourceLabelNamespace]
+				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
 				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
 				if !ok {
 					mergedNamespacedRCR = &unstructured.Unstructured{}
@@ -216,15 +233,104 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 			results = append(results, mergedNamespacedRCR)
 		}
 	}
+	return
+}
 
+// mergeRequests merges all current cached requests per policy
+// it blocks writing to the cache
+func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured.Unstructured, size int) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	mergedCRCR := make(map[string]*unstructured.Unstructured)
+	mergedRCR := make(map[string]*unstructured.Unstructured)
+	size = len(c.queue)
+
+	for _, uid := range c.queue {
+		if unstr, ok := c.CRCRCache.Get(uid); ok {
+			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
+				policyName := crcr.GetLabels()[policyLabel]
+				mergedPolicyCRCR, ok := mergedCRCR[policyName]
+				if !ok {
+					mergedPolicyCRCR = &unstructured.Unstructured{}
+				}
+
+				if isDeleteRequest(crcr) {
+					if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+						results = append(results, mergedPolicyCRCR)
+						mergedCRCR[policyName] = &unstructured.Unstructured{}
+					}
+
+					results = append(results, crcr)
+				} else {
+					if reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+						mergedCRCR[policyName] = crcr
+						continue
+					}
+
+					if ok := merge(mergedPolicyCRCR, crcr); !ok {
+						results = append(results, mergedPolicyCRCR)
+						mergedCRCR[policyName] = crcr
+					} else {
+						mergedCRCR[policyName] = mergedPolicyCRCR
+					}
+				}
+			}
+			continue
+		}
+
+		if unstr, ok := c.RCRCache.Get(uid); ok {
+			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
+				policyName := rcr.GetLabels()[policyLabel]
+				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
+				mergedNamespacedRCR, ok := mergedRCR[policyName+resourceNS]
+				if !ok {
+					mergedNamespacedRCR = &unstructured.Unstructured{}
+				}
+
+				if isDeleteRequest(rcr) {
+					if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+						results = append(results, mergedNamespacedRCR)
+						mergedRCR[policyName+resourceNS] = &unstructured.Unstructured{}
+					}
+
+					results = append(results, rcr)
+				} else {
+					if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+						mergedRCR[policyName+resourceNS] = rcr
+						continue
+					}
+
+					if ok := merge(mergedNamespacedRCR, rcr); !ok {
+						results = append(results, mergedNamespacedRCR)
+						mergedRCR[policyName+resourceNS] = rcr
+					} else {
+						mergedRCR[policyName+resourceNS] = mergedNamespacedRCR
+					}
+				}
+			}
+		}
+	}
+
+	for _, mergedPolicyCRCR := range mergedCRCR {
+		if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
+			results = append(results, mergedPolicyCRCR)
+		}
+	}
+
+	for _, mergedNamespacedRCR := range mergedRCR {
+		if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
+			results = append(results, mergedNamespacedRCR)
+		}
+	}
 	return
 }
 
 // merge merges elements from a source object into a
 // destination object if they share the same namespace label
 func merge(dst, src *unstructured.Unstructured) bool {
-	dstNS := dst.GetLabels()[resourceLabelNamespace]
-	srcNS := src.GetLabels()[resourceLabelNamespace]
+	dstNS := dst.GetLabels()[ResourceLabelNamespace]
+	srcNS := src.GetLabels()[ResourceLabelNamespace]
 	if dstNS != srcNS {
 		return false
 	}

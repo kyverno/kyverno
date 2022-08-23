@@ -1,0 +1,13 @@
+name: pdb-test
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+results:
+  - policy: create-default-pdb
+    rule: create-default-pdb
+    resource: nginx-deployment
+    generatedResource: generatedResource.yaml
+    kind: Deployment
+    result: pass
+    namespace: hello-world

@@ -30,15 +30,23 @@ type Spec struct {
 	// each rule can validate, mutate, or generate resources.
 	Rules []Rule `json:"rules,omitempty" yaml:"rules,omitempty"`
 
-	// FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+	// ApplyRules controls how rules in a policy are applied. Rule are processed in
+	// the order of declaration. When set to `One` processing stops after a rule has
+	// been applied i.e. the rule matches and results in a pass, fail, or error. When
+	// set to `All` all rules in the policy are processed. The default is `All`.
+	// +optional
+	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
+
+	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 	// Rules within the same policy share the same failure behavior.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
-	// ValidationFailureAction controls if a validation policy rule failure should disallow
+	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
-	// and report an error in a policy report. Optional. The default value is "audit".
+	// and report an error in a policy report. Optional.
+	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
@@ -68,6 +76,12 @@ type Spec struct {
 	// Default value is "false".
 	// +optional
 	MutateExistingOnPolicyUpdate bool `json:"mutateExistingOnPolicyUpdate,omitempty" yaml:"mutateExistingOnPolicyUpdate,omitempty"`
+
+	// GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
+	// If is set to "true" generate rule will be triggered and applied to existing matched resources.
+	// Defaults to "false" if not specified.
+	// +optional
+	GenerateExistingOnPolicyUpdate bool `json:"generateExistingOnPolicyUpdate,omitempty" yaml:"generateExistingOnPolicyUpdate,omitempty"`
 }
 
 func (s *Spec) SetRules(rules []Rule) {
@@ -163,6 +177,11 @@ func (s *Spec) GetMutateExistingOnPolicyUpdate() bool {
 	return s.MutateExistingOnPolicyUpdate
 }
 
+// IsGenerateExistingOnPolicyUpdate return GenerateExistingOnPolicyUpdate set value
+func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
+	return s.GenerateExistingOnPolicyUpdate
+}
+
 // GetFailurePolicy returns the failure policy to be applied
 func (s *Spec) GetFailurePolicy() FailurePolicyType {
 	if s.FailurePolicy == nil {
@@ -178,6 +197,14 @@ func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
 	}
 
 	return s.ValidationFailureAction
+}
+
+// GetFailurePolicy returns the failure policy to be applied
+func (s *Spec) GetApplyRules() ApplyRulesType {
+	if s.ApplyRules == nil {
+		return ApplyAll
+	}
+	return *s.ApplyRules
 }
 
 // ValidateRuleNames checks if the rule names are unique across a policy

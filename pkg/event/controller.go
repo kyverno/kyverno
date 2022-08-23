@@ -5,10 +5,10 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernolister "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
-	v1 "k8s.io/api/core/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
+	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -16,16 +16,15 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 )
 
-//Generator generate events
+// Generator generate events
 type Generator struct {
-	client client.Interface
+	client dclient.Interface
 	// list/get cluster policy
-	cpLister kyvernolister.ClusterPolicyLister
+	cpLister kyvernov1listers.ClusterPolicyLister
 	// list/get policy
-	pLister kyvernolister.PolicyLister
+	pLister kyvernov1listers.PolicyLister
 	// queue to store event generation requests
 	queue workqueue.RateLimitingInterface
 	// events generated at policy controller
@@ -37,16 +36,18 @@ type Generator struct {
 	// events generated at mutateExisting controller
 	mutateExistingRecorder record.EventRecorder
 
+	maxQueuedEvents int
+
 	log logr.Logger
 }
 
-//Interface to generate event
+// Interface to generate event
 type Interface interface {
 	Add(infoList ...Info)
 }
 
 //NewEventGenerator to generate a new event controller
-func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.ClusterPolicyInformer, pInformer kyvernoinformer.PolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -56,6 +57,7 @@ func NewEventGenerator(client client.Interface, cpInformer kyvernoinformer.Clust
 		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
 		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
 		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
+		maxQueuedEvents:        maxQueuedEvents,
 		log:                    log,
 	}
 	return &gen
@@ -65,7 +67,7 @@ func rateLimiter() workqueue.RateLimiter {
 	return workqueue.DefaultItemBasedRateLimiter()
 }
 
-func initRecorder(client client.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
+func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger) record.EventRecorder {
 	// Initialize Event Broadcaster
 	err := scheme.AddToScheme(scheme.Scheme)
 	if err != nil {
@@ -73,7 +75,6 @@ func initRecorder(client client.Interface, eventSource Source, log logr.Logger) 
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.V(5).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		log.Error(err, "failed to get event interface for logging")
@@ -86,16 +87,22 @@ func initRecorder(client client.Interface, eventSource Source, log logr.Logger) 
 	)
 	recorder := eventBroadcaster.NewRecorder(
 		scheme.Scheme,
-		v1.EventSource{
+		corev1.EventSource{
 			Component: eventSource.String(),
 		},
 	)
 	return recorder
 }
 
-//Add queues an event for generation
+// Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
 	logger := gen.log
+
+	if gen.queue.Len() > gen.maxQueuedEvents {
+		logger.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		return
+	}
+
 	for _, info := range infos {
 		if info.Name == "" {
 			// dont create event for resources with generateName
@@ -148,30 +155,22 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 }
 
 func (gen *Generator) processNextWorkItem() bool {
-	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
 		return false
 	}
 
-	err := func(obj interface{}) error {
-		defer gen.queue.Done(obj)
-		var key Info
-		var ok bool
-
-		if key, ok = obj.(Info); !ok {
-			gen.queue.Forget(obj)
-			logger.Info("Incorrect type; expected type 'info'", "obj", obj)
-			return nil
-		}
-		err := gen.syncHandler(key)
-		gen.handleErr(err, obj)
-		return nil
-	}(obj)
-	if err != nil {
-		logger.Error(err, "failed to process next work item")
+	defer gen.queue.Done(obj)
+	var key Info
+	var ok bool
+	if key, ok = obj.(Info); !ok {
+		gen.queue.Forget(obj)
+		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
+	err := gen.syncHandler(key)
+	gen.handleErr(err, obj)
+
 	return true
 }
 
@@ -197,15 +196,18 @@ func (gen *Generator) syncHandler(key Info) error {
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+				return nil
 			}
 			return err
 		}
 	}
 
 	// set the event type based on reason
-	eventType := v1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() {
-		eventType = v1.EventTypeNormal
+	// if skip/pass, reason will be: NORMAL
+	// else reason will be: WARNING
+	eventType := corev1.EventTypeWarning
+	if key.Reason == PolicyApplied.String() || key.Reason == PolicySkipped.String() {
+		eventType = corev1.EventTypeNormal
 	}
 
 	// based on the source of event generation, use different event recorders

@@ -1,12 +1,13 @@
 package event
 
-//Reason types of Event Reasons
+// Reason types of Event Reasons
 type Reason int
 
 const (
 	PolicyViolation Reason = iota
 	PolicyApplied
 	PolicyError
+	PolicySkipped
 )
 
 func (r Reason) String() string {
@@ -14,5 +15,6 @@ func (r Reason) String() string {
 		"PolicyViolation",
 		"PolicyApplied",
 		"PolicyError",
+		"PolicySkipped",
 	}[r]
 }

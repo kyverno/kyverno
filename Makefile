@@ -10,7 +10,7 @@ GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
 CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.8.0
+CONTROLLER_GEN_REQ_VERSION := v0.9.1-0.20220629131006-1878064c4cdf
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -31,8 +31,8 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
-KIND_VERSION=v0.11.1
-KIND_IMAGE?=kindest/node:v1.23.3
+KIND_VERSION=v0.14.0
+KIND_IMAGE?=kindest/node:v1.24.0
 
 ##################################
 # KYVERNO
@@ -84,7 +84,7 @@ docker-get-initContainer-digest:
 	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 docker-build-initContainer-local:
-	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS) $(PWD)/$(INITC_PATH)
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(INITC_PATH)
 	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(PWD)/$(INITC_PATH)
 	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(INITC_IMAGE):latest
 
@@ -267,7 +267,7 @@ test-clean: ## Clean tests cache
 	go clean -testcache ./...
 
 .PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-test-case-selector-flag test-cli-registry
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
 test-cli-policies: cli
@@ -280,6 +280,10 @@ test-cli-local: cli
 .PHONY: test-cli-local-mutate
 test-cli-local-mutate: cli
 	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
+
+.PHONY: test-cli-local-generate
+test-cli-local-generate: cli
+	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-generate
 
 .PHONY: test-cli-test-case-selector-flag
 test-cli-test-case-selector-flag: cli
@@ -371,7 +375,6 @@ install-controller-gen: ## Install controller-gen
 	set -e ;\
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
 	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}

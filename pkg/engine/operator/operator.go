@@ -26,7 +26,7 @@ const (
 	NotInRange Operator = "!-"
 )
 
-//ReferenceSign defines the operator for anchor reference
+// ReferenceSign defines the operator for anchor reference
 const ReferenceSign Operator = "$()"
 
 // GetOperatorFromStringPattern parses opeartor from pattern
