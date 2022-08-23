@@ -500,11 +500,11 @@ func generateTriggers(client dclient.Interface, metricConfig metrics.MetricsConf
 
 	for _, kind := range kinds {
 		mlist, err := client.ListResource("", kind, "", rule.MatchResources.Selector)
+		metricConfig.RecordClientQueries(metrics.ClientList, kind, "")
 		if err != nil {
 			log.Error(err, "failed to list matched resource")
 			continue
 		}
-		metricConfig.RecordClientQueries(metrics.ClientList, kind, "")
 		list.Items = append(list.Items, mlist.Items...)
 	}
 	return convertlist(list.Items)

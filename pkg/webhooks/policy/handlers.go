@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policyvalidate "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policymutation"
@@ -19,11 +20,13 @@ import (
 type handlers struct {
 	client            dclient.Interface
 	openAPIController *openapi.Controller
+	metricsConfig     metrics.MetricsConfigManager
 }
 
-func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller) webhooks.Handlers {
+func NewHandlers(client dclient.Interface, metricsConfig metrics.MetricsConfigManager, openAPIController *openapi.Controller) webhooks.Handlers {
 	return &handlers{
 		client:            client,
+		metricsConfig:     metricsConfig,
 		openAPIController: openAPIController,
 	}
 }
@@ -41,7 +44,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	startTime := time.Now()
 	logger.V(3).Info("start policy change validation")
 	defer logger.V(3).Info("finished policy change validation", "time", time.Since(startTime).String())
-	response, err := policyvalidate.Validate(policy, h.client, false, h.openAPIController)
+	response, err := policyvalidate.Validate(policy, h.client, h.metricsConfig, false, h.openAPIController)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 		return admissionutils.ResponseWithMessage(false, err.Error())

@@ -123,6 +123,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 				if r.Status == response.RuleStatusPass {
 					_, updateErr := c.client.UpdateResource(patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
+					c.metricsConfig.RecordClientQueries(metrics.ClientUpdate, patchedNew.GetKind(), patchedNew.GetNamespace())
 					if updateErr != nil {
 						errs = append(errs, updateErr)
 						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())

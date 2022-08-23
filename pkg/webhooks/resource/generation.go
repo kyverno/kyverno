@@ -18,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -176,7 +177,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.Generation.Kind == targetSourceKind && rule.Generation.Name == targetSourceName {
-			updatedRule, err := getGeneratedByResource(newRes, resLabels, h.client, rule, logger)
+			updatedRule, err := getGeneratedByResource(newRes, resLabels, h.client, h.metricsConfig, rule, logger)
 			if err != nil {
 				logger.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
 			} else {
@@ -191,6 +192,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 				cloneName := updatedRule.Generation.Clone.Name
 				if cloneName != "" {
 					obj, err := h.client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
+					h.metricsConfig.RecordClientQueries(metrics.ClientGet, rule.Generation.Kind, rule.Generation.Clone.Namespace)
 					if err != nil {
 						logger.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 						continue

@@ -463,7 +463,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, metricsConfig, openAPIController)
 	resourceHandlers := webhooksresource.NewHandlers(
 		dynamicClient,
 		kyvernoClient,

@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -263,7 +264,7 @@ func hasAnnotations(context *engine.PolicyContext) bool {
 	return len(annotations) != 0
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
@@ -272,6 +273,7 @@ func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[str
 		namespace = resLabels["kyverno.io/generated-by-namespace"]
 	}
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
+	metricsConfig.RecordClientQueries(metrics.ClientGet, kind, namespace)
 	if err != nil {
 		logger.Error(err, "source resource not found.")
 		return rule, err

@@ -228,6 +228,7 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 	m := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	v := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
 	if list, err := m.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		wrc.metricsConfig.RecordClientQueries(metrics.ClientList, kindMutating, "")
 		return err
 	} else {
 		for _, item := range list.Items {
@@ -242,6 +243,7 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 		}
 	}
 	if list, err := v.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
+		wrc.metricsConfig.RecordClientQueries(metrics.ClientList, kindValidating, "")
 		return err
 	} else {
 		for _, item := range list.Items {
@@ -638,6 +640,7 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 func (wrc *Register) removeMutatingWebhookConfiguration(name string) {
 	logger := wrc.log.WithValues("kind", kindMutating, "name", name)
 	if err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
+		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindMutating, "")
 		logger.Error(err, "failed to delete the mutating webhook configuration")
 	} else {
 		logger.Info("webhook configuration deleted")
@@ -648,6 +651,7 @@ func (wrc *Register) removeMutatingWebhookConfiguration(name string) {
 func (wrc *Register) removeValidatingWebhookConfiguration(name string) {
 	logger := wrc.log.WithValues("kind", kindValidating, "name", name)
 	if err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
+		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindValidating, "")
 		logger.Error(err, "failed to delete the validating webhook configuration")
 	} else {
 		logger.Info("webhook configuration deleted")

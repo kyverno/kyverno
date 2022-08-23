@@ -307,7 +307,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, nil, true, openAPIController)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {

@@ -73,6 +73,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	if namespace != "" && name != "" &&
 		!stringutils.ContainsWildcard(namespace) && !stringutils.ContainsWildcard(name) {
 		obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)
+		ctx.MetricsConfig.RecordClientQueries(metrics.ClientGet, target.Kind, namespace)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
@@ -83,6 +84,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 
 	// list all targets if wildcard is specified
 	objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
+	ctx.MetricsConfig.RecordClientQueries(metrics.ClientList, target.Kind, "")
 	if err != nil {
 		return nil, err
 	}
