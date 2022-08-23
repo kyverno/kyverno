@@ -19,23 +19,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@v3
 
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
-      - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+      - name: golangci-lint
+        uses: reviewdog/action-golangci-lint@v2
         with:
-          go-version: 1.17
-
-      - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go_version: '1.17'
+          golangci_lint_version: v1.48.0
+          fail_on_error: true
 
       - name: gofmt check
         run: |
@@ -56,11 +47,6 @@ jobs:
            echo "Please run 'make fmt' to go format the above files."
            exit 1
           fi
-
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@02bcf8c1a9febe8620f1ca523b18dd64f82296db # v1.25.0
-        with:
-          fail_on_error: true
 
       - name: Checking unused pkgs using go mod tidy
         run: |
