@@ -77,12 +77,12 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create source CM
 		By(fmt.Sprintf("\nCreating source ConfigMap in %s", tests.ResourceNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, sourceConfigMapYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, "", sourceConfigMapYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Create CM Policy
 		By(fmt.Sprintf("\nCreating Mutate ConfigMap Policy in %s", policyNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, tests.Data)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, "", tests.Data)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(tests.PolicyName)
@@ -90,7 +90,7 @@ func Test_Mutate_Sets(t *testing.T) {
 
 		// Create target CM
 		By(fmt.Sprintf("\nCreating target ConfigMap in %s", tests.ResourceNamespace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, targetConfigMapYaml)
+		_, err = e2eClient.CreateNamespacedResourceYaml(configMapGVR, tests.ResourceNamespace, "", targetConfigMapYaml)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Verify created ConfigMap
@@ -164,7 +164,7 @@ func Test_Mutate(t *testing.T) {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		By(fmt.Sprintf("Creating Namespace: %s...", policyNamespace))
+		By(fmt.Sprintf("Creating Namespace: %s...", test.ResourceNamespace))
 		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.ResourceNamespace))
 		Expect(err).NotTo(HaveOccurred())
 
@@ -180,14 +180,14 @@ func Test_Mutate(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Policy...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = commonE2E.PolicyCreated(test.PolicyName)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Creating Resource...")
-		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, test.ResourceRaw)
+		_, err = e2eClient.CreateNamespacedResourceYaml(test.ResourceGVR, test.ResourceNamespace, "", test.ResourceRaw)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Checking that resource is created...")
@@ -291,7 +291,7 @@ func Test_Mutate_Ingress(t *testing.T) {
 		By(fmt.Sprintf("\n\nStart testing %s", test.testName))
 		gvr := e2e.GetGVR(test.group, test.version, test.rsc)
 		By(fmt.Sprintf("Creating Ingress %v in %s", gvr, nspace))
-		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, test.resource)
+		_, err = e2eClient.CreateNamespacedResourceYaml(gvr, nspace, "", test.resource)
 		Expect(err).NotTo(HaveOccurred())
 
 		By(fmt.Sprintf("Verifying Ingress %v in the Namespace : %s", gvr, nspace))
@@ -312,6 +312,272 @@ func Test_Mutate_Ingress(t *testing.T) {
 		rule := rules[0].(map[string]interface{})
 		host := rule["host"].(string)
 		Expect(host).To(Equal("kuard.mycompany.com"))
+	}
+}
+
+func Test_Mutate_Existing(t *testing.T) {
+	RegisterTestingT(t)
+	if os.Getenv("E2E") == "" {
+		t.Skip("Skipping E2E Test")
+	}
+
+	e2eClient, err := e2e.NewE2EClient()
+	Expect(err).To(BeNil())
+
+	for _, test := range mutateExistingTests {
+		By(fmt.Sprintf("\nStart Mutate Existing Tests: %s", test.TestDescription))
+
+		By("\nCleaning up resources")
+		By("Deleting Cluster Policies...")
+		e2eClient.CleanClusterPolicies(policyGVR)
+
+		By(fmt.Sprintf("Deleting Trigger Resource %v %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+		e2eClient.DeleteNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+
+		By(fmt.Sprintf("Deleting Trigger Namespace: %s...", test.TriggerNamespace))
+		e2eClient.DeleteClusteredResource(namespaceGVR, test.TriggerNamespace)
+
+		By("Wait Till Deletion of Trigger Namespace...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.TriggerNamespace)
+			if err != nil {
+				return nil
+			}
+			return fmt.Errorf("failed to delete namespace: %v", err)
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By(fmt.Sprintf("Deleting Target Resource %v %s/%s...", test.TargetGVR, test.TargetNamespace, test.TargetName))
+		e2eClient.DeleteNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+
+		By(fmt.Sprintf("Deleting Target Namespace: %s...", test.TargetNamespace))
+		e2eClient.DeleteClusteredResource(namespaceGVR, test.TargetNamespace)
+
+		By("Wait Till Deletion of Target Namespace...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.TargetNamespace)
+			if err != nil {
+				return nil
+			}
+			return fmt.Errorf("failed to delete namespace: %v", err)
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Done cleaning up resources\n")
+
+		By(fmt.Sprintf("Creating target Namespace: %s...", test.TargetNamespace))
+		_, err = e2eClient.CreateClusteredResourceYaml(namespaceGVR, newNamespaceYaml(test.TargetNamespace))
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Wait Till Creation of Namespace...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.TargetNamespace)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		By(fmt.Sprintf("Creating Target Resource %v, %s/%s...", test.TargetGVR, test.TargetNamespace, test.TargetName))
+		_, err = e2eClient.CreateNamespacedResourceYaml(test.TargetGVR, test.TargetNamespace, test.TargetName, test.TargetRaw)
+		Expect(err).NotTo(HaveOccurred())
+
+		By("Checking that resource is created...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+
+		switch test.Operation {
+		case createTrigger:
+			By("Operation: createTrigger\n Creating Policy...")
+			_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = commonE2E.PolicyCreated(test.PolicyName)
+			Expect(err).NotTo(HaveOccurred())
+
+			By(fmt.Sprintf("Creating Trigger Resource %v, %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+			_, err = e2eClient.CreateNamespacedResourceYaml(test.TriggerGVR, test.TriggerNamespace, test.TriggerName, test.TriggerRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking that resource is created...")
+			err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+				_, err := e2eClient.GetNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			// wait for UR to be completed
+			// TODO: this should be changed to check the UR for the right state.
+			// Any hard-coded timer may fail in some cases.
+			time.Sleep(5 * time.Second)
+
+			res, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+			Expect(err).NotTo(HaveOccurred())
+
+			actualJSON, err := json.Marshal(res)
+			Expect(err).NotTo(HaveOccurred())
+
+			var actual interface{}
+
+			err = json.Unmarshal(actualJSON, &actual)
+			Expect(err).NotTo(HaveOccurred())
+
+			expected, err := rawYAMLToJSONInterface(test.ExpectedTargetRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validating created resource with the expected pattern...")
+			err = validate.MatchPattern(log.Log, actual, expected)
+			Expect(err).NotTo(HaveOccurred())
+
+		case deleteTrigger:
+			By(fmt.Sprintf("Operation: deleteTrigger\n Creating Trigger Resource %v, %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+			_, err = e2eClient.CreateNamespacedResourceYaml(test.TriggerGVR, test.TriggerNamespace, test.TriggerName, test.TriggerRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking that resource is created...")
+			err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+				_, err := e2eClient.GetNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating Policy...")
+			_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = commonE2E.PolicyCreated(test.PolicyName)
+			Expect(err).NotTo(HaveOccurred())
+
+			By(fmt.Sprintf("Deleting Trigger Resource to Trigger Policy %v %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+			e2eClient.DeleteNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+
+			// wait for UR to be completed
+			time.Sleep(3 * time.Second)
+
+			res, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+			Expect(err).NotTo(HaveOccurred())
+
+			actualJSON, err := json.Marshal(res)
+			Expect(err).NotTo(HaveOccurred())
+
+			var actual interface{}
+
+			err = json.Unmarshal(actualJSON, &actual)
+			Expect(err).NotTo(HaveOccurred())
+
+			expected, err := rawYAMLToJSONInterface(test.ExpectedTargetRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validating created resource with the expected pattern...")
+			err = validate.MatchPattern(log.Log, actual, expected)
+			Expect(err).NotTo(HaveOccurred())
+
+		case createPolicy:
+			By(fmt.Sprintf("Operation: createPolicy\n Creating Trigger Resource %v, %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+			_, err = e2eClient.CreateNamespacedResourceYaml(test.TriggerGVR, test.TriggerNamespace, test.TriggerName, test.TriggerRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Checking that resource is created...")
+			err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+				_, err := e2eClient.GetNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Creating Policy...")
+			_, err = e2eClient.CreateNamespacedResourceYaml(policyGVR, policyNamespace, test.PolicyName, test.PolicyRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = commonE2E.PolicyCreated(test.PolicyName)
+			Expect(err).NotTo(HaveOccurred())
+
+			// wait for UR to be completed
+			time.Sleep(3 * time.Second)
+
+			res, err := e2eClient.GetNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+			Expect(err).NotTo(HaveOccurred())
+
+			actualJSON, err := json.Marshal(res)
+			Expect(err).NotTo(HaveOccurred())
+
+			var actual interface{}
+
+			err = json.Unmarshal(actualJSON, &actual)
+			Expect(err).NotTo(HaveOccurred())
+
+			expected, err := rawYAMLToJSONInterface(test.ExpectedTargetRaw)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("Validating created resource with the expected pattern...")
+			err = validate.MatchPattern(log.Log, actual, expected)
+			Expect(err).NotTo(HaveOccurred())
+		}
+
+		By("Deleting Cluster Policies...")
+		e2eClient.CleanClusterPolicies(policyGVR)
+
+		By(fmt.Sprintf("Deleting Trigger Resource %v %s/%s...", test.TriggerGVR, test.TriggerNamespace, test.TriggerName))
+		e2eClient.DeleteNamespacedResource(test.TriggerGVR, test.TriggerNamespace, test.TriggerName)
+
+		By(fmt.Sprintf("Deleting Trigger Namespace: %s...", test.TriggerNamespace))
+		e2eClient.DeleteClusteredResource(namespaceGVR, test.TriggerNamespace)
+
+		By("Wait Till Deletion of Trigger Namespace...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.TriggerNamespace)
+			if err != nil {
+				return nil
+			}
+			return fmt.Errorf("failed to delete namespace: %v", err)
+		})
+
+		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
+		if err != nil {
+			By(err.Error())
+		}
+
+		By(fmt.Sprintf("Deleting Target Resource %v %s/%s...", test.TargetGVR, test.TargetNamespace, test.TargetName))
+		e2eClient.DeleteNamespacedResource(test.TargetGVR, test.TargetNamespace, test.TargetName)
+
+		By(fmt.Sprintf("Deleting Target Namespace: %s...", test.TargetNamespace))
+		e2eClient.DeleteClusteredResource(namespaceGVR, test.TargetNamespace)
+
+		By("Wait Till Deletion of Target Namespace...")
+		err = e2e.GetWithRetry(1*time.Second, 15, func() error {
+			_, err := e2eClient.GetClusteredResource(namespaceGVR, test.TargetNamespace)
+			if err != nil {
+				return nil
+			}
+			return fmt.Errorf("failed to delete namespace: %v", err)
+		})
+
+		// Do not fail if waiting fails. Sometimes namespace needs time to be deleted.
+		if err != nil {
+			By(err.Error())
+		}
+
+		By("Done\n\n")
 	}
 }
 

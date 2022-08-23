@@ -12,7 +12,12 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/yaml"
 )
+
+var applyHelp = `
+For more information visit: https://kyverno.io/docs/writing-policies/jmespath/ 
+`
 
 // Command returns jp command
 func Command() *cobra.Command {
@@ -22,6 +27,7 @@ func Command() *cobra.Command {
 		Use:          "jp",
 		Short:        "Provides a command-line interface to JMESPath, enhanced with Kyverno specific custom functions",
 		SilenceUsage: true,
+		Example:      applyHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if listFunctions {
 				printFunctionList()
@@ -57,18 +63,20 @@ func Command() *cobra.Command {
 				return nil
 			}
 			var input interface{}
-			var jsonParser *json.Decoder
 			if filename != "" {
-				f, err := ioutil.ReadFile(filename)
+				f, err := ioutil.ReadFile(filepath.Clean(filename))
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
-				if err := json.Unmarshal(f, &input); err != nil {
+				if err := yaml.Unmarshal(f, &input); err != nil {
 					return fmt.Errorf("error parsing input json: %w", err)
 				}
 			} else {
-				jsonParser = json.NewDecoder(os.Stdin)
-				if err := jsonParser.Decode(&input); err != nil {
+				f, err := ioutil.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("error opening input file: %w", err)
+				}
+				if err := yaml.Unmarshal(f, &input); err != nil {
 					return fmt.Errorf("error parsing input json: %w", err)
 				}
 			}
@@ -108,14 +116,14 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&unquoted, "unquoted", "u", false, "If the final result is a string, it will be printed without quotes")
 	cmd.Flags().BoolVar(&ast, "ast", false, "Only print the AST of the parsed expression.  Do not rely on this output, only useful for debugging purposes")
 	cmd.Flags().StringVarP(&exprFile, "expr-file", "e", "", "Read JMESPath expression from the specified file")
-	cmd.Flags().StringVarP(&filename, "filename", "f", "", "Read input JSON from a file instead of stdin")
+	cmd.Flags().StringVarP(&filename, "filename", "f", "", "Read input from a JSON or YAML file instead of stdin")
 	return cmd
 }
 
 func printFunctionList() {
 	functions := []string{}
 	for _, function := range jmespath.GetFunctions() {
-		functions = append(functions, string(function.String()))
+		functions = append(functions, function.String())
 	}
 	sort.Strings(functions)
 	fmt.Println(strings.Join(functions, "\n"))

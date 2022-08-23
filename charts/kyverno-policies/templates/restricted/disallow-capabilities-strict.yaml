@@ -24,6 +24,7 @@ spec:
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: require-drop-all
       match:
@@ -35,9 +36,26 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with merge (index .Values "policyPreconditions" "require-drop-all") (index .Values "policyPreconditions" $name) }}
+      {{- $preconditions1 :=  merge (index .Values "policyPreconditions" "require-drop-all") (index .Values "policyPreconditions" $name) }}
+      {{- if $preconditions1 }}
+      {{- with $preconditions1 }}
       preconditions:
-        {{- toYaml . | nindent 8 }}
+        {{- if .all }}
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
+        {{- toYaml .all | nindent 8 }}
+        {{- else }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- else }}
+      preconditions:
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
       {{- end }}
       validate:
         message: >-
@@ -60,9 +78,26 @@ spec:
       exclude:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with merge (index .Values "policyPreconditions" "adding-capabilities-strict") (index .Values "policyPreconditions" $name) }}
+      {{- $preconditions2 := merge (index .Values "policyPreconditions" "adding-capabilities-strict") (index .Values "policyPreconditions" $name) }}
+      {{- if $preconditions2 }}
+      {{- with $preconditions2 }}
       preconditions:
-        {{- toYaml . | nindent 8 }}
+        {{- if .all }}
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
+        {{- toYaml .all | nindent 8 }}
+        {{- else }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+      {{- else }}
+      preconditions:
+        all:
+        - key: "{{`{{ request.operation }}`}}"
+          operator: NotEquals
+          value: DELETE
       {{- end }}
       validate:
         message: >-

@@ -1,8 +1,22 @@
+## v1.7.2-rc2
+
+### Note
+
+- A new flag `maxQueuedEvents` is added to the Kyverno main container, this flag sets the up-limit of the events that are queued internally.
+## v1.7.2-rc1
+
+### Note
+
+- A new flag `maxReportChangeRequests` is added to the Kyverno main container, this flag sets the up-limit of reportchangerequests that a namespace can take, or clusterreportchangerequests if matching kinds are cluster-wide resources. The default limit is set to 1000, and it's recommended to configure it to a small threshold on large clusters. Here the large clusters are considered that a policy report has more than 1k results. 
+
+
 ## v1.7.0-rc1
 
 ### Note
 
 - `status.ready` of the policy is deprecated in favor of `policy.IsReady()`. The implementation was changed to use `status.conditions` that offer more flexibility. The `status.ready` will be kept for a couple of releases until we remove it in the future.
+- Deprecated flags have been removed.
+- Flags that were overlapping with config map based configuration were removed (`filterK8sResources`, `excludeGroupRole`, `excludeUsername`). They can now be configured using the config map only.
 
 ## v1.6.0-rc1
 ### Note

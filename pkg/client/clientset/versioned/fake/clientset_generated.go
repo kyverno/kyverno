@@ -87,7 +87,7 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return &fakekyvernov1.FakeKyvernoV1{Fake: &c.Fake}
 }
 
-// KyvernoV1alpha2 retrieves the KyvernoV1alpha2Client
+// KyvernoV1beta1 retrieves the KyvernoV1beta1Client
 func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
 	return &fakekyvernov1beta1.FakeKyvernoV1beta1{Fake: &c.Fake}
 }

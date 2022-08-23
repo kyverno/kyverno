@@ -34,14 +34,15 @@ const (
 
 // Severity specifies priority of a policy result
 const (
-	SeverityHigh   = "high"
-	SeverityMedium = "medium"
-	SeverityLow    = "low"
+	SeverityCritical = "critical"
+	SeverityHigh     = "high"
+	SeverityMedium   = "medium"
+	SeverityLow      = "low"
+	SeverityInfo     = "info"
 )
 
 // PolicyReportSummary provides a status count summary
 type PolicyReportSummary struct {
-
 	// Pass provides the count of policies whose requirements were met
 	// +optional
 	Pass int `json:"pass"`
@@ -50,7 +51,7 @@ type PolicyReportSummary struct {
 	// +optional
 	Fail int `json:"fail"`
 
-	// Warn provides the count of unscored policies whose requirements were not met
+	// Warn provides the count of non-scored policies whose requirements were not met
 	// +optional
 	Warn int `json:"warn"`
 
@@ -81,44 +82,45 @@ func (prs PolicyReportSummary) ToMap() map[string]interface{} {
 type PolicyResult string
 
 // PolicySeverity has one of the following values:
+//   - critical
 //   - high
 //   - low
 //   - medium
-// +kubebuilder:validation:Enum=high;low;medium
+//   - info
+// +kubebuilder:validation:Enum=critical;high;low;medium;info
 type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy
 type PolicyReportResult struct {
-
 	// Source is an identifier for the policy engine that manages this report
 	// +optional
 	Source string `json:"source"`
 
-	// Policy is the name of the policy
+	// Policy is the name or identifier of the policy
 	Policy string `json:"policy"`
 
-	// Rule is the name of the policy rule
+	// Rule is the name or identifier of the rule within the policy
 	// +optional
 	Rule string `json:"rule,omitempty"`
 
-	// Resources is an optional reference to the resource checked by the policy and rule
+	// Subjects is an optional reference to the checked Kubernetes resources
 	// +optional
-	Resources []*corev1.ObjectReference `json:"resources,omitempty"`
+	Resources []corev1.ObjectReference `json:"resources,omitempty"`
 
-	// ResourceSelector is an optional selector for policy results that apply to multiple resources.
+	// SubjectSelector is an optional label selector for checked Kubernetes resources.
 	// For example, a policy result may apply to all pods that match a label.
-	// Either a Resource or a ResourceSelector can be specified. If neither are provided, the
-	// result is assumed to be for the policy report scope.
+	// Either a Subject or a SubjectSelector can be specified.
+	// If neither are provided, the result is assumed to be for the policy report scope.
 	// +optional
 	ResourceSelector *metav1.LabelSelector `json:"resourceSelector,omitempty"`
 
-	// Message is a short user friendly description of the policy rule
+	// Description is a short user friendly message for the policy rule
 	Message string `json:"message,omitempty"`
 
 	// Result indicates the outcome of the policy rule execution
 	Result PolicyResult `json:"result,omitempty"`
 
-	// Scored indicates if this policy rule is scored
+	// Scored indicates if this result is scored
 	Scored bool `json:"scored,omitempty"`
 
 	// Properties provides additional information for the policy rule
@@ -131,7 +133,7 @@ type PolicyReportResult struct {
 	// +optional
 	Category string `json:"category,omitempty"`
 
-	// Severity indicates policy severity
+	// Severity indicates policy check result criticality
 	// +optional
 	Severity PolicySeverity `json:"severity,omitempty"`
 }
@@ -170,7 +172,7 @@ type PolicyReport struct {
 
 	// PolicyReportResult provides result details
 	// +optional
-	Results []*PolicyReportResult `json:"results,omitempty"`
+	Results []PolicyReportResult `json:"results,omitempty"`
 }
 
 // PolicyReportList contains a list of PolicyReport
@@ -180,8 +182,4 @@ type PolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []PolicyReport `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&PolicyReport{}, &PolicyReportList{})
 }

@@ -8,8 +8,8 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -18,10 +18,10 @@ import (
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructured,
+func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
-	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
-
+	client dclient.Interface, namespaceLabels map[string]string,
+) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -72,8 +72,7 @@ func applyPolicy(policy kyverno.PolicyInterface, resource unstructured.Unstructu
 	return engineResponses
 }
 
-func mutation(policy kyverno.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
-
+func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,
 		NewResource:     resource,
@@ -136,7 +135,7 @@ func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	var resultPath []string
 	// extract the patch path and value
 	for _, patch := range patches {
-		if data, err := jsonutils.UnmarshalPatch(patch); err != nil {
+		if data, err := jsonutils.UnmarshalPatchOperation(patch); err != nil {
 			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
 			continue
 		} else {

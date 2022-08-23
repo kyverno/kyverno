@@ -71,7 +71,6 @@ func ProcessMetrics(newStr, e2ePolicyName string) error {
 					return nil
 				}
 			}
-
 		}
 	}
 
@@ -95,6 +94,8 @@ func checkPolicyCreated(policyName string) func() error {
 			return fmt.Errorf("policy not created: %v", err)
 		}
 
+		// Wait to make sure that the Policy is ready.
+		time.Sleep(2 * time.Second)
 		return nil
 	}
 }

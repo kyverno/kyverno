@@ -151,19 +151,19 @@ func Test_buildPolicyResults(t *testing.T) {
 }
 
 func Test_calculateSummary(t *testing.T) {
-	results := []*preport.PolicyReportResult{
+	results := []preport.PolicyReportResult{
 		{
-			Resources: make([]*v1.ObjectReference, 5),
+			Resources: make([]v1.ObjectReference, 5),
 			Result:    preport.PolicyResult(preport.StatusPass),
 		},
 		{Result: preport.PolicyResult(preport.StatusFail)},
 		{Result: preport.PolicyResult(preport.StatusFail)},
 		{Result: preport.PolicyResult(preport.StatusFail)},
 		{
-			Resources: make([]*v1.ObjectReference, 1),
+			Resources: make([]v1.ObjectReference, 1),
 			Result:    preport.PolicyResult(preport.StatusPass)},
 		{
-			Resources: make([]*v1.ObjectReference, 4),
+			Resources: make([]v1.ObjectReference, 4),
 			Result:    preport.PolicyResult(preport.StatusPass),
 		},
 	}

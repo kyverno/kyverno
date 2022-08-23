@@ -45,7 +45,7 @@ else # controller should be launched within a cluster
   secret_name="${project_name}-secret"
   echo "Generating secret ${secret_name}..."
   kubectl delete secret "${secret_name}" 2>/dev/null
-  kubectl create secret generic ${secret_name} --namespace ${namespace} --from-file=./certs || exit 3
+  kubectl create secret generic "${secret_name}" --namespace "${namespace}" --from-file=./certs || exit 3
 
   echo "Creating the service ${service_name}..."
   kubectl delete -f crd/service.yaml

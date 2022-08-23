@@ -1,314 +1,281 @@
 package generate
 
-// RoleTests is E2E Test Config for Role and RoleBinding
+import (
+	"time"
+
+	"github.com/kyverno/kyverno/test/e2e"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/yaml"
+
+	. "github.com/onsi/gomega"
+)
+
+var (
+	// Cluster Policy GVR
+	clPolGVR = e2e.GetGVR("kyverno.io", "v1", "clusterpolicies")
+
+	// Namespace GVR
+	nsGVR = e2e.GetGVR("", "v1", "namespaces")
+
+	// ClusterRole GVR
+	crGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterroles")
+
+	// ClusterRoleBinding GVR
+	crbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "clusterrolebindings")
+
+	// Role GVR
+	rGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "roles")
+
+	// RoleBinding GVR
+	rbGVR = e2e.GetGVR("rbac.authorization.k8s.io", "v1", "rolebindings")
+
+	// ConfigMap GVR
+	cmGVR = e2e.GetGVR("", "v1", "configmaps")
+
+	// NetworkPolicy GVR
+	npGVR = e2e.GetGVR("networking.k8s.io", "v1", "networkpolicies")
+)
+
+type testCase struct {
+	// TestName - Name of the Test
+	TestName string
+	// ClusterPolicy - ClusterPolicy yaml file
+	ClusterPolicy resource
+	// SourceResources - Source resources yaml files
+	SourceResources []resource
+	// TriggerResource - Trigger resource yaml files
+	TriggerResource resource
+	// ExpectedResources - Expected resources to pass the test
+	ExpectedResources []expectedResource
+	// Steps - Test case steps
+	Steps []testCaseStep
+}
+
+// roleTests is E2E Test Config for Role and RoleBinding
 // TODO:- Clone for Role and RoleBinding
-var RoleTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// RoleName - Name of the Role to be Created
-	RoleName string
-	// RoleBindingName - Name of the RoleBindingName
-	RoleBindingName string
-	// ResourceNamespace - Namespace for which Role and ReleBinding are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneSourceRoleData - Source Role Name from which Role is Cloned
-	CloneSourceRoleData []byte
-	// CloneSourceRoleBindingData - Source RoleBinding Name from which RoleBinding is Cloned
-	CloneSourceRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ROle and RoleBinding - ([]byte{})
-	Data []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
-}{
+var roleTests = []testCase{
 	{
-		TestName:          "test-role-rolebinding-without-clone",
-		RoleName:          "ns-role",
-		RoleBindingName:   "ns-role-binding",
-		ResourceNamespace: "test",
-		Clone:             false,
-		Sync:              false,
-		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		TestName:        "test-role-rolebinding-without-clone",
+		ClusterPolicy:   clusterPolicy(roleRoleBindingYamlWithSync),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idRole("test", "ns-role")),
+			expectation(idRoleBinding("test", "ns-role-binding")),
+		),
 	},
 	{
-		TestName:          "test-role-rolebinding-withsync-without-clone",
-		RoleName:          "ns-role",
-		RoleBindingName:   "ns-role-binding",
-		ResourceNamespace: "test",
-		Clone:             false,
-		Sync:              true,
-		Data:              roleRoleBindingYamlWithSync,
-		PolicyName:        "gen-role-policy",
+		TestName:        "test-role-rolebinding-withsync-without-clone",
+		ClusterPolicy:   clusterPolicy(roleRoleBindingYamlWithSync),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idRole("test", "ns-role")),
+			expectation(idRoleBinding("test", "ns-role-binding")),
+		),
 	},
 	{
-		TestName:                   "test-role-rolebinding-with-clone",
-		RoleName:                   "ns-role",
-		RoleBindingName:            "ns-role-binding",
-		ResourceNamespace:          "test",
-		Clone:                      true,
-		CloneSourceRoleData:        sourceRoleYaml,
-		CloneSourceRoleBindingData: sourceRoleBindingYaml,
-		CloneNamespace:             "default",
-		Sync:                       false,
-		Data:                       roleRoleBindingYamlWithClone,
-		PolicyName:                 "gen-role-policy",
+		TestName:      "test-role-rolebinding-with-clone",
+		ClusterPolicy: clusterPolicy(roleRoleBindingYamlWithClone),
+		SourceResources: resources(
+			role("default", sourceRoleYaml),
+			roleBinding("default", sourceRoleBindingYaml),
+		),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idRole("test", "ns-role")),
+			expectation(idRoleBinding("test", "ns-role-binding")),
+		),
+	},
+}
+
+// clusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
+var clusterRoleTests = []testCase{
+	{
+		TestName:        "test-clusterrole-clusterrolebinding-without-clone",
+		ClusterPolicy:   clusterPolicy(genClusterRoleYamlWithSync),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idClusterRole("ns-cluster-role")),
+			expectation(idClusterRoleBinding("ns-cluster-role-binding")),
+		),
+	},
+	{
+		TestName:        "test-clusterrole-clusterrolebinding-with-sync-without-clone",
+		ClusterPolicy:   clusterPolicy(genClusterRoleYamlWithSync),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idClusterRole("ns-cluster-role")),
+			expectation(idClusterRoleBinding("ns-cluster-role-binding")),
+		),
+	},
+	{
+		TestName:      "test-clusterrole-clusterrolebinding-with-sync-with-clone",
+		ClusterPolicy: clusterPolicy(clusterRoleRoleBindingYamlWithClone),
+		SourceResources: resources(
+			clusterRole(baseClusterRoleData),
+			clusterRoleBinding(baseClusterRoleBindingData),
+		),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idClusterRole("cloned-cluster-role")),
+			expectation(idClusterRoleBinding("cloned-cluster-role-binding")),
+		),
+	},
+}
+
+// networkPolicyGenerateTests - E2E Test Config for networkPolicyGenerateTests
+var networkPolicyGenerateTests = []testCase{
+	{
+		TestName:        "test-generate-policy-for-namespace-with-label",
+		ClusterPolicy:   clusterPolicy(genNetworkPolicyYaml),
+		TriggerResource: namespace(namespaceWithLabelYaml),
+		ExpectedResources: expectations(
+			expectation(idNetworkPolicy("test", "allow-dns")),
+		),
+	},
+}
+
+var generateNetworkPolicyOnNamespaceWithoutLabelTests = []testCase{
+	{
+		TestName:        "test-generate-policy-for-namespace-label-actions",
+		ClusterPolicy:   clusterPolicy(genNetworkPolicyYaml),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idNetworkPolicy("test", "allow-dns")),
+		),
+		Steps: []testCaseStep{
+			stepResourceNotFound(npGVR, "test", "allow-dns"),
+			stepUpateResource(nsGVR, "", "test", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "metadata", "labels")
+				if err != nil {
+					return err
+				}
+				element["security"] = "standard"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "metadata", "labels")
+			}),
+			stepExpectResource(npGVR, "test", "allow-dns"),
+			stepUpateResource(clPolGVR, "", "add-networkpolicy", func(resource *unstructured.Unstructured) error {
+				return yaml.Unmarshal(updatGenNetworkPolicyYaml, resource)
+			}),
+			stepWaitResource(npGVR, "test", "allow-dns", time.Second, 30, func(resource *unstructured.Unstructured) bool {
+				element, found, err := unstructured.NestedMap(resource.UnstructuredContent(), "spec")
+				if err != nil || !found {
+					return false
+				}
+				return loopElement(false, element)
+			}),
+		},
+	},
+}
+
+// NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
+var generateSynchronizeFlagTests = []testCase{
+	{
+		TestName:        "test-generate-policy-for-namespace-with-label",
+		ClusterPolicy:   clusterPolicy(genNetworkPolicyYaml),
+		TriggerResource: namespace(namespaceWithLabelYaml),
+		ExpectedResources: expectations(
+			expectation(idNetworkPolicy("test", "allow-dns")),
+		),
+		Steps: []testCaseStep{
+			stepBy("When synchronize flag is set to true in the policy and someone deletes the generated resource, kyverno generates back the resource"),
+			stepDeleteResource(npGVR, "test", "allow-dns"),
+			stepExpectResource(npGVR, "test", "allow-dns"),
+			stepBy("Change synchronize to false in the policy, the label in generated resource should be updated to policy.kyverno.io/synchronize: disable"),
+			stepUpateResource(clPolGVR, "", "add-networkpolicy", func(resource *unstructured.Unstructured) error {
+				return yaml.Unmarshal(updateSynchronizeInGeneratePolicyYaml, resource)
+			}),
+			stepWaitResource(npGVR, "test", "allow-dns", time.Second, 30, func(resource *unstructured.Unstructured) bool {
+				labels := resource.GetLabels()
+				return labels["policy.kyverno.io/synchronize"] == "disable"
+			}),
+			stepBy("With synchronize is false, one should be able to delete the generated resource"),
+			stepDeleteResource(npGVR, "test", "allow-dns"),
+			stepResourceNotFound(npGVR, "test", "allow-dns"),
+		},
 	},
 }
 
 // ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
-var ClusterRoleTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// ClusterRoleName - Name of the ClusterRole to be Created
-	ClusterRoleName string
-	// ClusterRoleBindingName - Name of the ClusterRoleBinding
-	ClusterRoleBindingName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
-}{
+var sourceResourceUpdateReplicationTests = []testCase{
 	{
-		TestName:               "test-clusterrole-clusterrolebinding-without-clone",
-		ClusterRoleName:        "ns-cluster-role",
-		ClusterRoleBindingName: "ns-cluster-role-binding",
-		ResourceNamespace:      "test",
-		Clone:                  false,
-		Sync:                   false,
-		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
-	},
-	{
-		TestName:               "test-clusterrole-clusterrolebinding-with-sync-without-clone",
-		ClusterRoleName:        "ns-cluster-role",
-		ClusterRoleBindingName: "ns-cluster-role-binding",
-		ResourceNamespace:      "test",
-		Clone:                  false,
-		Sync:                   true,
-		Data:                   genClusterRoleYamlWithSync,
-		PolicyName:             "gen-cluster-policy",
-	},
-	{
-		TestName:                          "test-clusterrole-clusterrolebinding-with-sync-with-clone",
-		ClusterRoleName:                   "ns-cluster-role",
-		ClusterRoleBindingName:            "ns-cluster-role-binding",
-		ResourceNamespace:                 "test",
-		Clone:                             true,
-		ClonerClusterRoleName:             "base-cluster-role",
-		ClonerClusterRoleBindingName:      "base-cluster-role-binding",
-		CloneSourceClusterRoleData:        baseClusterRoleData,
-		CloneSourceClusterRoleBindingData: baseClusterRoleBindingData,
-		Sync:                              false,
-		Data:                              genClusterRoleYamlWithSync,
-		PolicyName:                        "gen-cluster-policy",
+		TestName:      "test-clone-source-resource-update-replication",
+		ClusterPolicy: clusterPolicy(genCloneConfigMapPolicyYaml),
+		SourceResources: resources(
+			configMap("default", cloneSourceResource),
+		),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idConfigMap("test", "game-demo")),
+		),
+		Steps: []testCaseStep{
+			stepBy("When a source clone resource is updated, the same changes should be replicated in the generated resource"),
+			stepUpateResource(cmGVR, "default", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "5"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepWaitResource(cmGVR, "test", "game-demo", time.Second, 15, func(resource *unstructured.Unstructured) bool {
+				element, found, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil || !found {
+					return false
+				}
+				return element["initial_lives"] == "5"
+			}),
+			stepBy("When a generated resource is edited with some conflicting changes (with respect to the clone source resource or generate data), kyverno will regenerate the resource"),
+			stepUpateResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "15"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepWaitResource(cmGVR, "test", "game-demo", time.Second, 30, func(resource *unstructured.Unstructured) bool {
+				element, found, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil || !found {
+					return false
+				}
+				return element["initial_lives"] == "5"
+			}),
+		},
 	},
 }
 
-// NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var NetworkPolicyGenerateTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// PolicyName - Name of the Policy
-	PolicyName string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-}{
+var generatePolicyDeletionforCloneTests = []testCase{
 	{
-		TestName:          "test-generate-policy-for-namespace-with-label",
-		NetworkPolicyName: "allow-dns",
-		ResourceNamespace: "test",
-		PolicyName:        "add-networkpolicy",
-		Clone:             false,
-		Sync:              true,
-		Data:              genNetworkPolicyYaml,
-	},
-}
-
-// NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var GenerateNetworkPolicyOnNamespaceWithoutLabelTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// GeneratePolicyName - Name of the Policy to be Created/Updated
-	GeneratePolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	UpdateData []byte
-}{
-	{
-		TestName:           "test-generate-policy-for-namespace-label-actions",
-		ResourceNamespace:  "test",
-		NetworkPolicyName:  "allow-dns",
-		GeneratePolicyName: "add-networkpolicy",
-		Clone:              false,
-		Sync:               true,
-		Data:               genNetworkPolicyYaml,
-		UpdateData:         updatGenNetworkPolicyYaml,
-	},
-}
-
-// NetworkPolicyGenerateTests - E2E Test Config for NetworkPolicyGenerateTests
-var GenerateSynchronizeFlagTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// NetworkPolicyName - Name of the NetworkPolicy to be Created
-	NetworkPolicyName string
-	// GeneratePolicyName - Name of the Policy to be Created/Updated
-	GeneratePolicyName string
-	// ResourceNamespace - Namespace for which Resources are Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneClusterRoleName
-	ClonerClusterRoleName string
-	// CloneClusterRoleBindingName
-	ClonerClusterRoleBindingName string
-	// CloneSourceRoleData - Source ClusterRole Name from which ClusterRole is Cloned
-	CloneSourceClusterRoleData []byte
-	// CloneSourceRoleBindingData - Source ClusterRoleBinding Name from which ClusterRoleBinding is Cloned
-	CloneSourceClusterRoleBindingData []byte
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	Data []byte
-	// Data - The Yaml file of the ClusterPolicy of the ClusterRole and ClusterRoleBinding - ([]byte{})
-	UpdateData []byte
-}{
-	{
-		TestName:           "test-generate-policy-for-namespace-with-label",
-		NetworkPolicyName:  "allow-dns",
-		GeneratePolicyName: "add-networkpolicy",
-		ResourceNamespace:  "test",
-		Clone:              false,
-		Sync:               true,
-		Data:               genNetworkPolicyYaml,
-		UpdateData:         updateSynchronizeInGeneratePolicyYaml,
-	},
-}
-
-// ClusterRoleTests - E2E Test Config for ClusterRole and ClusterRoleBinding
-var SourceResourceUpdateReplicationTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// ClusterRoleName - Name of the ClusterRole to be Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy - ([]byte{})
-	Data []byte
-	// ConfigMapName - name of configMap
-	ConfigMapName string
-	// CloneSourceConfigMapData - Source ConfigMap Yaml
-	CloneSourceConfigMapData []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
-}{
-	{
-		TestName:                 "test-clone-source-resource-update-replication",
-		ResourceNamespace:        "test",
-		Clone:                    true,
-		Sync:                     true,
-		Data:                     genCloneConfigMapPolicyYaml,
-		ConfigMapName:            "game-demo",
-		CloneNamespace:           "default",
-		CloneSourceConfigMapData: cloneSourceResource,
-		PolicyName:               "generate-policy",
-	},
-}
-
-var GeneratePolicyDeletionforCloneTests = []struct {
-	//TestName - Name of the Test
-	TestName string
-	// ClusterRoleName - Name of the ClusterRole to be Created
-	ResourceNamespace string
-	// Clone - Set Clone Value
-	Clone bool
-	// CloneNamespace - Namespace where Roles are Cloned
-	CloneNamespace string
-	// Sync - Set Synchronize
-	Sync bool
-	// Data - The Yaml file of the ClusterPolicy - ([]byte{})
-	Data []byte
-	// ConfigMapName - name of configMap
-	ConfigMapName string
-	// CloneSourceConfigMapData - Source ConfigMap Yaml
-	CloneSourceConfigMapData []byte
-	// PolicyName - Name of the Policy
-	PolicyName string
-}{
-	{
-		TestName:                 "test-clone-source-resource-update-replication",
-		ResourceNamespace:        "test",
-		Clone:                    true,
-		Sync:                     true,
-		Data:                     genCloneConfigMapPolicyYaml,
-		ConfigMapName:            "game-demo",
-		CloneNamespace:           "default",
-		CloneSourceConfigMapData: cloneSourceResource,
-		PolicyName:               "generate-policy",
+		TestName:      "test-clone-source-resource-update-replication",
+		ClusterPolicy: clusterPolicy(genCloneConfigMapPolicyYaml),
+		SourceResources: resources(
+			configMap("default", cloneSourceResource),
+		),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idConfigMap("test", "game-demo")),
+		),
+		Steps: []testCaseStep{
+			stepBy("delete policy -> generated resource still exists"),
+			stepDeleteResource(clPolGVR, "", "generate-policy"),
+			stepExpectResource(cmGVR, "test", "game-demo"),
+			stepBy("update source -> generated resource not updated"),
+			stepUpateResource(cmGVR, "default", "game-demo", func(resource *unstructured.Unstructured) error {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				if err != nil {
+					return err
+				}
+				element["initial_lives"] = "5"
+				return unstructured.SetNestedMap(resource.UnstructuredContent(), element, "data")
+			}),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(element["initial_lives"]).To(Equal("2"))
+			}),
+			stepBy("deleted source -> generated resource not deleted"),
+			stepDeleteResource(cmGVR, "default", "game-demo"),
+			stepExpectResource(cmGVR, "test", "game-demo"),
+		},
 	},
 }

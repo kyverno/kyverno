@@ -3,10 +3,8 @@ package cosign
 import (
 	"testing"
 
-	"github.com/sigstore/cosign/pkg/oci"
-
-	"github.com/go-logr/logr"
 	"github.com/sigstore/cosign/pkg/cosign"
+	"github.com/sigstore/cosign/pkg/oci"
 	"gotest.tools/assert"
 )
 
@@ -43,7 +41,6 @@ const tektonPayload = `{
 }`
 
 func TestCosignPayload(t *testing.T) {
-	var log logr.Logger = logr.Discard()
 	image := "registry-v2.nirmata.io/pause"
 	signedPayloads := cosign.SignedPayload{Payload: []byte(cosignPayload)}
 	p, err := extractPayload([]oci.Signature{&sig{cosignPayload: signedPayloads}})
@@ -51,7 +48,7 @@ func TestCosignPayload(t *testing.T) {
 	a := map[string]string{"foo": "bar"}
 	err = checkAnnotations(p, a)
 	assert.NilError(t, err)
-	d, err := extractDigest(image, p, log)
+	d, err := extractDigest(image, p)
 	assert.NilError(t, err)
 	assert.Equal(t, d, "sha256:4a1c4b21597c1b4415bdbecb28a3296c6b5e23ca4f9feeb599860a1dac6a0108")
 
@@ -61,29 +58,26 @@ func TestCosignPayload(t *testing.T) {
 	p2, err := extractPayload(signatures2)
 	assert.NilError(t, err)
 
-	d2, err := extractDigest(image2, p2, log)
+	d2, err := extractDigest(image2, p2)
 	assert.NilError(t, err)
 	assert.Equal(t, d2, "sha256:6a037d5ba27d9c6be32a9038bfe676fb67d2e4145b4f53e9c61fb3e69f06e816")
 }
 
 func TestCosignKeyless(t *testing.T) {
-	var log logr.Logger = logr.Discard()
 	opts := Options{
 		ImageRef: "ghcr.io/jimbugwadia/pause2",
 		Issuer:   "https://github.com/",
 		Subject:  "jim",
-		Log:      log,
 	}
 
-	_, err := VerifySignature(opts)
-	assert.Error(t, err, "subject mismatch: expected jim@nirmata.com, got jim")
+	_, err := verifySignature(opts)
+	assert.Error(t, err, "subject mismatch: expected jim@nirmata.com, received jim")
 
 	opts.Subject = "jim@nirmata.com"
-	_, err = VerifySignature(opts)
-	assert.Error(t, err, "issuer mismatch: expected https://github.com/login/oauth, got https://github.com/")
+	_, err = verifySignature(opts)
+	assert.Error(t, err, "issuer mismatch: expected https://github.com/, received https://github.com/login/oauth")
 
 	opts.Issuer = "https://github.com/login/oauth"
-	_, err = VerifySignature(opts)
+	_, err = verifySignature(opts)
 	assert.NilError(t, err)
-
 }

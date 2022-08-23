@@ -8,17 +8,18 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/kubernetes"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 	yaml1 "sigs.k8s.io/yaml"
 )
@@ -43,11 +44,15 @@ type SkippedInvalidPolicies struct {
 }
 
 var applyHelp = `
+
 To apply on a resource:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a folder of resources:
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
 To apply on a cluster:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 
 To apply policy with variables:
@@ -127,7 +132,7 @@ func Command() *cobra.Command {
 				return err
 			}
 
-			printReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
+			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
 			return nil
 		},
 	}
@@ -138,7 +143,7 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&userInfoPath, "userinfo", "u", "", "Admission Info including Roles, Cluster Roles and Subjects")
 	cmd.Flags().StringVarP(&variablesString, "set", "s", "", "Variables that are required")
 	cmd.Flags().StringVarP(&valuesFile, "values-file", "f", "", "File containing values for policy variables")
-	cmd.Flags().BoolVarP(&policyReport, "policy-report", "", false, "Generates policy report when passed (default policyviolation r")
+	cmd.Flags().BoolVarP(&policyReport, "policy-report", "p", false, "Generates policy report when passed (default policyviolation)")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
@@ -146,7 +151,8 @@ func Command() *cobra.Command {
 }
 
 func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster bool, policyReport bool, mutateLogPath string,
-	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
+	variablesString string, valuesFile string, namespace string, policyPaths []string, stdin bool, registryAccess bool,
+) (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(registryAccess)
 	kubernetesConfig := genericclioptions.NewConfigFlags(true)
@@ -157,7 +163,6 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	}
 
 	variables, globalValMap, valuesMap, namespaceSelectorMap, err := common.GetVariable(variablesString, valuesFile, fs, false, "")
-
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to decode yaml", err)
@@ -170,13 +175,17 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
 
-	var dClient *client.Client
+	var dClient dclient.Interface
 	if cluster {
 		restConfig, err := kubernetesConfig.ToRESTConfig()
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = client.NewClient(restConfig, 15*time.Minute, make(chan struct{}), log.Log)
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			return rc, resources, skipInvalidPolicies, pvInfos, err
+		}
+		dClient, err = dclient.NewClient(restConfig, kubeClient, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
@@ -213,8 +222,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	if !mutateLogPathIsDir && mutateLogPath != "" {
 		mutateLogPath = filepath.Clean(mutateLogPath)
 		// Necessary for us to include the file via variable as it is part of the CLI.
-		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0600) // #nosec G304
-
+		_, err := os.OpenFile(mutateLogPath, os.O_TRUNC|os.O_WRONLY, 0o600) // #nosec G304
 		if err != nil {
 			if !sanitizederror.IsErrorSanitized(err) {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to truncate the existing file at "+mutateLogPath, err)
@@ -246,22 +254,37 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	}
 
 	// get the user info as request info from a different file
-	var userInfo v1.RequestInfo
+	var userInfo v1beta1.RequestInfo
+	var subjectInfo store.Subject
 	if userInfoPath != "" {
-		userInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
+		userInfo, subjectInfo, err = common.GetUserInfoFromPath(fs, userInfoPath, false, "")
 		if err != nil {
 			fmt.Printf("Error: failed to load request info\nCause: %s\n", err)
 			os.Exit(1)
 		}
+		store.SetSubjects(subjectInfo)
 	}
 
 	if variablesString != "" {
 		variables = common.SetInStoreContext(mutatedPolicies, variables)
 	}
 
-	msgPolicies := "1 policy"
-	if len(mutatedPolicies) > 1 {
-		msgPolicies = fmt.Sprintf("%d policies", len(policies))
+	var policyRulesCount, mutatedPolicyRulesCount int
+	for _, policy := range policies {
+		policyRulesCount += len(policy.GetSpec().Rules)
+	}
+
+	for _, policy := range mutatedPolicies {
+		mutatedPolicyRulesCount += len(policy.GetSpec().Rules)
+	}
+
+	msgPolicyRules := "1 policy rule"
+	if policyRulesCount > 1 {
+		msgPolicyRules = fmt.Sprintf("%d policy rules", policyRulesCount)
+	}
+
+	if mutatedPolicyRulesCount > policyRulesCount {
+		msgPolicyRules = fmt.Sprintf("%d policy rules", mutatedPolicyRulesCount)
 	}
 
 	msgResources := "1 resource"
@@ -271,7 +294,11 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 
 	if len(mutatedPolicies) > 0 && len(resources) > 0 {
 		if !stdin {
-			fmt.Printf("\nApplying %s to %s... \n(Total number of result count may vary as the policy is mutated by Kyverno. To check the mutated policy please try with log level 5)\n", msgPolicies, msgResources)
+			if mutatedPolicyRulesCount > policyRulesCount {
+				fmt.Printf("\nauto-generated pod policies\nApplying %s to %s...\n", msgPolicyRules, msgResources)
+			} else {
+				fmt.Printf("\nApplying %s to %s...\n", msgPolicyRules, msgResources)
+			}
 		}
 	}
 
@@ -312,12 +339,11 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
-			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, userInfo, policyReport, namespaceSelectorMap, stdin, rc, true)
+			_, info, err := common.ApplyPolicyOnResource(policy, resource, mutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, userInfo, policyReport, namespaceSelectorMap, stdin, rc, true, nil)
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
 			pvInfos = append(pvInfos, info)
-
 		}
 	}
 
@@ -346,8 +372,8 @@ func checkMutateLogPath(mutateLogPath string) (mutateLogPathIsDir bool, err erro
 	return mutateLogPathIsDir, err
 }
 
-// printReportOrViolation - printing policy report/violations
-func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
+// PrintReportOrViolation - printing policy report/violations
+func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resourcePaths []string, resourcesLen int, skipInvalidPolicies SkippedInvalidPolicies, stdin bool, pvInfos []policyreport.Info) {
 	divider := "----------------------------------------------------------------------"
 
 	if len(skipInvalidPolicies.skipped) > 0 {
@@ -396,7 +422,6 @@ func printReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 	mutateLogPath = filepath.Clean(mutateLogPath)
 	_, err := os.Stat(mutateLogPath)
-
 	if err != nil {
 		if os.IsNotExist(err) {
 			if !mutateLogPathIsDir {
@@ -408,7 +433,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 					folderPath = mutateLogPath[:len(mutateLogPath)-len(s[len(s)-1])-1]
 					_, err := os.Stat(folderPath)
 					if os.IsNotExist(err) {
-						errDir := os.MkdirAll(folderPath, 0750)
+						errDir := os.MkdirAll(folderPath, 0o750)
 						if errDir != nil {
 							return sanitizederror.NewWithError("failed to create directory", err)
 						}
@@ -417,8 +442,7 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 
 				mutateLogPath = filepath.Clean(mutateLogPath)
 				// Necessary for us to create the file via variable as it is part of the CLI.
-				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0600) // #nosec G304
-
+				file, err := os.OpenFile(mutateLogPath, os.O_RDONLY|os.O_CREATE, 0o600) // #nosec G304
 				if err != nil {
 					return sanitizederror.NewWithError("failed to create file", err)
 				}
@@ -427,14 +451,12 @@ func createFileOrFolder(mutateLogPath string, mutateLogPathIsDir bool) error {
 				if err != nil {
 					return sanitizederror.NewWithError("failed to close file", err)
 				}
-
 			} else {
-				errDir := os.MkdirAll(mutateLogPath, 0750)
+				errDir := os.MkdirAll(mutateLogPath, 0o750)
 				if errDir != nil {
 					return sanitizederror.NewWithError("failed to create directory", err)
 				}
 			}
-
 		} else {
 			return sanitizederror.NewWithError("failed to describe file", err)
 		}

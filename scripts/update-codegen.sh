@@ -23,7 +23,7 @@ NIRMATA_PKG=${NIRMATA_ROOT#"${GOPATH}/src/"}
 
 # perform code generation
 ${CODEGEN_PKG}/generate-groups.sh \
-    "deepcopy,client,informer,lister" \
+    "client,informer,lister" \
     ${NIRMATA_PKG}/pkg/client \
-    ${NIRMATA_PKG}/pkg/api \
+    ${NIRMATA_PKG}/api \
     "kyverno:v1 kyverno:v1beta1 kyverno:v1alpha2 policyreport:v1alpha2"

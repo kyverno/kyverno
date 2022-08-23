@@ -5,12 +5,11 @@ import (
 	"reflect"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/engine/context"
 	"gotest.tools/assert"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 func Test_variablesub1(t *testing.T) {
@@ -52,7 +51,7 @@ func Test_variablesub1(t *testing.T) {
 	}
 		`)
 	// userInfo
-	userReqInfo := kyverno.RequestInfo{
+	userReqInfo := urkyverno.RequestInfo{
 		AdmissionUserInfo: authenticationv1.UserInfo{
 			Username: "user1",
 		},
@@ -140,7 +139,7 @@ func Test_variablesub_multiple(t *testing.T) {
 	}
 		`)
 	// userInfo
-	userReqInfo := kyverno.RequestInfo{
+	userReqInfo := urkyverno.RequestInfo{
 		AdmissionUserInfo: authenticationv1.UserInfo{
 			Username: "user1",
 		},
@@ -230,7 +229,7 @@ func Test_variablesubstitution(t *testing.T) {
 
 	resultMap := []byte(`{"data":{"rules":[{"apiGroups":[""],"resourceNames":["temp"],"resources":["namespaces"],"verbs":["*"]}]},"name":"ns-owner-user1"}`)
 	// userInfo
-	userReqInfo := kyverno.RequestInfo{
+	userReqInfo := urkyverno.RequestInfo{
 		AdmissionUserInfo: authenticationv1.UserInfo{
 			Username: "user1",
 		},
