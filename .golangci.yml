@@ -13,7 +13,7 @@ linters:
     - exportloopref
     - gci
     - gochecknoinits
-    - gofmt
+    # - gofmt
     - gofumpt
     - goimports
     - goprintffuncname
@@ -21,7 +21,6 @@ linters:
     - gosimple
     - govet
     - grouper
-    - ifshort
     - importas
     - ineffassign
     - makezero
@@ -49,6 +48,8 @@ run:
     - ".+_test_.+.go"
 
 linters-settings:
+  gofmt:
+    simplify: false
   importas:
     alias:
       - pkg: github.com/kyverno/kyverno/api/(\w+)/(v[\w\d]+)

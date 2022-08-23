@@ -9,8 +9,7 @@ func NewFake() Generator {
 	return &fakeGenerator{}
 }
 
-type fakeGenerator struct {
-}
+type fakeGenerator struct{}
 
 func (f *fakeGenerator) Apply(gr kyvernov1beta1.UpdateRequestSpec, action admissionv1.Operation) error {
 	return nil
