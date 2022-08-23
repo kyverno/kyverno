@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -270,18 +271,17 @@ func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyv
 			return policy, err
 		}
 		return *policyObj, err
-	} else {
-		npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
-		if err != nil {
-			return policy, err
-		}
-		return kyvernov1.ClusterPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pName,
-			},
-			Spec: npolicyObj.Spec,
-		}, nil
 	}
+	npolicyObj, err := c.npolicyLister.Policies(pNamespace).Get(pName)
+	if err != nil {
+		return policy, err
+	}
+	return kyvernov1.ClusterPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pName,
+		},
+		Spec: npolicyObj.Spec,
+	}, nil
 }
 
 func updateStatus(statusControl common.StatusControlInterface, ur kyvernov1beta1.UpdateRequest, err error, genResources []kyvernov1.ResourceSpec, precreatedResource bool) error {
@@ -325,7 +325,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		startTime := time.Now()
 		processExisting = false
-		var genResource kyvernov1.ResourceSpec
+		var genResource []kyvernov1.ResourceSpec
 
 		if len(rule.MatchResources.Kinds) > 0 {
 			if len(rule.MatchResources.Annotations) == 0 && rule.MatchResources.Selector == nil {
@@ -358,7 +358,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 				return nil, processExisting, err
 			}
 			ruleNameToProcessingTime[rule.Name] = time.Since(startTime)
-			genResources = append(genResources, genResource)
+			genResources = append(genResources, genResource...)
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
@@ -372,76 +372,91 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 }
 
 func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiversion string, err error) {
-	if kind, _, err = unstructured.NestedString(object, "kind"); err != nil {
-		return "", "", "", "", err
-	}
+	if _, found, err := unstructured.NestedStringSlice(object, "kinds"); !found {
+		if kind, _, err = unstructured.NestedString(object, "kind"); err != nil {
+			return "", "", "", "", err
+		}
 
-	if name, _, err = unstructured.NestedString(object, "name"); err != nil {
-		return "", "", "", "", err
-	}
+		if name, _, err = unstructured.NestedString(object, "name"); err != nil {
+			return "", "", "", "", err
+		}
 
+		if apiversion, _, err = unstructured.NestedString(object, "apiVersion"); err != nil {
+			return "", "", "", "", err
+		}
+	}
 	if namespace, _, err = unstructured.NestedString(object, "namespace"); err != nil {
 		return "", "", "", "", err
 	}
-
-	if apiversion, _, err = unstructured.NestedString(object, "apiVersion"); err != nil {
-		return "", "", "", "", err
-	}
-
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) (kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
 	var noGenResource kyvernov1.ResourceSpec
+	var newGenResources []kyvernov1.ResourceSpec
 	genUnst, err := GetUnstrRule(rule.Generation.DeepCopy())
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, err
 	}
 
 	genKind, genName, genNamespace, genAPIVersion, err := getResourceInfo(genUnst.Object)
 	if err != nil {
-		return noGenResource, err
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, err
 	}
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
 	// Resource to be generated
-	newGenResource := kyvernov1.ResourceSpec{
-		APIVersion: genAPIVersion,
-		Kind:       genKind,
-		Namespace:  genNamespace,
-		Name:       genName,
-	}
+	//newGenResource := kyvernov1.ResourceSpec{
+	//	APIVersion: genAPIVersion,
+	//	Kind:       genKind,
+	//	Namespace:  genNamespace,
+	//Name:       genName,
+	//}
 
 	genData, _, err := unstructured.NestedMap(genUnst.Object, "data")
 	if err != nil {
-		return noGenResource, fmt.Errorf("failed to read `data`: %v", err.Error())
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, fmt.Errorf("failed to read `data`: %v", err.Error())
 	}
 
 	genClone, _, err := unstructured.NestedMap(genUnst.Object, "clone")
 	if err != nil {
-		return noGenResource, fmt.Errorf("failed to read `clone`: %v", err.Error())
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, fmt.Errorf("failed to read `clone`: %v", err.Error())
+	}
+
+	genCloneList, _, err := unstructured.NestedMap(genUnst.Object, "cloneList")
+	if err != nil {
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, fmt.Errorf("failed to read `clone`: %v", err.Error())
 	}
 
 	if len(genClone) != 0 {
 		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), genClone, client)
+	} else if len(genCloneList) != 0 {
+		rdata, mode, err = manageCloneList(logger, genNamespace, policy.GetName(), genCloneList, client)
 	} else {
 		rdata, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, genData, client)
 	}
 
 	if err != nil {
 		logger.Error(err, "failed to generate resource", "mode", mode)
-		return newGenResource, err
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, err
 	}
 
 	logger.V(3).Info("applying generate rule", "mode", mode)
 
 	if rdata == nil && mode == Update {
 		logger.V(4).Info("no changes required for generate target resource")
-		return newGenResource, nil
+		newGenResources = append(newGenResources, noGenResource)
+		return newGenResources, nil
 	}
 
 	// build the resource template
@@ -483,7 +498,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		// Create the resource
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 		if err != nil {
-			return noGenResource, err
+			newGenResources = append(newGenResources, noGenResource)
+			return newGenResources, err
 		}
 
 		logger.V(2).Info("created generate target resource")
@@ -494,7 +510,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 			_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 			if err != nil {
-				return noGenResource, err
+				newGenResources = append(newGenResources, noGenResource)
+				return newGenResources, err
 			}
 		} else {
 			// if synchronize is true - update the label and generated resource with generate policy data
@@ -515,7 +532,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
 					if err != nil {
 						logger.Error(err, "failed to update resource")
-						return noGenResource, err
+						newGenResources = append(newGenResources, noGenResource)
+						return newGenResources, err
 					}
 				}
 			} else {
@@ -532,7 +550,8 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, generatedObj, false)
 					if err != nil {
 						logger.Error(err, "failed to update label in existing resource")
-						return noGenResource, err
+						newGenResources = append(newGenResources, noGenResource)
+						return newGenResources, err
 					}
 				}
 			}
@@ -540,7 +559,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		logger.V(3).Info("updated generate target resource")
 	}
 
-	return newGenResource, nil
+	return newGenResources, nil
 }
 
 func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
@@ -608,6 +627,60 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 
 	// create the resource based on the reference clone
 	return obj.UnstructuredContent(), Create, nil
+}
+
+func manageCloneList(log logr.Logger, namespace, policy string, clones map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
+	rNamespace, _, err := unstructured.NestedString(clones, "namespace")
+	if err != nil {
+		return nil, Skip, fmt.Errorf("failed to find source namespace: %v", err)
+	}
+
+	kinds, _, err := unstructured.NestedStringSlice(clones, "kinds")
+	if err != nil {
+		return nil, Skip, fmt.Errorf("failed to find source name: %v", err)
+	}
+
+	for _, kind := range kinds {
+		kind, apiVersion := kubeutils.GetKindFromGVK(kind)
+		resources, err := client.ListResource(apiVersion, kind, namespace, nil)
+		if err != nil {
+			return nil, Skip, fmt.Errorf("failed to list resource %s %s/%s. %v", apiVersion, kind, rNamespace, err)
+		}
+
+		for _, rName := range resources.Items {
+			if rNamespace == namespace {
+				log.V(4).Info("skip resource self-clone")
+				return nil, Skip, nil
+			}
+
+			// check if the resource as reference in clone exists?
+			obj, err := client.GetResource(apiVersion, kind, rNamespace, rName.GetName())
+			if err != nil {
+				return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName.GetName(), err)
+			}
+			// remove ownerReferences when cloning resources to other namespace
+			if rNamespace != namespace && obj.GetOwnerReferences() != nil {
+				obj.SetOwnerReferences(nil)
+			}
+
+			// check if resource to be generated exists
+			newResource, err := client.GetResource(apiVersion, kind, namespace, rName.GetName())
+			if err == nil {
+				obj.SetUID(newResource.GetUID())
+				obj.SetSelfLink(newResource.GetSelfLink())
+				obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
+				obj.SetManagedFields(newResource.GetManagedFields())
+				obj.SetResourceVersion(newResource.GetResourceVersion())
+				if reflect.DeepEqual(obj, newResource) {
+					return nil, Skip, nil
+				}
+				return obj.UnstructuredContent(), Update, nil
+			}
+			// create the resource based on the reference clone
+			return obj.UnstructuredContent(), Create, nil
+		}
+	}
+	return nil, Skip, nil
 }
 
 // ResourceMode defines the mode for generated resource

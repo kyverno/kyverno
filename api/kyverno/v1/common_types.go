@@ -442,6 +442,20 @@ type Generation struct {
 	// resource will be created with default data only.
 	// +optional
 	Clone CloneFrom `json:"clone,omitempty" yaml:"clone,omitempty"`
+
+	// CloneList specifies the list of source resource used to populate each generated resource.
+	// +optional
+	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
+}
+
+type CloneList struct {
+	// Namespace specifies source resource namespace.
+	// +optional
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+
+	// Kinds is a list of resource kinds.
+	// +optional
+	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
