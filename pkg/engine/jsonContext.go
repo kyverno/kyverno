@@ -21,7 +21,19 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 
 	policyName := ctx.Policy.GetName()
 	if store.GetMock() {
+		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+		if rule != nil && len(rule.Values) > 0 {
+			variables := rule.Values
+			for key, value := range variables {
+				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
+					return err
+				}
+			}
+		}
+
 		hasRegistryAccess := store.GetRegistryAccess()
+
+		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
 				if err := loadImageData(logger, entry, ctx); err != nil {
@@ -29,15 +41,6 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 				}
 			} else if entry.Variable != nil {
 				if err := loadVariable(logger, entry, ctx); err != nil {
-					return err
-				}
-			}
-		}
-		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
-		if rule != nil && len(rule.Values) > 0 {
-			variables := rule.Values
-			for key, value := range variables {
-				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
 					return err
 				}
 			}

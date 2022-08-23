@@ -1,0 +1,12 @@
+name: chained-variables
+policies:
+  - policy.yaml
+resources:
+  - resource.yaml
+variables: variables.yaml
+results:
+- policy: deny-something
+  rule: deny-everything
+  resource: valid-pod
+  kind: Pod
+  result: pass

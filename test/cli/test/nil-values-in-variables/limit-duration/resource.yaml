@@ -1,0 +1,28 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: letsencrypt-crt
+spec:
+  secretName: letsencrypt-crt-secret
+  dnsNames:
+  - example.com
+  - foo.example.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: Issuer
+    group: cert-manager.io
+  # duration  field is not present, therefore nil be assigned.
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: acme-crt
+spec:
+  secretName: acme-crt-secret
+  dnsNames:
+  - example.com
+  issuerRef:
+    name: acme-prod
+    kind: Issuer
+    group: cert-manager.io
+  # duration  field is not present, therefore nil be assigned.

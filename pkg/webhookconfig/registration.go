@@ -428,7 +428,7 @@ func (wrc *Register) checkEndpoint() error {
 		}
 		for _, addr := range subset.Addresses {
 			if utils.ContainsString(ips, addr.IP) {
-				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
+				wrc.log.V(2).Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
 				return nil
 			}
 		}

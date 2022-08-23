@@ -44,11 +44,15 @@ type SkippedInvalidPolicies struct {
 }
 
 var applyHelp = `
+
 To apply on a resource:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a folder of resources:
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
 To apply on a cluster:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 
 To apply policy with variables:
