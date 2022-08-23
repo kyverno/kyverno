@@ -54,7 +54,7 @@ func newFixture(t *testing.T) *fixture {
 
 	scheme := runtime.NewScheme()
 	// Create mock client
-	client, err := NewMockClient(scheme, gvrToListKind, objects...)
+	client, err := NewFakeClient(scheme, gvrToListKind, objects...)
 	if err != nil {
 		t.Fatal(err)
 	}

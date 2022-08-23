@@ -202,30 +202,21 @@ type Attestation struct {
 
 // Validate implements programmatic validation
 func (iv *ImageVerification) Validate(path *field.Path) (errs field.ErrorList) {
-	if iv.Image == "" && len(iv.ImageReferences) == 0 {
+	copy := iv.Convert()
+
+	if len(copy.ImageReferences) == 0 {
 		errs = append(errs, field.Invalid(path, iv, "An image reference is required"))
 	}
 
-	hasKey := iv.Key != ""
-	hasIssuer := iv.Issuer != ""
-	hasSubject := iv.Subject != ""
-	hasRoots := iv.Roots != ""
-	hasKeyless := hasIssuer || hasSubject || hasRoots
-	hasAttestors := len(iv.Attestors) > 0
+	hasAttestors := len(copy.Attestors) > 0
+	hasAttestations := len(copy.Attestations) > 0
 
-	if (hasKey && (hasKeyless || hasAttestors)) ||
-		(hasKeyless && (hasKey || hasAttestors)) ||
-		(hasAttestors && (hasKey || hasKeyless)) ||
-		(!hasKey && !hasKeyless && !hasAttestors) {
-		errs = append(errs, field.Invalid(path, iv, "Either a static key, keyless, or an attestor is required"))
-	}
-
-	if len(iv.Attestors) > 1 {
-		errs = append(errs, field.Invalid(path, iv, "Only one attestor is currently supported"))
+	if hasAttestations && !hasAttestors {
+		errs = append(errs, field.Invalid(path, iv, "An attestor is required"))
 	}
 
 	attestorsPath := path.Child("attestors")
-	for i, as := range iv.Attestors {
+	for i, as := range copy.Attestors {
 		attestorErrors := as.Validate(attestorsPath.Index(i))
 		errs = append(errs, attestorErrors...)
 	}
@@ -339,35 +330,42 @@ func (ka *KeylessAttestor) Validate(path *field.Path) (errs field.ErrorList) {
 }
 
 func (iv *ImageVerification) Convert() *ImageVerification {
-	if len(iv.ImageReferences) > 0 || len(iv.Attestors) > 0 {
+	if iv.Image == "" && iv.Key == "" && iv.Issuer == "" {
 		return iv
 	}
 
 	copy := iv.DeepCopy()
-	copy.Attestations = iv.Attestations
+	copy.Image = ""
+	copy.Issuer = ""
+	copy.Subject = ""
+	copy.Roots = ""
 
 	if iv.Image != "" {
-		copy.ImageReferences = []string{iv.Image}
-	}
-
-	attestor := Attestor{
-		Annotations: iv.Annotations,
-	}
-
-	if iv.Key != "" {
-		attestor.Keys = &StaticKeyAttestor{
-			PublicKeys: iv.Key,
-		}
-	} else if iv.Issuer != "" {
-		attestor.Keyless = &KeylessAttestor{
-			Issuer:  iv.Issuer,
-			Subject: iv.Subject,
-			Roots:   iv.Roots,
-		}
+		copy.ImageReferences = append(copy.ImageReferences, iv.Image)
 	}
 
 	attestorSet := AttestorSet{}
-	attestorSet.Entries = append(attestorSet.Entries, attestor)
-	copy.Attestors = append(copy.Attestors, attestorSet)
+	if len(iv.Annotations) > 0 || iv.Key != "" || iv.Issuer != "" {
+		attestor := Attestor{
+			Annotations: iv.Annotations,
+		}
+
+		if iv.Key != "" {
+			attestor.Keys = &StaticKeyAttestor{
+				PublicKeys: iv.Key,
+			}
+		} else if iv.Issuer != "" {
+			attestor.Keyless = &KeylessAttestor{
+				Issuer:  iv.Issuer,
+				Subject: iv.Subject,
+				Roots:   iv.Roots,
+			}
+		}
+
+		attestorSet.Entries = append(attestorSet.Entries, attestor)
+		copy.Attestors = append(copy.Attestors, attestorSet)
+	}
+
+	copy.Attestations = iv.Attestations
 	return copy
 }

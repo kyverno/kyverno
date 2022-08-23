@@ -1035,7 +1035,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 
 // initializeMockController initializes a basic Generate Controller with a fake dynamic client.
 func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
-	client, err := dclient.NewMockClient(runtime.NewScheme(), nil, objects...)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
 	if err != nil {
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err

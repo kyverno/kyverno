@@ -178,7 +178,7 @@ func GenerateRulePatches(spec *kyvernov1.Spec, controllers string) (rulePatches 
 				operation = "replace"
 				patchPostion = existingIndex
 			}
-			patch := jsonutils.NewPatch(fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)), operation, genRule)
+			patch := jsonutils.NewPatchOperation(fmt.Sprintf("/spec/rules/%s", strconv.Itoa(patchPostion)), operation, genRule)
 			pbytes, err := patch.Marshal()
 			if err != nil {
 				errs = append(errs, err)
@@ -296,7 +296,11 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		return spec.Rules
 	}
 	var out []kyvernov1.Rule
-	out = append(out, spec.Rules...)
+	for _, rule := range spec.Rules {
+		if !isAutogenRuleName(rule.Name) {
+			out = append(out, rule)
+		}
+	}
 	out = append(out, genRules...)
 	return out
 }

@@ -15,12 +15,12 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"go.uber.org/multierr"
 	admissionv1 "k8s.io/api/admission/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,9 +58,13 @@ const (
 )
 
 func main() {
-	klog.InitFlags(nil)
-	log.SetLogger(klogr.New().WithCallDepth(1))
-	// arguments
+	// clear flags initialized in static dependencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}
+
+	klog.InitFlags(nil) // add the block above before invoking klog.InitFlags()
+	log.SetLogger(klogr.New())
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -82,17 +86,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	// DYNAMIC CLIENT
-	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, 15*time.Minute, stopCh)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
+	// DYNAMIC CLIENT
+	// - client for all registered resources
+	client, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
@@ -135,7 +139,7 @@ func main() {
 		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to fetch root CA secret", "name", name, "error", err.Error())
+			log.Log.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
@@ -144,14 +148,14 @@ func main() {
 		name = tls.GenerateTLSPairSecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
+			log.Log.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
 		}
 
 		if err = acquireLeader(ctx, kubeClient); err != nil {
-			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
+			log.Log.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
@@ -170,7 +174,7 @@ func main() {
 		}
 		// if there is any failure then we fail process
 		if failure {
-			log.Log.Info("failed to cleanup prior configurations")
+			log.Log.V(2).Info("failed to cleanup prior configurations")
 			os.Exit(1)
 		}
 
@@ -189,9 +193,9 @@ func main() {
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 	if err != nil {
-		log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+		log.Log.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
-		log.Log.Info("Leader was elected, quiting")
+		log.Log.V(2).Info("Leader was elected, quitting")
 		os.Exit(0)
 	}
 
@@ -340,6 +344,8 @@ func removePolicyReport(client dclient.Interface, kind string) error {
 	return nil
 }
 
+// Deprecated: New ClusterPolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
 
@@ -350,12 +356,14 @@ func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
+		if cpolr.GetName() == policyreport.GeneratePolicyReportName("", "") {
 			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
 		}
 	}
 }
 
+// Deprecated: New PolicyReports already has required labels, will be removed in
+// 1.8.0 version
 func addPolicyReportSelectorLabel(client dclient.Interface) {
 	logger := log.Log.WithName("addPolicyReportSelectorLabel")
 
@@ -366,7 +374,7 @@ func addPolicyReportSelectorLabel(client dclient.Interface) {
 	}
 
 	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
+		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace(), "") {
 			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
 		}
 	}
@@ -409,7 +417,7 @@ func deleteResource(client dclient.Interface, apiversion, kind, ns, name string)
 		return
 	}
 
-	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
+	log.Log.V(2).Info("successfully cleaned up resource", "kind", kind, "name", name)
 }
 
 func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name string) {
@@ -433,7 +441,7 @@ func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name strin
 		return
 	}
 
-	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
+	log.Log.V(2).Info("successfully updated resource labels", "kind", kind, "name", name)
 }
 
 func convertGR(pclient kyvernoclient.Interface) error {
@@ -496,6 +504,6 @@ func convertGR(pclient kyvernoclient.Interface) error {
 		}
 	}
 
-	err = engineUtils.CombineErrors(errors)
+	err = multierr.Combine(errors...)
 	return err
 }

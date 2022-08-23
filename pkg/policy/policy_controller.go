@@ -28,6 +28,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,6 +79,8 @@ type PolicyController struct {
 	// nsLister can list/get namespaces from the shared informer's store
 	nsLister corev1listers.NamespaceLister
 
+	informersSynced []cache.InformerSynced
+
 	// Resource manager, manages the mapping for already processed resource
 	rm resourceManager
 
@@ -93,7 +96,7 @@ type PolicyController struct {
 
 	log logr.Logger
 
-	promConfig *metrics.PromConfig
+	metricsConfig *metrics.MetricsConfig
 }
 
 // NewPolicyController create a new PolicyController
@@ -111,7 +114,7 @@ func NewPolicyController(
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
-	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 ) (*PolicyController, error) {
 	// Event broad caster
 	eventBroadcaster := record.NewBroadcaster()
@@ -134,16 +137,16 @@ func NewPolicyController(
 		prGenerator:        prGenerator,
 		policyReportEraser: policyReportEraser,
 		reconcilePeriod:    reconcilePeriod,
-		promConfig:         promConfig,
+		metricsConfig:      metricsConfig,
 		log:                log,
 	}
 
 	pc.pLister = pInformer.Lister()
 	pc.npLister = npInformer.Lister()
-
 	pc.nsLister = namespaces.Lister()
 	pc.urLister = urInformer.Lister()
 
+	pc.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 	// resource manager
 	// rebuild after 300 seconds/ 5 mins
 	pc.rm = NewResourceManager(30)
@@ -231,18 +234,10 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deletePolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyvernov1.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
-		if !ok {
-			logger.Info("tombstone container object that is not a policy", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
@@ -330,18 +325,10 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 	logger := pc.log
-	p, ok := obj.(*kyvernov1.Policy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.Policy)
-		if !ok {
-			logger.Info("tombstone container object that is not a policy", "obj", obj)
-			return
-		}
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 
 	// register kyverno_policy_rule_info_total metric concurrently
@@ -405,7 +392,7 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -413,6 +400,10 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("PolicyController", stopCh, pc.informersSynced...) {
+		return
+	}
 
 	pc.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    pc.addPolicy,
@@ -430,7 +421,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, stopCh <-c
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
 
-	go pc.forceReconciliation(reconcileCh, stopCh)
+	go pc.forceReconciliation(reconcileCh, cleanupChangeRequest, stopCh)
 
 	<-stopCh
 }

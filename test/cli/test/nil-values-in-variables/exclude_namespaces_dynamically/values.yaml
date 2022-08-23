@@ -1,0 +1,10 @@
+policies:
+  - name: exclude-namespaces-example
+    rules:
+      - name: exclude-namespaces-dynamically
+    resources:
+    - name: bad-pod01
+      values:
+        namespacefilters.data.exclude: "[\"default\", \"test\"]"
+        request.namespace: default
+    - name: bad-pod02

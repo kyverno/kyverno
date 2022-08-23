@@ -8,8 +8,12 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	"github.com/kyverno/kyverno/test/e2e/framework"
+	"github.com/kyverno/kyverno/test/e2e/framework/id"
+	"github.com/kyverno/kyverno/test/e2e/framework/step"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 var (
@@ -148,4 +152,26 @@ func TestImageVerify(t *testing.T) {
 	//CleanUp CRDs
 	e2eClient.DeleteClusteredResource(crdGVR, crdName)
 
+}
+
+func Test_BoolFields(t *testing.T) {
+	framework.Setup(t)
+	for _, field := range []string{"mutateDigest", "verifyDigest", "required"} {
+		framework.RunSubTest(t, field,
+			step.CreateClusterPolicy(cpolVerifyImages),
+			step.By(fmt.Sprintf("Checking spec.rules[0].verifyImages[0].%s is false ...", field)),
+			step.ExpectResource(id.ClusterPolicy("verify-images"), func(resource *unstructured.Unstructured) {
+				rules, found, err := unstructured.NestedSlice(resource.UnstructuredContent(), "spec", "rules")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(found).To(BeTrue())
+				verifyImages, found, err := unstructured.NestedSlice(rules[0].(map[string]interface{}), "verifyImages")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(found).To(BeTrue())
+				mutateDigest, found, err := unstructured.NestedBool(verifyImages[0].(map[string]interface{}), field)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(found).To(BeTrue())
+				Expect(mutateDigest).To(BeFalse())
+			}),
+		)
+	}
 }

@@ -33,6 +33,10 @@ func (i *ImageInfo) String() string {
 	}
 }
 
+func (i *ImageInfo) ReferenceWithTag() string {
+	return i.Registry + "/" + i.Path + ":" + i.Tag
+}
+
 func GetImageInfo(image string) (*ImageInfo, error) {
 	image = addDefaultDomain(image)
 	ref, err := reference.Parse(image)

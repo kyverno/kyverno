@@ -26,6 +26,10 @@ import (
 
 type concurrentMap struct{ cmap.ConcurrentMap }
 
+type ValidateInterface interface {
+	ValidateResource(resource unstructured.Unstructured, apiVersion, kind string) error
+}
+
 // Controller represents OpenAPIController
 type Controller struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}
@@ -364,7 +368,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interfa
 		return getBoolValue(kindSchema)
 	}
 
-	log.Log.Info("unknown type", types[0])
+	log.Log.V(2).Info("unknown type", types[0])
 	return nil
 }
 

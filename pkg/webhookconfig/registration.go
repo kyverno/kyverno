@@ -40,8 +40,9 @@ const (
 // 5. Webhook Status Mutation
 type Register struct {
 	// clients
-	kubeClient   kubernetes.Interface
-	clientConfig *rest.Config
+	kubeClient    kubernetes.Interface
+	kyvernoClient kyvernoclient.Interface
+	clientConfig  *rest.Config
 
 	// listers
 	mwcLister   admissionregistrationv1listers.MutatingWebhookConfigurationLister
@@ -84,6 +85,7 @@ func NewRegister(
 	register := &Register{
 		clientConfig:         clientConfig,
 		kubeClient:           kubeClient,
+		kyvernoClient:        kyvernoClient,
 		mwcLister:            mwcInformer.Lister(),
 		vwcLister:            vwcInformer.Lister(),
 		kDeplLister:          kDeplInformer.Lister(),
@@ -161,14 +163,47 @@ func (wrc *Register) Check() error {
 }
 
 // Remove removes all webhook configurations
-func (wrc *Register) Remove(cleanUp chan<- struct{}) {
-	defer close(cleanUp)
+func (wrc *Register) Remove(cleanupKyvernoResource bool, wg *sync.WaitGroup) {
+	defer wg.Done()
 	// delete Lease object to let init container do the cleanup
 	if err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{}); err != nil && errorsapi.IsNotFound(err) {
 		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
 	}
-	if wrc.shouldCleanupKyvernoResource() {
+	if cleanupKyvernoResource {
 		wrc.removeWebhookConfigurations()
+	}
+}
+
+func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	if !kyvernoInTermination {
+		return
+	}
+
+	logger := wrc.log.WithName("ResetPolicyStatus")
+	cpols, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().List(context.TODO(), metav1.ListOptions{})
+	if err == nil {
+		for _, cpol := range cpols.Items {
+			cpol.Status.SetReady(false)
+			if _, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed to set ClusterPolicy status READY=false", "name", cpol.GetName())
+			}
+		}
+	} else {
+		logger.Error(err, "failed to list clusterpolicies")
+	}
+
+	pols, err := wrc.kyvernoClient.KyvernoV1().Policies(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	if err == nil {
+		for _, pol := range pols.Items {
+			pol.Status.SetReady(false)
+			if _, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
+				logger.Error(err, "failed to set Policy status READY=false", "namespace", pol.GetNamespace(), "name", pol.GetName())
+			}
+		}
+	} else {
+		logger.Error(err, "failed to list namespaced policies")
 	}
 }
 
@@ -246,7 +281,12 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		if retry {
 			go func() {
 				time.Sleep(1 * time.Second)
-				wrc.UpdateWebhookChan <- true
+				select {
+				case wrc.UpdateWebhookChan <- true:
+					return
+				default:
+					return
+				}
 			}()
 		}
 	}
@@ -375,7 +415,7 @@ func (wrc *Register) checkEndpoint() error {
 		}
 		for _, addr := range subset.Addresses {
 			if utils.ContainsString(ips, addr.IP) {
-				wrc.log.Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
+				wrc.log.V(2).Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
 				return nil
 			}
 		}
@@ -515,7 +555,7 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admissio
 	return nil
 }
 
-func (wrc *Register) shouldCleanupKyvernoResource() bool {
+func (wrc *Register) ShouldCleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
 	if err != nil {
