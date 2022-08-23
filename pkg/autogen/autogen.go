@@ -296,7 +296,11 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		return spec.Rules
 	}
 	var out []kyvernov1.Rule
-	out = append(out, spec.Rules...)
+	for _, rule := range spec.Rules {
+		if !isAutogenRuleName(rule.Name) {
+			out = append(out, rule)
+		}
+	}
 	out = append(out, genRules...)
 	return out
 }
