@@ -4,6 +4,22 @@ import (
 	"testing"
 )
 
+func Test_Raw(t *testing.T) {
+	f := func(path string) {
+		p, err := NewAPIPath(path)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+
+		if p.Raw != path {
+			t.Errorf("expected raw path %s got %s", path, p.Raw)
+		}
+	}
+
+	f("/apis/cluster.karmada.io/v1alpha1/clusters/member1/proxy/api/v1/namespaces/{{ request.namespace }}/pods")
+}
+
 func Test_Paths(t *testing.T) {
 	f := func(path, expected string) {
 		p, err := NewAPIPath(path)

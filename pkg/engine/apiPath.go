@@ -12,6 +12,7 @@ type APIPath struct {
 	ResourceType string
 	Name         string
 	Namespace    string
+	Raw          string
 }
 
 // NewAPIPath validates and parses an API path.
@@ -19,6 +20,12 @@ type APIPath struct {
 func NewAPIPath(path string) (*APIPath, error) {
 	trimmedPath := strings.Trim(path, "/ ")
 	paths := strings.Split(trimmedPath, "/")
+
+	if paths[0] == "apis" && len(paths) > 7 {
+		return &APIPath{
+			Raw: path,
+		}, nil
+	}
 
 	if len(paths) < 3 || len(paths) > 7 {
 		return nil, fmt.Errorf("invalid path length %s", path)
