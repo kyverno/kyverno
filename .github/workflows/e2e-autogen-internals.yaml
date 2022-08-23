@@ -64,7 +64,7 @@ jobs:
           echo ">>> Install Kyverno"
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
-          sed -e 's/--autogenInternals:false$/--autogenInternals:true/g' | \
+          sed -e 's/--autogenInternals:true$/--autogenInternals:false/g' | \
           kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
@@ -76,7 +76,7 @@ jobs:
           echo ">>> Expose the Kyverno's service's metric server to the host"
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
-          export FLAG_AUTOGEN_INTERNALS=true
+          export FLAG_AUTOGEN_INTERNALS=false
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
 
