@@ -122,7 +122,7 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 		return false
 	}
 
-	log.Log.Info("CRD found", "gvr", gvr.String())
+	log.Log.V(2).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
@@ -346,7 +346,6 @@ func OverrideRuntimeErrorHandler() {
 		runtime.ErrorHandlers[0] = func(err error) {
 			logger.V(6).Info("runtime error: %s", err)
 		}
-
 	} else {
 		runtime.ErrorHandlers = []func(err error){
 			func(err error) {

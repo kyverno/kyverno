@@ -21,11 +21,11 @@ func registerPolicyChangesMetric(
 	}
 	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (policyNamespace != "" && policyNamespace != "-") && utils.ContainsString(excludeNamespaces, policyNamespace) {
-		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", policyNamespace, excludeNamespaces))
 		return nil
 	}
 	if (policyNamespace != "" && policyNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, policyNamespace) {
-		m.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_changes_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", policyNamespace, includeNamespaces))
 		return nil
 	}
 

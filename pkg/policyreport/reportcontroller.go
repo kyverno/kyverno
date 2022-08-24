@@ -232,7 +232,7 @@ func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
 	if ok {
 		g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
 	} else {
-		g.log.Info("Failed to get deleted object", "obj", obj)
+		g.log.V(2).Info("Failed to get deleted object", "obj", obj)
 	}
 	g.ReconcileCh <- false
 }
@@ -299,7 +299,7 @@ func (g *ReportGenerator) processNextWorkItem() bool {
 	keyStr, ok := key.(string)
 	if !ok {
 		g.queue.Forget(key)
-		g.log.Info("incorrect type; expecting type 'string'", "obj", key)
+		g.log.V(2).Info("incorrect type; expecting type 'string'", "obj", key)
 		return true
 	}
 
@@ -367,7 +367,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace, policyName))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
-			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
+			g.log.V(2).Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
 			return aggregatedRequests, nil
 		}
 	}
@@ -524,7 +524,6 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-
 	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
@@ -589,7 +588,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
 
-	selector := labels.NewSelector()
+	var selector labels.Selector
 	if namespace == "" {
 		if toggle.SplitPolicyReport() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))

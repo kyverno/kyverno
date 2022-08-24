@@ -69,7 +69,7 @@ func processImageValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyver
 func validateImage(ctx *PolicyContext, imageVerify *kyvernov1.ImageVerification, name string, imageInfo apiutils.ImageInfo, log logr.Logger) error {
 	image := imageInfo.String()
 	if imageVerify.VerifyDigest && imageInfo.Digest == "" {
-		log.Info("missing digest", "image", imageInfo.String())
+		log.V(2).Info("missing digest", "image", imageInfo.String())
 		return fmt.Errorf("missing digest for %s", image)
 	}
 

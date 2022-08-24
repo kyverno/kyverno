@@ -253,7 +253,7 @@ func (v *validator) validate() *response.RuleResponse {
 		return ruleResponse
 	}
 
-	v.log.Info("invalid validation rule: either patterns or deny conditions are expected")
+	v.log.V(2).Info("invalid validation rule: either patterns or deny conditions are expected")
 	return nil
 }
 
@@ -278,7 +278,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	for _, foreach := range foreachList {
 		elements, err := evaluateList(foreach.List, v.ctx.JSONContext)
 		if err != nil {
-			v.log.Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
+			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
 
@@ -315,12 +315,19 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 		foreachValidator := newForeachValidator(foreach, v.rule, ctx, v.log)
 		r := foreachValidator.validate()
 		if r == nil {
-			v.log.Info("skip rule due to empty result")
+			v.log.V(2).Info("skip rule due to empty result")
 			continue
 		} else if r.Status == response.RuleStatusSkip {
-			v.log.Info("skip rule", "reason", r.Message)
+			v.log.V(2).Info("skip rule", "reason", r.Message)
 			continue
 		} else if r.Status != response.RuleStatusPass {
+			if r.Status == response.RuleStatusError {
+				if i < len(elements)-1 {
+					continue
+				}
+				msg := fmt.Sprintf("validation failure: %v", r.Message)
+				return ruleResponse(*v.rule, response.Validation, msg, r.Status, nil), applyCount
+			}
 			msg := fmt.Sprintf("validation failure: %v", r.Message)
 			return ruleResponse(*v.rule, response.Validation, msg, r.Status, nil), applyCount
 		}
@@ -595,7 +602,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 
 	msgRaw, sErr := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.rule.Validation.Message)
 	if sErr != nil {
-		v.log.Info("failed to substitute variables in message: %v", sErr)
+		v.log.V(2).Info("failed to substitute variables in message: %v", sErr)
 	}
 
 	msg := msgRaw.(string)

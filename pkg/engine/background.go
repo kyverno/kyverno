@@ -13,7 +13,8 @@ import (
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
-//    - the caller has to check the ruleResponse to determine whether the path exist
+//   - the caller has to check the ruleResponse to determine whether the path exist
+//
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func ApplyBackgroundChecks(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policyStartTime := time.Now()
