@@ -524,7 +524,6 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-
 	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
 	if err != nil {
 		return fmt.Errorf("unable to list namespace %v", err)
@@ -589,7 +588,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
 
-	selector := labels.NewSelector()
+	var selector labels.Selector
 	if namespace == "" {
 		if toggle.SplitPolicyReport() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))

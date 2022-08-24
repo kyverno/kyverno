@@ -36,11 +36,9 @@ const (
 // latestTimestamp is longer than idleCheckInterval, the monitor triggers an
 // annotation update; otherwise lastSeenRequestTime is updated to latestTimestamp.
 //
-//
 // Webhook configurations are checked every tickerInterval across all instances.
 // Currently the check only queries for the expected resource name, and does
 // not compare other details like the webhook settings.
-//
 type Monitor struct {
 	// leaseClient is used to manage Kyverno lease
 	leaseClient coordinationv1.LeaseInterface
