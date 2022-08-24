@@ -2365,6 +2365,118 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.PodSecurity">PodSecurity
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>level</code></br>
+<em>
+k8s.io/pod-security-admission/api.Level
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code></br>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.PodSecurityStandard">PodSecurityStandard
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controlName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Required</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>restrictedField</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Optional</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.PolicyInterface">PolicyInterface
 </h3>
 <p>
@@ -3262,6 +3374,18 @@ Deny
 <td>
 <em>(Optional)</em>
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code></br>
+<em>
+<a href="#kyverno.io/v1.PodSecurity">
+PodSecurity
+</a>
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
