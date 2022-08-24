@@ -264,7 +264,7 @@ func validateString(log logr.Logger, value interface{}, pattern string, operator
 }
 
 // validateNumberWithStr compares quantity if pattern type is quantity
-//  or a wildcard match to pattern string
+// or a wildcard match to pattern string
 func validateNumberWithStr(log logr.Logger, value interface{}, pattern string, operator operator.Operator) bool {
 	typedValue, err := convertNumberToString(value)
 	if err != nil {
