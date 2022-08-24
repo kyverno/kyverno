@@ -686,7 +686,7 @@ func containersMatchingImages(exclude []*kyvernov1.PodSecurityStandard, modularC
 }
 
 // Get copy of pod with containers (containers, initContainers, ephemeralContainers) matching the exclude.image
-func getPodWithMatchingContainers(exclude []*kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
 	podCopy = *pod
 	podCopy.Spec.Containers = []corev1.Container{}
 	podCopy.Spec.InitContainers = []corev1.Container{}
@@ -735,7 +735,7 @@ func getPodWithMatchingContainers(exclude []*kyvernov1.PodSecurityStandard, pod 
 }
 
 // Get containers NOT matching images specified in Exclude values
-func getPodWithNotMatchingContainers(exclude []*kyvernov1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithNotMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
 	// Only copy containers because we have already evaluated the pod-level controls
 	// e.g.: spec.securityContext.hostProcess
 	podCopy.Spec.Containers = []corev1.Container{}
@@ -829,7 +829,7 @@ func removePSSChecks(pssChecks []PSSCheckResult, rule *kyvernov1.PodSecurity) []
 	return pssChecks
 }
 
-func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude *kyvernov1.PodSecurityStandard, restrictedField string) (bool, error) {
+func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude kyvernov1.PodSecurityStandard, restrictedField string) (bool, error) {
 	if err := enginectx.AddJSONObject(ctx, pod); err != nil {
 		return false, errors.Wrap(err, "failed to add podSpec to engine context")
 	}
@@ -840,13 +840,13 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	if err != nil {
 		return false, errors.Wrap(err, fmt.Sprintf("failed to query value with the given path %s", exclude.RestrictedField))
 	}
-	if !allowedValues(value, *exclude, PSS_controls[check.ID]) {
+	if !allowedValues(value, exclude, PSS_controls[check.ID]) {
 		return false, nil
 	}
 	return true, nil
 }
 
-func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []*kyvernov1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
+func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []kyvernov1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
 		for _, container := range pod.Spec.Containers {
 			matchedOnce := false

@@ -617,16 +617,14 @@ func Test_ValidateExclude(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespace"}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
 		t.Log(errs)
 	}
-
 	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"exclude":{"resources":{"namespaces":["fake-namespace"]}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.template.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.template.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
-		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["CronJob"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"exclude":{"resources":{"namespaces":["fake-namespace"]}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
+		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
+		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["CronJob"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
 	}
 
 	for i, ep := range expectedPatches {

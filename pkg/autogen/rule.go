@@ -1,7 +1,6 @@
 package autogen
 
 import (
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -150,10 +149,16 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation = deny
 		return rule
 	}
-	if rule.Validation.PodSecurity != nil {
+	if rule.Validation.PodSecurity != nil && len(rule.Validation.PodSecurity.Exclude) > 0 {
+		newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
+		copy(newExclude, rule.Validation.PodSecurity.Exclude)
 		podSecurity := kyvernov1.Validation{
-			Message:     variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
-			PodSecurity: rule.Validation.PodSecurity,
+			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
+			PodSecurity: &kyvernov1.PodSecurity{
+				Level:   rule.Validation.PodSecurity.Level,
+				Version: rule.Validation.PodSecurity.Version,
+				Exclude: newExclude,
+			},
 		}
 		rule.Validation = podSecurity
 		return rule
@@ -285,8 +290,6 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 }
 
 func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
-	fmt.Println("===== updateGenRuleByte")
-	fmt.Printf("=== string(obj): %s\n", string(pbyte))
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.template.spec"))
 	}
@@ -298,9 +301,6 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 }
 
 func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
-	fmt.Println("===== updateRestrictedFields")
-	fmt.Printf("=== before: %s\n", string(pbyte))
-	fmt.Printf("=== kind: %s\n", kind)
 	if kind == "Pod" {
 		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.template.spec`))
 	}
@@ -308,6 +308,5 @@ func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
 		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
-	fmt.Printf("=== after: %+v\n", string(obj))
 	return obj
 }

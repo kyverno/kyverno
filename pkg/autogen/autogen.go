@@ -216,7 +216,6 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 	var rules []kyvernov1.Rule
 	for i := range spec.Rules {
 		// handle all other controllers other than CronJob
-		fmt.Printf("=== rule: %+v\n", spec.Rules[i])
 		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
@@ -236,6 +235,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
+		// For Validation.PodSecurity
 		if rule.Validation != nil && rule.Validation.PodSecurity != nil {
 			bytes = updateRestrictedFields(bytes, kind)
 			if err := json.Unmarshal(bytes, &rule); err != nil {

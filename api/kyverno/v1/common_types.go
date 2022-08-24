@@ -313,9 +313,9 @@ type Validation struct {
 }
 
 type PodSecurity struct {
-	Level   api.Level              `json:"level,omitempty" yaml:"level,omitempty"`
-	Version string                 `json:"version,omitempty" yaml:"version,omitempty"`
-	Exclude []*PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+	Level   api.Level             `json:"level,omitempty" yaml:"level,omitempty"`
+	Version string                `json:"version,omitempty" yaml:"version,omitempty"`
+	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 type PodSecurityStandard struct {
 	// Required
