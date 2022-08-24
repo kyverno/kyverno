@@ -7,13 +7,12 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/yaml"
-
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
 type resource struct {
@@ -72,6 +71,7 @@ func expectation(id _id, expectations ...resourceExpectation) expectedResource {
 }
 
 func setup(t *testing.T) {
+	t.Helper()
 	RegisterTestingT(t)
 	if os.Getenv("E2E") == "" {
 		t.Skip("Skipping E2E Test")
@@ -86,7 +86,7 @@ func createClient() *e2e.E2EClient {
 
 func deleteClusteredResource(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Deleting %s : %s", resource.gvr.String(), resource.name))
-	client.DeleteClusteredResource(resource.gvr, resource.name)
+	_ = client.DeleteClusteredResource(resource.gvr, resource.name)
 	err := e2e.GetWithRetry(1*time.Second, 15, func() error {
 		_, err := client.GetClusteredResource(resource.gvr, resource.name)
 		if err == nil {
@@ -102,7 +102,7 @@ func deleteClusteredResource(client *e2e.E2EClient, resource expectedResource) {
 
 func deleteNamespacedResource(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Deleting %s : %s/%s", resource.gvr.String(), resource.ns, resource.name))
-	client.DeleteNamespacedResource(resource.gvr, resource.ns, resource.name)
+	_ = client.DeleteNamespacedResource(resource.gvr, resource.ns, resource.name)
 	err := e2e.GetWithRetry(1*time.Second, 15, func() error {
 		_, err := client.GetNamespacedResource(resource.gvr, resource.ns, resource.name)
 		if err == nil {
@@ -131,6 +131,7 @@ func deleteResources(client *e2e.E2EClient, resources ...expectedResource) {
 }
 
 func createClusteredResource(t *testing.T, client *e2e.E2EClient, resource resource) *unstructured.Unstructured {
+	t.Helper()
 	var u unstructured.Unstructured
 	Expect(yaml.Unmarshal(resource.raw, &u)).To(Succeed())
 	By(fmt.Sprintf("Creating %s : %s", resource.gvr.String(), u.GetName()))
@@ -143,6 +144,7 @@ func createClusteredResource(t *testing.T, client *e2e.E2EClient, resource resou
 }
 
 func createNamespacedResource(t *testing.T, client *e2e.E2EClient, resource resource) *unstructured.Unstructured {
+	t.Helper()
 	var u unstructured.Unstructured
 	Expect(yaml.Unmarshal(resource.raw, &u)).To(Succeed())
 	By(fmt.Sprintf("Creating %s : %s/%s", resource.gvr.String(), resource.ns, u.GetName()))
@@ -155,6 +157,7 @@ func createNamespacedResource(t *testing.T, client *e2e.E2EClient, resource reso
 }
 
 func createResource(t *testing.T, client *e2e.E2EClient, resource resource) *unstructured.Unstructured {
+	t.Helper()
 	if resource.ns != "" {
 		return createNamespacedResource(t, client, resource)
 	} else {
@@ -163,6 +166,7 @@ func createResource(t *testing.T, client *e2e.E2EClient, resource resource) *uns
 }
 
 func createResources(t *testing.T, client *e2e.E2EClient, resources ...resource) {
+	t.Helper()
 	for _, resource := range resources {
 		createResource(t, client, resource)
 	}
@@ -182,13 +186,13 @@ func getNamespacedResource(client *e2e.E2EClient, gvr schema.GroupVersionResourc
 	return r
 }
 
-func getResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string) *unstructured.Unstructured {
-	if ns != "" {
-		return getNamespacedResource(client, gvr, ns, name)
-	} else {
-		return getClusteredResource(client, gvr, name)
-	}
-}
+// func getResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, ns, name string) *unstructured.Unstructured {
+// 	if ns != "" {
+// 		return getNamespacedResource(client, gvr, ns, name)
+// 	} else {
+// 		return getClusteredResource(client, gvr, name)
+// 	}
+// }
 
 func updateClusteredResource(client *e2e.E2EClient, gvr schema.GroupVersionResource, name string, m func(*unstructured.Unstructured) error) {
 	r := getClusteredResource(client, gvr, name)
@@ -297,11 +301,11 @@ func expectResourceNotExists(client *e2e.E2EClient, resource expectedResource) {
 	}
 }
 
-func expectResourcesNotExist(client *e2e.E2EClient, resources ...expectedResource) {
-	for _, resource := range resources {
-		expectResourceNotExists(client, resource)
-	}
-}
+// func expectResourcesNotExist(client *e2e.E2EClient, resources ...expectedResource) {
+// 	for _, resource := range resources {
+// 		expectResourceNotExists(client, resource)
+// 	}
+// }
 
 func expectClusteredResourceNotFound(client *e2e.E2EClient, resource expectedResource) {
 	By(fmt.Sprintf("Expecting not found %s : %s", resource.gvr.String(), resource.name))

@@ -21,7 +21,6 @@ linters:
     - gosimple
     - govet
     - grouper
-    - ifshort
     - importas
     - ineffassign
     - makezero
@@ -43,7 +42,7 @@ linters:
     - whitespace
 
 run:
-  timeout: 5m
+  timeout: 10m
   skip-files:
     - ".+_test.go"
     - ".+_test_.+.go"
