@@ -143,7 +143,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
 	// time at which the corresponding the admission request's processing got initiated
-	admissionRequestTimestamp := time.Now().Unix()
+	admissionRequestTimestamp := time.Now()
 	logger := h.log.WithName("process")
 
 	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
