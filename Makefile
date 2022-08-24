@@ -400,8 +400,8 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 .PHONY: deepcopy-autogen
-deepcopy-autogen: controller-gen ## Generate deep copy code
-	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..."
+deepcopy-autogen: controller-gen goimports ## Generate deep copy code
+	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GO_IMPORTS) -w ./api/
 
 .PHONY: codegen
 codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
