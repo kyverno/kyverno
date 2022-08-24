@@ -867,7 +867,9 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 				// No need to check if exclude.Images contains container.Image
 				// Since we only have containers matching the exclude.images with getPodWithMatchingContainers()
 
+				fmt.Printf("=== exclude: %+v\n", exclude)
 				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				fmt.Printf("=== exempted: %+v\n", exempted)
 				if err != nil || !exempted {
 					return false, nil
 				}
@@ -896,7 +898,9 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
 				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
 
+				fmt.Printf("=== exclude: %+v\n", exclude)
 				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				fmt.Printf("=== exempted: %+v\n", exempted)
 				if err != nil || !exempted {
 					return false, nil
 				}
@@ -925,7 +929,9 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 				// spec.containers[*].securityContext.privileged -> spec.containers[?name=="nginx"].securityContext.privileged
 				newRestrictedField := strings.Replace(restrictedField.path, "*", fmt.Sprintf(`?name=='%s'`, container.Name), 1)
 
+				fmt.Printf("=== exclude: %+v\n", exclude)
 				exempted, err := forbiddenValuesExempted(ctx, pod, check, exclude, newRestrictedField)
+				fmt.Printf("=== exempted: %+v\n", exempted)
 				if err != nil || !exempted {
 					return false, nil
 				}
@@ -980,6 +986,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *co
 		for _, restrictedField := range check.RestrictedFields {
 			// Is a container-level restrictedField
 			if strings.Contains(restrictedField.path, "ontainers[*]") {
+				fmt.Printf("`%s` is a container-level restricted field\n", restrictedField.path)
 				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, restrictedField)
 				if err != nil {
 					return false, errors.Wrap(err, err.Error())
@@ -988,6 +995,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *co
 					return false, nil
 				}
 			} else {
+				fmt.Printf("`%s` is a pod-level restricted field\n", restrictedField.path)
 				// Is a pod-level restrictedField
 				if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
 					continue
@@ -1016,6 +1024,9 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 
 	pssChecks = removePSSChecks(pssChecks, rule)
 
+	fmt.Printf("=== podWithMatchingContainers:\n %+v\n", podWithMatchingContainers)
+	fmt.Printf("=== pssChecks:\n %+v\n", pssChecks)
+
 	// 2. Check if all PSSCheckResults are exempted by exclude values
 	// Yes ? Evaluate pod's other containers
 	// No ? Pod creation forbidden
@@ -1025,15 +1036,19 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 	}
 	// Good to have: remove checks that are exempted and return only forbidden ones
 	if !allowed {
+		fmt.Printf("=== Pod creation not allowed: didn't exempt all forbidden values:\n %+v\n", pssChecks)
 		return false, pssChecks, nil
 	}
 
 	// 3. Optional, only when ExemptProfile() returns true
 	podWithNotMatchingContainers := getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
+	fmt.Printf("=== podWithNotMatchingContainers:\n %+v\n", podWithNotMatchingContainers)
 	pssChecks = EvaluatePSS(level, &podWithNotMatchingContainers)
 	if len(pssChecks) > 0 {
 		return false, pssChecks, nil
 	}
+	fmt.Printf("=== pssChecks for containers not matching the `images`:\n %+v\n", pssChecks)
+	fmt.Printf("=== Allowed ?: %+v\n", allowed)
 	return true, pssChecks, nil
 }
 

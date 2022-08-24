@@ -4419,7 +4419,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 // - spec.containers[*].securityContext.seccompProfile.type
 // - spec.initContainers[*].securityContext.seccompProfile.type
 // - spec.ephemeralContainers[*].securityContext.seccompProfile.type
-// Control: "SELinux", check.ID: "seLinuxOptions"
 
 func TestValidate_pod_security_admission_enforce_baseline_exclude_all_seccomp(t *testing.T) {
 	rawPolicy := []byte(`
@@ -5790,6 +5789,1083 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
 		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_missing_exclude_value_deployment_autogen(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"init-baz"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"DaemonSet",
+							"Deployment",
+							"Job",
+							"StatefulSet"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-cronjob-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"CronJob"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "apps/v1",
+		"kind": "Deployment",
+		"metadata": {
+		  "name": "nginx-deployment",
+		  "namespace": "staging",
+		  "labels": {
+			"app": "nginx"
+		  }
+		},
+		"spec": {
+		  "replicas": 3,
+		  "selector": {
+			"matchLabels": {
+			  "app": "nginx"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"app": "nginx"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "image": "nginx",
+				  "name": "nginx",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "baz"
+					}
+				  }
+				}
+			  ],
+			  "initContainers": [
+				{
+				  "image": "nodejs",
+				  "name": "init-nodejs",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "init-baz"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	if err != nil {
+		fmt.Printf("=== Error: %+v\n", er)
+	}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_missing_exclude_value_daemonset_autogen(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"init-baz"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"DaemonSet",
+							"Deployment",
+							"Job",
+							"StatefulSet"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-cronjob-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"CronJob"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "apps/v1",
+		"kind": "DaemonSet",
+		"metadata": {
+		  "name": "nginx-daemonset",
+		  "namespace": "staging",
+		  "labels": {
+			"app": "nginx"
+		  }
+		},
+		"spec": {
+		  "replicas": 3,
+		  "selector": {
+			"matchLabels": {
+			  "app": "nginx"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"app": "nginx"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "image": "nginx",
+				  "name": "nginx",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "baz"
+					}
+				  }
+				}
+			  ],
+			  "initContainers": [
+				{
+				  "image": "nodejs",
+				  "name": "init-nodejs",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "init-baz"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	if err != nil {
+		fmt.Printf("=== Error: %+v\n", er)
+	}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_missing_exclude_value_job_autogen(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"init-baz"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"DaemonSet",
+							"Deployment",
+							"Job",
+							"StatefulSet"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-cronjob-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"CronJob"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "batch/v1",
+		"kind": "Job",
+		"metadata": {
+		  "name": "nginx-daemonset",
+		  "namespace": "staging",
+		  "labels": {
+			"app": "nginx"
+		  }
+		},
+		"spec": {
+		  "replicas": 3,
+		  "selector": {
+			"matchLabels": {
+			  "app": "nginx"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"app": "nginx"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "image": "nginx",
+				  "name": "nginx",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "baz"
+					}
+				  }
+				}
+			  ],
+			  "initContainers": [
+				{
+				  "image": "nodejs",
+				  "name": "init-nodejs",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "init-baz"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	if err != nil {
+		fmt.Printf("=== Error: %+v\n", er)
+	}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_missing_exclude_value_statefulset_autogen(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"init-baz"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"DaemonSet",
+							"Deployment",
+							"Job",
+							"StatefulSet"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-cronjob-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"CronJob"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "apps/v1",
+		"kind": "StatefulSet",
+		"metadata": {
+		  "name": "nginx-daemonset",
+		  "namespace": "staging",
+		  "labels": {
+			"app": "nginx"
+		  }
+		},
+		"spec": {
+		  "replicas": 3,
+		  "selector": {
+			"matchLabels": {
+			  "app": "nginx"
+			}
+		  },
+		  "template": {
+			"metadata": {
+			  "labels": {
+				"app": "nginx"
+			  }
+			},
+			"spec": {
+			  "containers": [
+				{
+				  "image": "nginx",
+				  "name": "nginx",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "baz"
+					}
+				  }
+				}
+			  ],
+			  "initContainers": [
+				{
+				  "image": "nodejs",
+				  "name": "init-nodejs",
+				  "resources": {},
+				  "securityContext": {
+					"seLinuxOptions": {
+					  "role": "init-baz"
+					}
+				  }
+				}
+			  ]
+			}
+		  }
+		}
+	  }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	if err != nil {
+		fmt.Printf("=== Error: %+v\n", er)
+	}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+	}
+	assert.Assert(t, er.IsFailed())
+}
+
+func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_missing_exclude_value_cronjob_autogen(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"init-baz"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"DaemonSet",
+							"Deployment",
+							"Job",
+							"StatefulSet"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  },
+			  {
+				"name": "autogen-cronjob-enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"resources": {
+					   "kinds": [
+							"CronJob"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.type",
+								"images": [
+									"nginx",
+									"nodejs"
+								],
+								"values": [
+									"baz"
+								]
+							},
+							{
+								"controlName": "SELinux",
+								"restrictedField": "spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role",
+								"images": [
+									"nodejs"
+								],
+								"values": [
+									"randomValue"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	{
+		"apiVersion": "batch/v1",
+		"kind": "CronJob",
+		"metadata": {
+		  "name": "cronjob-nginx",
+		  "namespace": "staging"
+		},
+		"spec": {
+		  "schedule": "* * * * *",
+		  "jobTemplate": {
+			"spec": {
+			  "template": {
+				"spec": {
+					"containers": [
+						{
+						  "image": "nginx",
+						  "name": "nginx",
+						  "resources": {},
+						  "securityContext": {
+							"seLinuxOptions": {
+							  "role": "baz"
+							}
+						  }
+						}
+					  ],
+					  "initContainers": [
+						{
+						  "image": "nodejs",
+						  "name": "init-nodejs",
+						  "resources": {},
+						  "securityContext": {
+							"seLinuxOptions": {
+							  "role": "init-baz"
+							}
+						  }
+						}
+					  ],
+				  "restartPolicy": "OnFailure"
+				}
+			  }
+			}
+		  }
+		}
+	  }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	if err != nil {
+		fmt.Printf("=== Error: %+v\n", er)
+	}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
 	}
 	assert.Assert(t, er.IsFailed())
 }

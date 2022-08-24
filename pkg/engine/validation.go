@@ -20,6 +20,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -98,6 +100,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	applyRules := ctx.Policy.GetSpec().GetApplyRules()
 
 	for i := range rules {
+		fmt.Printf("=== rule:\n%+v\n", rules[i])
 		rule := &rules[i]
 		hasValidate := rule.HasValidate()
 		hasValidateImage := rule.HasImagesValidationChecks()
@@ -441,37 +444,73 @@ func formatChecksPrint(checks []pss.PSSCheckResult) string {
 	return str
 }
 
+func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
+	fmt.Printf("=== newResource:\n%+v\n", v.ctx.NewResource)
+
+	kind := v.ctx.NewResource.GetKind()
+
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" {
+		var deployment v1.Deployment
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &deployment)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("Deployment:\n%+v\n", deployment)
+		podSpec = &deployment.Spec.Template.Spec
+		metadata = &deployment.Spec.Template.ObjectMeta
+		return podSpec, metadata, nil
+	} else if kind == "CronJob" {
+		var cronJob batchv1.CronJob
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &cronJob)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("cronJob:\n%+v\n", cronJob)
+		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
+		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
+	} else if kind == "Pod" {
+		var pod corev1.Pod
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &pod)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("pod:\n%+v\n", pod)
+		podSpec = &pod.Spec
+		metadata = &pod.ObjectMeta
+		return podSpec, metadata, nil
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+	return podSpec, metadata, err
+}
+
 // Unstructured
 func (v *validator) validatePodSecurity() *response.RuleResponse {
 	// Marshal pod metadata and spec
-	marshalledMetadata, err := json.Marshal(v.ctx.NewResource.Object["metadata"])
 
+	podSpec, metadata, err := getSpec(v)
 	if err != nil {
-		fmt.Printf("Error while marshalling new ressource metadata\n")
+		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
 	}
-
-	marshalledSpec, err := json.Marshal(v.ctx.NewResource.Object["spec"])
-
-	if err != nil {
-		fmt.Printf("Error while marshalling new ressource spec\n")
-	}
-
-	// Unmarshall
-	var metadata metav1.ObjectMeta
-	var podSpec corev1.PodSpec
-
-	err = json.Unmarshal(marshalledMetadata, &metadata)
-
-	if err != nil {
-		fmt.Printf("Error while unmarshalling metadata\n")
-	}
-
-	err = json.Unmarshal(marshalledSpec, &podSpec)
-
-	if err != nil {
-		fmt.Printf("Error while unmarshalling podSpec\n")
-	}
-
+	fmt.Printf("\npodSpec:\n%+v\n", podSpec)
+	fmt.Printf("\nmetadata:\n%+v\n", metadata)
 	// Get pod security admission version
 	var apiVersion api.Version
 
@@ -487,7 +526,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	}
 
 	if err != nil {
-		fmt.Printf("error while parsing api version: %+v\n", err)
+		return ruleError(v.rule, response.Validation, "Error while while parsing Validation.PodSecurity.Version", err)
 	}
 	level := &api.LevelVersion{
 		Level:   v.podSecurity.Level,
@@ -496,8 +535,8 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 
 	// Evaluate the pod
 	pod := &corev1.Pod{
-		Spec:       podSpec,
-		ObjectMeta: metadata,
+		Spec:       *podSpec,
+		ObjectMeta: *metadata,
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
 
