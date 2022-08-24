@@ -17,8 +17,8 @@ func InitMetrics(
 	metricsConfigData *config.MetricsConfigData,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
-	log logr.Logger) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
-
+	log logr.Logger,
+) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
 	var metricsConfig *MetricsConfig
 	var err error
 	var metricsServerMux *http.ServeMux

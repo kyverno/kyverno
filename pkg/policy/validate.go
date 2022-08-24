@@ -563,7 +563,6 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
 func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
-
 	checkLabelAnnotation := func(metaKey map[string]interface{}) bool {
 		for mk := range metaKey {
 			if mk == "labels" {
