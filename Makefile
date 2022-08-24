@@ -48,7 +48,11 @@ KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
 KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS)
+HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  := v1.6.0
+KO                                 := $(TOOLS_DIR)/ko
+KO_VERSION                         := v0.12.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
 
 $(KIND):
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
@@ -68,11 +72,17 @@ $(KUSTOMIZE):
 $(GOIMPORTS):
 	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
 
+$(HELM_DOCS):
+	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+
+$(KO):
+	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
 .PHONY: install-tools
-install-tools: $(TOOLS)
+install-tools: $(TOOLS) ## Install tools
 
 .PHONY: clean-tools
-clean-tools:
+clean-tools: ## Remove tools
 	@rm -rf $(TOOLS_DIR)
 
 ##################################
@@ -419,7 +429,8 @@ vet: ## Run go vet
 ##################################
 
 .PHONY: gen-helm-docs
-gen-helm-docs: ## Generate Helm docs
+gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
+	# @$(HELM_DOCS) -s file
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
