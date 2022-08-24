@@ -35,20 +35,20 @@ KIND_IMAGE?=kindest/node:v1.24.0
 # TOOLS #
 #########
 
-TOOLS_DIR								:=	$(PWD)/.tools
-KIND									:=	$(TOOLS_DIR)/kind
-KIND_VERSION							:=	v0.14.0
-CONTROLLER_GEN							:=	$(TOOLS_DIR)/controller-gen
-CONTROLLER_GEN_VERSION 					:=	v0.9.1-0.20220629131006-1878064c4cdf
-GEN_CRD_API_REFERENCE_DOCS				:=	$(TOOLS_DIR)/gen-crd-api-reference-docs
-GEN_CRD_API_REFERENCE_DOCS_VERSION		:=	latest
-GO_ACC 									:= 	$(TOOLS_DIR)/go-acc
-GO_ACC_VERSION							:=	latest
-KUSTOMIZE								:=	$(TOOLS_DIR)/kustomize
-KUSTOMIZE_VERSION						:=	latest
-GOIMPORTS								:=	$(TOOLS_DIR)/goimports
-GOIMPORTS_VERSION						:=	latest
-TOOLS 									:=	$(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS)
+TOOLS_DIR                          := $(PWD)/.tools
+KIND                               := $(TOOLS_DIR)/kind
+KIND_VERSION                       := v0.14.0
+CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
+GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
+GO_ACC                             := $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     := latest
+KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
+KUSTOMIZE_VERSION                  := latest
+GOIMPORTS                          := $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  := latest
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS)
 
 $(KIND):
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
