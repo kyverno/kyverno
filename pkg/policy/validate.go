@@ -19,7 +19,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -80,7 +79,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -310,7 +309,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, metric
 		// add label to source mentioned in policy
 		if !mock && rule.Generation.Clone.Name != "" {
 			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-			metricsConfig.RecordClientQueries(metrics.ClientGet, rule.Generation.Kind, rule.Generation.Clone.Namespace)
 			if err != nil {
 				log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 				continue
@@ -340,7 +338,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, metric
 				log.Log.V(4).Info("updating existing clone source")
 				obj.SetLabels(label)
 				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
-				metricsConfig.RecordClientQueries(metrics.ClientUpdate, rule.Generation.Kind, rule.Generation.Clone.Namespace)
 				if err != nil {
 					log.Log.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 					continue

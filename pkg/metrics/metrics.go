@@ -53,7 +53,7 @@ type MetricsConfigManager interface {
 	RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation)
 	RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64)
 	RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64)
-	RecordClientQueries(clientQueryOperation ClientQueryOperation, resourceKind string, resourceNamespace string)
+	RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
 func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
@@ -97,9 +97,9 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 		return nil, err
 	}
 
-	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_kube_client_queries_total", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
+	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_client_queries_total", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument, kyverno_kube_client_queries_total")
+		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries_total")
 		return nil, err
 	}
 
@@ -341,11 +341,12 @@ func (m *MetricsConfig) RecordAdmissionReviewDuration(resourceKind string, resou
 	m.admissionReviewDurationMetric.Record(ctx, admissionRequestLatency, commonLabels...)
 }
 
-func (m *MetricsConfig) RecordClientQueries(clientQueryOperation ClientQueryOperation, resourceKind string, resourceNamespace string) {
+func (m *MetricsConfig) RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
 		attribute.String("operation", string(clientQueryOperation)),
+		attribute.String("client_type", string(clientType)),
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
 	}

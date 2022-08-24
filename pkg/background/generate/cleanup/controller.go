@@ -15,7 +15,6 @@ import (
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,8 +56,6 @@ type controller struct {
 
 	// queue
 	queue workqueue.RateLimitingInterface
-
-	metricsConfig metrics.MetricsConfigManager
 }
 
 // NewController returns a new controller instance to manage generate-requests
@@ -69,7 +66,6 @@ func NewController(
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
-	metricsConfig metrics.MetricsConfigManager,
 ) Controller {
 	c := &controller{
 		client:        client,
@@ -81,7 +77,6 @@ func NewController(
 		urLister:      urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),
 		nsLister:      namespaceInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request-cleanup"),
-		metricsConfig: metricsConfig,
 	}
 
 	c.informersSynced = []cache.InformerSynced{pInformer.Informer().HasSynced, npInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced}
@@ -119,7 +114,7 @@ func (c *controller) deletePolicy(obj interface{}) {
 
 	logger.V(4).Info("deleting policy", "name", p.Name)
 
-	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, c.metricsConfig, p.GetName(), logger)
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, p.GetName(), logger)
 
 	// get the generated resource name from update request for log
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
@@ -263,7 +258,7 @@ func (c *controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
 	// then we don't delete the generated resources
 
 	// 2- The trigger resource is deleted, then delete the generated resources
-	if !ownerResourceExists(logger, c.client, c.metricsConfig, ur) {
+	if !ownerResourceExists(logger, c.client, ur) {
 		deleteUR := false
 		// check retry count in annotaion
 		urAnnotations := ur.Annotations
@@ -280,7 +275,7 @@ func (c *controller) processUR(ur kyvernov1beta1.UpdateRequest) error {
 		}
 
 		if deleteUR {
-			if err := deleteGeneratedResources(logger, c.client, c.metricsConfig, ur); err != nil {
+			if err := deleteGeneratedResources(logger, c.client, ur); err != nil {
 				return err
 			}
 			// - trigger-resource is deleted

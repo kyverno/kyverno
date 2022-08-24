@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	authorizationv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -13,21 +12,19 @@ import (
 
 // CanIOptions provides utility to check if user has authorization for the given operation
 type CanIOptions struct {
-	namespace     string
-	verb          string
-	kind          string
-	client        dclient.Interface
-	metricsConfig metrics.MetricsConfigManager
+	namespace string
+	verb      string
+	kind      string
+	client    dclient.Interface
 }
 
 // NewCanI returns a new instance of operation access controller evaluator
-func NewCanI(client dclient.Interface, metricsConfig metrics.MetricsConfigManager, kind, namespace, verb string) *CanIOptions {
+func NewCanI(client dclient.Interface, kind, namespace, verb string) *CanIOptions {
 	return &CanIOptions{
-		namespace:     namespace,
-		kind:          kind,
-		verb:          verb,
-		client:        client,
-		metricsConfig: metricsConfig,
+		namespace: namespace,
+		kind:      kind,
+		verb:      verb,
+		client:    client,
 	}
 }
 
@@ -69,7 +66,6 @@ func (o *CanIOptions) RunAccessCheck() (bool, error) {
 
 	// Create the Resource
 	resp, err := o.client.CreateResource("", "SelfSubjectAccessReview", "", sar, false)
-	o.metricsConfig.RecordClientQueries(metrics.ClientCreate, "SelfSubjectAccessReview", "")
 	if err != nil {
 		logger.Error(err, "failed to create resource")
 		return false, err

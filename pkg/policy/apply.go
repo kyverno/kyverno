@@ -13,7 +13,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -22,7 +21,6 @@ import (
 func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
 	client dclient.Interface, namespaceLabels map[string]string,
-	metricsConfig *metrics.MetricsConfig,
 ) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
@@ -65,7 +63,6 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 		ExcludeGroupRole: excludeGroupRole,
 		JSONContext:      ctx,
 		Client:           client,
-		MetricsConfig:    metricsConfig,
 		NamespaceLabels:  namespaceLabels,
 	}
 

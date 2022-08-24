@@ -144,7 +144,32 @@ func main() {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+
+	// Metrics Configuration
+	var metricsConfig *metrics.MetricsConfig
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		setupLog.Error(err, "failed to fetch metrics config")
+		os.Exit(1)
+	}
+
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		log.Log.WithName("Metrics"),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize metrics")
+		os.Exit(1)
+	}
+
+	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
@@ -155,8 +180,6 @@ func main() {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
-
-	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
 		addr := ":" + profilePort
@@ -180,29 +203,6 @@ func main() {
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	var registryOptions []registryclient.Option
-
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		setupLog.Error(err, "failed to fetch metrics config")
-		os.Exit(1)
-	}
-
-	// Metrics Configuration
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		log.Log.WithName("Metrics"),
-	)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize metrics")
-		os.Exit(1)
-	}
 
 	if otel == "grpc" {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
@@ -251,7 +251,7 @@ func main() {
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, metricsConfig, log.Log.WithName("EventGenerator"))
+	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(
@@ -360,7 +360,6 @@ func main() {
 		kubeKyvernoInformer.Core().V1().Pods(),
 		eventGenerator,
 		configuration,
-		metricsConfig,
 	)
 
 	grcc := generatecleanup.NewController(
@@ -370,7 +369,6 @@ func main() {
 		kyvernoV1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		metricsConfig,
 	)
 
 	policyCache := policycache.NewCache()
@@ -455,7 +453,7 @@ func main() {
 	go webhookRegisterLeader.Run(ctx)
 
 	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(dynamicClient, metricsConfig, stopCh)
+	openAPIController := startOpenAPIController(dynamicClient, stopCh)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -463,7 +461,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, metricsConfig, openAPIController)
+	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
 	resourceHandlers := webhooksresource.NewHandlers(
 		dynamicClient,
 		kyvernoClient,
@@ -553,8 +551,8 @@ func main() {
 	setupLog.V(2).Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(client dclient.Interface, metricsConfig metrics.MetricsConfigManager, stopCh <-chan struct{}) *openapi.Controller {
-	openAPIController, err := openapi.NewOpenAPIController(metricsConfig)
+func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
+	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		setupLog.Error(err, "Failed to create openAPIController")
 		os.Exit(1)

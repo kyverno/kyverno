@@ -27,7 +27,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	kyvernoutils "github.com/kyverno/kyverno/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,8 +51,7 @@ type GenerateController struct {
 	configuration config.Configuration
 	eventGen      event.Interface
 
-	metricsConfig metrics.MetricsConfigManager
-	log           logr.Logger
+	log logr.Logger
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
@@ -67,7 +65,6 @@ func NewGenerateController(
 	nsLister corev1listers.NamespaceLister,
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
-	metricsConfig metrics.MetricsConfigManager,
 	log logr.Logger,
 ) *GenerateController {
 	c := GenerateController{
@@ -80,7 +77,6 @@ func NewGenerateController(
 		nsLister:      nsLister,
 		configuration: dynamicConfig,
 		eventGen:      eventGen,
-		metricsConfig: metricsConfig,
 		log:           log,
 	}
 	return &c
@@ -95,7 +91,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 	logger.Info("start processing UR", "ur", ur.Name, "resourceVersion", ur.GetResourceVersion())
 
 	// 1 - Check if the trigger exists
-	resource, err = common.GetResource(c.client, c.metricsConfig, ur.Spec, c.log)
+	resource, err = common.GetResource(c.client, ur.Spec, c.log)
 	if err != nil {
 		// Don't update status
 		// re-queueing the UR by updating the annotation
@@ -117,7 +113,7 @@ func (c *GenerateController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) error {
 
 				sleepCountInt := int(sleepCountInt64) + 1
 				if sleepCountInt > 5 {
-					if err := deleteGeneratedResources(logger, c.client, c.metricsConfig, *ur); err != nil {
+					if err := deleteGeneratedResources(logger, c.client, *ur); err != nil {
 						return err
 					}
 					// - trigger-resource is deleted
@@ -191,7 +187,7 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 		return nil, false, err
 	}
 
-	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, c.metricsConfig, logger)
+	policyContext, precreatedResource, err := common.NewBackgroundContext(c.client, &ur, &policy, &resource, c.configuration, namespaceLabels, logger)
 	if err != nil {
 		return nil, precreatedResource, err
 	}
@@ -238,7 +234,6 @@ func (c *GenerateController) applyGenerate(resource unstructured.Unstructured, u
 // cleanupClonedResource deletes cloned resource if sync is not enabled for the clone policy
 func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.ResourceSpec) error {
 	target, err := c.client.GetResource(targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
-	c.metricsConfig.RecordClientQueries(metrics.ClientGet, targetSpec.Kind, targetSpec.Namespace)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
@@ -255,7 +250,6 @@ func (c *GenerateController) cleanupClonedResource(targetSpec kyvernov1.Resource
 
 	if syncEnabled && !clone {
 		if err := c.client.DeleteResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
-			c.metricsConfig.RecordClientQueries(metrics.ClientDelete, target.GetKind(), target.GetNamespace())
 			return fmt.Errorf("cloned resource is not deleted %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
 		}
 	}
@@ -358,7 +352,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
-			genResource, err = applyRule(log, c.client, c.metricsConfig, rule, resource, jsonContext, policy, ur)
+			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
@@ -398,7 +392,7 @@ func getResourceInfo(object map[string]interface{}) (kind, name, namespace, apiv
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) (kyvernov1.ResourceSpec, error) {
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) (kyvernov1.ResourceSpec, error) {
 	var rdata map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -434,9 +428,9 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 	}
 
 	if len(genClone) != 0 {
-		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), genClone, client, metricsConfig)
+		rdata, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), genClone, client)
 	} else {
-		rdata, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, genData, client, metricsConfig)
+		rdata, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, genData, client)
 	}
 
 	if err != nil {
@@ -489,7 +483,6 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 		newResource.SetLabels(label)
 		// Create the resource
 		_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-		metricsConfig.RecordClientQueries(metrics.ClientCreate, genKind, genNamespace)
 		if err != nil {
 			return noGenResource, err
 		}
@@ -497,12 +490,10 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 		logger.V(2).Info("created generate target resource")
 	} else if mode == Update {
 		generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
-		metricsConfig.RecordClientQueries(metrics.ClientGet, genKind, genNamespace)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 			logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 			_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-			metricsConfig.RecordClientQueries(metrics.ClientCreate, genKind, genNamespace)
 			if err != nil {
 				return noGenResource, err
 			}
@@ -523,7 +514,6 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 
 				if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
 					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
-					metricsConfig.RecordClientQueries(metrics.ClientUpdate, genKind, genNamespace)
 					if err != nil {
 						logger.Error(err, "failed to update resource")
 						return noGenResource, err
@@ -541,7 +531,6 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 					generatedObj.SetLabels(currentGeneratedResourcelabel)
 
 					_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, generatedObj, false)
-					metricsConfig.RecordClientQueries(metrics.ClientUpdate, genKind, genNamespace)
 					if err != nil {
 						logger.Error(err, "failed to update label in existing resource")
 						return noGenResource, err
@@ -555,9 +544,8 @@ func applyRule(log logr.Logger, client dclient.Interface, metricsConfig metrics.
 	return newGenResource, nil
 }
 
-func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client dclient.Interface, metricsConfig metrics.MetricsConfigManager) (map[string]interface{}, ResourceMode, error) {
+func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	obj, err := client.GetResource(apiVersion, kind, namespace, name)
-	metricsConfig.RecordClientQueries(metrics.ClientGet, kind, namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return data, Create, nil
@@ -579,7 +567,7 @@ func manageData(log logr.Logger, apiVersion, kind, namespace, name string, data 
 	return updateObj.UnstructuredContent(), Update, nil
 }
 
-func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone map[string]interface{}, client dclient.Interface, metricsConfig metrics.MetricsConfigManager) (map[string]interface{}, ResourceMode, error) {
+func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy string, clone map[string]interface{}, client dclient.Interface) (map[string]interface{}, ResourceMode, error) {
 	rNamespace, _, err := unstructured.NestedString(clone, "namespace")
 	if err != nil {
 		return nil, Skip, fmt.Errorf("failed to find source namespace: %v", err)
@@ -597,7 +585,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 
 	// check if the resource as reference in clone exists?
 	obj, err := client.GetResource(apiVersion, kind, rNamespace, rName)
-	metricsConfig.RecordClientQueries(metrics.ClientGet, kind, rNamespace)
 	if err != nil {
 		return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName, err)
 	}
@@ -608,7 +595,6 @@ func manageClone(log logr.Logger, apiVersion, kind, namespace, name, policy stri
 
 	// check if resource to be generated exists
 	newResource, err := client.GetResource(apiVersion, kind, namespace, name)
-	metricsConfig.RecordClientQueries(metrics.ClientGet, kind, namespace)
 	if err == nil {
 		obj.SetUID(newResource.GetUID())
 		obj.SetSelfLink(newResource.GetSelfLink())
@@ -652,7 +638,6 @@ func (c *GenerateController) ApplyResource(resource *unstructured.Unstructured) 
 	}
 
 	_, err = c.client.CreateResource(apiVersion, kind, namespace, resource, false)
-	c.metricsConfig.RecordClientQueries(metrics.ClientCreate, kind, namespace)
 	if err != nil {
 		return err
 	}
@@ -671,16 +656,14 @@ func NewGenerateControllerWithOnlyClient(client dclient.Interface) *GenerateCont
 // GetUnstrResource converts ResourceSpec object to type Unstructured
 func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.ResourceSpec) (*unstructured.Unstructured, error) {
 	resource, err := c.client.GetResource(genResourceSpec.APIVersion, genResourceSpec.Kind, genResourceSpec.Namespace, genResourceSpec.Name)
-	c.metricsConfig.RecordClientQueries(metrics.ClientGet, genResourceSpec.Kind, genResourceSpec.Namespace)
 	if err != nil {
 		return nil, err
 	}
 	return resource, nil
 }
-func deleteGeneratedResources(log logr.Logger, client dclient.Interface, metricConfig metrics.MetricsConfigManager, ur kyvernov1beta1.UpdateRequest) error {
+func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
-		metricConfig.RecordClientQueries(metrics.ClientDelete, genResource.Kind, genResource.Namespace)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}

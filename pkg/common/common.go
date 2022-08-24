@@ -11,7 +11,6 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -80,7 +79,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, metricsConfig metrics.MetricsConfigManager, pName string, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
 	for _, rule := range policy.GetSpec().Rules {
 		clone, sync := rule.GetCloneSyncForGenerate()
@@ -93,7 +92,7 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, c
 
 		var retryCount int
 		for retryCount < 5 {
-			err := updateSourceResource(policy.GetName(), rule, client, metricsConfig, logger)
+			err := updateSourceResource(policy.GetName(), rule, client, logger)
 			if err != nil {
 				logger.Error(err, "failed to update generate source resource labels")
 				if apierrors.IsConflict(err) {
@@ -109,9 +108,8 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, c
 	return generatePolicyWithClone
 }
 
-func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Interface, metricsConfig metrics.MetricsConfigManager, log logr.Logger) error {
+func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Interface, log logr.Logger) error {
 	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
-	metricsConfig.RecordClientQueries(metrics.ClientGet, rule.Generation.Kind, rule.Generation.Clone.Namespace)
 	if err != nil {
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	}
@@ -125,7 +123,6 @@ func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Inte
 
 	obj.SetLabels(labels)
 	_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
-	metricsConfig.RecordClientQueries(metrics.ClientUpdate, rule.Generation.Kind, rule.Generation.Clone.Namespace)
 	return err
 }
 

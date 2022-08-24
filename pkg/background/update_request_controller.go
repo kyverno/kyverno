@@ -18,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,8 +59,6 @@ type controller struct {
 
 	eventGen      event.Interface
 	configuration config.Configuration
-
-	metricsConfig metrics.MetricsConfigManager
 }
 
 // NewController returns an instance of the Generate-Request Controller
@@ -75,7 +72,6 @@ func NewController(
 	podInformer corev1informers.PodInformer,
 	eventGen event.Interface,
 	dynamicConfig config.Configuration,
-	metricsConfig metrics.MetricsConfigManager,
 ) Controller {
 	urLister := urInformer.Lister().UpdateRequests(config.KyvernoNamespace())
 	c := controller{
@@ -89,7 +85,6 @@ func NewController(
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
 		eventGen:      eventGen,
 		configuration: dynamicConfig,
-		metricsConfig: metricsConfig,
 	}
 	urInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addUR,
@@ -314,10 +309,10 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 	statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
 	switch ur.Spec.Type {
 	case kyvernov1beta1.Mutate:
-		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.cpolLister, c.polLister, c.configuration, c.eventGen, c.metricsConfig, logger)
+		ctrl := mutate.NewMutateExistingController(c.client, statusControl, c.cpolLister, c.polLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	case kyvernov1beta1.Generate:
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, c.metricsConfig, logger)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
 		return ctrl.ProcessUR(ur)
 	}
 	return nil

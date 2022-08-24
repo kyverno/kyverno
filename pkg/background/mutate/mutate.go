@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -36,8 +35,7 @@ type MutateExistingController struct {
 	configuration config.Configuration
 	eventGen      event.Interface
 
-	metricsConfig metrics.MetricsConfigManager
-	log           logr.Logger
+	log logr.Logger
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController
@@ -48,7 +46,6 @@ func NewMutateExistingController(
 	npolicyLister kyvernov1listers.PolicyLister,
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
-	metricsConfig metrics.MetricsConfigManager,
 	log logr.Logger,
 ) *MutateExistingController {
 	c := MutateExistingController{
@@ -58,7 +55,6 @@ func NewMutateExistingController(
 		npolicyLister: npolicyLister,
 		configuration: dynamicConfig,
 		eventGen:      eventGen,
-		metricsConfig: metricsConfig,
 		log:           log,
 	}
 	return &c
@@ -79,14 +75,14 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 			continue
 		}
 
-		trigger, err := common.GetResource(c.client, c.metricsConfig, ur.Spec, c.log)
+		trigger, err := common.GetResource(c.client, ur.Spec, c.log)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to get trigger resource")
 			errs = append(errs, err)
 			continue
 		}
 
-		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, c.metricsConfig, logger)
+		policyContext, _, err := common.NewBackgroundContext(c.client, ur, policy, trigger, c.configuration, nil, logger)
 		if err != nil {
 			logger.WithName(rule.Name).Error(err, "failed to build policy context")
 			errs = append(errs, err)
@@ -123,12 +119,10 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 
 				if r.Status == response.RuleStatusPass {
 					_, updateErr := c.client.UpdateResource(patchedNew.GetAPIVersion(), patchedNew.GetKind(), patchedNew.GetNamespace(), patchedNew.Object, false)
-					c.metricsConfig.RecordClientQueries(metrics.ClientUpdate, patchedNew.GetKind(), patchedNew.GetNamespace())
 					if updateErr != nil {
 						errs = append(errs, updateErr)
 						logger.WithName(rule.Name).Error(updateErr, "failed to update target resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
 					} else {
-						c.metricsConfig.RecordClientQueries(metrics.ClientUpdate, patchedNew.GetKind(), patchedNew.GetNamespace())
 						logger.WithName(rule.Name).V(4).Info("successfully mutated existing resource", "namespace", patchedNew.GetNamespace(), "name", patchedNew.GetName())
 					}
 

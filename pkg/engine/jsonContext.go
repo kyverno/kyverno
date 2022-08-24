@@ -9,7 +9,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	jmespath "github.com/kyverno/kyverno/pkg/engine/jmespath"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 )
 
@@ -330,12 +329,9 @@ func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	}
 
 	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
-	ctx.MetricsConfig.RecordClientQueries(metrics.ClientList, p.ResourceType, p.Namespace)
 	if err != nil {
 		return nil, err
 	}
-
-	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientList, p.ResourceType, p.Namespace)
 	return l.MarshalJSON()
 }
 
@@ -345,12 +341,10 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	}
 
 	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
-	ctx.MetricsConfig.RecordClientQueries(metrics.ClientGet, p.ResourceType, p.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
-	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientGet, p.ResourceType, p.Namespace)
 	return r.MarshalJSON()
 }
 
@@ -386,12 +380,10 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 	}
 
 	obj, err := ctx.Client.GetResource("v1", "ConfigMap", namespace.(string), name.(string))
-	ctx.MetricsConfig.RecordClientQueries(metrics.ClientGet, "ConfigMap", namespace.(string))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get configmap %s/%s : %v", namespace, name, err)
 	}
 
-	registerClientQueriesMetric(ctx.MetricsConfig, metrics.ClientGet, "ConfigMap", namespace.(string))
 	unstructuredObj := obj.DeepCopy().Object
 
 	// extract configmap data
@@ -403,12 +395,4 @@ func fetchConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *Polic
 	}
 
 	return data, nil
-}
-
-func registerClientQueriesMetric(m metrics.MetricsConfigManager, clientQueryOperation metrics.ClientQueryOperation, resourceKind string, resourceNamespace string) {
-	if m == nil {
-		return
-	}
-
-	m.RecordClientQueries(clientQueryOperation, resourceKind, resourceNamespace)
 }

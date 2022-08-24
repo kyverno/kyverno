@@ -5,7 +5,6 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -42,9 +41,6 @@ type PolicyContext struct {
 
 	// AdmissionOperation represents if the caller is from the webhook server
 	AdmissionOperation bool
-
-	// MetricsConfig is used to record client queries
-	MetricsConfig metrics.MetricsConfigManager
 }
 
 func (pc *PolicyContext) Copy() *PolicyContext {

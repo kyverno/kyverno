@@ -8,13 +8,12 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/dclient"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func GetResource(client dclient.Interface, metricsConfig metrics.MetricsConfigManager, urSpec kyvernov1beta1.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
+func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSpec, log logr.Logger) (*unstructured.Unstructured, error) {
 	resourceSpec := urSpec.Resource
 
 	get := func() (*unstructured.Unstructured, error) {
@@ -22,7 +21,6 @@ func GetResource(client dclient.Interface, metricsConfig metrics.MetricsConfigMa
 			resourceSpec.Namespace = ""
 		}
 		resource, err := client.GetResource(resourceSpec.APIVersion, resourceSpec.Kind, resourceSpec.Namespace, resourceSpec.Name)
-		metricsConfig.RecordClientQueries(metrics.ClientGet, resourceSpec.Kind, resourceSpec.Namespace)
 		if err != nil {
 			if urSpec.Type == kyvernov1beta1.Mutate && errors.IsNotFound(err) && urSpec.Context.AdmissionRequestInfo.Operation == admissionv1.Delete {
 				log.V(4).Info("trigger resource does not exist for mutateExisting rule", "operation", urSpec.Context.AdmissionRequestInfo.Operation)

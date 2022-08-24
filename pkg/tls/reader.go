@@ -17,7 +17,7 @@ var ErrorsNotFound = "root CA certificate not found"
 func ReadRootCASecret(client kubernetes.Interface, metricsConfig metrics.MetricsConfigManager) ([]byte, error) {
 	sname := GenerateRootCASecretName()
 	stlsca, err := client.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), sname, metav1.GetOptions{})
-	metricsConfig.RecordClientQueries(metrics.ClientGet, "Secret", config.KyvernoNamespace())
+	metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "Secret", config.KyvernoNamespace())
 	if err != nil {
 		return nil, err
 	}

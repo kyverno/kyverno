@@ -170,7 +170,6 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		ExcludeResourceFunc: h.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              h.client,
-		MetricsConfig:       h.metricsConfig,
 		AdmissionOperation:  true,
 	}
 
@@ -285,7 +284,6 @@ func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, add
 		ExcludeResourceFunc: h.configuration.ToFilter,
 		JSONContext:         ctx,
 		Client:              h.client,
-		MetricsConfig:       h.metricsConfig,
 		AdmissionOperation:  true,
 	}
 	if request.Operation == admissionv1.Update {

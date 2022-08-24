@@ -116,14 +116,3 @@ func TestEventInterface(t *testing.T) {
 		t.Errorf("Testing Event interface not working: %s", err)
 	}
 }
-func TestCSRInterface(t *testing.T) {
-	f := newFixture(t)
-	iCSR, err := f.client.GetCSRInterface()
-	if err != nil {
-		t.Errorf("GetCSRInterface not working: %s", err)
-	}
-	_, err = iCSR.List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		t.Errorf("Testing CSR interface not working: %s", err)
-	}
-}

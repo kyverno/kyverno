@@ -100,7 +100,7 @@ func (c *crdSync) sync() {
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
 
-	c.controller.metricsConfig.RecordClientQueries(metrics.ClientList, "CustomResourceDefinition", "")
+	c.client.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, "CustomResourceDefinition", "")
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return

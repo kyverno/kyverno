@@ -172,7 +172,7 @@ func (wrc *Register) Remove(cleanupKyvernoResource bool, wg *sync.WaitGroup) {
 	defer wg.Done()
 	// delete Lease object to let init container do the cleanup
 	if err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{}); err != nil && errorsapi.IsNotFound(err) {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, "Lease", config.KyvernoNamespace())
+		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, metrics.KubeClient, "Lease", config.KyvernoNamespace())
 		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
 	}
 	if cleanupKyvernoResource {
@@ -227,8 +227,9 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 	caData := wrc.readCaData()
 	m := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	v := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, kindMutating, "")
 	if list, err := m.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientList, kindMutating, "")
 		return err
 	} else {
 		for _, item := range list.Items {
@@ -237,13 +238,14 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 				copy.Webhooks[r].ClientConfig.CABundle = caData
 			}
 			if _, err := m.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
-				wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindMutating, "")
+				wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 				return err
 			}
 		}
 	}
+
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, kindValidating, "")
 	if list, err := v.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientList, kindValidating, "")
 		return err
 	} else {
 		for _, item := range list.Items {
@@ -251,8 +253,9 @@ func (wrc *Register) UpdateWebhooksCaBundle() error {
 			for r := range copy.Webhooks {
 				copy.Webhooks[r].ClientConfig.CABundle = caData
 			}
+
+			wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 			if _, err := v.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
-				wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindValidating, "")
 				return err
 			}
 		}
@@ -305,7 +308,7 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error {
 	logger := wrc.log.WithName("ValidateWebhookConfigurations")
 	cm, err := wrc.kubeClient.CoreV1().ConfigMaps(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, "ConfigMap", namespace)
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "ConfigMap", namespace)
 	if err != nil {
 		logger.Error(err, "unable to fetch ConfigMap", "namespace", namespace, "name", name)
 		return nil
@@ -321,8 +324,9 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 
 func (wrc *Register) createMutatingWebhookConfiguration(config *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	logger := wrc.log.WithValues("kind", kindMutating, "name", config.Name)
+
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientCreate, metrics.KubeClient, kindMutating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientCreate, kindMutating, "")
 		if errorsapi.IsAlreadyExists(err) {
 			logger.V(6).Info("resource mutating webhook configuration already exists", "name", config.Name)
 			return wrc.updateMutatingWebhookConfiguration(config)
@@ -336,8 +340,9 @@ func (wrc *Register) createMutatingWebhookConfiguration(config *admissionregistr
 
 func (wrc *Register) createValidatingWebhookConfiguration(config *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	logger := wrc.log.WithValues("kind", kindValidating, "name", config.Name)
+
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientCreate, metrics.KubeClient, kindValidating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.TODO(), config, metav1.CreateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientCreate, kindValidating, "")
 		if errorsapi.IsAlreadyExists(err) {
 			logger.V(6).Info("resource validating webhook configuration already exists", "name", config.Name)
 			return wrc.updateValidatingWebhookConfiguration(config)
@@ -406,7 +411,7 @@ func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) err
 
 func (wrc *Register) checkEndpoint() error {
 	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoServiceName(), metav1.GetOptions{})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, "EndPoint", config.KyvernoNamespace())
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "EndPoint", config.KyvernoNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
 	}
@@ -416,7 +421,7 @@ func (wrc *Register) checkEndpoint() error {
 		},
 	}
 	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, "Pod", config.KyvernoNamespace())
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "Pod", config.KyvernoNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
 	}
@@ -454,8 +459,8 @@ func (wrc *Register) updateResourceValidatingWebhookConfiguration(webhookCfg con
 		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating validatingWebhookConfigurations")
 		return nil
 	}
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), copy, metav1.UpdateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindValidating, "")
 		return err
 	}
 	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
@@ -476,8 +481,9 @@ func (wrc *Register) updateResourceMutatingWebhookConfiguration(webhookCfg confi
 		wrc.log.V(4).Info("namespaceSelector unchanged, skip updating mutatingWebhookConfigurations")
 		return nil
 	}
+
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), copy, metav1.UpdateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindMutating, "")
 		return err
 	}
 	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
@@ -521,8 +527,8 @@ func (wrc *Register) updateMutatingWebhookConfiguration(targetConfig *admissionr
 	}
 	// Update the current configuration.
 	currentConfiguration.Webhooks = newWebhooks
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), currentConfiguration, metav1.UpdateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindMutating, "")
 		return err
 	}
 	wrc.log.V(3).Info("successfully updated mutatingWebhookConfigurations", "name", targetConfig.Name)
@@ -566,8 +572,8 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admissio
 	}
 	// Update the current configuration.
 	currentConfiguration.Webhooks = newWebhooks
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 	if _, err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), currentConfiguration, metav1.UpdateOptions{}); err != nil {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindValidating, "")
 		return err
 	}
 	wrc.log.V(3).Info("successfully updated validatingWebhookConfigurations", "name", targetConfig.Name)
@@ -577,7 +583,7 @@ func (wrc *Register) updateValidatingWebhookConfiguration(targetConfig *admissio
 func (wrc *Register) ShouldCleanupKyvernoResource() bool {
 	logger := wrc.log.WithName("cleanupKyvernoResource")
 	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, "Deployment", config.KyvernoNamespace())
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "Deployment", config.KyvernoNamespace())
 	if err != nil {
 		if errorsapi.IsNotFound(err) {
 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
@@ -640,21 +646,19 @@ func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup
 func (wrc *Register) removeMutatingWebhookConfiguration(name string) {
 	logger := wrc.log.WithValues("kind", kindMutating, "name", name)
 	if err := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindMutating, "")
 		logger.Error(err, "failed to delete the mutating webhook configuration")
 	} else {
 		logger.Info("webhook configuration deleted")
 	}
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindMutating, "")
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, metrics.KubeClient, kindMutating, "")
 }
 
 func (wrc *Register) removeValidatingWebhookConfiguration(name string) {
 	logger := wrc.log.WithValues("kind", kindValidating, "name", name)
 	if err := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.TODO(), name, metav1.DeleteOptions{}); err != nil && !errorsapi.IsNotFound(err) {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindValidating, "")
 		logger.Error(err, "failed to delete the validating webhook configuration")
 	} else {
 		logger.Info("webhook configuration deleted")
 	}
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, kindValidating, "")
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, metrics.KubeClient, kindValidating, "")
 }

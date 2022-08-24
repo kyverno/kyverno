@@ -362,7 +362,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController(nil)
+	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
@@ -985,7 +985,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue

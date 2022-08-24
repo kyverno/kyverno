@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	utils "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -22,7 +21,6 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
 	namespaceLabels map[string]string,
-	metricsConfig metrics.MetricsConfigManager,
 	logger logr.Logger,
 ) (*engine.PolicyContext, bool, error) {
 	ctx := context.NewContext()
@@ -89,7 +87,6 @@ func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRe
 		JSONContext:         ctx,
 		NamespaceLabels:     namespaceLabels,
 		Client:              dclient,
-		MetricsConfig:       metricsConfig,
 		AdmissionOperation:  false,
 	}
 

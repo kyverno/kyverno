@@ -463,7 +463,7 @@ func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName st
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
-		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindMutating, "")
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")
@@ -491,7 +491,7 @@ func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName 
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
-		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, kindValidating, "")
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")

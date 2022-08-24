@@ -79,7 +79,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error)
 		},
 	}
 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, "ClusterRole", "")
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "ClusterRole", "")
 	if err != nil {
 		return nil, err
 	}
