@@ -31,3 +31,5 @@ annotations:
       description: Ensure preconditions are present with default values
     - kind: added
       description: Support for failurePolicy setting in kyverno-policies helm chart
+    - kind: added
+      description: Add posibility to set validationFailureAction by Policy
