@@ -439,7 +439,7 @@ func (v *validator) getDenyMessage(deny bool) string {
 func formatChecksPrint(checks []pss.PSSCheckResult) string {
 	var str string
 	for _, check := range checks {
-		str += fmt.Sprintf("\n\n- %+v\n", check)
+		str += fmt.Sprintf("(%+v)\n", check.CheckResult)
 	}
 	return str
 }
@@ -549,7 +549,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 
 	} else {
-		msg := fmt.Sprintf("Validation rule '%s' failed. You must exclude the following controls: %s", v.rule.Name, formatChecksPrint(pssChecks))
+		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, formatChecksPrint(pssChecks))
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }
