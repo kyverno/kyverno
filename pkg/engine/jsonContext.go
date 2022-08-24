@@ -313,6 +313,11 @@ func fetchAPIData(log logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyCont
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
+	} else if p.Raw != "" {
+		jsonData, err = getResource(ctx, p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", p, err)
+		}
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {
@@ -340,13 +345,15 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	if ctx.Client == nil {
 		return nil, fmt.Errorf("API client is not available")
 	}
-
 	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
 	if err != nil {
 		return nil, err
 	}
-
 	return r.MarshalJSON()
+}
+
+func getResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	return ctx.Client.RawAbsPath(p.Raw)
 }
 
 func loadConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {

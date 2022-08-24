@@ -46,7 +46,7 @@ type Interface interface {
 	Add(infoList ...Info)
 }
 
-//NewEventGenerator to generate a new event controller
+// NewEventGenerator to generate a new event controller
 func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,

@@ -125,14 +125,18 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
-// 		Kinds      []string
-// 		Name       string
-// 		Namespaces []string
-// 		Selector
+//
+//	Kinds      []string
+//	Name       string
+//	Namespaces []string
+//	Selector
+//
 // UserInfo:
-// 		Roles        []string
-// 		ClusterRoles []string
-// 		Subjects     []rbacv1.Subject
+//
+//	Roles        []string
+//	ClusterRoles []string
+//	Subjects     []rbacv1.Subject
+//
 // To filter out the targeted resources with ResourceDescription, the check
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
