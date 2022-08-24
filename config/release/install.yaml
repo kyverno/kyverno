@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -2590,7 +2590,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -2952,7 +2952,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3314,7 +3314,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -3504,7 +3504,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -6075,7 +6075,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -6436,7 +6436,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -6798,7 +6798,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -7187,7 +7187,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -7200,7 +7200,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:leaderelection
   namespace: kyverno
 rules:
@@ -7234,7 +7234,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-generaterequest
 rules:
@@ -7260,7 +7260,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -7287,7 +7287,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -7314,7 +7314,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -7341,7 +7341,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:events
 rules:
 - apiGroups:
@@ -7363,7 +7363,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:generate
 rules:
 - apiGroups:
@@ -7410,7 +7410,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:policies
 rules:
 - apiGroups:
@@ -7463,7 +7463,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -7486,7 +7486,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:view
 rules:
 - apiGroups:
@@ -7507,7 +7507,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -7533,7 +7533,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:leaderelection
   namespace: kyverno
 roleRef:
@@ -7554,7 +7554,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:events
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7574,7 +7574,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:generate
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7594,7 +7594,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:policies
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7614,7 +7614,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:userinfo
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7634,7 +7634,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:view
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7654,7 +7654,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno:webhook
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -7679,7 +7679,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno
   namespace: kyverno
 ---
@@ -7695,7 +7695,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -7708,7 +7708,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -7729,7 +7729,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -7750,7 +7750,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.7.2
+    app.kubernetes.io/version: v1.7.3
   name: kyverno
   namespace: kyverno
 spec:
@@ -7772,7 +7772,7 @@ spec:
         app.kubernetes.io/instance: kyverno
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: v1.7.2
+        app.kubernetes.io/version: v1.7.3
     spec:
       affinity:
         podAntiAffinity:
@@ -7807,7 +7807,7 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: ghcr.io/kyverno/kyverno:v1.7.2
+        image: ghcr.io/kyverno/kyverno:v1.7.3
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
@@ -7862,7 +7862,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/kyverno/kyvernopre:v1.7.2
+        image: ghcr.io/kyverno/kyvernopre:v1.7.3
         imagePullPolicy: Always
         name: kyverno-pre
         resources:
