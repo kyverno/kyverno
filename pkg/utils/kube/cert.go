@@ -14,7 +14,8 @@ import (
 func FetchCert(
 	ctx context.Context,
 	certs string,
-	kubeClient kubernetes.Interface) (credentials.TransportCredentials, error) {
+	kubeClient kubernetes.Interface,
+) (credentials.TransportCredentials, error) {
 	secret, err := kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(ctx, certs, v1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("error fetching certificate from secret")

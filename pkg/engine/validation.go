@@ -20,7 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -100,7 +100,6 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	applyRules := ctx.Policy.GetSpec().GetApplyRules()
 
 	for i := range rules {
-		fmt.Printf("=== rule:\n%+v\n", rules[i])
 		rule := &rules[i]
 		hasValidate := rule.HasValidate()
 		hasValidateImage := rule.HasImagesValidationChecks()
@@ -445,12 +444,10 @@ func formatChecksPrint(checks []pss.PSSCheckResult) string {
 }
 
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
-	fmt.Printf("=== newResource:\n%+v\n", v.ctx.NewResource)
-
 	kind := v.ctx.NewResource.GetKind()
 
 	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" {
-		var deployment v1.Deployment
+		var deployment appsv1.Deployment
 
 		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
 		if err != nil {
@@ -460,7 +457,6 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 		if err != nil {
 			return nil, nil, err
 		}
-		fmt.Printf("Deployment:\n%+v\n", deployment)
 		podSpec = &deployment.Spec.Template.Spec
 		metadata = &deployment.Spec.Template.ObjectMeta
 		return podSpec, metadata, nil
@@ -475,7 +471,6 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 		if err != nil {
 			return nil, nil, err
 		}
-		fmt.Printf("cronJob:\n%+v\n", cronJob)
 		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
 		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
 	} else if kind == "Pod" {
@@ -489,7 +484,6 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 		if err != nil {
 			return nil, nil, err
 		}
-		fmt.Printf("pod:\n%+v\n", pod)
 		podSpec = &pod.Spec
 		metadata = &pod.ObjectMeta
 		return podSpec, metadata, nil
@@ -504,13 +498,10 @@ func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta
 // Unstructured
 func (v *validator) validatePodSecurity() *response.RuleResponse {
 	// Marshal pod metadata and spec
-
 	podSpec, metadata, err := getSpec(v)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
 	}
-	fmt.Printf("\npodSpec:\n%+v\n", podSpec)
-	fmt.Printf("\nmetadata:\n%+v\n", metadata)
 	// Get pod security admission version
 	var apiVersion api.Version
 
@@ -539,7 +530,6 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		ObjectMeta: *metadata,
 	}
 	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
-
 	if err != nil {
 		msg := fmt.Sprintf("Failed to evaluate validation rule `%s`: %v", v.rule.Name, err)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError, nil)
@@ -547,7 +537,6 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
-
 	} else {
 		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, formatChecksPrint(pssChecks))
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
