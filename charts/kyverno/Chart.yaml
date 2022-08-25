@@ -34,3 +34,5 @@ annotations:
       description: Prevent installing Kyverno in namespace kube-system.
     - kind: fixed
       description: Docs for generatecontrollerExtraResources.
+    - kind: changed
+      description: Enable autogen internals by default.

@@ -12,14 +12,10 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-initContainer
-      digest_command: docker-get-initContainer-digest
+      publish_command: ko-build-initContainer
       image_name: kyvernopre
       tag: release
       main: cmd/initContainer
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno:
     permissions:
@@ -28,14 +24,10 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-kyverno
-      digest_command: docker-get-kyverno-digest
+      publish_command: ko-build-kyverno
       image_name: kyverno
       tag: release
       main: cmd/kyverno
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno-cli:
     permissions:
@@ -44,14 +36,10 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-cli
-      digest_command: docker-get-cli-digest
+      publish_command: ko-build-cli
       image_name: kyverno-cli
       tag: release
       main: cmd/cli/kubectl-kyverno
-    secrets:
-      registry_username: ${{ github.actor }}
-      registry_password: ${{ secrets.CR_PAT }}
   
   create-release:
     runs-on: ubuntu-latest

@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.21.12, v1.22.9, v1.23.6, v1.24.0]
+        k8s-version: [v1.24.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -52,16 +52,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Install ko
+        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
+
       - name :  Create dev images, kind cluster and setup kustomize
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
-          make create-e2e-infrastruture
+          make create-e2e-infrastructure
 
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
+          sed -e 's/--autogenInternals:true$/--autogenInternals:false/g' | \
           kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
@@ -73,6 +77,7 @@ jobs:
           echo ">>> Expose the Kyverno's service's metric server to the host"
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
+          export FLAG_AUTOGEN_INTERNALS=false
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
 

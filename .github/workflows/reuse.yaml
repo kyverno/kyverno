@@ -6,9 +6,6 @@ on:
       publish_command:
         required: true
         type: string
-      digest_command: 
-        required: true
-        type: string
       image_name: 
         required: true
         type: string
@@ -17,11 +14,6 @@ on:
         type: string
       main: 
         type: string
-    secrets:
-      registry_username:
-        required: true
-      registry_password:
-        required: true
 
 jobs:
   build:
@@ -63,21 +55,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Log into ghcr.io
-        uses: docker/login-action@7c79b598eaa33458e78e8d0d71e0a9c217dd92af
-        with:
-          registry: ghcr.io
-          username: ${{secrets.registry_username}}
-          password: ${{secrets.registry_password}}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480 # v1.2.0
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
+      - name: Install ko
+        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
 
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
@@ -122,27 +101,19 @@ jobs:
               echo ::set-output name=match::true
           fi
 
-      - name : Docker images publish
+      - name: ko build dev image
+        id: ko-build-dev
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
-        run: make ${{inputs.publish_command}}-dev
-
-      - name : Docker release-images publish
-        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
-        run: make ${{inputs.publish_command}}
-
-      - name: get image digest
-        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
-        id: get-step-image
         run: |
-          echo "::set-output name=digest::$(make ${{inputs.digest_command}}-dev)"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}}-dev)"
 
-      - name: get release-image digest
+      - name: ko build release image
+        id: ko-build
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
-        id: get-step
         run: |
-          echo "::set-output name=digest::$(make ${{inputs.digest_command}})"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}})"
 
-      - name: Sign image
+      - name: Sign dev image
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         env:
           COSIGN_EXPERIMENTAL: "true"
@@ -152,7 +123,7 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step-image.outputs.digest }}
+          ${{ steps.ko-build-dev.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
@@ -164,10 +135,10 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          ${{ steps.ko-build.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/${{ github.repository_owner }}/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-build.outputs.digest }}
