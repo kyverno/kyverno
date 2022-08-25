@@ -16,7 +16,7 @@ import (
 	trunc "github.com/aquilax/truncate"
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
-	wildcard "github.com/kyverno/go-wildcard"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"sigs.k8s.io/yaml"
 )
 
