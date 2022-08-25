@@ -7,10 +7,10 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -346,7 +346,6 @@ func OverrideRuntimeErrorHandler() {
 		runtime.ErrorHandlers[0] = func(err error) {
 			logger.V(6).Info("runtime error: %s", err)
 		}
-
 	} else {
 		runtime.ErrorHandlers = []func(err error){
 			func(err error) {

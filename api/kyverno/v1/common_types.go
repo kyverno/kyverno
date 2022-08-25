@@ -18,7 +18,7 @@ const (
 	Fail FailurePolicyType = "Fail"
 )
 
-//  ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.
+// ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.
 // +kubebuilder:validation:Enum=All;One
 type ApplyRulesType string
 

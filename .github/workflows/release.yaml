@@ -10,7 +10,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    uses: ./.github/workflows/reuse.yaml
     with:
       publish_command: docker-publish-initContainer
       digest_command: docker-get-initContainer-digest
@@ -26,7 +26,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    uses: ./.github/workflows/reuse.yaml
     with:
       publish_command: docker-publish-kyverno
       digest_command: docker-get-kyverno-digest
@@ -42,7 +42,7 @@ jobs:
       contents: read
       packages: write
       id-token: write
-    uses: kyverno/kyverno/.github/workflows/reuse.yaml@main
+    uses: ./.github/workflows/reuse.yaml
     with:
       publish_command: docker-publish-cli
       digest_command: docker-get-cli-digest

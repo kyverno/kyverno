@@ -20,7 +20,6 @@ import (
 )
 
 func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.Handlers {
-
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig(client)
 
@@ -53,13 +52,10 @@ func newFakeAuditHandler() AuditHandler {
 	return &fakeAuditHandler{}
 }
 
-type fakeAuditHandler struct {
-}
+type fakeAuditHandler struct{}
 
 func (f *fakeAuditHandler) Add(request *admissionv1.AdmissionRequest) {
-
 }
 
 func (f *fakeAuditHandler) Run(workers int, stopCh <-chan struct{}) {
-
 }

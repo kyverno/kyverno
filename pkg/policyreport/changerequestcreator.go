@@ -124,7 +124,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			requests := []*unstructured.Unstructured{}
+			var requests []*unstructured.Unstructured
 			var size int
 			if c.splitPolicyReport {
 				requests, size = c.mergeRequestsPerPolicy()
