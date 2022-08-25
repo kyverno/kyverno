@@ -131,7 +131,7 @@ INITC_KIND_IMAGE = kind.local/github.com/kyverno/kyverno/cmd/initcontainer
 # TODO(jason): LD_FLAGS_DEV
 ko-build-initContainer-dev: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
 ko-build-initContainer-dev:
-	@ko build ./$(INITC_PATH) --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
+	@ko build ./$(INITC_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
 
 ##################################
 # KYVERNO CONTAINER
@@ -161,7 +161,7 @@ KYVERNO_KIND_IMAGE = kind.local/github.com/kyverno/kyverno/cmd/kyverno
 # TODO(jason): LD_FLAGS_DEV
 ko-build-kyverno-dev: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
 ko-build-kyverno-dev:
-	@ko build ./$(KYVERNO_PATH) --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
+	@ko build ./$(KYVERNO_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
 
 ##################################
 # Generate Docs for types.go
@@ -207,7 +207,7 @@ ko-build-cli-local:
 # TODO(jason): LD_FLAGS_DEV
 ko-build-cli-dev: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
 ko-build-cli-dev:
-	@ko build ./$(CLI_PATH) --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
+	@ko build ./$(CLI_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
 
 ##################################
 ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
