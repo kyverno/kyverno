@@ -28,7 +28,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # pin@v3
         with:
-          go-version: 1.17
+          go-version: 1.18
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc # pin@v3
@@ -84,7 +84,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
         with:
-          go-version: 1.17
+          go-version: 1.18
 
       - name: Cache Go modules
         uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # pin@v1.2.0
