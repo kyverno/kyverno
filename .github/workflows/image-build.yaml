@@ -83,18 +83,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480 # v1.2.0
+      - name: Install ko
+        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images build
-        run: |
-          make docker-build-initContainer
+      - name: ko build
+        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-initContainer
 
   build-kyverno:
     runs-on: ubuntu-latest
@@ -119,18 +112,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480 # v1.2.0
+      - name: Install ko
+        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images build
-        run: |
-          make docker-build-kyverno
+      - name: ko build
+        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-kyverno
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
@@ -164,15 +150,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@27d0a4f181a40b142cce983c5393082c365d1480 # v1.2.0
+      - name: Install ko
+        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
-      - name: docker images build
-        run: |
-          make docker-build-cli
+      - name: ko build
+        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-cli
