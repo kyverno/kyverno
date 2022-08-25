@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
