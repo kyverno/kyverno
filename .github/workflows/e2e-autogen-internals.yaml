@@ -24,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.23.6]
+        k8s-version: [v1.21.12, v1.22.9, v1.23.6, v1.24.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -64,7 +64,6 @@ jobs:
           echo ">>> Install Kyverno"
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
-          sed -e 's/--autogenInternals:false$/--autogenInternals:true/g' | \
           kubectl apply -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
@@ -76,7 +75,6 @@ jobs:
           echo ">>> Expose the Kyverno's service's metric server to the host"
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
-          export FLAG_AUTOGEN_INTERNALS=true
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
 
