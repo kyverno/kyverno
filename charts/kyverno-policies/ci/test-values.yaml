@@ -1,6 +1,8 @@
 podSecurityStandard: restricted
 includeOtherPolicies:
 - require-non-root-groups
+validationFailureActionByPolicy:
+  require-non-root-groups: enforce
 validationFailureActionOverrides:
   all:
     - action: audit
