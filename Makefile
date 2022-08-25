@@ -85,7 +85,7 @@ clean-tools: ## Remove tools
 # BUILD (LOCAL) #
 #################
 
-CMD_DIR        := $(PWD)/cmd
+CMD_DIR        := ./cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
@@ -94,6 +94,7 @@ KYVERNOPRE     := $(KYVERNOPRE_DIR)/kyvernopre
 CLI            := $(CLI_DIR)/kubectl-kyverno
 PACKAGE        ?= github.com/kyverno/kyverno
 GOOS           ?= $(shell go env GOOS)
+GOARCH         ?= $(shell go env GOARCH)
 CGO_ENABLED    ?= 0 
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -162,39 +163,40 @@ ko-build-kyverno-dev: $(KO)
 ko-build-cli-dev: $(KO)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
+.PHONY: ko-build-initContainer-local
+ko-build-initContainer-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
+.PHONY: ko-build-kyverno-local
+ko-build-kyverno-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
+.PHONY: ko-build-cli-local
+ko-build-cli-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
 .PHONY: ko-build-all
 ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
 
 .PHONY: ko-build-all-dev
 ko-build-all-dev: ko-build-initContainer-dev ko-build-kyverno-dev ko-build-cli-dev
 
+.PHONY: ko-build-all-local
+ko-build-all-local: ko-build-initContainer-local ko-build-kyverno-local ko-build-cli-local
 
+# ko-build-initContainer-amd64: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
+# ko-build-initContainer-amd64: $(KO)
+# 	@$(KO) build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
 
-ko-build-initContainer-amd64: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
-ko-build-initContainer-amd64: $(KO)
-	@$(KO) build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+# ko-build-kyverno-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
+# ko-build-kyverno-amd64: $(KO)
+# 	@$(KO) build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
 
-ko-build-initContainer-local: KO_DOCKER_REPO=kind.local
-ko-build-initContainer-local: kind-e2e-cluster
-	@$(KO) build ./$(INITC_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV) --preserve-import-paths
+# ko-build-cli-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
+# ko-build-cli-amd64: $(KO)
+# 	@$(KO) build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
 
-ko-build-kyverno-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
-ko-build-kyverno-amd64: $(KO)
-	@$(KO) build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
-
-ko-build-kyverno-local: KO_DOCKER_REPO=kind.local
-ko-build-kyverno-local: kind-e2e-cluster
-	@$(KO) build ./$(KYVERNO_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV) --preserve-import-paths
-
-ko-build-cli-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
-ko-build-cli-amd64: $(KO)
-	@$(KO) build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
-
-ko-build-cli-local: KO_DOCKER_REPO=ko.local
-ko-build-cli-local: $(KO)
-	@$(KO) build ./$(CLI_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV)
-
-ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build-cli-amd64
+# ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build-cli-amd64
 
 ##################################
 # KYVERNO
@@ -348,23 +350,24 @@ docker-push-cli: docker-buildx-builder
 kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
 	$(KIND) create cluster --image=$(KIND_IMAGE)
 
+# TODO(eddycharly): $(REPO) is wrong, it is always ghcr.io/kyverno in the source
 .PHONY: e2e-kustomize
 e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	cd config && \
-	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
-	$(KUSTOMIZE) edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	$(KUSTOMIZE) edit set image $(REPO)/$(INITC_IMAGE)=$(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 	$(KUSTOMIZE) build config/ -o config/install.yaml
 
+# TODO(eddycharly): this is not going to work with docker
 .PHONY: e2e-init-container
-e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
-	$(KIND) load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+e2e-init-container: kind-e2e-cluster | ko-build-initContainer-local
 
+# TODO(eddycharly): this is not going to work with docker
 .PHONY: e2e-kyverno-container
-e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
-	$(KIND) load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno-local
 
 .PHONY: create-e2e-infrastructure
-create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
+create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
@@ -539,4 +542,3 @@ kind-deploy: ko-build-initContainer-local ko-build-kyverno-local
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
 	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
-
