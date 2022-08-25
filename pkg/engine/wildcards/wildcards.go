@@ -3,9 +3,9 @@ package wildcards
 import (
 	"strings"
 
-	wildcard "github.com/kyverno/go-wildcard"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

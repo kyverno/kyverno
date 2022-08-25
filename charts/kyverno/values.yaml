@@ -141,7 +141,7 @@ envVars: {}
 
 # -- Extra arguments to give to the binary.
 extraArgs:
-  - --autogenInternals=false
+  - --autogenInternals=true
 
 # -- Array of extra init containers
 extraInitContainers: []
@@ -220,9 +220,8 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-# TODO(mbarrien): Should we just list all resources for the
-# generatecontroller in here rather than having defaults hard-coded?
-generatecontrollerExtraResources:
+# -- Additional resources to be added to controller RBAC permissions.
+generatecontrollerExtraResources: []
 # - ResourceA
 # - ResourceB
 
