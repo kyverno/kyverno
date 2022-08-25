@@ -335,8 +335,11 @@ type PodSecurityStandard struct {
 	ControlName string `json:"controlName" yaml:"controlName"`
 
 	// Select the containers that we want to exclude by specifying the docker image
-	// Can be empty for pod-level controls.
-	// i.e.: "Host Namespaces", "HostPath Volumes" etc...
+	// When not set / empty with:
+	// Controls with only pod-level restricted fields: exclude all of them
+	// e.g.: "Host Namespaces", "HostPath Volumes" etc...
+	// Controls with pod-level and container-level restricted fields: exclude only pod-level fields
+	// e.g.: "HostProcess", "Privileged Containers"
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
 
