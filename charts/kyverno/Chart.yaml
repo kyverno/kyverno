@@ -32,3 +32,5 @@ annotations:
       description: Added ability to remove namespaces from default resourceFilters list
     - kind: added
       description: Prevent installing Kyverno in namespace kube-system.
+    - kind: fixed
+      description: Docs for generatecontrollerExtraResources.
