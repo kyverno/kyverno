@@ -9,8 +9,6 @@ GIT_VERSION_DEV := $(shell git describe --match "[0-9].[0-9]-dev*")
 GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
 GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
 TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-CONTROLLER_GEN=controller-gen
-CONTROLLER_GEN_REQ_VERSION := v0.9.1-0.20220629131006-1878064c4cdf
 VERSION ?= $(shell git describe --match "v[0-9]*")
 
 REGISTRY?=ghcr.io
@@ -31,8 +29,61 @@ K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
-KIND_VERSION=v0.14.0
 KIND_IMAGE?=kindest/node:v1.24.0
+
+#########
+# TOOLS #
+#########
+
+TOOLS_DIR                          := $(PWD)/.tools
+KIND                               := $(TOOLS_DIR)/kind
+KIND_VERSION                       := v0.14.0
+CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
+CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
+GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
+GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
+GO_ACC                             := $(TOOLS_DIR)/go-acc
+GO_ACC_VERSION                     := latest
+KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
+KUSTOMIZE_VERSION                  := latest
+GOIMPORTS                          := $(TOOLS_DIR)/goimports
+GOIMPORTS_VERSION                  := latest
+HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
+HELM_DOCS_VERSION                  := v1.6.0
+KO                                 := $(TOOLS_DIR)/ko
+KO_VERSION                         := v0.12.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+
+$(KIND):
+	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
+
+$(CONTROLLER_GEN):
+	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
+$(GEN_CRD_API_REFERENCE_DOCS):
+	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
+
+$(GO_ACC):
+	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
+
+$(KUSTOMIZE):
+	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION)
+
+$(GOIMPORTS):
+	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+
+$(HELM_DOCS):
+	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
+
+$(KO):
+	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
+.PHONY: install-tools
+install-tools: $(TOOLS) ## Install tools
+
+.PHONY: clean-tools
+clean-tools: ## Remove tools
+	@rm -rf $(TOOLS_DIR)
 
 ##################################
 # KYVERNO
@@ -164,17 +215,13 @@ docker-get-kyverno-digest-dev:
 # Generate Docs for types.go
 ##################################
 
-.PHONY: gen-crd-api-reference-docs
-gen-crd-api-reference-docs: ## Install gen-crd-api-reference-docs
-	go install github.com/ahmetb/gen-crd-api-reference-docs@latest
-
-.PHONY: gen-crd-api-reference-docs
-generate-api-docs: gen-crd-api-reference-docs ## Generate api reference docs
+.PHONY: generate-api-docs
+generate-api-docs: $(GEN_CRD_API_REFERENCE_DOCS) ## Generate api reference docs
 	rm -rf docs/crd
 	mkdir docs/crd
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	gen-crd-api-reference-docs -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
+	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 .PHONY: verify-api-docs
 verify-api-docs: generate-api-docs ## Check api reference docs are up to date
@@ -235,30 +282,24 @@ docker-build-all-amd64: docker-buildx-builder docker-build-initContainer-amd64 d
 # Create e2e Infrastruture
 ##################################
 
-.PHONY: kind-install
-kind-install: ## Install kind
-ifeq (, $(shell which kind))
-	go install sigs.k8s.io/kind@$(KIND_VERSION)
-endif
-
 .PHONY: kind-e2e-cluster
-kind-e2e-cluster: kind-install ## Create kind cluster for e2e tests
-	kind create cluster --image=$(KIND_IMAGE)
+kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
+	$(KIND) create cluster --image=$(KIND_IMAGE)
 
 .PHONY: e2e-kustomize
-e2e-kustomize: kustomize ## Build kustomize manifests for e2e tests
+e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	cd config && \
-	kustomize edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
-	kustomize edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
-	kustomize build config/ -o config/install.yaml
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) && \
+	$(KUSTOMIZE) edit set image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	$(KUSTOMIZE) build config/ -o config/install.yaml
 
 .PHONY: e2e-init-container
 e2e-init-container: kind-e2e-cluster docker-build-initContainer-local
-	kind load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
+	$(KIND) load docker-image $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: e2e-kyverno-container
 e2e-kyverno-container: kind-e2e-cluster docker-build-kyverno-local
-	kind load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
+	$(KIND) load docker-image $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: create-e2e-infrastruture
 create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize ## Setup infrastructure for e2e tests
@@ -267,21 +308,9 @@ create-e2e-infrastruture: e2e-init-container e2e-kyverno-container e2e-kustomize
 # Testing & Code-Coverage
 ##################################
 
-## variables
-BIN_DIR := $(GOPATH)/bin
-GO_ACC := $(BIN_DIR)/go-acc@latest
 CODE_COVERAGE_FILE:= coverage
 CODE_COVERAGE_FILE_TXT := $(CODE_COVERAGE_FILE).txt
 CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
-
-## targets
-$(GO_ACC):
-	@echo "	installing testing tools"
-	go install -v github.com/ory/go-acc@latest
-	$(eval export PATH=$(GO_ACC):$(PATH))
-# go test provides code coverage per packages only.
-# go-acc merges the result for pks so that it be used by
-# go tool cover for reporting
 
 test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
 
@@ -318,7 +347,7 @@ test-cli-registry: cli
 
 test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"
-	go-acc ./... -o $(CODE_COVERAGE_FILE_TXT)
+	$(GO_ACC) ./... -o $(CODE_COVERAGE_FILE_TXT)
 
 code-cov-report: ## Generate code coverage report
 	@echo "	generating code coverage report"
@@ -356,25 +385,19 @@ helm-test-values:
 godownloader:
 	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
 
-.PHONY: kustomize
-kustomize: ## Install kustomize
-ifeq (, $(shell which kustomize))
-	go install sigs.k8s.io/kustomize/kustomize/v4@latest
-endif
-
 .PHONY: kustomize-crd
-kustomize-crd: kustomize ## Create install.yaml
+kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
 	# Create CRD for helm deployment Helm
-	kustomize build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	$(KUSTOMIZE) build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
-	kustomize build ./config > ./config/install.yaml
+	$(KUSTOMIZE) build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
-	kustomize build ./config/debug > ./config/install_debug.yaml
+	$(KUSTOMIZE) build ./config/debug > ./config/install_debug.yaml
 
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 release:
-	kustomize build ./config > ./config/install.yaml
-	kustomize build ./config/release > ./config/release/install.yaml
+	$(KUSTOMIZE) build ./config > ./config/install.yaml
+	$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
 
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
@@ -385,46 +408,16 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: controller-gen ## Generate Kyverno CRDs
+kyverno-crd: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
-report-crd: controller-gen ## Generate policy reports CRDs
+report-crd: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-.PHONY: install-controller-gen
-install-controller-gen: ## Install controller-gen
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_REQ_VERSION) ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-	CONTROLLER_GEN=$(GOPATH)/bin/controller-gen
-
-.PHONY: controller-gen
-controller-gen: ## Setup controller-gen
-ifeq (, $(shell which controller-gen))
-	@{ \
-	echo "controller-gen not found!";\
-	echo "installing controller-gen $(CONTROLLER_GEN_REQ_VERSION)...";\
-	make install-controller-gen;\
-	}
-else ifneq (Version: $(CONTROLLER_GEN_REQ_VERSION), $(shell controller-gen --version))
-	@{ \
-		echo "controller-gen $(shell controller-gen --version) found!";\
-		echo "required controller-gen $(CONTROLLER_GEN_REQ_VERSION)";\
-		echo "installing controller-gen $(CONTROLLER_GEN_REQ_VERSION)...";\
-		make install-controller-gen;\
-	}
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
-
 .PHONY: deepcopy-autogen
-deepcopy-autogen: controller-gen goimports ## Generate deep copy code
-	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GO_IMPORTS) -w ./api/
+deepcopy-autogen: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate deep copy code
+	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GOIMPORTS) -w ./api/
 
 .PHONY: codegen
 codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
@@ -446,21 +439,9 @@ verify-config: kyverno-crd report-crd ## Check config is up to date
 .PHONY: verify-codegen
 verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
-.PHONY: goimports
-goimports: ## Install goimports if needed
-ifeq (, $(shell which goimports))
-	@{ \
-	echo "goimports not found!";\
-	echo "installing goimports...";\
-	go install golang.org/x/tools/cmd/goimports@latest;\
-	}
-else
-GO_IMPORTS=$(shell which goimports)
-endif
-
 .PHONY: fmt
-fmt: goimports ## Run go fmt
-	go fmt ./... && $(GO_IMPORTS) -w ./
+fmt: $(GOIMPORTS) ## Run go fmt
+	go fmt ./... && $(GOIMPORTS) -w ./
 
 .PHONY: vet
 vet: ## Run go vet
@@ -471,7 +452,8 @@ vet: ## Run go vet
 ##################################
 
 .PHONY: gen-helm-docs
-gen-helm-docs: ## Generate Helm docs
+gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
+	# @$(HELM_DOCS) -s file
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
