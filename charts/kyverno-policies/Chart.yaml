@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: v2.5.3
+version: v2.5.4
 appVersion: v1.7.3
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -31,3 +31,5 @@ annotations:
       description: Ensure preconditions are present with default values
     - kind: added
       description: Support for failurePolicy setting in kyverno-policies helm chart
+    - kind: added
+      description: Add posibility to set validationFailureAction by Policy

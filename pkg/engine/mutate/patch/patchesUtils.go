@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/mattbaird/jsonpatch"
 )
 

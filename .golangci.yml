@@ -1,5 +1,6 @@
 linters:
   enable:
+    - asasalint
     - asciicheck
     - bidichk
     - bodyclose

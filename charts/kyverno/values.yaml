@@ -24,7 +24,7 @@ rbac:
 
 image:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyverno
+  repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
   # -- Image tag
   # Defaults to appVersion in Chart.yaml if omitted
   tag:  # replaced in e2e tests
@@ -36,7 +36,7 @@ image:
 
 initImage:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyvernopre
+  repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
   # -- Image tag
   # If initImage.tag is missing, defaults to image.tag
   tag:  # replaced in e2e tests
@@ -141,7 +141,7 @@ envVars: {}
 
 # -- Extra arguments to give to the binary.
 extraArgs:
-  - --autogenInternals=false
+  - --autogenInternals=true
 
 # -- Array of extra init containers
 extraInitContainers: []
@@ -220,9 +220,8 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-# TODO(mbarrien): Should we just list all resources for the
-# generatecontroller in here rather than having defaults hard-coded?
-generatecontrollerExtraResources:
+# -- Additional resources to be added to controller RBAC permissions.
+generatecontrollerExtraResources: []
 # - ResourceA
 # - ResourceB
 
