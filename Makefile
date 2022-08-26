@@ -141,26 +141,32 @@ REPO_CLI            := $(REPO)/kyverno-cli
 
 .PHONY: ko-build-initContainer
 ko-build-initContainer: $(KO)
+	# @$(KO) login $(REGISTRY)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO)
+	# @$(KO) login $(REGISTRY)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO)
+	# @$(KO) login $(REGISTRY)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-initContainer-dev
 ko-build-initContainer-dev: $(KO)
+	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno-dev
 ko-build-kyverno-dev: $(KO)
+	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli-dev
 ko-build-cli-dev: $(KO)
+	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-initContainer-local
