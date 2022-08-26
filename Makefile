@@ -16,16 +16,11 @@ REPO=$(REGISTRY)/kyverno
 IMAGE_TAG_LATEST_DEV=$(shell git describe --match "[0-9].[0-9]-dev*" | cut -d '-' -f-2)
 IMAGE_TAG_DEV=$(GIT_VERSION_DEV)
 IMAGE_TAG?=$(GIT_VERSION)
-GOARCH ?= $(shell go env GOARCH)
-GOOS ?= $(shell go env GOOS)
 ifeq ($(GOOS), darwin)
 SED=gsed
 else
 SED=sed
 endif
-PACKAGE ?=github.com/kyverno/kyverno
-export LD_FLAGS = -s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)
-export LD_FLAGS_DEV = -s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)
 K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 export K8S_VERSION
 TEST_GIT_BRANCH ?= main
@@ -86,6 +81,123 @@ install-tools: $(TOOLS) ## Install tools
 clean-tools: ## Remove tools
 	@rm -rf $(TOOLS_DIR)
 
+#################
+# BUILD (LOCAL) #
+#################
+
+CMD_DIR        := ./cmd
+KYVERNO_DIR    := $(CMD_DIR)/kyverno
+KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
+CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
+KYVERNO        := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE     := $(KYVERNOPRE_DIR)/kyvernopre
+CLI            := $(CLI_DIR)/kubectl-kyverno
+PACKAGE        ?= github.com/kyverno/kyverno
+GOOS           ?= $(shell go env GOOS)
+GOARCH         ?= $(shell go env GOARCH)
+CGO_ENABLED    ?= 0 
+LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
+
+.PHONY: fmt
+fmt: ## Run go fmt
+	go fmt ./...
+
+.PHONY: vet
+vet: ## Run go vet
+	go vet ./...
+
+$(KYVERNO):
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
+
+$(KYVERNOPRE): fmt vet
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
+
+$(CLI): fmt vet
+	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI) -ldflags=$(LD_FLAGS) $(CLI_DIR)
+
+.PHONY: build-kyverno
+build-kyverno: fmt vet | $(KYVERNO) ## Build kyverno
+
+.PHONY: build-kyvernopre
+build-kyvernopre: $(KYVERNOPRE) ## Build kyvernopre
+
+.PHONY: build-cli
+build-cli: $(CLI) ## Build CLI
+
+build-all: build-kyverno build-kyvernopre build-cli ## Build all
+
+##############
+# BUILD (KO) #
+##############
+
+INITC_KIND_IMAGE    := kind.local/github.com/kyverno/kyverno/cmd/initcontainer
+KYVERNO_KIND_IMAGE  := kind.local/github.com/kyverno/kyverno/cmd/kyverno
+INITC_IMAGE         := kyvernopre
+KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
+REPO_KYVERNO        := $(REPO)/kyverno
+REPO_KYVERNOPRE     := $(REPO)/kyvernopre
+REPO_CLI            := $(REPO)/kyverno-cli
+
+.PHONY: ko-build-initContainer
+ko-build-initContainer: $(KO)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-kyverno
+ko-build-kyverno: $(KO)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-cli
+ko-build-cli: $(KO)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-initContainer-dev
+ko-build-initContainer-dev: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-kyverno-dev
+ko-build-kyverno-dev: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-cli-dev
+ko-build-cli-dev: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-initContainer-local
+ko-build-initContainer-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
+.PHONY: ko-build-kyverno-local
+ko-build-kyverno-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
+.PHONY: ko-build-cli-local
+ko-build-cli-local: $(KO)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+
+.PHONY: ko-build-all
+ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
+
+.PHONY: ko-build-all-dev
+ko-build-all-dev: ko-build-initContainer-dev ko-build-kyverno-dev ko-build-cli-dev
+
+.PHONY: ko-build-all-local
+ko-build-all-local: ko-build-initContainer-local ko-build-kyverno-local ko-build-cli-local
+
+# ko-build-initContainer-amd64: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
+# ko-build-initContainer-amd64: $(KO)
+# 	@$(KO) build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+
+# ko-build-kyverno-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
+# ko-build-kyverno-amd64: $(KO)
+# 	@$(KO) build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+
+# ko-build-cli-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
+# ko-build-cli-amd64: $(KO)
+# 	@$(KO) build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+
+# ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build-cli-amd64
+
 ##################################
 # KYVERNO
 ##################################
@@ -104,64 +216,93 @@ KYVERNO_PATH:= cmd/kyverno
 build: kyverno
 PWD := $(CURDIR)
 
+docker-buildx-builder:
+	if ! docker buildx ls | grep -q kyverno; then\
+		docker buildx create --name kyverno --use;\
+	fi
+
 ##################################
 # INIT CONTAINER
 ##################################
 
 INITC_PATH := cmd/initContainer
 INITC_IMAGE := kyvernopre
-initContainer: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags="$(LD_FLAGS)" $(PWD)/$(INITC_PATH)
 
-.PHONY: ko-build-initContainer
+.PHONY: docker-build-initContainer docker-push-initContainer
 
-ko-build-initContainer: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
-ko-build-initContainer:
-	@ko build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64,linux/arm64,linux/s390x
+docker-build-initContainer: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-ko-build-initContainer-amd64: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
-ko-build-initContainer-amd64:
-	@ko build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+docker-push-initContainer: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-ko-build-initContainer-local: KO_DOCKER_REPO=kind.local
-ko-build-initContainer-local: kind-e2e-cluster
-	@ko build ./$(INITC_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV) --preserve-import-paths
-INITC_KIND_IMAGE = kind.local/github.com/kyverno/kyverno/cmd/initcontainer
+docker-get-initContainer-digest:
+	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
-# TODO(jason): LD_FLAGS_DEV
-ko-build-initContainer-dev: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
-ko-build-initContainer-dev:
-	@ko build ./$(INITC_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
+docker-build-initContainer-amd64: 
+	@docker build -f $(PWD)/$(INITC_PATH)/Dockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
+	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(INITC_IMAGE):latest
+
+docker-build-initContainer-local:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(INITC_PATH)/kyvernopre -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(INITC_PATH)
+	@docker build -f $(PWD)/$(INITC_PATH)/localDockerfile -t $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(PWD)/$(INITC_PATH)
+	@docker tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(INITC_IMAGE):latest
+
+docker-publish-initContainer-dev: docker-buildx-builder docker-push-initContainer-dev
+
+docker-build-initContainer-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+
+docker-push-initContainer-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(INITC_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(INITC_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+
+docker-get-initContainer-digest-dev:
+	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 ##################################
 # KYVERNO CONTAINER
 ##################################
 
-.PHONY: ko-build-kyverno
 KYVERNO_PATH := cmd/kyverno
 KYVERNO_IMAGE := kyverno
 
-kyverno: fmt vet
-	GOOS=$(GOOS) go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags"$(LD_FLAGS)" $(PWD)/$(KYVERNO_PATH)
+local:
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(KYVERNO_PATH)
+	go build -ldflags=$(LD_FLAGS) $(PWD)/$(CLI_PATH)
 
-ko-build-kyverno: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
-ko-build-kyverno:
-	@ko build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64,linux/arm64,linux/s390x
+docker-publish-kyverno: docker-buildx-builder docker-build-kyverno docker-push-kyverno
 
-ko-build-kyverno-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
-ko-build-kyverno-amd64:
-	@ko build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+docker-build-kyverno: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-ko-build-kyverno-local: KO_DOCKER_REPO=kind.local
-ko-build-kyverno-local: kind-e2e-cluster
-	@ko build ./$(KYVERNO_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV) --preserve-import-paths
+docker-build-kyverno-local:
+	CGO_ENABLED=0 GOOS=linux go build -o $(PWD)/$(KYVERNO_PATH)/kyverno -ldflags=$(LD_FLAGS_DEV) $(PWD)/$(KYVERNO_PATH)
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/localDockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) -t $(REPO)/$(KYVERNO_IMAGE):latest $(PWD)/$(KYVERNO_PATH)
+	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest
 
-KYVERNO_KIND_IMAGE = kind.local/github.com/kyverno/kyverno/cmd/kyverno
+docker-build-kyverno-amd64:
+	@docker build -f $(PWD)/$(KYVERNO_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
+	@docker tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(KYVERNO_IMAGE):latest
 
-# TODO(jason): LD_FLAGS_DEV
-ko-build-kyverno-dev: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
-ko-build-kyverno-dev:
-	@ko build ./$(KYVERNO_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
+docker-push-kyverno: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+docker-get-kyverno-digest:
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+
+docker-publish-kyverno-dev: docker-buildx-builder docker-push-kyverno-dev
+
+docker-push-kyverno-dev: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+	@docker buildx build --file $(PWD)/$(KYVERNO_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_IMAGE):latest . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+
+docker-get-kyverno-digest-dev:
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 ##################################
 # Generate Docs for types.go
@@ -185,34 +326,21 @@ verify-api-docs: generate-api-docs ## Check api reference docs are up to date
 ##################################
 # CLI
 ##################################
-.PHONY: ko-build-cli
+
 CLI_PATH := cmd/cli/kubectl-kyverno
 KYVERNO_CLI_IMAGE := kyverno-cli
 
-cli:
-	GOOS=$(GOOS) go build -o $(PWD)/$(CLI_PATH)/kyverno -ldflags="$(LD_FLAGS)" $(PWD)/$(CLI_PATH)
+docker-publish-cli: docker-buildx-builder docker-build-cli docker-push-cli
 
-ko-build-cli: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
-ko-build-cli:
-	@ko build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64,linux/arm64,linux/s390x
+docker-build-cli: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-ko-build-cli-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
-ko-build-cli-amd64:
-	@ko build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
+docker-build-cli-amd64:
+	@docker build -f $(PWD)/$(CLI_PATH)/Dockerfile -t $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS) --build-arg TARGETPLATFORM="linux/amd64"
+	@docker tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG_DEV) $(REPO)/$(KYVERNO_CLI_IMAGE):latest
 
-ko-build-cli-local: KO_DOCKER_REPO=ko.local
-ko-build-cli-local:
-	@ko build ./$(CLI_PATH) --platform=linux/$(GOARCH) --tags=latest,$(IMAGE_TAG_DEV)
-
-# TODO(jason): LD_FLAGS_DEV
-ko-build-cli-dev: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
-ko-build-cli-dev:
-	@ko build ./$(CLI_PATH) --bare --platform=linux/amd64,linux/arm64,linux/s390x --tags=latest,$(IMAGE_TAG_DEV),$(IMAGE_TAG_LATEST_DEV)
-
-##################################
-ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
-
-ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build-cli-amd64
+docker-push-cli: docker-buildx-builder
+	@docker buildx build --file $(PWD)/$(CLI_PATH)/Dockerfile --progress plane --push --platform linux/arm64,linux/amd64,linux/s390x --tag $(REPO)/$(KYVERNO_CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 ##################################
 # Create e2e Infrastructure
@@ -222,15 +350,24 @@ ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build
 kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
 	$(KIND) create cluster --image=$(KIND_IMAGE)
 
+# TODO(eddycharly): $(REPO) is wrong, it is always ghcr.io/kyverno in the source
 .PHONY: e2e-kustomize
 e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	cd config && \
-	kustomize edit set image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
-	kustomize edit set image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
-	kustomize build config/ -o config/install.yaml
+	$(KUSTOMIZE) edit set image $(REPO)/$(INITC_IMAGE)=$(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+	$(KUSTOMIZE) build config/ -o config/install.yaml
+
+# TODO(eddycharly): this is not going to work with docker
+.PHONY: e2e-init-container
+e2e-init-container: kind-e2e-cluster | ko-build-initContainer-local
+
+# TODO(eddycharly): this is not going to work with docker
+.PHONY: e2e-kyverno-container
+e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno-local
 
 .PHONY: create-e2e-infrastructure
-create-e2e-infrastructure: ko-build-initContainer-local ko-build-kyverno-local e2e-kustomize ## Setup infrastructure for e2e tests
+create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
 
 ##################################
 # Testing & Code-Coverage
@@ -250,28 +387,28 @@ test-clean: ## Clean tests cache
 test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
-test-cli-policies: cli
-	cmd/cli/kubectl-kyverno/kyverno test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+test-cli-policies: $(CLI)
+	@$(CLI) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test
+test-cli-local: $(CLI)
+	@$(CLI) test ./test/cli/test
 
 .PHONY: test-cli-local-mutate
-test-cli-local-mutate: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-mutate
+test-cli-local-mutate: $(CLI)
+	@$(CLI) test ./test/cli/test-mutate
 
 .PHONY: test-cli-local-generate
-test-cli-local-generate: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test-generate
+test-cli-local-generate: $(CLI)
+	@$(CLI) test ./test/cli/test-generate
 
 .PHONY: test-cli-test-case-selector-flag
-test-cli-test-case-selector-flag: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+test-cli-test-case-selector-flag: $(CLI)
+	@$(CLI) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
 .PHONY: test-cli-registry
-test-cli-registry: cli
-	cmd/cli/kubectl-kyverno/kyverno test ./test/cli/registry --registry
+test-cli-registry: $(CLI)
+	@$(CLI) test ./test/cli/registry --registry
 
 test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"
@@ -369,14 +506,6 @@ verify-config: kyverno-crd report-crd ## Check config is up to date
 .PHONY: verify-codegen
 verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
 
-.PHONY: fmt
-fmt: $(GOIMPORTS) ## Run go fmt
-	go fmt ./... && $(GOIMPORTS) -w ./
-
-.PHONY: vet
-vet: ## Run go vet
-	go vet ./...
-
 ##################################
 # HELM
 ##################################
@@ -413,4 +542,3 @@ kind-deploy: ko-build-initContainer-local ko-build-kyverno-local
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
 	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
-

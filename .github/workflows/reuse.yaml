@@ -55,9 +55,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Install ko
-        uses: imjasonh/setup-ko@78eea08f10db87a7a23a666a4a6fe2734f2eeb8d #v0.5
-
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
         uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
