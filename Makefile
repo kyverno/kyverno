@@ -135,45 +135,61 @@ INITC_KIND_IMAGE    := kind.local/github.com/kyverno/kyverno/cmd/initcontainer
 KYVERNO_KIND_IMAGE  := kind.local/github.com/kyverno/kyverno/cmd/kyverno
 INITC_IMAGE         := kyvernopre
 KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
+KO_OPTIONS          := --bare
 REPO_KYVERNO        := $(REPO)/kyverno
 REPO_KYVERNOPRE     := $(REPO)/kyvernopre
 REPO_CLI            := $(REPO)/kyverno-cli
 
 .PHONY: ko-build-initContainer
 ko-build-initContainer: $(KO)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) $(KO_OPTIONS) --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) $(KO_OPTIONS) --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) $(KO_OPTIONS) --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-initContainer-dev
-ko-build-initContainer-dev: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+ko-build-initContainer-dev: LD_FLAGS  := $(LD_FLAGS_DEV)
+ko-build-initContainer-dev: IMAGE_TAG := $(IMAGE_TAG_DEV)
+ko-build-initContainer-dev: ko-build-initContainer
 
 .PHONY: ko-build-kyverno-dev
-ko-build-kyverno-dev: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+ko-build-kyverno-dev: LD_FLAGS  := $(LD_FLAGS_DEV)
+ko-build-kyverno-dev: IMAGE_TAG := $(IMAGE_TAG_DEV)
+ko-build-kyverno-dev: ko-build-kyverno
 
 .PHONY: ko-build-cli-dev
-ko-build-cli-dev: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+ko-build-cli-dev: LD_FLAGS  := $(LD_FLAGS_DEV)
+ko-build-cli-dev: IMAGE_TAG := $(IMAGE_TAG_DEV)
+ko-build-cli-dev: ko-build-cli
 
 .PHONY: ko-build-initContainer-local
-ko-build-initContainer-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+ko-build-initContainer-local: LD_FLAGS        := $(LD_FLAGS_DEV)
+ko-build-initContainer-local: IMAGE_TAG       := $(IMAGE_TAG_DEV)
+ko-build-initContainer-local: REPO_KYVERNOPRE := kind.local
+ko-build-initContainer-local: KO_PLATFORM     := linux/$(GOARCH)
+ko-build-initContainer-local: KO_OPTIONS      := --preserve-import-paths
+ko-build-initContainer-local: ko-build-initContainer
 
 .PHONY: ko-build-kyverno-local
-ko-build-kyverno-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+ko-build-kyverno-local: LD_FLAGS       := $(LD_FLAGS_DEV)
+ko-build-kyverno-local: IMAGE_TAG      := $(IMAGE_TAG_DEV)
+ko-build-kyverno-local: REPO_KYVERNO   := kind.local
+ko-build-kyverno-local: KO_PLATFORM    := linux/$(GOARCH)
+ko-build-kyverno-local: KO_OPTIONS     := --preserve-import-paths
+ko-build-kyverno-local: ko-build-kyverno
 
 .PHONY: ko-build-cli-local
-ko-build-cli-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+ko-build-cli-local: LD_FLAGS     := $(LD_FLAGS_DEV)
+ko-build-cli-local: IMAGE_TAG    := $(IMAGE_TAG_DEV)
+ko-build-cli-local: REPO_CLI     := kind.local
+ko-build-cli-local: KO_PLATFORM  := linux/$(GOARCH)
+ko-build-cli-local: KO_OPTIONS   := --preserve-import-paths
+ko-build-cli-local: ko-build-cli
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
