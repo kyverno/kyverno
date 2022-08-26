@@ -140,7 +140,6 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 					continue
 				}
 				defer resp.Body.Close()
-
 				if resp.StatusCode != http.StatusOK {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -354,17 +353,18 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 		log.Log.V(3).Info("Defaulting request.operation to CREATE")
 	}
 
-	storePolicies := make([]store.Policy, 0)
+	storePolicies := make([]kyvernov1.Policies, 0)
 	for policyName, ruleMap := range valuesMapRule {
-		storeRules := make([]store.Rule, 0)
+		storeRules := make([]kyvernov1.Rulev, 0)
 		for _, rule := range ruleMap {
-			storeRules = append(storeRules, store.Rule{
+			storeRules = append(storeRules, kyvernov1.Rulev{
 				Name:          rule.Name,
 				Values:        rule.Values,
 				ForeachValues: rule.ForeachValues,
 			})
 		}
-		storePolicies = append(storePolicies, store.Policy{
+
+		storePolicies = append(storePolicies, kyvernov1.Policies{
 			Name:  policyName,
 			Rules: storeRules,
 		})
@@ -396,7 +396,7 @@ func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInt
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructured.Unstructured,
+func ApplyPolicyOnResource(resourcesMap map[string][]*unstructured.Unstructured, policy kyvernov1.PolicyInterface, resource *unstructured.Unstructured,
 	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo kyvernov1beta1.RequestInfo, policyReport bool,
 	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
 	printPatchResource bool, ruleToCloneSourceResource map[string]string,
@@ -568,7 +568,7 @@ OuterLoop:
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneSourceResource)
+			newRuleResponse, err := handleGeneratePolicy(resourcesMap, generateResponse, *policyContext, ruleToCloneSourceResource)
 			if err != nil {
 				log.Log.Error(err, "failed to apply generate policy")
 			} else {
@@ -847,9 +847,9 @@ func updateResultCounts(policy kyvernov1.PolicyInterface, engineResponse *respon
 }
 
 func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables map[string]string) map[string]string {
-	storePolicies := make([]store.Policy, 0)
+	storePolicies := make([]kyvernov1.Policies, 0)
 	for _, policy := range mutatedPolicies {
-		storeRules := make([]store.Rule, 0)
+		storeRules := make([]kyvernov1.Rulev, 0)
 		for _, rule := range autogen.ComputeRules(policy) {
 			contextVal := make(map[string]interface{})
 			if len(rule.Context) != 0 {
@@ -861,13 +861,13 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 						}
 					}
 				}
-				storeRules = append(storeRules, store.Rule{
+				storeRules = append(storeRules, kyvernov1.Rulev{
 					Name:   rule.Name,
 					Values: contextVal,
 				})
 			}
 		}
-		storePolicies = append(storePolicies, store.Policy{
+		storePolicies = append(storePolicies, kyvernov1.Policies{
 			Name:  policy.GetName(),
 			Rules: storeRules,
 		})
@@ -1046,22 +1046,42 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 	return c, nil
 }
 
+func Split(r rune) bool {
+	return r == ':' || r == '/'
+}
+
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
-func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
+func handleGeneratePolicy(resourcesMap map[string][]*unstructured.Unstructured, generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	objects := []runtime.Object{&policyContext.NewResource}
 	var resources = []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
-		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
-			resourceBytes, err := getFileBytes(path)
-			if err != nil {
-				fmt.Printf("failed to get resource bytes\n")
-			} else {
-				resources, err = GetResource(resourceBytes)
+		if !strings.Contains(ruleToCloneSourceResource[rule.Name], "cloneSourceResource_pool") {
+			if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
+				resourceBytes, err := getFileBytes(path)
 				if err != nil {
-					fmt.Printf("failed to convert resource bytes to unstructured format\n")
+					fmt.Printf("failed to get resource bytes\n")
+				} else {
+					resources, err = GetResource(resourceBytes)
+					if err != nil {
+						fmt.Printf("failed to convert resource bytes to unstructured format\n")
+					}
+				}
+			}
+		} else if strings.Contains(ruleToCloneSourceResource[rule.Name], "cloneSourceResource_pool") {
+			name := strings.FieldsFunc(ruleToCloneSourceResource[rule.Name], Split)
+			for _, r := range resourcesMap["cloneSourceResource_pool"] {
+				if name[1] == r.GroupVersionKind().Version && name[len(name)-2] == r.GetNamespace() && name[len(name)-1] == r.GetName() {
+					if len(name) == 5 {
+						if r.GroupVersionKind().Group == name[2] {
+							resources = append(resources, r)
+						}
+					} else if len(name) == 4 {
+						resources = append(resources, r)
+					}
 				}
 			}
 		}
+
 	}
 
 	for _, res := range resources {

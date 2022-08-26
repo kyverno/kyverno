@@ -1,6 +1,7 @@
 package store
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	rbacv1 "k8s.io/api/rbac/v1"
 )
@@ -47,7 +48,7 @@ func GetContext() Context {
 	return ContextVar
 }
 
-func GetPolicyFromContext(policyName string) *Policy {
+func GetPolicyFromContext(policyName string) *kyvernov1.Policies {
 	for _, policy := range ContextVar.Policies {
 		if policy.Name == policyName {
 			return &policy
@@ -56,7 +57,7 @@ func GetPolicyFromContext(policyName string) *Policy {
 	return nil
 }
 
-func GetPolicyRuleFromContext(policyName string, ruleName string) *Rule {
+func GetPolicyRuleFromContext(policyName string, ruleName string) *kyvernov1.Rulev {
 	for _, policy := range ContextVar.Policies {
 		if policy.Name == policyName {
 			for _, rule := range policy.Rules {
@@ -70,19 +71,20 @@ func GetPolicyRuleFromContext(policyName string, ruleName string) *Rule {
 }
 
 type Context struct {
-	Policies []Policy `json:"policies"`
+	Policies []kyvernov1.Policies `json:"policies"`
 }
 
-type Policy struct {
-	Name  string `json:"name"`
-	Rules []Rule `json:"rules"`
-}
+// type Policy struct {
+// 	Name      string            `json:"name"`
+// 	Rules     []kyvernov1.Rulev `json:"rules"`
+// 	Resources []kyvernov1.Resourcev
+// }
 
-type Rule struct {
-	Name          string                   `json:"name"`
-	Values        map[string]interface{}   `json:"values"`
-	ForeachValues map[string][]interface{} `json:"foreachValues"`
-}
+// type Rule struct {
+// 	Name          string                   `json:"name"`
+// 	Values        map[string]interface{}   `json:"values"`
+// 	ForeachValues map[string][]interface{} `json:"foreachValues"`
+// }
 
 func SetSubjects(subjects Subject) {
 	Subjects = subjects

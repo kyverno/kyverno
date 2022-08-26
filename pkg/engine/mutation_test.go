@@ -226,10 +226,10 @@ func Test_variableSubstitutionCLI(t *testing.T) {
 }`)
 
 	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
+		Policies: []kyverno.Policies{
 			{
 				Name: "cm-variable-example",
-				Rules: []store.Rule{
+				Rules: []kyverno.Rulev{
 					{
 						Name: "example-configmap-lookup",
 						Values: map[string]interface{}{

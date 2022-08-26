@@ -513,7 +513,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, resp := range engineResponses {
-		fmt.Printf("\n In loop\n")
 
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
@@ -535,7 +534,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 			},
 			Message: buildMessage(resp),
 		}
-
 		var patchedResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
@@ -593,7 +591,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 				}
 			}
 			if test.Resource != "" {
-				fmt.Printf("\n\ntest.Resources : %v\n\n", test.Resource)
 
 				if test.Policy == policyName && test.Resource == resourceName {
 					var resultsKey string
@@ -726,8 +723,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 			}
 		}
 	}
-
-	fmt.Printf("\nresultsn : %v\n", results)
 	return results, testResults
 }
 
@@ -934,12 +929,8 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		p.GetSpec().SetRules(filteredRules)
 	}
 	policies = filteredPolicies
-	test, _ := json.Marshal(policies)
-	fmt.Println("\npolicies : \n", string(test))
 
 	mutatedPolicies, err := common.MutatePolicies(policies)
-	test1, _ := json.Marshal(mutatedPolicies)
-	fmt.Println("\nmutatepolicies : \n", string(test1))
 
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
@@ -990,8 +981,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 
 	for _, policy := range mutatedPolicies {
-		test, _ := json.Marshal(policy)
-		fmt.Println("\npolicy : \n", string(test))
 		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
@@ -1013,19 +1002,16 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		kindOnwhichPolicyIsApplied := common.GetKindsFromPolicy(policy)
 
 		for _, resource := range resources {
-			fmt.Printf("\nIn resources\n")
 			thisPolicyResourceValues, err := common.CheckVariableForPolicy(valuesMap, globalValMap, policy.GetName(), resource.GetName(), resource.GetKind(), variables, kindOnwhichPolicyIsApplied, variable)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
 
-			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
+			ers, info, err := common.ApplyPolicyOnResource(nil, policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
-			fmt.Printf("\ners : %v\n", ers)
 			engineResponses = append(engineResponses, ers...)
-			fmt.Printf("\nengineResponses : %v\n", engineResponses)
 			pvInfos = append(pvInfos, info)
 		}
 	}
@@ -1077,11 +1063,8 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 				}
-				fmt.Printf("\nresultkey for resps : %v", resultKey)
 				var testRes policyreportv1alpha2.PolicyReportResult
 				if val, ok := resps[resultKey]; ok {
-					fmt.Printf("\n resps : %v", resps)
-					fmt.Printf("sahi toh hai\n")
 					testRes = val
 				} else {
 					log.Log.V(2).Info("result not found", "key", resultKey)
@@ -1138,11 +1121,8 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			}
-			fmt.Printf("\nresultkey for resps : %v", resultKey)
 			var testRes policyreportv1alpha2.PolicyReportResult
 			if val, ok := resps[resultKey]; ok {
-				fmt.Printf("\n resps : %v", resps)
-				fmt.Printf("sahi toh hai\n")
 				testRes = val
 			} else {
 				log.Log.V(2).Info("result not found", "key", resultKey)

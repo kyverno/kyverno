@@ -2212,10 +2212,10 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	`)
 
 	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
+		Policies: []kyverno.Policies{
 			{
 				Name: "restrict-pod-count",
-				Rules: []store.Rule{
+				Rules: []kyverno.Rulev{
 					{
 						Name: "restrict-pod-count",
 						Values: map[string]interface{}{
@@ -2727,10 +2727,10 @@ func Test_foreach_context_preconditions(t *testing.T) {
 	  }`)
 
 	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
+		Policies: []kyverno.Policies{
 			{
 				Name: "test",
-				Rules: []store.Rule{
+				Rules: []kyverno.Rulev{
 					{
 						Name: "test",
 						Values: map[string]interface{}{
@@ -2822,10 +2822,10 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 	  }`)
 
 	configMapVariableContext := store.Context{
-		Policies: []store.Policy{
+		Policies: []kyverno.Policies{
 			{
 				Name: "test",
-				Rules: []store.Rule{
+				Rules: []kyverno.Rulev{
 					{
 						Name: "test",
 						Values: map[string]interface{}{

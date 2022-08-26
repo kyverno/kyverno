@@ -100,7 +100,7 @@ func Test_NamespaceSelector(t *testing.T) {
 	for _, tc := range testcases {
 		policyArray, _ := ut.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
+		ApplyPolicyOnResource(nil, policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
