@@ -1,20 +1,23 @@
 package engine
 
 import (
+	"crypto/rand"
 	"crypto/x509"
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/pkg/errors"
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
@@ -100,6 +103,18 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	} else {
 		vo.DryRunNamespace = config.KyvernoNamespace()
 	}
+	if !vo.DisableDryRun {
+		// check if kyverno can 'create' dryrun resource
+		ok, err := checkDryRunPermission(policyContext.Client, adreq.Kind.Kind, vo.DryRunNamespace)
+		if err != nil {
+			logger.V(1).Info(fmt.Sprintf("failed to check permissions to 'create' resource %s/%s. disabled DryRun option.: %s", vo.DryRunNamespace, adreq.Kind.Kind, err.Error()))
+			vo.DisableDryRun = true
+		}
+		if !ok {
+			logger.V(1).Info(fmt.Sprintf("kyverno does not have permissions to 'create' resource %s/%s. disabled DryRun option.", vo.DryRunNamespace, adreq.Kind.Kind))
+			vo.DisableDryRun = true
+		}
+	}
 
 	// can be overridden per Attestor
 	if verifyRule.Repository != "" {
@@ -130,8 +145,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	return true, msg, nil
 }
 
-func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet,
-	vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
+func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
@@ -190,8 +204,7 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 	return false, reason, nil
 }
 
-func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption,
-	attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
+func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
 	// check annotations
 	if a.Annotations != nil {
 		mnfstAnnotations := resource.GetAnnotations()
@@ -248,15 +261,14 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 	subPath := ""
 	var entryError error
 	envVariables := []string{}
-	// set seed value for random numbers
-	rand.Seed(time.Now().UnixNano())
 	if a.Keys != nil {
 		subPath = subPath + ".keys"
 		Key := a.Keys.PublicKeys
 		if strings.HasPrefix(Key, "-----BEGIN PUBLIC KEY-----") || strings.HasPrefix(Key, "-----BEGIN PGP PUBLIC KEY BLOCK-----") {
 			// prepare env variable for pubkey
 			// it consists of admission request ID, key index and random num
-			pubkeyEnv := fmt.Sprintf("_PK_%s_%d_%d", uid, i, rand.Int63())
+			n, _ := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
+			pubkeyEnv := fmt.Sprintf("_PK_%s_%d_%d", uid, i, n)
 			err := os.Setenv(pubkeyEnv, Key)
 			envVariables = append(envVariables, pubkeyEnv)
 			if err != nil {
@@ -276,7 +288,8 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 		subPath = subPath + ".certificates"
 		if a.Certificates.Certificate != "" {
 			Cert := a.Certificates.Certificate
-			certEnv := fmt.Sprintf("_CERT_%s_%d_%d", uid, i, rand.Int63())
+			n, _ := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
+			certEnv := fmt.Sprintf("_CERT_%s_%d_%d", uid, i, n)
 			err := os.Setenv(certEnv, Cert)
 			envVariables = append(envVariables, certEnv)
 			if err != nil {
@@ -288,7 +301,8 @@ func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.Ver
 		}
 		if a.Certificates.CertificateChain != "" {
 			CertChain := a.Certificates.CertificateChain
-			certChainEnv := fmt.Sprintf("_CC_%s_%d_%d", uid, i, rand.Int63())
+			n, _ := rand.Int(rand.Reader, big.NewInt(int64(math.MaxInt64)))
+			certChainEnv := fmt.Sprintf("_CC_%s_%d_%d", uid, i, n)
 			err := os.Setenv(certChainEnv, CertChain)
 			envVariables = append(envVariables, certChainEnv)
 			if err != nil {
@@ -375,4 +389,13 @@ func checkManifestAnnotations(mnfstAnnotations map[string]string, annotations ma
 		}
 	}
 	return nil
+}
+
+func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (bool, error) {
+	canI := auth.NewCanI(dclient, kind, namespace, "create")
+	ok, err := canI.RunAccessCheck()
+	if err != nil {
+		return false, err
+	}
+	return ok, nil
 }
