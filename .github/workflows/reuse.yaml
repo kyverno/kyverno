@@ -102,7 +102,7 @@ jobs:
         id: ko-build-dev
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} GITHUB_TOKEN=${{github.token}} make ${{inputs.publish_command}}-dev)"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io GITHUB_TOKEN=${{github.token}} make ${{inputs.publish_command}}-dev)"
 
       - name: ko build release image
         id: ko-build
