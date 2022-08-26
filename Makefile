@@ -161,7 +161,7 @@ ko-build-initContainer-dev: $(KO)
 
 .PHONY: ko-build-kyverno-dev
 ko-build-kyverno-dev: $(KO)
-	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
+	# @$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli-dev
