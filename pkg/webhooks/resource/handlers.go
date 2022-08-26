@@ -109,7 +109,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	logger.V(4).Info("received an admission request in validating webhook", "kind", kind)
 
 	// timestamp at which this admission request got triggered
-	requestTime := time.Now().Unix()
+	requestTime := time.Now()
 	policies := h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	generatePolicies := h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
@@ -212,7 +212,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	}
 	kind := request.Kind.Kind
 	logger.V(4).Info("received an admission request in mutating webhook", "kind", kind)
-	requestTime := time.Now().Unix()
+	requestTime := time.Now()
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
@@ -295,7 +295,7 @@ func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, add
 	return policyContext, nil
 }
 
-func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts int64) ([]byte, []string, error) {
+func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts time.Time) ([]byte, []string, error) {
 	mutatePatches, mutateEngineResponses, err := h.handleMutation(logger, request, policyContext, policies)
 	if err != nil {
 		return nil, nil, err
@@ -303,7 +303,7 @@ func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.
 
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(ts, 0)))
+	admissionReviewLatencyDuration := int64(time.Since(ts))
 	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
 	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
 

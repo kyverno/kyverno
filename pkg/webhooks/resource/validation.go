@@ -32,7 +32,7 @@ func (v *validationHandler) handleValidation(
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
-	admissionRequestTimestamp int64,
+	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {
 	if len(policies) == 0 {
 		return true, "", nil
@@ -123,8 +123,8 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 	}
 }
 
-func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp int64, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
+	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
 	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
 	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }

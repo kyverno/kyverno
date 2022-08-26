@@ -6,8 +6,7 @@ func NewFake() ValidateInterface {
 	return &fakeValidation{}
 }
 
-type fakeValidation struct {
-}
+type fakeValidation struct{}
 
 func (f *fakeValidation) ValidateResource(resource unstructured.Unstructured, apiVersion, kind string) error {
 	return nil

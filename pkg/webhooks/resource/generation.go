@@ -29,7 +29,7 @@ func (h *handlers) handleGenerate(
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
-	admissionRequestTimestamp int64,
+	admissionRequestTimestamp time.Time,
 	latencySender *chan int64,
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric *chan []*response.EngineResponse,
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric *chan []*response.EngineResponse,
@@ -80,7 +80,7 @@ func (h *handlers) handleGenerate(
 	}
 
 	// sending the admission request latency to other goroutine (reporting the metrics) over the channel
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
+	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
 	*latencySender <- admissionReviewLatencyDuration
 	*generateEngineResponsesSenderForAdmissionReviewDurationMetric <- engineResponses
 	*generateEngineResponsesSenderForAdmissionRequestsCountMetric <- engineResponses

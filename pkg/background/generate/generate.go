@@ -661,6 +661,7 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 	}
 	return resource, nil
 }
+
 func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)
