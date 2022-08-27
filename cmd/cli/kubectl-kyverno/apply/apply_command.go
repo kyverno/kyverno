@@ -52,7 +52,7 @@ type Table struct {
 	Rule     string `header:"rule"`
 	Resource string `header:"resource"`
 	Result   string `header:"result"`
-	//Message  string `header:"message"`
+	// Message  string `header:"message"`
 }
 
 var applyHelp = `
@@ -439,7 +439,6 @@ func printTestResult(pvInfos []policyreport.Info, engineResponses []*response.En
 	boldRed := color.New(color.FgRed).Add(color.Bold)
 	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
-	//result := buildPolicyResults(pvInfos)
 	i := 0
 	for _, resp := range engineResponses {
 		policyName := resp.PolicyResponse.Policy.Name
