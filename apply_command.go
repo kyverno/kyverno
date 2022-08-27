@@ -7,10 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/kataras/tablewriter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -19,12 +18,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
+
 	yaml1 "sigs.k8s.io/yaml"
 )
 
@@ -46,21 +46,17 @@ type SkippedInvalidPolicies struct {
 	skipped []string
 	invalid []string
 }
-type Table struct {
-	ID       int    `header:"#"`
-	Policy   string `header:"policy"`
-	Rule     string `header:"rule"`
-	Resource string `header:"resource"`
-	Result   string `header:"result"`
-	//Message  string `header:"message"`
-}
 
 var applyHelp = `
+
 To apply on a resource:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a folder of resources:
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
 To apply on a cluster:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 
 To apply policy with variables:
@@ -119,7 +115,7 @@ More info: https://kyverno.io/docs/kyverno-cli/
 func Command() *cobra.Command {
 	var cmd *cobra.Command
 	var resourcePaths []string
-	var cluster, policyReport, stdin, registryAccess, removeColor bool
+	var cluster, policyReport, stdin, registryAccess bool
 	var mutateLogPath, variablesString, valuesFile, namespace, userInfoPath string
 	cmd = &cobra.Command{
 		Use:     "apply",
@@ -139,10 +135,10 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			resultErr := printTestResult(pvInfos, engineResponses, removeColor)
-			if resultErr != nil {
-				fmt.Printf("Error: failed to create Apply Result\nCause: %s\n", resultErr)
+			if engineResponses == nil {
+				println(engineResponses)
 			}
+
 			PrintReportOrViolation(policyReport, rc, resourcePaths, len(resources), skipInvalidPolicies, stdin, pvInfos)
 			return nil
 		},
@@ -158,7 +154,6 @@ func Command() *cobra.Command {
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "Optional Policy parameter passed with cluster flag")
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Optional mutate policy parameter to pipe directly through to kubectl")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
-	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove color from output")
 	return cmd
 }
 
@@ -359,9 +354,56 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 			engineResponses = append(engineResponses, engR...)
 			pvInfos = append(pvInfos, info)
 		}
+		//fmt.Println(engineResponses)
+		for _, resp := range engineResponses {
+			policyName := resp.PolicyResponse.Policy.Name
+			resourceName := resp.PolicyResponse.Resource.Name
+			resourceKind := resp.PolicyResponse.Resource.Kind
+			resourceNamespace := resp.PolicyResponse.Resource.Namespace
+			policyNamespace := resp.PolicyResponse.Policy.Namespace
+
+			var rules []string
+			for _, rule := range resp.PolicyResponse.Rules {
+				rules = append(rules, rule.Name)
+			}
+
+			result := policyreportv1alpha2.PolicyReportResult{
+				Policy: policyName,
+				Resources: []corev1.ObjectReference{
+					{
+						Name: resourceName,
+					},
+				},
+				Message: buildMessage(resp),
+			}
+			fmt.Println(result.Policy)
+			//for _, i := range(result.Message){
+			//		fmt.Println(i)
+			//	}
+			//fmt.Println(ruleR)
+			//var bldr strings.Builder
+			for _, ruleResp := range resp.PolicyResponse.Rules {
+				fmt.Printf("  %s: %s \n", ruleResp.Name, ruleResp.Status.String())
+				//fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+			}
+			fmt.Println(rules)
+			fmt.Println(resourceName)
+			fmt.Println(resourceKind)
+			fmt.Println(resourceNamespace)
+			fmt.Println(policyNamespace)
+		}
 	}
 
 	return rc, resources, skipInvalidPolicies, pvInfos, engineResponses, nil
+}
+func buildMessage(resp *response.EngineResponse) string {
+	var bldr strings.Builder
+	for _, ruleResp := range resp.PolicyResponse.Rules {
+		fmt.Fprintf(&bldr, "  %s: %s \n", ruleResp.Name, ruleResp.Status.String())
+		fmt.Fprintf(&bldr, "    %s \n", ruleResp.Message)
+	}
+
+	return bldr.String()
 }
 
 // checkMutateLogPath - checking path for printing mutated resource (-o flag)
@@ -430,80 +472,6 @@ func PrintReportOrViolation(policyReport bool, rc *common.ResultCounts, resource
 	if rc.Fail > 0 || rc.Error > 0 {
 		os.Exit(1)
 	}
-}
-
-func printTestResult(pvInfos []policyreport.Info, engineResponses []*response.EngineResponse, removeColor bool) error {
-	printer := tableprinter.New(os.Stdout)
-	print_table := []Table{}
-	boldGreen := color.New(color.FgGreen).Add(color.Bold)
-	boldRed := color.New(color.FgRed).Add(color.Bold)
-	boldYellow := color.New(color.FgYellow).Add(color.Bold)
-	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
-	//result := buildPolicyResults(pvInfos)
-	i := 0
-	for _, resp := range engineResponses {
-		policyName := resp.PolicyResponse.Policy.Name
-		resourceName := resp.PolicyResponse.Resource.Name
-		resourceKind := resp.PolicyResponse.Resource.Kind
-		resourceNamespace := resp.PolicyResponse.Resource.Namespace
-		for _, ruleResp := range resp.PolicyResponse.Rules {
-			i++
-			table := new(Table)
-			table.ID = i
-			if !removeColor {
-				table.Policy = boldFgCyan.Sprintf(policyName)
-				table.Rule = boldFgCyan.Sprintf(ruleResp.Name)
-
-			} else {
-				table.Policy = policyName
-				table.Rule = ruleResp.Name
-
-			}
-			// //table.Message = boldFgCyan.Sprintf(string(res.Message))
-			if ruleResp.Status.String() == "pass" {
-				if !removeColor {
-					table.Result = boldGreen.Sprintf("Pass")
-				} else {
-					table.Result = "Pass"
-				}
-			} else if ruleResp.Status.String() == "fail" {
-				if !removeColor {
-					table.Result = boldRed.Sprintf("Fail")
-				} else {
-					table.Result = "Fail"
-				}
-			} else {
-				if !removeColor {
-					table.Result = boldYellow.Sprintf("Skip")
-				} else {
-					table.Result = "Skip"
-				}
-			}
-			if resourceName != "" {
-				if !removeColor {
-					table.Resource = boldFgCyan.Sprintf(resourceNamespace) + "/" + boldFgCyan.Sprintf(resourceKind) + "/" + boldFgCyan.Sprintf(resourceName)
-				} else {
-					table.Resource = resourceNamespace + "/" + resourceKind + "/" + resourceName
-				}
-			}
-			print_table = append(print_table, *table)
-		}
-	}
-	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
-	printer.CenterSeparator = "│"
-	printer.ColumnSeparator = "│"
-	printer.RowSeparator = "─"
-	printer.RowCharLimit = 300
-	printer.RowLengthTitle = func(rowsLength int) bool {
-		return rowsLength > 10
-	}
-	if !removeColor {
-		printer.HeaderBgColor = tablewriter.BgBlackColor
-		printer.HeaderFgColor = tablewriter.FgGreenColor
-	}
-	fmt.Printf("\n")
-	printer.Print(print_table)
-	return nil
 }
 
 // createFileOrFolder - creating file or folder according to path provided
