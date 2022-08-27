@@ -12761,7 +12761,7 @@ spec:
       containers:
       - args:
         - -v=2
-        - --autogenInternals=false
+        - --autogenInternals=true
         env:
         - name: INIT_CONFIG
           value: kyverno
