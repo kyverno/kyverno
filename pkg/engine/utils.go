@@ -218,7 +218,6 @@ func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescriptio
 				userInfoErrors = append(userInfoErrors, fmt.Errorf("user info does not match subject for the given conditionBlock"))
 			}
 		}
-
 	}
 	return append(errs, userInfoErrors...)
 }

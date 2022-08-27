@@ -296,7 +296,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
 			log.Log.V(3).Info("Defaulting request.operation to CREATE")
-
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {

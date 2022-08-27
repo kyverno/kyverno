@@ -233,12 +233,12 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 									if clone[1] == r.GroupVersionKind().Version && clone[len(clone)-2] == r.GetNamespace() && clone[len(clone)-1] == r.GetName() {
 										if len(clone) == 5 {
 											if r.GroupVersionKind().Group == clone[2] {
-												pf = true
+												cf = true
 											}
 										} else if r.GroupVersionKind().Group != "" {
 											return fmt.Errorf("result[%v].resources[%v].clone is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/group/namespace/name", re, resk)
 										} else if len(clone) == 4 {
-											pf = true
+											cf = true
 										} else {
 											return fmt.Errorf("result[%v].resources[%v].old is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
 										}
@@ -257,12 +257,12 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 								if generated[1] == r.GroupVersionKind().Version && generated[len(generated)-2] == r.GetNamespace() && generated[len(generated)-1] == r.GetName() {
 									if len(generated) == 5 {
 										if r.GroupVersionKind().Group == generated[2] {
-											pf = true
+											gf = true
 										}
 									} else if r.GroupVersionKind().Group != "" {
 										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/group/namespace/name", re, resk)
 									} else if len(generated) == 4 {
-										pf = true
+										gf = true
 									} else {
 										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/namespace/name", re, resk)
 									}

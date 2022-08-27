@@ -786,7 +786,6 @@ func GetVariables(values kyvernov1.Variables) (map[string]string, map[string]map
 		values.Global = make(map[string]string)
 		values.Global["request.operation"] = "CREATE"
 		log.Log.V(3).Info("Defaulting request.operation to CREATE")
-
 	} else {
 		if val, ok := values.Global["request.operation"]; ok {
 			if val == "" {
@@ -1165,7 +1164,6 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 
-	countDeprecatedResource := 0
 	for i, v := range testResults {
 		res := new(Table)
 		res.ID = i + 1
@@ -1231,9 +1229,6 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 		}
 	}
 
-	if countDeprecatedResource > 0 {
-		fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
-	}
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"
 	printer.ColumnSeparator = "│"
