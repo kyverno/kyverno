@@ -452,11 +452,9 @@ func printTestResult(pvInfos []policyreport.Info, engineResponses []*response.En
 			if !removeColor {
 				table.Policy = boldFgCyan.Sprintf(policyName)
 				table.Rule = boldFgCyan.Sprintf(ruleResp.Name)
-
 			} else {
 				table.Policy = policyName
 				table.Rule = ruleResp.Name
-
 			}
 			// //table.Message = boldFgCyan.Sprintf(string(res.Message))
 			if ruleResp.Status.String() == "pass" {
