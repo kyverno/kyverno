@@ -342,6 +342,8 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 			rules := engineResponse.GetSuccessRules()
 			if len(rules) != 0 {
 				logger.Info("mutation rules from policy applied successfully", "policy", policy.GetName(), "rules", rules)
+			} else {
+				logger.Info("mutation failed due to schema mismatch", "policy", policy.GetName())
 			}
 		}
 
