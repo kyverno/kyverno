@@ -123,7 +123,6 @@ func main() {
 
 	cleanUp := make(chan struct{})
 	stopCh := signal.SetupSignalHandler()
-	kubeconfig = ""
 	debug := serverIP != ""
 
 	// clients

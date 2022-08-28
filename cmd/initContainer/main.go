@@ -77,7 +77,6 @@ func main() {
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// create client config
-	kubeconfig = ""
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
