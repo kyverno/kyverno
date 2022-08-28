@@ -257,8 +257,10 @@ func (v *validator) validate() *response.RuleResponse {
 
 		return ruleResponse
 	} else if v.podSecurity.Exclude != nil {
-		ruleResponse := v.validatePodSecurity()
-		return ruleResponse
+		if !isDeleteRequest(v.ctx) {
+			ruleResponse := v.validatePodSecurity()
+			return ruleResponse
+		}
 	}
 
 	v.log.V(2).Info("invalid validation rule: either patterns or deny conditions are expected")
