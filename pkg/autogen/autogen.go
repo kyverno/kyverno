@@ -236,7 +236,6 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 	if bytes, err := json.Marshal(rule); err != nil {
 		return nil, err
 	} else {
-		// For Validation.PodSecurity
 		if rule.Validation != nil && rule.Validation.PodSecurity != nil {
 			bytes = updateRestrictedFields(bytes, kind)
 			if err := json.Unmarshal(bytes, &rule); err != nil {

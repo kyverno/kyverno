@@ -310,51 +310,43 @@ type Validation struct {
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
 
-	// PodSecurity extends Pod Security admission by applying a base Pod Security Standard level
-	// for workloads while excluding some of them for finer-grained control.
+	// PodSecurity applies exemptions for Kubernetes Pod Security admission
+	// by specifying exclusions for Pod Security Standards controls.
 	// +optional
 	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 }
 
 type PodSecurity struct {
-	// The Pod Security Standard level that we want to apply to all workloads by default.
+	// Level defines the Pod Security Standard level to be applied to workloads.
+	// Allowed values are privileged, baseline, restricted.
 	// +kubebuilder:validation:Enum=privileged;baseline;restricted
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
-	// Default value: "latest".
+	// Version defines the Pod Security Standard versions that Kubernetes supports.
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
 	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;latest
 	// +optional
 	Version string `json:"version,omitempty" yaml:"version,omitempty"`
 
-	// Exclude specifies the Pod Security Standard controls that we want to exclude.
+	// Exclude specifies the Pod Security Standard controls to be excluded.
 	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 type PodSecurityStandard struct {
-	// Name of Pod Security Standard control that we want to exclude.
-	// https://kubernetes.io/docs/concepts/security/pod-security-standards/
+	// ControlName specifies the name of Pod Security Standard control.
+	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 	ControlName string `json:"controlName" yaml:"controlName"`
 
-	// Select the containers that we want to exclude by specifying the docker image
-	// When not set / empty with:
-	// Controls with only pod-level restricted fields: exclude all of them
-	// e.g.: "Host Namespaces", "HostPath Volumes" etc...
-	// Controls with pod-level and container-level restricted fields: exclude only pod-level fields
-	// e.g.: "HostProcess", "Privileged Containers"
+	// Images is a list of matching image patterns.
+	// Each image is the image name consisting of the registry address, repository, image, and tag.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
 
-	// We can exclude a specific RestrictedField of a Pod Security Standard control.
-	// If RestrictedField is not set then it excludes all restrictedFields.
-	// i.e.: Control: "HostProcess" --> excludes all restrictedFields:
-	// - spec.securityContext.windowsOptions.hostProcess
-	// - spec.containers[*].securityContext.windowsOptions.hostProcess
-	// - spec.initContainers[*].securityContext.windowsOptions.hostProcess
-	// - spec.ephemeralContainers[*].securityContext.windowsOptions.hostProcess
+	// RestrictedField selects the field for the given Pod Security Standard control.
+	// When not set, all restricted fields for the control are selected.
 	// +optional
 	RestrictedField string `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
 
-	// Values that we want to exclude for a specific RestrictedField
-	// Must be set with the RestrictedField
+	// Values defines the allowed values that can be excluded.
 	// +optional
 	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }

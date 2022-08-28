@@ -256,7 +256,8 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 
 		return ruleResponse
-	} else if v.podSecurity.Exclude != nil {
+	}
+	if v.podSecurity.Exclude != nil {
 		if !isDeleteRequest(v.ctx) {
 			ruleResponse := v.validatePodSecurity()
 			return ruleResponse
@@ -437,14 +438,6 @@ func (v *validator) getDenyMessage(deny bool) string {
 	return raw.(string)
 }
 
-func formatChecksPrint(checks []pss.PSSCheckResult) string {
-	var str string
-	for _, check := range checks {
-		str += fmt.Sprintf("(%+v)\n", check.CheckResult)
-	}
-	return str
-}
-
 func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
 	kind := v.ctx.NewResource.GetKind()
 
@@ -517,16 +510,10 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		}
 		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
 	}
-
-	if err != nil {
-		return ruleError(v.rule, response.Validation, "Error while while parsing Validation.PodSecurity.Version", err)
-	}
 	level := &api.LevelVersion{
 		Level:   v.podSecurity.Level,
 		Version: apiVersion,
 	}
-
-	// Evaluate the pod
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
 		ObjectMeta: *metadata,
@@ -540,7 +527,7 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 	} else {
-		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, formatChecksPrint(pssChecks))
+		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, pss.FormatChecksPrint(pssChecks))
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }

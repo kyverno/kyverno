@@ -52,13 +52,12 @@ require (
 	k8s.io/client-go v0.23.5
 	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
+	k8s.io/pod-security-admission v0.23.0
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/kustomize/api v0.11.2
 	sigs.k8s.io/kustomize/kyaml v0.13.3
 	sigs.k8s.io/yaml v1.3.0
 )
-
-require k8s.io/pod-security-admission v0.23.0
 
 require (
 	github.com/jmoiron/jsonq v0.0.0-20150511023944-e874b168d07e

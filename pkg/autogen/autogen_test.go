@@ -602,7 +602,7 @@ func Test_Deny(t *testing.T) {
 	}
 }
 
-func Test_ValidateExclude(t *testing.T) {
+func Test_ValidatePodSecurity(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
