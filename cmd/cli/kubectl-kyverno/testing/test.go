@@ -108,40 +108,65 @@ The kyverno-test.yaml has four parts:
 
 ** TEST FILE FORMAT**:
 
-name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  patchedResource: <path/to/patched/resource.yaml> (For mutate policies/rules only)
-  result: <pass|fail|skip>
-
-**VARIABLES FILE FORMAT**:
-
-policies:
-- name: <policy_name>
-  rules:
-  - name: <rule_name>
-    # Global variable values
-    values:
-      foo: bar
+apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: <name>
+  labels:            (OPTIONAL)
+    <key>: <value>
+  annotations:       (OPTIONAL)
+    <key>: <value>
+spec:
+  policies:
+  - <path/to/policy1.yaml>
+  - <path/to/policy2.yaml>
   resources:
-  - name: <resource_name_1>
-    # Resource-specific variable values
-    values:
-      foo: baz
-  - name: <resource_name_2>
-    values:
-      foo: bin
+    <resource_pool_1>:
+    - <path/to/resource1.yaml>
+    - <path/to/resource2.yaml>
+	<resource_pool_2>:
+    - <path/to/resource3.yaml>
+    - <path/to/resource4.yaml>
+	<patchedResource_pool>:             (Only when mutate rule is defined)
+    - <path/to/patched_resource1.yaml>
+    - <path/to/patched_resource2.yaml>
+	<generatedResource_pool>:           (Only when generate rule is defined)
+    - <path/to/generated_resource1.yaml>
+    - <path/to/generated_resource2.yaml>
+	<cloneSourceResource_pool>:           (Only when generate rule is defined and need to clone resource)
+    - <path/to/cloneSource_resource1.yaml>
+    - <path/to/cloneSource_resource2.yaml>
+  results:
+  - policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+    rule: <name>
+    resources:
+    - old: <resource_pool_1:apiversion/group/<namespace>/<name>>
+      patched: <patchedResource_pool:apiversion/group/<namespace>/<name>>
+      cloneSource: <cloneSourceResource_pool:apiversion/group/<namespace>/<name>>
+      generated: <generatedResource_pool:apiversion/group/<namespace>/<name>>
+    namespace: <namespace>  (OPTIONAL)
+    kind: <kind>
+    result: <result>
+  variables:                (OPTIONAL)
+    global:
+      <variable>: <value>
+    policies:
+    - name: <name>
+      rules:
+      - name: <name>
+        values:
+          <variable>: <value>
+        namespaceSelector:
+        - name: <name>
+          labels:
+		    <variable>: <value>
+      resources:
+      - name: <name>
+        values:
+		  <variable>: <value>
+        userInfo:
+          clusterRoles:
+          - <value>
 
 **RESULT DESCRIPTIONS**:
 
@@ -178,41 +203,68 @@ func Command() *cobra.Command {
 			mStatus, _ := cmd.Flags().GetBool("manifest-mutate")
 			vStatus, _ := cmd.Flags().GetBool("manifest-validate")
 			if mStatus {
-				testFile = []byte(`name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  patchedResource: <path/to/patched/resource.yaml>
-  result: <pass|fail|skip>`)
+				testFile = []byte(`apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: <name>
+  labels:            (OPTIONAL)
+    <key>: <value>
+  annotations:       (OPTIONAL)
+    <key>: <value>
+spec:
+  policies:
+  - <path/to/policy1.yaml>
+  - <path/to/policy2.yaml>
+  resources:
+    <resource_pool_1>:
+    - <path/to/resource1.yaml>
+    - <path/to/resource2.yaml>
+	<resource_pool_2>:
+    - <path/to/resource3.yaml>
+    - <path/to/resource4.yaml>
+	<patchedResource_pool>:            
+    - <path/to/patched_resource1.yaml>
+    - <path/to/patched_resource2.yaml>
+  results:
+  - policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+    rule: <name>
+    resources:
+    - old: <resource_pool_1:apiversion/group/<namespace>/<name>>
+      patched: <patchedResource_pool:apiversion/group/<namespace>/<name>>
+    namespace: <namespace>  (OPTIONAL)
+    kind: <kind>
+    result: <result>`)
 				fmt.Println(string(testFile))
 				return nil
 			}
 			if vStatus {
-				testFile = []byte(`name: <test_name>
-policies:
-- <path/to/policy1.yaml>
-- <path/to/policy2.yaml>
-resources:
-- <path/to/resource1.yaml>
-- <path/to/resource2.yaml>
-variables: <variable_file> (OPTIONAL)
-results:
-- policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
-  rule: <name>
-  resource: <name>
-  namespace: <name> (OPTIONAL)
-  kind: <name>
-  result: <pass|fail|skip>`)
+				testFile = []byte(`apiVersion: cli.kyverno.io/v1beta1
+kind: KyvernoTest
+metadata:
+  name: <name>
+  labels:            (OPTIONAL)
+    <key>: <value>
+  annotations:       (OPTIONAL)
+    <key>: <value>
+spec:
+  policies:
+  - <path/to/policy1.yaml>
+  - <path/to/policy2.yaml>
+  resources:
+    <resource_pool_1>:
+    - <path/to/resource1.yaml>
+    - <path/to/resource2.yaml>
+	<resource_pool_2>:
+    - <path/to/resource3.yaml>
+    - <path/to/resource4.yaml>
+  results:
+  - policy: <name> (For Namespaced [Policy] files, format is <policy_namespace>/<policy_name>)
+    rule: <name>
+    resources:
+    - old: <resource_pool_1:apiversion/group/<namespace>/<name>>
+    namespace: <namespace>  (OPTIONAL)
+    kind: <kind>
+    result: <result>`)
 				fmt.Println(string(testFile))
 				return nil
 			}
