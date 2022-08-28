@@ -223,7 +223,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 	return true, pssChecks, nil
 }
 
-func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStandard, controls []restrictedField) bool {
+func appendAllowedValues(controls []restrictedField, exclude *kyvernov1.PodSecurityStandard) {
 	for _, control := range controls {
 		if control.path == exclude.RestrictedField {
 			for _, allowedValue := range control.allowedValues {
@@ -232,49 +232,13 @@ func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStand
 					if !utils.ContainsString(exclude.Values, v) {
 						exclude.Values = append(exclude.Values, v)
 					}
-					// case for nil pointers
 				}
 			}
 		}
 	}
+}
 
-	v := reflect.TypeOf(resourceValue)
-	switch v.Kind() {
-	case reflect.Bool:
-		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
-			return false
-		}
-		return true
-	case reflect.String:
-		if !utils.ContainsString(exclude.Values, resourceValue.(string)) {
-			return false
-		}
-		return true
-	case reflect.Float64:
-		if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", resourceValue)) {
-			return false
-		}
-		return true
-	case reflect.Map:
-		// `AppArmor` control
-		for key, value := range resourceValue.(map[string]interface{}) {
-			if !strings.Contains(key, "container.apparmor.security.beta.kubernetes.io/") {
-				continue
-			}
-			// For allowed value: "localhost/*"
-			if strings.Contains(value.(string), "localhost/") {
-				continue
-			}
-			if !utils.ContainsString(exclude.Values, value.(string)) {
-				return false
-			}
-		}
-		return true
-	}
-
-	// Is an array
-	excludeValues := resourceValue.([]interface{})
-
+func allowedValuesSlice(excludeValues []interface{}, exclude kyvernov1.PodSecurityStandard) bool {
 	for _, values := range excludeValues {
 		v := reflect.TypeOf(values)
 		switch v.Kind() {
@@ -337,6 +301,50 @@ func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStand
 			if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", values)) {
 				return false
 			}
+		}
+	}
+	return true
+}
+
+func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStandard, controls []restrictedField) bool {
+	appendAllowedValues(controls, &exclude)
+
+	v := reflect.TypeOf(resourceValue)
+	switch v.Kind() {
+	case reflect.Bool:
+		if !utils.ContainsString(exclude.Values, strconv.FormatBool(resourceValue.(bool))) {
+			return false
+		}
+		return true
+	case reflect.String:
+		if !utils.ContainsString(exclude.Values, resourceValue.(string)) {
+			return false
+		}
+		return true
+	case reflect.Float64:
+		if !utils.ContainsString(exclude.Values, fmt.Sprintf("%.f", resourceValue)) {
+			return false
+		}
+		return true
+	case reflect.Map:
+		// `AppArmor` control
+		for key, value := range resourceValue.(map[string]interface{}) {
+			if !strings.Contains(key, "container.apparmor.security.beta.kubernetes.io/") {
+				continue
+			}
+			// For allowed value: "localhost/*"
+			if strings.Contains(value.(string), "localhost/") {
+				continue
+			}
+			if !utils.ContainsString(exclude.Values, value.(string)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Slice:
+		exempted := allowedValuesSlice(resourceValue.([]interface{}), exclude)
+		if !exempted {
+			return false
 		}
 	}
 	return true
