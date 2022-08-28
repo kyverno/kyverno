@@ -1,4 +1,4 @@
-# Kyverno Adopters
+# Kyverno Adopters is good
 
 This is the list of organizations and users that have publicly shared how they are using Kyverno. 
 
