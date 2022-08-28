@@ -268,7 +268,6 @@ func Split(r rune) bool {
 }
 
 func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string) (rc *resultCounts, err error) {
-
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -502,8 +501,8 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 			if test.Resources != nil {
 				if test.Policy == policyName {
-					// results[].namespace value implict set same as metadata.namespace until and unless
-					// user provides explict values for results[].namespace in test yaml file.
+					// results[].namespace value implicit set same as metadata.namespace until and unless
+					// user provides explicit values for results[].namespace in test yaml file.
 					if test.Namespace == "" {
 						test.Namespace = resourceNamespace
 						testResults[i].Namespace = resourceNamespace
@@ -844,7 +843,6 @@ func GetVariables(values kyvernov1.Variables) (map[string]string, map[string]map
 	for _, p := range values.Policies {
 		storeRules := make([]kyvernov1.Rulev, 0)
 		for _, rule := range valuesMapRule[p.Name] {
-
 			storeRules = append(storeRules, kyvernov1.Rulev{
 				Name:          rule.Name,
 				Values:        rule.Values,
@@ -853,7 +851,6 @@ func GetVariables(values kyvernov1.Variables) (map[string]string, map[string]map
 		}
 		storeResources := make([]kyvernov1.Resourcev, 0)
 		for _, resource := range valuesMapResource[p.Name] {
-
 			storeResources = append(storeResources, kyvernov1.Resourcev{
 				Name:   resource.Name,
 				Values: resource.Values,

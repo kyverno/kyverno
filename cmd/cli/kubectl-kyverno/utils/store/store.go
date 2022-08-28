@@ -74,18 +74,6 @@ type Context struct {
 	Policies []kyvernov1.Policies `json:"policies"`
 }
 
-// type Policy struct {
-// 	Name      string            `json:"name"`
-// 	Rules     []kyvernov1.Rulev `json:"rules"`
-// 	Resources []kyvernov1.Resourcev
-// }
-
-// type Rule struct {
-// 	Name          string                   `json:"name"`
-// 	Values        map[string]interface{}   `json:"values"`
-// 	ForeachValues map[string][]interface{} `json:"foreachValues"`
-// }
-
 func SetSubjects(subjects Subject) {
 	Subjects = subjects
 }

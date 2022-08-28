@@ -513,7 +513,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, resp := range engineResponses {
-
 		policyName := resp.PolicyResponse.Policy.Name
 		resourceName := resp.PolicyResponse.Resource.Name
 		resourceKind := resp.PolicyResponse.Resource.Kind
@@ -534,6 +533,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 			},
 			Message: buildMessage(resp),
 		}
+
 		var patchedResourcePath []string
 		for i, test := range testResults {
 			var userDefinedPolicyNamespace string
@@ -551,8 +551,8 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 			if test.Resources != nil {
 				if test.Policy == policyName {
-					// results[].namespace value implict set same as metadata.namespace until and unless
-					// user provides explict values for results[].namespace in test yaml file.
+					// results[].namespace value implicit set same as metadata.namespace until and unless
+					// user provides explicit values for results[].namespace in test yaml file.
 					if test.Namespace == "" {
 						test.Namespace = resourceNamespace
 						testResults[i].Namespace = resourceNamespace
@@ -591,7 +591,6 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 				}
 			}
 			if test.Resource != "" {
-
 				if test.Policy == policyName && test.Resource == resourceName {
 					var resultsKey string
 					resultsKey = GetResultKeyAccordingToTestResults(userDefinedPolicyNamespace, test.Policy, test.Rule, test.Namespace, test.Kind, test.Resource)
@@ -723,6 +722,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 			}
 		}
 	}
+
 	return results, testResults
 }
 
@@ -931,7 +931,6 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	policies = filteredPolicies
 
 	mutatedPolicies, err := common.MutatePolicies(policies)
-
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return sanitizederror.NewWithError("failed to mutate policy", err)
@@ -1063,6 +1062,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 				}
+
 				var testRes policyreportv1alpha2.PolicyReportResult
 				if val, ok := resps[resultKey]; ok {
 					testRes = val
@@ -1121,6 +1121,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			}
+
 			var testRes policyreportv1alpha2.PolicyReportResult
 			if val, ok := resps[resultKey]; ok {
 				testRes = val
