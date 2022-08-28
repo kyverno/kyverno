@@ -51,8 +51,10 @@ func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *
 		for _, excludeRule := range exclude {
 			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
 			controlNameOnly := excludeRule.RestrictedField == ""
-			if strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
-				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) {
+				continue
+			}
+			if strings.Contains(excludeRule.RestrictedField, "spec.containers[*]") || controlNameOnly {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.Containers) == 0 || !containsContainer(podCopy.Spec.Containers, container.Name) {
 					podCopy.Spec.Containers = append(podCopy.Spec.Containers, container)
@@ -64,8 +66,10 @@ func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *
 		for _, excludeRule := range exclude {
 			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
 			controlNameOnly := excludeRule.RestrictedField == ""
-			if strings.Contains(excludeRule.RestrictedField, "spec.initContainers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
-				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) {
+				continue
+			}
+			if strings.Contains(excludeRule.RestrictedField, "spec.initContainers[*]") || controlNameOnly {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.InitContainers) == 0 || !containsContainer(podCopy.Spec.InitContainers, container.Name) {
 					podCopy.Spec.InitContainers = append(podCopy.Spec.InitContainers, container)
@@ -77,8 +81,10 @@ func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *
 		for _, excludeRule := range exclude {
 			// Ignore all restrictedFields when we only specify the `controlName` with no `restrictedField`
 			controlNameOnly := excludeRule.RestrictedField == ""
-			if strings.Contains(excludeRule.RestrictedField, "spec.ephemeralContainers[*]") && utils.ContainsString(excludeRule.Images, container.Image) ||
-				controlNameOnly && utils.ContainsString(excludeRule.Images, container.Image) {
+			if !utils.ContainsString(excludeRule.Images, container.Image) {
+				continue
+			}
+			if strings.Contains(excludeRule.RestrictedField, "spec.ephemeralContainers[*]") || controlNameOnly {
 				// Add to matchingContainers if either it's empty or is unique
 				if len(podCopy.Spec.EphemeralContainers) == 0 || !containsContainer(podCopy.Spec.EphemeralContainers, container.Name) {
 					podCopy.Spec.EphemeralContainers = append(podCopy.Spec.EphemeralContainers, container)

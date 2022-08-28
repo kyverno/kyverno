@@ -28,8 +28,6 @@ func evaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 	checks := policy.DefaultChecks()
 
 	for _, check := range checks {
-		// Restricted ? Baseline + Restricted (cumulative)
-		// Baseline ? Then ignore checks for Restricted
 		if level.Level == api.LevelBaseline && check.Level != level.Level {
 			continue
 		}
