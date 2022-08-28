@@ -181,7 +181,7 @@ func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *co
 				}
 			} else {
 				// Is a pod-level restrictedField
-				if !strings.Contains(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
+				if !strings.HasPrefix(check.CheckResult.ForbiddenDetail, "pod") && containsContainerLevelControl(check.RestrictedFields) {
 					continue
 				}
 				allowed, err := checkPodLevelFields(ctx, pod, check, rule, restrictedField)
