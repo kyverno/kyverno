@@ -34,8 +34,10 @@ var FluxValidateTests = []struct {
 	},
 }
 
-var podGVR = e2e.GetGVR("", "v1", "pods")
-var deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+var (
+	podGVR        = e2e.GetGVR("", "v1", "pods")
+	deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+)
 
 var ValidateTests = []struct {
 	// TestDescription - Description of the Test
