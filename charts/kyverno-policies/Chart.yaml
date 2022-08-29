@@ -1,7 +1,7 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: v2.5.5
+version: v2.5.6-pre-01
 appVersion: v1.7.3
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
@@ -23,6 +23,8 @@ annotations:
   artifacthub.io/prerelease: "false"
   # valid kinds are: added, changed, deprecated, removed, fixed and security
   artifacthub.io/changes: |
+    - kind: added
+      description: Add possibility to manually set kyvernoVersion and avoid autodetection
     - kind: added
       description: Support for artifacthub.io/changes annotation
     - kind: fixed
