@@ -14,7 +14,7 @@ Building and/or testing Kyverno requires additional tooling.
 We use `make` to simplify installing the tools we use.
 
 Tools will be installed in the `.tools` folder when possible, this allows keeping installed tools local to the Kyverno repository.
-The `.tools` folder is ignored by `git` and binaries should not be commited.
+The `.tools` folder is ignored by `git` and binaries should not be committed.
 
 You can install tools by running:
 ```
@@ -26,7 +26,7 @@ To remove installed tools, run:
 make clean-tools
 ```
 
-> **Note**: If you don't install tools, they will be download/installed as necessary when running `make` targets.
+> **Note**: If you don't install tools, they will be downloaded/installed as necessary when running `make` targets.
 
 ## Building and publishing an image locally
 
