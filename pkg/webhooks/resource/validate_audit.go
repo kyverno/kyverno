@@ -129,7 +129,7 @@ func (h *auditHandler) processNextWorkItem() bool {
 	request, ok := obj.(*admissionv1.AdmissionRequest)
 	if !ok {
 		h.queue.Forget(obj)
-		h.log.Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
+		h.log.V(2).Info("incorrect type: expecting type 'AdmissionRequest'", "object", obj)
 		return true
 	}
 
@@ -143,7 +143,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 	var roles, clusterRoles []string
 	var err error
 	// time at which the corresponding the admission request's processing got initiated
-	admissionRequestTimestamp := time.Now().Unix()
+	admissionRequestTimestamp := time.Now()
 	logger := h.log.WithName("process")
 
 	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)

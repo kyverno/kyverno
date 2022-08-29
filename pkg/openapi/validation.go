@@ -368,7 +368,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interfa
 		return getBoolValue(kindSchema)
 	}
 
-	log.Log.Info("unknown type", types[0])
+	log.Log.V(2).Info("unknown type", types[0])
 	return nil
 }
 

@@ -4,10 +4,9 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
-
-	. "github.com/onsi/gomega"
 )
 
 var (

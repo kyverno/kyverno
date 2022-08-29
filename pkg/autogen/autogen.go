@@ -62,10 +62,11 @@ func stripCronJob(controllers string) string {
 // CanAutoGen checks whether the rule(s) (in policy) can be applied to Pod controllers
 // returns controllers as:
 // - "" if:
-//          - name or selector is defined
-//          - mixed kinds (Pod + pod controller) is defined
-//          - Pod and PodControllers are not defined
-//          - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
+//   - name or selector is defined
+//   - mixed kinds (Pod + pod controller) is defined
+//   - Pod and PodControllers are not defined
+//   - mutate.Patches/mutate.PatchesJSON6902/validate.deny/generate rule is defined
+//
 // - otherwise it returns all pod controllers
 func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 	needed := false
@@ -296,7 +297,11 @@ func computeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
 		return spec.Rules
 	}
 	var out []kyvernov1.Rule
-	out = append(out, spec.Rules...)
+	for _, rule := range spec.Rules {
+		if !isAutogenRuleName(rule.Name) {
+			out = append(out, rule)
+		}
+	}
 	out = append(out, genRules...)
 	return out
 }

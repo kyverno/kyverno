@@ -62,7 +62,6 @@ func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 // OpenAPISchema returns the API server OpenAPI schema document
 func (c serverPreferredResources) OpenAPISchema() (*openapiv2.Document, error) {
 	return c.cachedClient.OpenAPISchema()
-
 }
 
 // GetGVRFromKind get the Group Version Resource from kind

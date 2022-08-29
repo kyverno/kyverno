@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -19,6 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -197,7 +197,6 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 					ruleResp.Patches = append(ruleResp.Patches, patch)
 					imageInfo.Digest = retrievedDigest
 					image = imageInfo.String()
-					digest = retrievedDigest
 				}
 			}
 
@@ -307,8 +306,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, path string) (*cosign.Response, error) {
-
+	imageInfo apiutils.ImageInfo, path string,
+) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -476,7 +475,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 	for _, ac := range imageVerify.Attestations {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
-			iv.logger.Info("attestation predicate type %s not found", "predicates", types, "image", imageInfo.String())
+			iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
 			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
 
@@ -494,7 +493,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 		}
 	}
 
-	iv.logger.V(3).Info("attestation checks passed for %s", imageInfo.String())
+	iv.logger.V(3).Info("attestation checks passed", "image", imageInfo.String())
 	return nil
 }
 
@@ -530,8 +529,8 @@ func evaluateConditions(
 	conditions []kyvernov1.AnyAllConditions,
 	ctx context.Interface,
 	s map[string]interface{},
-	log logr.Logger) (bool, error) {
-
+	log logr.Logger,
+) (bool, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)

@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
@@ -53,8 +53,7 @@ type Response struct {
 	Statements []map[string]interface{}
 }
 
-type CosignError struct {
-}
+type CosignError struct{}
 
 func Verify(opts Options) (*Response, error) {
 	if opts.FetchAttestations {
@@ -142,7 +141,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	}
 
 	if opts.Key != "" {
-		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
+		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
 			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load public key from PEM")
@@ -159,7 +158,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := loadCert([]byte(opts.Cert))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+				return nil, errors.Wrapf(err, "failed to load certificate from %s", opts.Cert)
 			}
 
 			if opts.CertChain == "" {
@@ -426,14 +425,17 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 		if digest := p.Critical.Image.DockerManifestDigest; digest != "" {
 			return digest, nil
 		} else {
-			logger.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("unknown image response for " + imgRef)
+			return "", fmt.Errorf("failed to extract image digest from signature payload for " + imgRef)
 		}
 	}
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
 func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+	if subject == "" && issuer == "" && len(extensions) == 0 {
+		return nil
+	}
+
 	for _, sig := range signatures {
 		cert, err := sig.Cert()
 		if err != nil {
