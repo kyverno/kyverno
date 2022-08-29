@@ -107,11 +107,11 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 		// check if kyverno can 'create' dryrun resource
 		ok, err := checkDryRunPermission(policyContext.Client, adreq.Kind.Kind, vo.DryRunNamespace)
 		if err != nil {
-			logger.V(1).Info(fmt.Sprintf("failed to check permissions to 'create' resource %s/%s. disabled DryRun option.: %s", vo.DryRunNamespace, adreq.Kind.Kind, err.Error()))
+			logger.V(1).Info("failed to check permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind, "error", err.Error())
 			vo.DisableDryRun = true
 		}
 		if !ok {
-			logger.V(1).Info(fmt.Sprintf("kyverno does not have permissions to 'create' resource %s/%s. disabled DryRun option.", vo.DryRunNamespace, adreq.Kind.Kind))
+			logger.V(1).Info("kyverno does not have permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind)
 			vo.DisableDryRun = true
 		}
 	}
