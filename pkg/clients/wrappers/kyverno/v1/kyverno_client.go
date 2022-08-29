@@ -2,7 +2,7 @@ package v1
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/clientwrappers/utils"
+	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"k8s.io/client-go/rest"
 )
 

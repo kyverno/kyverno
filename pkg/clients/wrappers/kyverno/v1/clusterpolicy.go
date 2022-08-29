@@ -3,9 +3,9 @@ package v1
 import (
 	"context"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/clients/clientwrappers/utils"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	versionedkyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,20 +18,20 @@ type ClusterPoliciesGetter interface {
 }
 
 type ClusterPoliciesControlInterface interface {
-	Create(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.CreateOptions) (*v1.ClusterPolicy, error)
-	Update(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.UpdateOptions) (*v1.ClusterPolicy, error)
-	UpdateStatus(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.UpdateOptions) (*v1.ClusterPolicy, error)
+	Create(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.CreateOptions) (*kyvernov1.ClusterPolicy, error)
+	Update(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.UpdateOptions) (*kyvernov1.ClusterPolicy, error)
+	UpdateStatus(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.UpdateOptions) (*kyvernov1.ClusterPolicy, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ClusterPolicy, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ClusterPolicyList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1.ClusterPolicy, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1.ClusterPolicyList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1.ClusterPolicy, err error)
 }
 
 type clusterPoliciesControl struct {
 	client            rest.Interface
-	cpolClient        kyvernov1.ClusterPoliciesGetter
+	cpolClient        versionedkyvernov1.ClusterPoliciesGetter
 	clientQueryMetric utils.ClientQueryMetric
 }
 
@@ -43,17 +43,17 @@ func newClusterPolicies(c *KyvernoV1Client) *clusterPoliciesControl {
 	}
 }
 
-func (c *clusterPoliciesControl) Create(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.CreateOptions) (*v1.ClusterPolicy, error) {
+func (c *clusterPoliciesControl) Create(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.CreateOptions) (*kyvernov1.ClusterPolicy, error) {
 	c.clientQueryMetric.Record(metrics.ClientCreate, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().Create(ctx, clusterPolicy, opts)
 }
 
-func (c *clusterPoliciesControl) Update(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.UpdateOptions) (*v1.ClusterPolicy, error) {
+func (c *clusterPoliciesControl) Update(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.UpdateOptions) (*kyvernov1.ClusterPolicy, error) {
 	c.clientQueryMetric.Record(metrics.ClientUpdate, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().Update(ctx, clusterPolicy, opts)
 }
 
-func (c *clusterPoliciesControl) UpdateStatus(ctx context.Context, clusterPolicy *v1.ClusterPolicy, opts metav1.UpdateOptions) (*v1.ClusterPolicy, error) {
+func (c *clusterPoliciesControl) UpdateStatus(ctx context.Context, clusterPolicy *kyvernov1.ClusterPolicy, opts metav1.UpdateOptions) (*kyvernov1.ClusterPolicy, error) {
 	c.clientQueryMetric.Record(metrics.ClientUpdateStatus, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().UpdateStatus(ctx, clusterPolicy, opts)
 }
@@ -68,12 +68,12 @@ func (c *clusterPoliciesControl) DeleteCollection(ctx context.Context, opts meta
 	return c.cpolClient.ClusterPolicies().DeleteCollection(ctx, opts, listOpts)
 }
 
-func (c *clusterPoliciesControl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ClusterPolicy, error) {
+func (c *clusterPoliciesControl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1.ClusterPolicy, error) {
 	c.clientQueryMetric.Record(metrics.ClientGet, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().Get(ctx, name, opts)
 }
 
-func (c *clusterPoliciesControl) List(ctx context.Context, opts metav1.ListOptions) (*v1.ClusterPolicyList, error) {
+func (c *clusterPoliciesControl) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1.ClusterPolicyList, error) {
 	c.clientQueryMetric.Record(metrics.ClientList, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().List(ctx, opts)
 }
@@ -83,7 +83,7 @@ func (c *clusterPoliciesControl) Watch(ctx context.Context, opts metav1.ListOpti
 	return c.cpolClient.ClusterPolicies().Watch(ctx, opts)
 }
 
-func (c *clusterPoliciesControl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ClusterPolicy, err error) {
+func (c *clusterPoliciesControl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1.ClusterPolicy, err error) {
 	c.clientQueryMetric.Record(metrics.ClientPatch, metrics.KyvernoClient, "ClusterPolicy", "")
 	return c.cpolClient.ClusterPolicies().Patch(ctx, name, pt, data, opts, subresources...)
 }

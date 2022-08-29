@@ -5,7 +5,7 @@ import (
 
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/clients/clientwrappers/utils"
+	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"

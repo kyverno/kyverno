@@ -2,7 +2,7 @@ package v1alpha2
 
 import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/clients/clientwrappers/utils"
+	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"k8s.io/client-go/rest"
 )
 

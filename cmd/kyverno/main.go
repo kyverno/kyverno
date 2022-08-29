@@ -212,7 +212,6 @@ func main() {
 			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
 				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
 			}
-
 		}()
 	}
 

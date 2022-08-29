@@ -2,11 +2,11 @@ package kyvernoclient
 
 import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1 "github.com/kyverno/kyverno/pkg/clients/clientwrappers/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/clients/clientwrappers/kyverno/v1alpha2"
-	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/clients/clientwrappers/kyverno/v1beta1"
-	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/clients/clientwrappers/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/clients/clientwrappers/utils"
+	kyvernov1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1alpha2"
+	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1beta1"
+	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
 )
