@@ -44,7 +44,6 @@ import (
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
@@ -56,6 +55,7 @@ const resyncPeriod = 15 * time.Minute
 var (
 	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
+	kubeconfig                   string
 	serverIP                     string
 	profilePort                  string
 	metricsPort                  string
@@ -91,6 +91,7 @@ func main() {
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
@@ -124,13 +125,9 @@ func main() {
 	debug := serverIP != ""
 
 	// clients
-	clientConfig, err := rest.InClusterConfig()
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		setupLog.Error(err, "Failed to create clientConfig")
-		os.Exit(1)
-	}
-	if err := config.ConfigureClientConfig(clientConfig, clientRateLimitQPS, clientRateLimitBurst); err != nil {
-		setupLog.Error(err, "Failed to create clientConfig")
+		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
 	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig)
