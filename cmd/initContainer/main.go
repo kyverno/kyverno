@@ -27,13 +27,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
+	kubeconfig           string
 	setupLog             = log.Log.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
@@ -65,6 +65,7 @@ func main() {
 
 	klog.InitFlags(nil) // add the block above before invoking klog.InitFlags()
 	log.SetLogger(klogr.New())
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -76,13 +77,9 @@ func main() {
 	// os signal handler
 	stopCh := signal.SetupSignalHandler()
 	// create client config
-	clientConfig, err := rest.InClusterConfig()
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		setupLog.Error(err, "Failed to create clientConfig")
-		os.Exit(1)
-	}
-	if err := config.ConfigureClientConfig(clientConfig, clientRateLimitQPS, clientRateLimitBurst); err != nil {
-		setupLog.Error(err, "Failed to create clientConfig")
+		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
 
