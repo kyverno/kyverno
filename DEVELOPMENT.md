@@ -1,5 +1,33 @@
 # Developer Instructions
 
+This document covers basic needs to work with Kyverno codebase.
+
+It contains instructions to build, run, and test Kyverno.
+
+- [Tools](#tools)
+- [Building and publishing an image locally](#building-and-publishing-an-image-locally)
+
+## Tools
+
+Building and/or testing Kyverno requires additional tooling.
+
+We use `make` to simplify installing the tools we use.
+
+Tools will be installed in the `.tools` folder when possible, this allows keeping installed tools local to the Kyverno repository.
+The `.tools` folder is ignored by `git` and binaries should not be commited.
+
+You can install tools by running:
+```
+make install-tools
+```
+
+To remove installed tools, run:
+```
+make clean-tools
+```
+
+> **Note**: If you don't install tools, they will be download/installed as necessary when running `make` targets.
+
 ## Building and publishing an image locally
 
 First, make sure you [install `ko`](https://github.com/google/ko#install)
