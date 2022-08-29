@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"

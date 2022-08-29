@@ -10,11 +10,11 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	cmap "github.com/orcaman/concurrent-map"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

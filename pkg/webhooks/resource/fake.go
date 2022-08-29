@@ -32,7 +32,6 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 
 	return &handlers{
 		client:            dclient.NewEmptyFakeClient(),
-		kyvernoClient:     fakekyvernov1.NewSimpleClientset(),
 		configuration:     config.NewFakeConfig(),
 		metricsConfig:     metricsConfig,
 		pCache:            policyCache,

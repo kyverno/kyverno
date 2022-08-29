@@ -12,6 +12,7 @@ import (
 )
 
 type Interface interface {
+	VersionedClient() versioned.Interface
 	KyvernoV1() kyvernov1.KyvernoV1Interface
 	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
 	KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface
@@ -19,10 +20,15 @@ type Interface interface {
 }
 
 type Clientset struct {
+	versionedClient     versioned.Interface
 	kyvernoV1           *kyvernov1.KyvernoV1Client
 	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV1alpha2     *kyvernov1alpha2.KyvernoV1alpha2Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
+}
+
+func (c *Clientset) VersionedClient() versioned.Interface {
+	return c.versionedClient
 }
 
 func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
@@ -49,6 +55,8 @@ func NewForConfig(c *rest.Config, m *metrics.MetricsConfig) (*Clientset, error) 
 	if err != nil {
 		return nil, err
 	}
+
+	cs.versionedClient = kClientset
 
 	cs.kyvernoV1 = kyvernov1.NewForConfig(
 		kClientset.KyvernoV1().RESTClient(),

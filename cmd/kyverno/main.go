@@ -13,9 +13,9 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/background"
 	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
@@ -130,11 +130,7 @@ func main() {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
+
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
@@ -165,6 +161,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
 	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
@@ -191,7 +192,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, policyControllerResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient.VersionedClient(), policyControllerResyncPeriod)
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
