@@ -31,7 +31,6 @@ import (
 )
 
 type Interface interface {
-	Discovery() discovery.DiscoveryInterface
 	KyvernoV1() kyvernov1.KyvernoV1Interface
 	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
 	KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface
@@ -66,14 +65,6 @@ func (c *Clientset) KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface {
 // Wgpolicyk8sV1alpha2 retrieves the Wgpolicyk8sV1alpha2Client
 func (c *Clientset) Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface {
 	return c.wgpolicyk8sV1alpha2
-}
-
-// Discovery retrieves the DiscoveryClient
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
-	if c == nil {
-		return nil
-	}
-	return c.DiscoveryClient
 }
 
 // NewForConfig creates a new Clientset for the given config.
