@@ -439,10 +439,6 @@ helm-test-values:
 	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(INITC_KIND_IMAGE)|" charts/kyverno/values.yaml
 	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(KYVERNO_KIND_IMAGE)|" charts/kyverno/values.yaml
 
-# godownloader create downloading script for kyverno-cli
-godownloader:
-	godownloader .goreleaser.yml --repo kyverno/kyverno -o ./scripts/install-cli.sh  --source="raw"
-
 .PHONY: kustomize-crd
 kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
 	# Create CRD for helm deployment Helm
