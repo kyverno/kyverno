@@ -17,6 +17,9 @@ jobs:
       publish_command: ko-build-initContainer
       image_name: kyvernopre
       tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno:
     uses: ./.github/workflows/reuse.yaml
@@ -24,6 +27,9 @@ jobs:
       publish_command: ko-build-kyverno
       image_name: kyverno
       tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   push-kyverno-cli:
     uses: ./.github/workflows/reuse.yaml
@@ -31,3 +37,6 @@ jobs:
       publish_command: ko-build-cli
       image_name: kyverno-cli
       tag: image
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}

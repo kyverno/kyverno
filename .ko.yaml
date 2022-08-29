@@ -2,14 +2,14 @@ builds:
 - id: initContainer
   main: ./cmd/initContainer
   ldflags:
-  - "{{ .Env.LD_FLAGS }}"
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
 - id: kyverno
   main: ./cmd/kyverno
   ldflags:
-  - "{{ .Env.LD_FLAGS }}"
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'
 
 - id: cli
   main: ./cmd/cli
   ldflags:
-  - "{{ .Env.LD_FLAGS }}"
+  - '{{ if index .Env "LD_FLAGS" }}{{ .Env.LD_FLAGS }}{{ end }}'

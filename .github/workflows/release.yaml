@@ -16,6 +16,9 @@ jobs:
       image_name: kyvernopre
       tag: release
       main: cmd/initContainer
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno:
     permissions:
@@ -28,6 +31,9 @@ jobs:
       image_name: kyverno
       tag: release
       main: cmd/kyverno
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
 
   release-kyverno-cli:
     permissions:
@@ -40,7 +46,10 @@ jobs:
       image_name: kyverno-cli
       tag: release
       main: cmd/cli/kubectl-kyverno
-  
+    secrets:
+      registry_username: ${{ github.actor }}
+      registry_password: ${{ secrets.CR_PAT }}
+
   create-release:
     runs-on: ubuntu-latest
     needs:
