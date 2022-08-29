@@ -318,7 +318,7 @@ type Validation struct {
 
 type PodSecurity struct {
 	// Level defines the Pod Security Standard level to be applied to workloads.
-	// Allowed values are privileged, baseline, restricted.
+	// Allowed values are privileged, baseline, and restricted.
 	// +kubebuilder:validation:Enum=privileged;baseline;restricted
 	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
 
@@ -332,7 +332,7 @@ type PodSecurity struct {
 	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
 type PodSecurityStandard struct {
-	// ControlName specifies the name of Pod Security Standard control.
+	// ControlName specifies the name of the Pod Security Standard control.
 	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 	ControlName string `json:"controlName" yaml:"controlName"`
 

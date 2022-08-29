@@ -171,6 +171,12 @@ func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *co
 	for _, check := range checks {
 		for _, restrictedField := range check.RestrictedFields {
 			// Is a container-level restrictedField
+
+			// RestrictedField.path can contain:
+			// - containers[*]
+			// - initContainers[*]
+			// - ephemeralContainers[*]
+			// So we check if it contains `ontainers[*]` to know if there is a CheckResult related to containers.
 			if strings.Contains(restrictedField.path, "ontainers[*]") {
 				allowed, err := checkContainerLevelFields(ctx, pod, check, rule.Exclude, restrictedField)
 				if err != nil {

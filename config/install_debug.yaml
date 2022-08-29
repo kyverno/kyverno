@@ -1326,21 +1326,25 @@ spec:
                           description: Pattern specifies an overlay-style pattern used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
                         podSecurity:
+                          description: PodSecurity applies exemptions for Kubernetes Pod Security admission by specifying exclusions for Pod Security Standards controls.
                           properties:
                             exclude:
+                              description: Exclude specifies the Pod Security Standard controls to be excluded.
                               items:
                                 properties:
                                   controlName:
-                                    description: Required
+                                    description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                     type: string
                                   images:
+                                    description: Images is a list of matching image patterns. Each image is the image name consisting of the registry address, repository, image, and tag.
                                     items:
                                       type: string
                                     type: array
                                   restrictedField:
-                                    description: Optional
+                                    description: RestrictedField selects the field for the given Pod Security Standard control. When not set, all restricted fields for the control are selected.
                                     type: string
                                   values:
+                                    description: Values defines the allowed values that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -1349,8 +1353,23 @@ spec:
                                 type: object
                               type: array
                             level:
+                              description: Level defines the Pod Security Standard level to be applied to workloads. Allowed values are privileged, baseline, and restricted.
+                              enum:
+                              - privileged
+                              - baseline
+                              - restricted
                               type: string
                             version:
+                              description: Version defines the Pod Security Standard versions that Kubernetes supports. Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+                              enum:
+                              - v1.19
+                              - v1.20
+                              - v1.21
+                              - v1.22
+                              - v1.23
+                              - v1.24
+                              - v1.25
+                              - latest
                               type: string
                           type: object
                       type: object
@@ -2859,21 +2878,25 @@ spec:
                               description: Pattern specifies an overlay-style pattern used to check resources.
                               x-kubernetes-preserve-unknown-fields: true
                             podSecurity:
+                              description: PodSecurity applies exemptions for Kubernetes Pod Security admission by specifying exclusions for Pod Security Standards controls.
                               properties:
                                 exclude:
+                                  description: Exclude specifies the Pod Security Standard controls to be excluded.
                                   items:
                                     properties:
                                       controlName:
-                                        description: Required
+                                        description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                         type: string
                                       images:
+                                        description: Images is a list of matching image patterns. Each image is the image name consisting of the registry address, repository, image, and tag.
                                         items:
                                           type: string
                                         type: array
                                       restrictedField:
-                                        description: Optional
+                                        description: RestrictedField selects the field for the given Pod Security Standard control. When not set, all restricted fields for the control are selected.
                                         type: string
                                       values:
+                                        description: Values defines the allowed values that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -2882,8 +2905,23 @@ spec:
                                     type: object
                                   type: array
                                 level:
+                                  description: Level defines the Pod Security Standard level to be applied to workloads. Allowed values are privileged, baseline, and restricted.
+                                  enum:
+                                  - privileged
+                                  - baseline
+                                  - restricted
                                   type: string
                                 version:
+                                  description: Version defines the Pod Security Standard versions that Kubernetes supports. Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+                                  enum:
+                                  - v1.19
+                                  - v1.20
+                                  - v1.21
+                                  - v1.22
+                                  - v1.23
+                                  - v1.24
+                                  - v1.25
+                                  - latest
                                   type: string
                               type: object
                           type: object
@@ -5199,21 +5237,25 @@ spec:
                           description: Pattern specifies an overlay-style pattern used to check resources.
                           x-kubernetes-preserve-unknown-fields: true
                         podSecurity:
+                          description: PodSecurity applies exemptions for Kubernetes Pod Security admission by specifying exclusions for Pod Security Standards controls.
                           properties:
                             exclude:
+                              description: Exclude specifies the Pod Security Standard controls to be excluded.
                               items:
                                 properties:
                                   controlName:
-                                    description: Required
+                                    description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                     type: string
                                   images:
+                                    description: Images is a list of matching image patterns. Each image is the image name consisting of the registry address, repository, image, and tag.
                                     items:
                                       type: string
                                     type: array
                                   restrictedField:
-                                    description: Optional
+                                    description: RestrictedField selects the field for the given Pod Security Standard control. When not set, all restricted fields for the control are selected.
                                     type: string
                                   values:
+                                    description: Values defines the allowed values that can be excluded.
                                     items:
                                       type: string
                                     type: array
@@ -5222,8 +5264,23 @@ spec:
                                 type: object
                               type: array
                             level:
+                              description: Level defines the Pod Security Standard level to be applied to workloads. Allowed values are privileged, baseline, and restricted.
+                              enum:
+                              - privileged
+                              - baseline
+                              - restricted
                               type: string
                             version:
+                              description: Version defines the Pod Security Standard versions that Kubernetes supports. Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+                              enum:
+                              - v1.19
+                              - v1.20
+                              - v1.21
+                              - v1.22
+                              - v1.23
+                              - v1.24
+                              - v1.25
+                              - latest
                               type: string
                           type: object
                       type: object
@@ -6732,21 +6789,25 @@ spec:
                               description: Pattern specifies an overlay-style pattern used to check resources.
                               x-kubernetes-preserve-unknown-fields: true
                             podSecurity:
+                              description: PodSecurity applies exemptions for Kubernetes Pod Security admission by specifying exclusions for Pod Security Standards controls.
                               properties:
                                 exclude:
+                                  description: Exclude specifies the Pod Security Standard controls to be excluded.
                                   items:
                                     properties:
                                       controlName:
-                                        description: Required
+                                        description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                         type: string
                                       images:
+                                        description: Images is a list of matching image patterns. Each image is the image name consisting of the registry address, repository, image, and tag.
                                         items:
                                           type: string
                                         type: array
                                       restrictedField:
-                                        description: Optional
+                                        description: RestrictedField selects the field for the given Pod Security Standard control. When not set, all restricted fields for the control are selected.
                                         type: string
                                       values:
+                                        description: Values defines the allowed values that can be excluded.
                                         items:
                                           type: string
                                         type: array
@@ -6755,8 +6816,23 @@ spec:
                                     type: object
                                   type: array
                                 level:
+                                  description: Level defines the Pod Security Standard level to be applied to workloads. Allowed values are privileged, baseline, and restricted.
+                                  enum:
+                                  - privileged
+                                  - baseline
+                                  - restricted
                                   type: string
                                 version:
+                                  description: Version defines the Pod Security Standard versions that Kubernetes supports. Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+                                  enum:
+                                  - v1.19
+                                  - v1.20
+                                  - v1.21
+                                  - v1.22
+                                  - v1.23
+                                  - v1.24
+                                  - v1.25
+                                  - latest
                                   type: string
                               type: object
                           type: object
