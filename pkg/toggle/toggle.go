@@ -9,7 +9,7 @@ const (
 	AutogenInternalsFlagName    = "autogenInternals"
 	AutogenInternalsDescription = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
 	AutogenInternalsEnvVar      = "FLAG_AUTOGEN_INTERNALS"
-	DefaultAutogenInternals     = false
+	DefaultAutogenInternals     = true
 
 	// split policy report ...
 	SplitPolicyReportFlagName = "splitPolicyReport"
