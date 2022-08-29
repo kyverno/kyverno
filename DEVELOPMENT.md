@@ -6,6 +6,7 @@ It contains instructions to build, run, and test Kyverno.
 
 - [Tools](#tools)
 - [Building and publishing an image locally](#building-and-publishing-an-image-locally)
+- [Building local binaries](#building-local-binaries)
 
 ## Tools
 
@@ -16,17 +17,56 @@ We use `make` to simplify installing the tools we use.
 Tools will be installed in the `.tools` folder when possible, this allows keeping installed tools local to the Kyverno repository.
 The `.tools` folder is ignored by `git` and binaries should not be commited.
 
-You can install tools by running:
-```
+> **Note**: If you don't install tools, they will be download/installed as necessary when running `make` targets.
+
+You can manually install tools by running:
+```console
 make install-tools
 ```
 
 To remove installed tools, run:
-```
+```console
 make clean-tools
 ```
 
-> **Note**: If you don't install tools, they will be download/installed as necessary when running `make` targets.
+## Building local binaries
+
+The Kyverno repository contains code for three different binaries:
+- [`kyvernopre`](#building-kyvernopre-locally):
+  Binary to update/cleanup existing resources in clusters. This is typically run as an init container before Kyverno controller starts.
+- [`kyverno`](#building-kyverno-locally):
+  The Kyverno controller binary.
+- [`cli`](#building-cli-locally):
+  The Kyverno command line interface.
+
+> **Note**: You can build all binaries at once by running `make build-all`.
+
+### Building kyvernopre locally
+
+To build `kyvernopre` binary on your local system, run:
+```console
+make build-kyvernopre
+```
+
+The binary should be created at `./cmd/initContainer/kyvernopre`.
+
+### Building kyverno locally
+
+To build `kyverno` binary on your local system, run:
+```console
+make build-kyverno
+```
+
+The binary should be created at `./cmd/kyverno/kyverno`.
+
+### Building cli locally
+
+To build `cli` binary on your local system, run:
+```console
+make build-cli
+```
+
+The binary should be created at `./cmd/cli/kubectl-kyverno/kubectl-kyverno`.
 
 ## Building and publishing an image locally
 
