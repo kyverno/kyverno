@@ -2,10 +2,11 @@ package response
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -139,7 +140,17 @@ func (er EngineResponse) IsSuccessful() bool {
 	return true
 }
 
-// IsFailed checks if any rule has succeeded or not
+// IsSkipped checks if any rule has skipped resource or not.
+func (er EngineResponse) IsSkipped() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusSkip {
+			return true
+		}
+	}
+	return false
+}
+
+// IsFailed checks if any rule created a policy violation
 func (er EngineResponse) IsFailed() bool {
 	for _, r := range er.PolicyResponse.Rules {
 		if r.Status == RuleStatusFail {
@@ -150,9 +161,25 @@ func (er EngineResponse) IsFailed() bool {
 	return false
 }
 
+// IsError checks if any rule resulted in a processing error
+func (er EngineResponse) IsError() bool {
+	for _, r := range er.PolicyResponse.Rules {
+		if r.Status == RuleStatusError {
+			return true
+		}
+	}
+
+	return false
+}
+
 // IsEmpty checks if any rule results are present
 func (er EngineResponse) IsEmpty() bool {
 	return len(er.PolicyResponse.Rules) == 0
+}
+
+// isNil checks if rule is an empty rule
+func (er EngineResponse) IsNil() bool {
+	return reflect.DeepEqual(er, EngineResponse{})
 }
 
 // GetPatches returns all the patches joined

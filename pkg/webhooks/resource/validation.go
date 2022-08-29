@@ -27,15 +27,15 @@ type validationHandler struct {
 // If there are no errors in validating rule we apply generation rules
 // patchedResource is the (resource + patches) after applying mutation rules
 func (v *validationHandler) handleValidation(
-	promConfig *metrics.PromConfig,
+	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
-	admissionRequestTimestamp int64,
-) (bool, string) {
+	admissionRequestTimestamp time.Time,
+) (bool, string, []string) {
 	if len(policies) == 0 {
-		return true, ""
+		return true, "", nil
 	}
 
 	resourceName := admissionutils.GetResourceName(request)
@@ -49,25 +49,28 @@ func (v *validationHandler) handleValidation(
 	}
 
 	if deletionTimeStamp != nil && request.Operation == admissionv1.Update {
-		return true, ""
+		return true, "", nil
 	}
 
 	var engineResponses []*response.EngineResponse
+	failurePolicy := kyvernov1.Ignore
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
+		if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+			failurePolicy = kyvernov1.Fail
+		}
+
 		engineResponse := engine.Validate(policyContext)
-		if reflect.DeepEqual(engineResponse, response.EngineResponse{}) {
+		if engineResponse.IsNil() {
 			// we get an empty response if old and new resources created the same response
 			// allow updates if resource update doesnt change the policy evaluation
 			continue
 		}
 
-		// registering the kyverno_policy_results_total metric concurrently
-		go registerPolicyResultsMetricValidation(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go registerPolicyExecutionDurationMetricValidate(logger, promConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go registerPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -80,35 +83,28 @@ func (v *validationHandler) handleValidation(
 		}
 	}
 
-	// If Validation fails then reject the request
-	// no violations will be created on "enforce"
-	blocked := toBlockResource(engineResponses, logger)
-
-	// REPORTING EVENTS
-	// Scenario 1:
-	//   resource is blocked, as there is a policy in "enforce" mode that failed.
-	//   create an event on the policy to inform the resource request was blocked
-	// Scenario 2:
-	//   some/all policies failed to apply on the resource. a policy violation is generated.
-	//   create an event on the resource and the policy that failed
-	// Scenario 3:
-	//   all policies were applied successfully.
-	//   create an event on the resource
-	events := generateEvents(engineResponses, blocked, logger)
-	v.eventGen.Add(events...)
-
-	if blocked {
-		logger.V(4).Info("resource blocked")
-		// registering the kyverno_admission_review_duration_seconds metric concurrently
-		admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-		go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-		// registering the kyverno_admission_requests_total metric concurrently
-		go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
-		return false, getEnforceFailureErrorMsg(engineResponses)
+	blocked := blockRequest(engineResponses, failurePolicy, logger)
+	if deletionTimeStamp == nil {
+		events := generateEvents(engineResponses, blocked, logger)
+		v.eventGen.Add(events...)
 	}
 
-	// reports are generated for non-managed pods/jobs only
-	// no need to create rcr for managed resources
+	if blocked {
+		logger.V(4).Info("admission request blocked")
+		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
+		return false, getBlockedMessages(engineResponses), nil
+	}
+
+	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
+	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
+
+	warnings := getWarningMessages(engineResponses)
+	return true, "", warnings
+}
+
+// generateReportChangeRequests creates report change requests
+// reports are generated for non-managed pods/jobs only, no need to create rcr for managed resources
+func (v *validationHandler) generateReportChangeRequests(request *admissionv1.AdmissionRequest, engineResponses []*response.EngineResponse, policyContext *engine.PolicyContext, logger logr.Logger) {
 	if request.Operation == admissionv1.Delete {
 		managed := true
 		for _, er := range engineResponses {
@@ -121,18 +117,14 @@ func (v *validationHandler) handleValidation(
 		if !managed {
 			v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
 		}
-
-		return true, ""
+	} else {
+		prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
+		v.prGenerator.Add(prInfos...)
 	}
+}
 
-	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	v.prGenerator.Add(prInfos...)
-
-	// registering the kyverno_admission_review_duration_seconds metric concurrently
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go registerAdmissionReviewDurationMetricValidate(logger, promConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	// registering the kyverno_admission_requests_total metric concurrently
-	go registerAdmissionRequestsMetricValidate(logger, promConfig, string(request.Operation), engineResponses)
-
-	return true, ""
+func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
+	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
+	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }

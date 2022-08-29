@@ -297,7 +297,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
 			log.Log.V(3).Info("Defaulting request.operation to CREATE")
-
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {
@@ -1003,7 +1002,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-//GetResourceFromPath - get patchedResource and generatedResource from given path
+// GetResourceFromPath - get patchedResource and generatedResource from given path
 func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	var resource unstructured.Unstructured
@@ -1035,7 +1034,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 
 // initializeMockController initializes a basic Generate Controller with a fake dynamic client.
 func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
-	client, err := dclient.NewMockClient(runtime.NewScheme(), nil, objects...)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
 	if err != nil {
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
@@ -1049,7 +1048,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	objects := []runtime.Object{&policyContext.NewResource}
-	var resources = []*unstructured.Unstructured{}
+	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
 			resourceBytes, err := getFileBytes(path)

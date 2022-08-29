@@ -53,6 +53,8 @@ type controller struct {
 	nsLister   corev1listers.NamespaceLister
 	podLister  corev1listers.PodLister
 
+	informersSynced []cache.InformerSynced
+
 	// queue
 	queue workqueue.RateLimitingInterface
 
@@ -82,7 +84,7 @@ func NewController(
 		urLister:      urLister,
 		nsLister:      namespaceInformer.Lister(),
 		podLister:     podInformer.Lister(),
-		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "generate-request"),
+		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "update-request"),
 		eventGen:      eventGen,
 		configuration: dynamicConfig,
 	}
@@ -99,6 +101,9 @@ func NewController(
 		UpdateFunc: c.updatePolicy,
 		DeleteFunc: c.deletePolicy,
 	})
+
+	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
+
 	return &c
 }
 
@@ -108,6 +113,10 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
+
+	if !cache.WaitForNamedCacheSync("background", stopCh, c.informersSynced...) {
+		return
+	}
 
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.worker, time.Second, stopCh)
@@ -192,7 +201,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	}
 	// try to get the linked policy
 	if _, err := c.getPolicy(ur.Spec.Policy); err != nil {
-		if apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) && ur.Spec.Type == kyvernov1beta1.Mutate {
 			// here only takes care of mutateExisting policies
 			// generate cleanup controller handles policy deletion
 			selector := &metav1.LabelSelector{
@@ -289,21 +298,13 @@ func (c *controller) updateUR(_, cur interface{}) {
 }
 
 func (c *controller) deleteUR(obj interface{}) {
-	ur, ok := obj.(*kyvernov1beta1.UpdateRequest)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			logger.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		ur, ok = tombstone.Obj.(*kyvernov1beta1.UpdateRequest)
-		if !ok {
-			logger.Info("tombstone contained object that is not a Update Request CR", "obj", obj)
-			return
-		}
+	ur, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1beta1.UpdateRequest)
+	if ok {
+		// sync Handler will remove it from the queue
+		c.enqueueUpdateRequest(ur)
+	} else {
+		logger.Info("Failed to get deleted object", "obj", obj)
 	}
-	// sync Handler will remove it from the queue
-	c.enqueueUpdateRequest(ur)
 }
 
 func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
@@ -375,5 +376,5 @@ func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
 	if namespace == "" {
 		return c.cpolLister.Get(name)
 	}
-	return c.polLister.Policies(namespace).Get(key)
+	return c.polLister.Policies(namespace).Get(name)
 }

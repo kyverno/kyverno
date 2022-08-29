@@ -14,6 +14,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +28,8 @@ const (
 	appVersion string = "app.kubernetes.io/version"
 
 	// the following labels are used to list rcr / crcr
-	resourceLabelNamespace string = "kyverno.io/resource.namespace"
+	ResourceLabelNamespace string = "kyverno.io/resource.namespace"
+	policyLabel            string = "kyverno.io/policy-name"
 	deletedLabelPolicy     string = "kyverno.io/delete.policy"
 	deletedLabelRule       string = "kyverno.io/delete.rule"
 
@@ -36,21 +38,39 @@ const (
 	deletedAnnotationResourceName string = "kyverno.io/delete.resource.name"
 	deletedAnnotationResourceKind string = "kyverno.io/delete.resource.kind"
 
+	inactiveLabelKey string = "kyverno.io/report.status"
+	inactiveLabelVal string = "inactive"
+
 	// SourceValue is the static value for PolicyReportResult.Source
 	SourceValue = "Kyverno"
 )
 
-func GeneratePolicyReportName(ns string) string {
+func GeneratePolicyReportName(ns, policyName string) string {
 	if ns == "" {
+		if toggle.SplitPolicyReport() {
+			return TrimmedName(clusterpolicyreport + "-" + policyName)
+		}
 		return clusterpolicyreport
 	}
 
-	name := fmt.Sprintf("polr-ns-%s", ns)
+	var name string
+	if toggle.SplitPolicyReport() {
+		name = fmt.Sprintf("polr-ns-%s-%s", ns, policyName)
+	} else {
+		name = fmt.Sprintf("polr-ns-%s", ns)
+	}
 	if len(name) > 63 {
 		return name[:63]
 	}
 
 	return name
+}
+
+func TrimmedName(s string) string {
+	if len(s) > 63 {
+		return s[:63]
+	}
+	return s
 }
 
 // GeneratePRsFromEngineResponse generate Violations from engine responses
@@ -205,7 +225,8 @@ func set(obj *unstructured.Unstructured, info Info) {
 	}
 
 	obj.SetLabels(map[string]string{
-		resourceLabelNamespace: info.Namespace,
+		ResourceLabelNamespace: info.Namespace,
+		policyLabel:            TrimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
 	})
 }
@@ -219,7 +240,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 		})
 
 		labels := req.GetLabels()
-		labels[resourceLabelNamespace] = info.Results[0].Resource.Namespace
+		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
 		req.SetLabels(labels)
 		return true
 

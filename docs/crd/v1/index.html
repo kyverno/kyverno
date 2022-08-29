@@ -104,6 +104,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -113,7 +130,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -129,9 +146,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -211,7 +229,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -311,6 +329,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -320,7 +355,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -336,9 +371,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -418,7 +454,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>
@@ -598,6 +634,15 @@ Here, all of the conditions need to pass</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.ApplyRulesType">ApplyRulesType
+(<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Spec">Spec</a>)
+</p>
+<p>
+<p>ApplyRulesType controls whether processing stops after one rule is applied or all rules are applied.</p>
+</p>
 <h3 id="kyverno.io/v1.Attestation">Attestation
 </h3>
 <p>
@@ -792,9 +837,11 @@ attributes for keyless verification, or a nested attestor declaration.</p>
 <h3 id="kyverno.io/v1.AutogenStatus">AutogenStatus
 </h3>
 <p>
-<p>AutogenStatus contains autogen status information.
-It indicates requested and effective autogen controllers used when
-automatically generating rules.</p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+</p>
+<p>
+<p>AutogenStatus contains autogen status information.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -806,24 +853,15 @@ automatically generating rules.</p>
 <tbody>
 <tr>
 <td>
-<code>requested</code></br>
+<code>rules</code></br>
 <em>
-[]string
+<a href="#kyverno.io/v1.Rule">
+[]Rule
+</a>
 </em>
 </td>
 <td>
-<p>Requested indicates the autogen requested controllers</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>activated</code></br>
-<em>
-[]string
-</em>
-</td>
-<td>
-<p>Activated indicates the autogen activated controllers</p>
+<p>Rules is a list of Rule instances. It contains auto generated rules added for pod controllers</p>
 </td>
 </tr>
 </tbody>
@@ -2378,6 +2416,20 @@ Deprecated in favor of Conditions</p>
 <p>Conditions is a list of conditions that apply to the policy</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>autogen</code></br>
+<em>
+<a href="#kyverno.io/v1.AutogenStatus">
+AutogenStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Autogen contains autogen status information</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -2686,6 +2738,7 @@ string
 </h3>
 <p>
 (<em>Appears on:</em>
+<a href="#kyverno.io/v1.AutogenStatus">AutogenStatus</a>, 
 <a href="#kyverno.io/v1.Spec">Spec</a>)
 </p>
 <p>
@@ -2884,6 +2937,23 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
+<code>applyRules</code></br>
+<em>
+<a href="#kyverno.io/v1.ApplyRulesType">
+ApplyRulesType
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>ApplyRules controls how rules in a policy are applied. Rule are processed in
+the order of declaration. When set to <code>One</code> processing stops after a rule has
+been applied i.e. the rule matches and results in a pass, fail, or error. When
+set to <code>All</code> all rules in the policy are processed. The default is <code>All</code>.</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>failurePolicy</code></br>
 <em>
 <a href="#kyverno.io/v1.FailurePolicyType">
@@ -2893,7 +2963,7 @@ FailurePolicyType
 </td>
 <td>
 <em>(Optional)</em>
-<p>FailurePolicy defines how unrecognized errors from the admission endpoint are handled.
+<p>FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 Rules within the same policy share the same failure behavior.
 Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </td>
@@ -2909,9 +2979,10 @@ ValidationFailureAction
 </td>
 <td>
 <em>(Optional)</em>
-<p>ValidationFailureAction controls if a validation policy rule failure should disallow
+<p>ValidationFailureAction defines if a validation policy rule violation should block
 the admission review request (enforce), or allow (audit) the admission review request
-and report an error in a policy report. Optional. The default value is &ldquo;audit&rdquo;.</p>
+and report an error in a policy report. Optional.
+Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</p>
 </td>
 </tr>
 <tr>
@@ -2991,7 +3062,7 @@ bool
 </td>
 <td>
 <em>(Optional)</em>
-<p>GenerateExistingOnPolicyUpdate controls wether to trigger generate rule in existing resources
+<p>GenerateExistingOnPolicyUpdate controls whether to trigger generate rule in existing resources
 If is set to &ldquo;true&rdquo; generate rule will be triggered and applied to existing matched resources.
 Defaults to &ldquo;false&rdquo; if not specified.</p>
 </td>

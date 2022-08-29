@@ -20,7 +20,19 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 
 	policyName := ctx.Policy.GetName()
 	if store.GetMock() {
+		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
+		if rule != nil && len(rule.Values) > 0 {
+			variables := rule.Values
+			for key, value := range variables {
+				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
+					return err
+				}
+			}
+		}
+
 		hasRegistryAccess := store.GetRegistryAccess()
+
+		// Context Variable should be loaded after the values loaded from values file
 		for _, entry := range contextEntries {
 			if entry.ImageRegistry != nil && hasRegistryAccess {
 				if err := loadImageData(logger, entry, ctx); err != nil {
@@ -28,15 +40,6 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 				}
 			} else if entry.Variable != nil {
 				if err := loadVariable(logger, entry, ctx); err != nil {
-					return err
-				}
-			}
-		}
-		rule := store.GetPolicyRuleFromContext(policyName, ruleName)
-		if rule != nil && len(rule.Values) > 0 {
-			variables := rule.Values
-			for key, value := range variables {
-				if err := ctx.JSONContext.AddVariable(key, value); err != nil {
 					return err
 				}
 			}
@@ -310,6 +313,11 @@ func fetchAPIData(log logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyCont
 		if err != nil {
 			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
 		}
+	} else if p.Raw != "" {
+		jsonData, err = getResource(ctx, p)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", p, err)
+		}
 	} else {
 		jsonData, err = loadResourceList(ctx, p)
 		if err != nil {
@@ -337,13 +345,15 @@ func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	if ctx.Client == nil {
 		return nil, fmt.Errorf("API client is not available")
 	}
-
 	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
 	if err != nil {
 		return nil, err
 	}
-
 	return r.MarshalJSON()
+}
+
+func getResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
+	return ctx.Client.RawAbsPath(p.Raw)
 }
 
 func loadConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {

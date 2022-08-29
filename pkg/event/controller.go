@@ -16,7 +16,6 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/klog/v2"
 )
 
 // Generator generate events
@@ -37,6 +36,8 @@ type Generator struct {
 	// events generated at mutateExisting controller
 	mutateExistingRecorder record.EventRecorder
 
+	maxQueuedEvents int
+
 	log logr.Logger
 }
 
@@ -46,7 +47,7 @@ type Interface interface {
 }
 
 // NewEventGenerator to generate a new event controller
-func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, log logr.Logger) *Generator {
+func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
 		cpLister:               cpInformer.Lister(),
@@ -56,6 +57,7 @@ func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.C
 		admissionCtrRecorder:   initRecorder(client, AdmissionController, log),
 		genPolicyRecorder:      initRecorder(client, GeneratePolicyController, log),
 		mutateExistingRecorder: initRecorder(client, MutateExistingController, log),
+		maxQueuedEvents:        maxQueuedEvents,
 		log:                    log,
 	}
 	return &gen
@@ -73,7 +75,6 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 		return nil
 	}
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartLogging(klog.V(5).Infof)
 	eventInterface, err := client.GetEventsInterface()
 	if err != nil {
 		log.Error(err, "failed to get event interface for logging")
@@ -96,6 +97,12 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 // Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
 	logger := gen.log
+
+	if gen.queue.Len() > gen.maxQueuedEvents {
+		logger.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		return
+	}
+
 	for _, info := range infos {
 		if info.Name == "" {
 			// dont create event for resources with generateName
@@ -154,15 +161,13 @@ func (gen *Generator) processNextWorkItem() bool {
 	}
 
 	defer gen.queue.Done(obj)
-
 	var key Info
 	var ok bool
 	if key, ok = obj.(Info); !ok {
 		gen.queue.Forget(obj)
-		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
+		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
-
 	err := gen.syncHandler(key)
 	gen.handleErr(err, obj)
 
@@ -191,14 +196,17 @@ func (gen *Generator) syncHandler(key Info) error {
 		if err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Error(err, "failed to get resource", "kind", key.Kind, "name", key.Name, "namespace", key.Namespace)
+				return nil
 			}
 			return err
 		}
 	}
 
 	// set the event type based on reason
+	// if skip/pass, reason will be: NORMAL
+	// else reason will be: WARNING
 	eventType := corev1.EventTypeWarning
-	if key.Reason == PolicyApplied.String() {
+	if key.Reason == PolicyApplied.String() || key.Reason == PolicySkipped.String() {
 		eventType = corev1.EventTypeNormal
 	}
 

@@ -258,7 +258,7 @@ func Test_Conditions(t *testing.T) {
 	err := json.Unmarshal([]byte(scanPredicate), &dataMap)
 	assert.NilError(t, err)
 
-	pass, err := evaluateConditions(conditions, ctx, dataMap, img, log.Log)
+	pass, err := evaluateConditions(conditions, ctx, dataMap, log.Log)
 	assert.NilError(t, err)
 	assert.Equal(t, pass, true)
 }

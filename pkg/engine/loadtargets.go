@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -32,7 +32,7 @@ func loadTargets(targets []kyvernov1.ResourceSpec, ctx *PolicyContext, logger lo
 		targetObjects = append(targetObjects, objs...)
 	}
 
-	return targetObjects, engineUtils.CombineErrors(errors)
+	return targetObjects, multierr.Combine(errors...)
 }
 
 func resolveSpec(i int, target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.Logger) (kyvernov1.ResourceSpec, error) {

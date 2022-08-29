@@ -50,7 +50,7 @@ func excludeKyvernoResources(kind string) bool {
 
 func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
-	return admissionutils.ResponseFailure(false, message+": "+err.Error())
+	return admissionutils.ResponseFailure(message + ": " + err.Error())
 }
 
 func patchRequest(patches []byte, request *admissionv1.AdmissionRequest, logger logr.Logger) *admissionv1.AdmissionRequest {
@@ -166,36 +166,78 @@ func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) 
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func toBlockResource(engineReponses []*response.EngineResponse, log logr.Logger) bool {
+func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineReponses {
-		if engineutils2.CheckEngineResponse(er) {
-			log.Info("spec.ValidationFailureAction set to enforce, blocking resource request", "policy", er.PolicyResponse.Policy.Name)
+		if engineutils2.BlockRequest(er, failurePolicy) {
+			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
 			return true
 		}
 	}
 
-	log.V(4).Info("spec.ValidationFailureAction set to audit for all applicable policies, won't block resource operation")
+	log.V(4).Info("allowing admission request")
 	return false
 }
 
-// getEnforceFailureErrorMsg gets the error messages for failed enforce policy
-func getEnforceFailureErrorMsg(engineResponses []*response.EngineResponse) string {
-	policyToRule := make(map[string]interface{})
-	var resourceName string
+// getBlockedMessages gets the error messages for rules with error or fail status
+func getBlockedMessages(engineResponses []*response.EngineResponse) string {
+	if len(engineResponses) == 0 {
+		return ""
+	}
+
+	failures := make(map[string]interface{})
+	hasViolations := false
 	for _, er := range engineResponses {
-		if engineutils2.CheckEngineResponse(er) {
-			ruleToReason := make(map[string]string)
-			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
-					ruleToReason[rule.Name] = rule.Message
+		ruleToReason := make(map[string]string)
+		for _, rule := range er.PolicyResponse.Rules {
+			if rule.Status != response.RuleStatusPass {
+				ruleToReason[rule.Name] = rule.Message
+				if rule.Status == response.RuleStatusFail {
+					hasViolations = true
 				}
 			}
-			resourceName = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			policyToRule[er.PolicyResponse.Policy.Name] = ruleToReason
+		}
+
+		failures[er.PolicyResponse.Policy.Name] = ruleToReason
+	}
+
+	if len(failures) == 0 {
+		return ""
+	}
+
+	r := engineResponses[0].PolicyResponse.Resource
+	resourceName := fmt.Sprintf("%s/%s/%s", r.Kind, r.Namespace, r.Name)
+	action := getAction(hasViolations, len(failures))
+
+	results, _ := yamlv2.Marshal(failures)
+	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
+	return msg
+}
+
+func getWarningMessages(engineResponses []*response.EngineResponse) []string {
+	var warnings []string
+	for _, er := range engineResponses {
+		for _, rule := range er.PolicyResponse.Rules {
+			if rule.Status != response.RuleStatusPass {
+				msg := fmt.Sprintf("policy %s.%s: %s", er.Policy.GetName(), rule.Name, rule.Message)
+				warnings = append(warnings, msg)
+			}
 		}
 	}
-	result, _ := yamlv2.Marshal(policyToRule)
-	return "\n\nresource " + resourceName + " was blocked due to the following policies\n\n" + string(result)
+
+	return warnings
+}
+
+func getAction(hasViolations bool, i int) string {
+	action := "error"
+	if hasViolations {
+		action = "violation"
+	}
+
+	if i > 1 {
+		action = action + "s"
+	}
+
+	return action
 }
 
 func getErrorMsg(engineReponses []*response.EngineResponse) string {

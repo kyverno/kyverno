@@ -309,8 +309,10 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 	jsonContext := policyContext.JSONContext
 	// To manage existing resources, we compare the creation time for the default resource to be generated and policy creation time
-
 	ruleNameToProcessingTime := make(map[string]time.Duration)
+	applyRules := policyContext.Policy.GetSpec().GetApplyRules()
+	applyCount := 0
+
 	for _, rule := range autogen.ComputeRules(policy) {
 		var err error
 		if !rule.HasGenerate() {
@@ -331,6 +333,10 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 				pcreationTime := policy.GetCreationTimestamp()
 				processExisting = rcreationTime.Before(&pcreationTime)
 			}
+		}
+
+		if applyRules == kyvernov1.ApplyOne && applyCount > 0 {
+			break
 		}
 
 		// add configmap json data to context
@@ -358,6 +364,8 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
 			processExisting = false
 		}
+
+		applyCount++
 	}
 
 	return genResources, processExisting, nil
@@ -652,6 +660,7 @@ func (c *GenerateController) GetUnstrResource(genResourceSpec kyvernov1.Resource
 	}
 	return resource, nil
 }
+
 func deleteGeneratedResources(log logr.Logger, client dclient.Interface, ur kyvernov1beta1.UpdateRequest) error {
 	for _, genResource := range ur.Status.GeneratedResources {
 		err := client.DeleteResource("", genResource.Kind, genResource.Namespace, genResource.Name, false)

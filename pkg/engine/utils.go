@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -17,7 +16,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -37,24 +39,25 @@ type EngineStats struct {
 }
 
 func checkKind(kinds []string, resourceKind string, gvk schema.GroupVersionKind) bool {
+	title := cases.Title(language.Und, cases.NoLower)
 	for _, k := range kinds {
 		parts := strings.Split(k, "/")
 		if len(parts) == 1 {
-			if k == "*" || resourceKind == strings.Title(k) {
+			if k == "*" || resourceKind == title.String(k) {
 				return true
 			}
 		}
 
 		if len(parts) == 2 {
 			kindParts := strings.SplitN(parts[1], ".", 2)
-			if gvk.Kind == strings.Title(kindParts[0]) && gvk.Version == parts[0] {
+			if gvk.Kind == title.String(kindParts[0]) && gvk.Version == parts[0] {
 				return true
 			}
 		}
 
 		if len(parts) == 3 || len(parts) == 4 {
 			kindParts := strings.SplitN(parts[2], ".", 2)
-			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == strings.Title(kindParts[0]) {
+			if gvk.Group == parts[0] && (gvk.Version == parts[1] || parts[1] == "*") && gvk.Kind == title.String(kindParts[0]) {
 				return true
 			}
 		}
@@ -122,14 +125,18 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
-// 		Kinds      []string
-// 		Name       string
-// 		Namespaces []string
-// 		Selector
+//
+//	Kinds      []string
+//	Name       string
+//	Namespaces []string
+//	Selector
+//
 // UserInfo:
-// 		Roles        []string
-// 		ClusterRoles []string
-// 		Subjects     []rbacv1.Subject
+//
+//	Roles        []string
+//	ClusterRoles []string
+//	Subjects     []rbacv1.Subject
+//
 // To filter out the targeted resources with ResourceDescription, the check
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check

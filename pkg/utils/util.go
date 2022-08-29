@@ -7,16 +7,17 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -121,7 +122,7 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 		return false
 	}
 
-	log.Log.Info("CRD found", "gvr", gvr.String())
+	log.Log.V(2).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
@@ -337,4 +338,19 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoAnyAllConditions, nil
 	}
 	return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+}
+
+func OverrideRuntimeErrorHandler() {
+	logger := log.Log.WithName("RuntimeErrorHandler")
+	if len(runtime.ErrorHandlers) > 0 {
+		runtime.ErrorHandlers[0] = func(err error) {
+			logger.V(6).Info("runtime error: %s", err)
+		}
+	} else {
+		runtime.ErrorHandlers = []func(err error){
+			func(err error) {
+				logger.V(6).Info("runtime error: %s", err)
+			},
+		}
+	}
 }

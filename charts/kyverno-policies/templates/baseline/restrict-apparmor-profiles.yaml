@@ -20,11 +20,16 @@ metadata:
       overrides to an allowed set of profiles. This policy ensures Pods do not
       specify any other AppArmor profiles than `runtime/default` or `localhost/*`.
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: app-armor
       match:

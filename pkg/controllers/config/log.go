@@ -2,4 +2,7 @@ package config
 
 import "sigs.k8s.io/controller-runtime/pkg/log"
 
-var logger = log.Log.WithName("config-controller")
+var (
+	controllerName = "config-controller"
+	logger         = log.Log.WithName(controllerName)
+)

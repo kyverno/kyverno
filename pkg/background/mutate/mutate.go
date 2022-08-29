@@ -13,9 +13,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/utils"
+	"go.uber.org/multierr"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	cache "k8s.io/client-go/tools/cache"
@@ -131,7 +131,8 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 		}
 	}
 
-	return updateURStatus(c.statusControl, *ur, engineUtils.CombineErrors(errs))
+	err = multierr.Combine(errs...)
+	return updateURStatus(c.statusControl, *ur, err)
 }
 
 func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
