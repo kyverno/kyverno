@@ -25,7 +25,6 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
-	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
 )
@@ -40,7 +39,6 @@ type Interface interface {
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
-	*discovery.DiscoveryClient
 	kyvernoV1           *kyvernov1.KyvernoV1Client
 	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV1alpha2     *kyvernov1alpha2.KyvernoV1alpha2Client
@@ -97,10 +95,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 		return nil, err
 	}
 
-	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
-	if err != nil {
-		return nil, err
-	}
 	return &cs, nil
 }
 
@@ -113,7 +107,6 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	cs.kyvernoV1alpha2 = kyvernov1alpha2.NewForConfigOrDie(c)
 	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.NewForConfigOrDie(c)
 
-	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
 }
 
@@ -125,6 +118,5 @@ func New(c rest.Interface) *Clientset {
 	cs.kyvernoV1alpha2 = kyvernov1alpha2.New(c)
 	cs.wgpolicyk8sV1alpha2 = wgpolicyk8sv1alpha2.New(c)
 
-	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
 }
