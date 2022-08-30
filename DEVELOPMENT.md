@@ -105,7 +105,7 @@ make docker-build-kyvernopre
 
 The resulting image should be available locally, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
 
-### Building kyverno image locally
+#### Building kyverno image locally
 
 To build `kyverno` image on your local system, run:
 ```console
@@ -114,7 +114,7 @@ make docker-build-kyverno
 
 The resulting image should be available locally, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
 
-### Building cli image locally
+#### Building cli image locally
 
 To build `cli` image on your local system, run:
 ```console
@@ -138,7 +138,7 @@ make ko-build-kyvernopre
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/initcontainer`.
 
-### Building kyverno image locally
+#### Building kyverno image locally
 
 To build `kyverno` image on your local system, run:
 ```console
@@ -147,7 +147,7 @@ make ko-build-kyverno
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/kyverno`.
 
-### Building cli image locally
+#### Building cli image locally
 
 To build `cli` image on your local system, run:
 ```console

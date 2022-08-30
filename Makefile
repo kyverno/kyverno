@@ -101,23 +101,23 @@ LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DE
 
 .PHONY: fmt
 fmt: ## Run go fmt
-	go fmt ./...
+	@go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet
-	go vet ./...
+	@go vet ./...
 
-$(KYVERNO):
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
+$(KYVERNO): fmt vet
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
 
 $(KYVERNOPRE): fmt vet
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
 
 $(CLI): fmt vet
-	CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI) -ldflags=$(LD_FLAGS) $(CLI_DIR)
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
 .PHONY: build-kyverno
-build-kyverno: fmt vet | $(KYVERNO) ## Build kyverno
+build-kyverno: $(KYVERNO) ## Build kyverno
 
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE) ## Build kyvernopre
@@ -131,55 +131,54 @@ build-all: build-kyverno build-kyvernopre build-cli ## Build all
 # BUILD (KO) #
 ##############
 
-INITC_KIND_IMAGE    := kind.local/github.com/kyverno/kyverno/cmd/initcontainer
-KYVERNO_KIND_IMAGE  := kind.local/github.com/kyverno/kyverno/cmd/kyverno
+INITC_KIND_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
+KYVERNO_KIND_IMAGE  := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 INITC_IMAGE         := kyvernopre
 KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
 REPO_KYVERNO        := $(REPO)/kyverno
 REPO_KYVERNOPRE     := $(REPO)/kyvernopre
 REPO_CLI            := $(REPO)/kyverno-cli
+REGISTRY_USERNAME	?= dummy
+
+.PHONY: ko-login
+ko-login: $(KO)
+	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
 .PHONY: ko-build-initContainer
-ko-build-initContainer: $(KO)
-	# @$(KO) login $(REGISTRY)
+ko-build-initContainer: ko-login
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno
-ko-build-kyverno: $(KO)
-	# @$(KO) login $(REGISTRY)
+ko-build-kyverno: ko-login
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli
-ko-build-cli: $(KO)
-	# @$(KO) login $(REGISTRY)
+ko-build-cli: ko-login
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-initContainer-dev
-ko-build-initContainer-dev: $(KO)
-	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
+ko-build-initContainer-dev: ko-login
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno-dev
-ko-build-kyverno-dev: $(KO)
-	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
+ko-build-kyverno-dev: ko-login
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli-dev
-ko-build-cli-dev: $(KO)
-	@$(KO) login $(REGISTRY) --username "dummy" --password $(GITHUB_TOKEN)
+ko-build-cli-dev: ko-login
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-initContainer-local
 ko-build-initContainer-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-kyverno-local
 ko-build-kyverno-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-cli-local
 ko-build-cli-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=kind.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=linux/$(GOARCH)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
@@ -189,20 +188,6 @@ ko-build-all-dev: ko-build-initContainer-dev ko-build-kyverno-dev ko-build-cli-d
 
 .PHONY: ko-build-all-local
 ko-build-all-local: ko-build-initContainer-local ko-build-kyverno-local ko-build-cli-local
-
-# ko-build-initContainer-amd64: KO_DOCKER_REPO=$(REPO)/$(INITC_IMAGE)
-# ko-build-initContainer-amd64: $(KO)
-# 	@$(KO) build ./$(INITC_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
-
-# ko-build-kyverno-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_IMAGE)
-# ko-build-kyverno-amd64: $(KO)
-# 	@$(KO) build ./$(KYVERNO_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
-
-# ko-build-cli-amd64: KO_DOCKER_REPO=$(REPO)/$(KYVERNO_CLI_IMAGE)
-# ko-build-cli-amd64: $(KO)
-# 	@$(KO) build ./$(CLI_PATH) --bare --tags=latest,$(IMAGE_TAG) --platform=linux/amd64
-
-# ko-build-all-amd64: ko-build-initContainer-amd64 ko-build-kyverno-amd64 ko-build-cli-amd64
 
 ##################################
 # KYVERNO
@@ -364,13 +349,13 @@ e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 	$(KUSTOMIZE) build config/ -o config/install.yaml
 
-# TODO(eddycharly): this is not going to work with docker
 .PHONY: e2e-init-container
 e2e-init-container: kind-e2e-cluster | ko-build-initContainer-local
+	$(KIND) load docker-image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
-# TODO(eddycharly): this is not going to work with docker
 .PHONY: e2e-kyverno-container
 e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno-local
+	$(KIND) load docker-image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: create-e2e-infrastructure
 create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
