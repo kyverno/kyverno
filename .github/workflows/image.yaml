@@ -14,8 +14,7 @@ jobs:
   push-init-kyverno:
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-initContainer
-      digest_command: docker-get-initContainer-digest
+      publish_command: ko-publish-initContainer
       image_name: kyvernopre
       tag: image
     secrets:
@@ -25,8 +24,7 @@ jobs:
   push-kyverno:
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-kyverno
-      digest_command: docker-get-kyverno-digest
+      publish_command: ko-publish-kyverno
       image_name: kyverno
       tag: image
     secrets:
@@ -36,8 +34,7 @@ jobs:
   push-kyverno-cli:
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: docker-publish-cli
-      digest_command: docker-get-cli-digest
+      publish_command: ko-publish-cli
       image_name: kyverno-cli
       tag: image
     secrets:

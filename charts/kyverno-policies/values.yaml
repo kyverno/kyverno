@@ -12,6 +12,10 @@ podSecurityPolicies: []
 includeOtherPolicies: []
 # - require-non-root-groups
 
+# -- Additional policies to include from `restricted`.
+includeRestrictedPolicies: []
+# - require-run-as-non-root-user
+
 # -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
 # For more info: https://kyverno.io/docs/writing-policies/policy-settings/
 failurePolicy: Fail
