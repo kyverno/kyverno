@@ -13,7 +13,9 @@ type PSSCheckResult struct {
 	RestrictedFields []restrictedField
 }
 
-// Translate PSS control to Check.ID so that we can use PSS control in Kyverno policy
+// Translate PSS control to CheckResult.ID so that we can use PSS control in Kyverno policy
+// For PSS controls see: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+// For CheckResult.ID see: https://github.com/kubernetes/pod-security-admission/tree/master/policy
 var PSS_controls_to_check_id = map[string][]string{
 	// Controls with 2 different controls for each level
 	"Capabilities": {

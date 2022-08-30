@@ -141,10 +141,24 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 	return true, nil
 }
 
+func checkHostNamespacesControl(check PSSCheckResult, restrictedField string) bool {
+	hostNamespace := strings.Trim(restrictedField, "spec.")
+	if strings.Contains(check.CheckResult.ForbiddenDetail, hostNamespace) {
+		return true
+	}
+	return false
+}
+
 func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *kyvernov1.PodSecurity, restrictedField restrictedField) (bool, error) {
+	// Specific checks for controls with multiple pod-level restrictedFields
+	// TO DO: SELinux control
+	if check.ID == "hostNamespaces" {
+		if !checkHostNamespacesControl(check, restrictedField.path) {
+			return true, nil
+		}
+	}
 	matchedOnce := false
 	for _, exclude := range rule.Exclude {
-		// No exclude for this specific pod-level restrictedField
 		if !strings.Contains(exclude.RestrictedField, restrictedField.path) {
 			continue
 		}
@@ -161,7 +175,7 @@ func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSChec
 	return true, nil
 }
 
-func ExemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, error) {
+func exemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	// 1. Iterate over check.RestrictedFields
@@ -211,7 +225,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 	pssChecks = trimExemptedChecks(pssChecks, rule)
 
 	// 2. Check if all PSSCheckResults are exempted by exclude values
-	allowed, err := ExemptProfile(pssChecks, rule, &podWithMatchingContainers)
+	allowed, err := exemptProfile(pssChecks, rule, &podWithMatchingContainers)
 	if err != nil {
 		return false, pssChecks, err
 	}
@@ -220,7 +234,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 		return false, pssChecks, nil
 	}
 
-	// 3. Optional, only when ExemptProfile() returns true
+	// 3. Check the remaining containers
 	podWithNotMatchingContainers := getPodWithNotMatchingContainers(rule.Exclude, pod, &podWithMatchingContainers)
 	pssChecks = evaluatePSS(level, &podWithNotMatchingContainers)
 	if len(pssChecks) > 0 {

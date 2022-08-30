@@ -5141,6 +5141,169 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_SELinuxOpt
 	assert.Assert(t, er.IsSuccessful())
 }
 
+// TO DO
+// func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_pod_level_restrictedFields(t *testing.T) {
+// 	rawPolicy := []byte(`
+// 	{
+// 		"apiVersion": "kyverno.io/v1",
+// 		"kind": "ClusterPolicy",
+// 		"metadata": {
+// 		   "name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx"
+// 		},
+// 		"spec": {
+// 			"validationFailureAction": "enforce",
+// 			"rules": [
+// 				{
+// 				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+// 				"match": {
+// 					"resources": {
+// 					   "kinds": [
+// 						  "Pod"
+// 						],
+// 						"namespaces": [
+// 							"staging"
+// 						]
+// 					}
+// 				 },
+// 				 "validate": {
+// 					"podSecurity": {
+// 						"level": "baseline",
+// 						"version": "v1.24",
+// 						"exclude": [
+// 							{
+// 								"controlName": "SELinux",
+// 								"restrictedField": "spec.securityContext.seLinuxOptions.type",
+// 								"values": [
+// 									"foo"
+// 								]
+// 							},
+// 							{
+// 								"controlName": "SELinux",
+// 								"restrictedField": "spec.securityContext.seLinuxOptions.user",
+// 								"values": [
+// 									"bar"
+// 								]
+// 							},
+// 							{
+// 								"controlName": "SELinux",
+// 								"restrictedField": "spec.containers[*].securityContext.seLinuxOptions.type",
+// 								"images": [
+// 									"nginx",
+// 									"nodejs"
+// 								],
+// 								"values": [
+// 									"foo"
+// 								]
+// 							},
+// 							{
+// 								"controlName": "SELinux",
+// 								"restrictedField": "spec.initContainers[*].securityContext.seLinuxOptions.role",
+// 								"images": [
+// 									"nginx"
+// 								],
+// 								"values": [
+// 									"baz"
+// 								]
+// 							},
+// 							{
+// 								"controlName": "SELinux",
+// 								"restrictedField": "spec.ephemeralContainers[*].securityContext.seLinuxOptions.role",
+// 								"images": [
+// 									"nginx"
+// 								],
+// 								"values": [
+// 									"baz"
+// 								]
+// 							}
+// 						]
+// 					}
+// 				 }
+// 			  }
+// 		   ]
+// 		}
+// 	 }
+// 	 `)
+
+// 	rawResource := []byte(`
+// 	 {
+// 		"apiVersion": "v1",
+// 		"kind": "Pod",
+// 		"metadata": {
+// 		   "name": "nginx-baseline-privileged-container",
+// 		   "namespace": "staging"
+// 		},
+// 		"spec": {
+// 		   "hostNetwork": false,
+// 		   "securityContext": {
+// 				"seLinuxOptions": {
+// 					"type": "foo",
+// 					"user": "bar"
+// 				}
+// 		   },
+// 		   "containers": [
+// 			{
+// 				 "name": "nginx",
+// 				 "image": "nginx",
+// 				 "securityContext": {
+// 					"seLinuxOptions": {
+// 						"type": "foo"
+// 					}
+// 				 }
+// 			  },
+// 			{
+// 				"name": "nodejs",
+// 				"image": "nodejs",
+// 				"securityContext": {
+// 					"seLinuxOptions": {
+// 						"user": "foo"
+// 					}
+// 				}
+// 			 }
+// 			],
+// 			"initContainers": [
+// 				{
+// 				   "name": "init-nginx",
+// 				   "image": "nginx",
+// 				   "securityContext": {
+// 						"seLinuxOptions": {
+// 							"role": "baz"
+// 						}
+// 					}
+// 				}
+// 			],
+// 			"ephemeralContainers": [
+// 				{
+// 				   "name": "ephemeral-nginx",
+// 				   "image": "nginx",
+// 				   "securityContext": {
+// 						"seLinuxOptions": {
+// 							"role": "baz"
+// 						}
+// 					}
+// 				}
+// 			]
+// 		}
+// 	 }
+// 	 `)
+
+// 	var policy kyverno.ClusterPolicy
+// 	err := json.Unmarshal(rawPolicy, &policy)
+// 	assert.NilError(t, err)
+
+// 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+// 	assert.NilError(t, err)
+// 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+// 	fmt.Println(er)
+// 	// msgs := []string{""}
+
+// 	for _, r := range er.PolicyResponse.Rules {
+// 		fmt.Printf("== Response: %+v\n", r.Message)
+// 		// assert.Equal(t, r.Message, msgs[index])
+// 	}
+// 	assert.Assert(t, er.IsSuccessful())
+// }
+
 func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions_with_restrictedFields(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -5839,7 +6002,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 									"nodejs"
 								],
 								"values": [
-									"init-baz"
+									"randomValue"
 								]
 							}
 						]
@@ -6056,7 +6219,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 									"nodejs"
 								],
 								"values": [
-									"init-baz"
+									"randomValue"
 								]
 							}
 						]
@@ -6273,7 +6436,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 									"nodejs"
 								],
 								"values": [
-									"init-baz"
+									"randomValue"
 								]
 							}
 						]
@@ -6490,7 +6653,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 									"nodejs"
 								],
 								"values": [
-									"init-baz"
+									"init-randomValue"
 								]
 							}
 						]
@@ -6707,7 +6870,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 									"nodejs"
 								],
 								"values": [
-									"init-baz"
+									"init-randomValue"
 								]
 							}
 						]
@@ -7946,6 +8109,139 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	assert.Assert(t, er.IsFailed())
 }
 
+func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_some_pod_level(t *testing.T) {
+	rawPolicy := []byte(`
+	{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		   "name": "enforce-baseline-exclude-all-hostNamespaces"
+		},
+		"spec": {
+			"validationFailureAction": "enforce",
+			"rules": [
+				{
+				"name": "enforce-baseline-exclude-all-hostNamespaces",
+				"match": {
+					"resources": {
+					   "kinds": [
+						  "Pod"
+						],
+						"namespaces": [
+							"staging"
+						]
+					}
+				 },
+				 "validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostNetwork",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "Host Namespaces",
+								"restrictedField": "spec.hostIPC",
+								"values": [
+									"true"
+								]
+							},
+							{
+								"controlName": "HostProcess",
+								"images": [
+									"nginx:1.2.3",
+									"nodejs:1.2.3"
+								]
+							}
+						]
+					}
+				 }
+			  }
+		   ]
+		}
+	 }
+	 `)
+
+	rawResource := []byte(`
+	 {
+		"apiVersion": "v1",
+		"kind": "Pod",
+		"metadata": {
+		   "name": "nginx-baseline-privileged-container",
+		   "namespace": "staging"
+		},
+		"spec": {
+		   "hostNetwork": true,
+		   "hostIPC":     true,
+		   "containers": [
+			{
+				 "name": "nginx",
+				 "image": "nginx:1.2.3",
+				 "securityContext": {
+					"windowsOptions": {
+						"hostProcess": true
+					}
+				 }
+			},
+			{
+				"name": "nodejs",
+				"image": "nodejs:1.2.3",
+				"securityContext": {
+				   "windowsOptions": {
+					   "hostProcess": true
+				   }
+				}
+			 }
+			],
+			"initContainers": [
+				{
+				   "name": "init-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			  ],
+			"ephemeralContainers": [
+				{
+				   "name": "ephemeral-nginx",
+				   "image": "nginx:1.2.3",
+				   "securityContext": {
+						"windowsOptions": {
+							"hostProcess": true
+						}
+				   }
+				}
+			]
+		}
+	 }
+	 `)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
+	assert.NilError(t, err)
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+
+	fmt.Println(er)
+	// msgs := []string{""}
+
+	for _, r := range er.PolicyResponse.Rules {
+		fmt.Printf("== Response: %+v\n", r.Message)
+		// assert.Equal(t, r.Message, msgs[index])
+	}
+	assert.Assert(t, er.IsSuccessful())
+}
+
 func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces_missing_restrictedField(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -8502,17 +8798,18 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 // 1 * InitContainer: nginx
 // 1 * EphemeralContainer: nginx
 // Pod creation forbidden: missing exclude block for ephemeralContainers:
-// {
-// 	"controlName": "Capabilities",
-// 	"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.add",
-// 	"images": [
-// 		"nginx"
-// 	],
-// 	"values": [
-// 		"SYS_ADMIN",
-// 		"SYS_TIME"
-// 	]
-// }
+//
+//	{
+//		"controlName": "Capabilities",
+//		"restrictedField": "spec.ephemeralContainers[*].securityContext.capabilities.add",
+//		"images": [
+//			"nginx"
+//		],
+//		"values": [
+//			"SYS_ADMIN",
+//			"SYS_TIME"
+//		]
+//	}
 func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities_missing_exclude_restrictedField(t *testing.T) {
 	rawPolicy := []byte(`
 	{
