@@ -84,7 +84,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: make ko-build-initContainer-local
+        run: make ko-build-kyvernopre
 
   build-kyverno:
     runs-on: ubuntu-latest
@@ -110,7 +110,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: make ko-build-kyverno-local
+        run: make ko-build-kyverno
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
@@ -145,4 +145,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: make ko-build-cli-local
+        run: make ko-build-cli

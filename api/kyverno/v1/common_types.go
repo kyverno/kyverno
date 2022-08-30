@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 
+	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/pod-security-admission/api"
@@ -293,6 +294,10 @@ type Validation struct {
 	// +optional
 	Message string `json:"message,omitempty" yaml:"message,omitempty"`
 
+	// Manifest specifies conditions for manifest verification
+	// +optional
+	Manifests *Manifests `json:"manifests,omitempty" yaml:"manifests,omitempty"`
+
 	// ForEach applies validate rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.
 	// +optional
 	ForEachValidation []ForEachValidation `json:"foreach,omitempty" yaml:"foreach,omitempty"`
@@ -503,3 +508,38 @@ type CloneFrom struct {
 	// Name specifies name of the resource.
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 }
+
+type Manifests struct {
+	// Attestors specified the required attestors (i.e. authorities)
+	// +kubebuilder:validation:Optional
+	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
+
+	// AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+	// +optional
+	AnnotationDomain string `json:"annotationDomain,omitempty" yaml:"annotationDomain,omitempty"`
+
+	// Fields which will be ignored while comparing manifests.
+	// +optional
+	IgnoreFields IgnoreFieldList `json:"ignoreFields,omitempty" yaml:"ignoreFields,omitempty"`
+
+	// DryRun configuration
+	// +optional
+	DryRunOption DryRunOption `json:"dryRun,omitempty" yaml:"dryRun,omitempty"`
+
+	// Repository is an optional alternate OCI repository to use for resource bundle reference.
+	// The repository can be overridden per Attestor or Attestation.
+	Repository string `json:"repository,omitempty" yaml:"repository,omitempty"`
+}
+
+// DryRunOption is a configuration for dryrun.
+// If enable is set to "true", manifest verification performs "dryrun & compare"
+// which provides robust matching against changes by defaults and other admission controllers.
+// Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml
+type DryRunOption struct {
+	Enable    bool   `json:"enable,omitempty" yaml:"enable,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+type IgnoreFieldList []ObjectFieldBinding
+
+type ObjectFieldBinding k8smanifest.ObjectFieldBinding

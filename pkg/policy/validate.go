@@ -1065,9 +1065,6 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvernov1.PolicyInterface) error {
 	for _, kind := range kinds {
 		gv, k := kubeutils.GetKindFromGVK(kind)
-		if k == p.GetKind() {
-			return fmt.Errorf("kind and match resource kind should not be the same")
-		}
 
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.Discovery().FindResource(gv, k)

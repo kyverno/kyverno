@@ -796,3 +796,102 @@ spec:
   - name: large-image
     image: nvidia/cuda:11.6.0-devel-ubi8
 `)
+
+var kyverno_yaml_signing_validate_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-resources
+spec:
+  validationFailureAction: enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail  
+  rules:
+    - name: validate-resources
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - Pod
+            name: test*
+      exclude:
+        any:
+        - resources:
+            kinds:
+              - Pod
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: replicaset-controller
+        - resources:
+            kinds:
+              - ReplicaSet
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: deployment-controller
+      validate:
+        manifests:
+          attestors:
+          - entries:
+            - keys: 
+                publicKeys:  |-
+                  -----BEGIN PUBLIC KEY-----
+                  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                  BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                  -----END PUBLIC KEY-----
+`)
+
+var kyverno_yaml_signing_validate_resource_1 = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: test-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - image: nginx:1.14.2
+          name: nginx
+          ports:
+            - containerPort: 80
+
+`)
+
+var kyverno_yaml_signing_validate_resource_2 = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    cosign.sigstore.dev/message: H4sIAAAAAAAA/wBaAaX+H4sIAAAAAAAA/+ySz27bMAzGffZT8AUcSf6TpDrvuMMOw64DazOeEP2bxBZtn35wnXhegOW4oYB/F9rg930gQYlnTOIU7EApC/8mlDye7c9xqNk/Stc49902rn1ppZRy9OKr6IOLiXI2fqwYUzW+KXmQDw9tUx8FU+ZqoGjDqyPPu1d0tigm775t3+th371XWc//E12zL1Rbq042XacOhWzquusKkMU/4CkzpkLKdH4awh1dZjyd7vQvuyz1g4DRfKOUTfAaMMYsnlV5Nn7Q8Gk5Y+mIcUBGXQJYfCSbpy+YDBr8aPxLCeDRkYabF1DmSP0kThSt6TFrUCVAJks9hzTHOOT+x+dV7k0yk4sWmS7q1TAT9g/jjRXgOsBEHzyj8ZRW8gqMw5EuFq12qt3VS/e61u+8mRgSr0LmoCX+S0is4SjL/33djY2Njb/zKwAA//+MAMwjAAgAAAEAAP//7NcJ9loBAAA=
+    cosign.sigstore.dev/signature: MEUCICLCfb3LGKXcdKV3gTXl6qba3T2goZMbVX/54gyNR05UAiEAlvPuWVsCPuBx5wVqvtyT7hr/AfR9Fl7cNLDACaNIbx8=
+  labels:
+    app: nginx
+  name: test-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:1.14.2
+        name: nginx
+        ports:
+        - containerPort: 80
+`)
