@@ -503,7 +503,7 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load t
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: kind-load-all ## Build images, load them in KinD cluster and deploy kyverno helm chart
-	helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(KYVERNO_KIND_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(INITC_KIND_IMAGE) \
@@ -512,7 +512,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in KinD cluster an
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
-	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-all
 kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in KinD cluster and deploy helm charts

@@ -13,7 +13,10 @@ It contains instructions to build, run, and test Kyverno.
 - [Pushing images](#pushing-images)
     - [Pushing images with docker](#pushing-images-with-docker)
     - [Pushing images with ko](#pushing-images-with-ko)
-- [Deploying a local build]
+- [Deploying a local build](#deploying-a-local-build)
+    - [Create a local cluster](#create-a-local-cluster)
+    - [Build and load local images](#build-and-load-local-images)
+    - [Deploy with helm](#deploy-with-helm)
 
 ## Tools
 
