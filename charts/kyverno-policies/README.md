@@ -77,6 +77,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | nameOverride | string | `nil` | Name override. |
 | customLabels | object | `{}` | Additional labels. |
 | background | bool | `true` | Policies background mode |
+| kyvernoVersion | string | `autodetect` | The version of Kyverno in use |
 
 ## Source Code
 
