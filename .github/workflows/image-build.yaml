@@ -84,7 +84,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-initContainer
+        run: make ko-build-kyvernopre
 
   build-kyverno:
     runs-on: ubuntu-latest
@@ -110,7 +110,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-kyverno
+        run: make ko-build-kyverno
 
       - name: Trivy Scan Image
         uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
@@ -145,4 +145,4 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: ko build
-        run: REGISTRY=ghcr.io/${{github.repository}} make ko-build-cli
+        run: make ko-build-cli
