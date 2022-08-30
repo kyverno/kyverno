@@ -40,6 +40,8 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- true }}
 {{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
 {{- true }}
+{{- else if has .name .Values.includeRestrictedPolicies }}
+{{- true }}
 {{- else -}}
 {{- false }}
 {{- end -}}
