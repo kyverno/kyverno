@@ -52,7 +52,7 @@ func (t *toggle) Enabled() bool {
 	if t.value != nil {
 		return *t.value
 	}
-	if value, err := getBool(os.Getenv(splitPolicyReportEnvVar)); err == nil && value != nil {
+	if value, err := getBool(os.Getenv(t.envVar)); err == nil && value != nil {
 		return *value
 	}
 	return t.defaultValue
