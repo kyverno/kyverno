@@ -148,7 +148,7 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	var polrName string
 
 	if ns != nil {
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			err = eraseSplitResultEntries(pclient, ns, selector)
 			if err != nil {
 				errors = append(errors, fmt.Sprintf("%v", err))
