@@ -255,6 +255,7 @@ docker-publish-kyvernopre-dev: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) \
 		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+>>>>>>> main
 
 .PHONY: docker-publish-kyverno
 docker-publish-kyverno: docker-buildx-builder
