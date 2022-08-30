@@ -143,10 +143,7 @@ func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check P
 
 func checkHostNamespacesControl(check PSSCheckResult, restrictedField string) bool {
 	hostNamespace := strings.Trim(restrictedField, "spec.")
-	if strings.Contains(check.CheckResult.ForbiddenDetail, hostNamespace) {
-		return true
-	}
-	return false
+	return strings.Contains(check.CheckResult.ForbiddenDetail, hostNamespace)
 }
 
 func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *kyvernov1.PodSecurity, restrictedField restrictedField) (bool, error) {
