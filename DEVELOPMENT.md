@@ -10,6 +10,9 @@ It contains instructions to build, run, and test Kyverno.
 - [Building local images](#building-local-images)
     - [Building local images with docker](#building-local-images-with-docker)
     - [Building local images with ko](#building-local-images-with-ko)
+- [Pushing images](#pushing-images)
+    - [Pushing images with docker](#pushing-images-with-docker)
+    - [Pushing images with ko](#pushing-images-with-ko)
 - [Deploying a local build]
 
 ## Tools
@@ -157,6 +160,128 @@ make ko-build-cli
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno`.
 
+## Pushing images
+
+Pushing images is very similar to [building local images](#building-local-images), except that built images will be published on a remote image registry.
+
+Currently, we are supporting two build systems:
+- [Pushing images with docker](#pushing-images-with-docker)
+- [Pushing images with ko](#pushing-images-with-ko)
+
+> **Note**: We started with `docker` and are progressively moving to `ko`.
+
+As the `ko` based build system matures, we will deprecate and remove `docker` based builds.
+
+When pushing images you can specify the registry you want to publish images to by setting the `REGISTRY` environment variable (default value is `ghcr.io`).
+
+<!-- TODO: explain the way images are tagged. -->
+
+### Pushing images with docker
+
+Authenticating to the remote registry is not done automatically in the `Makefile`.
+
+You need to be authenticated before invoking targets responsible for pushing images.
+
+> **Note**: You can push all images at once by running `make docker-publish-all` or `make docker-publish-all-dev`.
+
+#### Pushing kyvernopre image
+
+To push `kyvernopre` image on a remote registry, run:
+```console
+# push stable image
+make docker-publish-kyvernopre
+```
+or
+```console
+# push dev image
+make docker-publish-kyvernopre-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
+
+#### Pushing kyverno image
+
+To push `kyverno` image on a remote registry, run:
+```console
+# push stable image
+make docker-publish-kyverno
+```
+or
+```console
+# push dev image
+make docker-publish-kyverno-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
+
+#### Pushing cli image
+
+To push `cli` image on a remote registry, run:
+```console
+# push stable image
+make docker-publish-cli
+```
+or
+```console
+# push dev image
+make docker-publish-cli-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno-cli` (by default, if `REGISTRY` environment variable was not set).
+
+### Pushing images with ko
+
+Authenticating to the remote registry is done automatically in the `Makefile` with `ko login`.
+
+To allow authentication you will need to set `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` environment variables before invoking targets responsible for pushing images.
+
+> **Note**: You can push all images at once by running `make ko-publish-all` or `make ko-publish-all-dev`.
+
+#### Pushing kyvernopre image
+
+To push `kyvernopre` image on a remote registry, run:
+```console
+# push stable image
+make ko-publish-kyvernopre
+```
+or
+```console
+# push dev image
+make ko-publish-kyvernopre-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyvernopre` (by default, if `REGISTRY` environment variable was not set).
+
+#### Pushing kyverno image
+
+To push `kyverno` image on a remote registry, run:
+```console
+# push stable image
+make ko-publish-kyverno
+```
+or
+```console
+# push dev image
+make ko-publish-kyverno-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno` (by default, if `REGISTRY` environment variable was not set).
+
+#### Pushing cli image
+
+To push `cli` image on a remote registry, run:
+```console
+# push stable image
+make ko-publish-cli
+```
+or
+```console
+# push dev image
+make ko-publish-cli-dev
+```
+
+The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno-cli` (by default, if `REGISTRY` environment variable was not set).
+
 ## Deploying a local build
 
 After [building local images](#building-local-images), it is often usefull to deploy those images in a local cluster.
@@ -174,11 +299,33 @@ make kind-create-cluster
 
 You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.24.0`).
 
-### Build and deploy local images
+You can also override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
-To build local images and deploy them on a local KinD cluster, run:
+### Build and load local images
+
+To build local images and load them on a local KinD cluster, run:
 ```console
-# deploy kyverno helm chart
+# build kyvernopre image and load it in KinD cluster
+make kind-load-kyvernopre
+```
+or
+```console
+# build kyverno image and load it in KinD cluster
+make kind-load-kyverno
+```
+or
+```console
+# build kyvernopre and kyverno images and load them in KinD cluster
+make kind-load-all
+```
+
+You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
+### Deploy with helm
+
+To build local images, load them on a local KinD cluster, and deploy helm charts, run:
+```console
+# build images, load them in KinD cluster and deploy kyverno helm chart
 make kind-deploy-kyverno
 ```
 or
@@ -188,13 +335,16 @@ make kind-deploy-kyverno-policies
 ```
 or
 ```console
-# deploy both kyverno and kyverno-policies helm charts
+# build images, load them in KinD cluster and deploy helm charts
 make kind-deploy-all
 ```
 
 This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
 
 > **Note**: This actually uses `ko` to build local images.
+
+You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
 
 
 
