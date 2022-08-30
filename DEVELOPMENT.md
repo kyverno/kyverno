@@ -10,6 +10,7 @@ It contains instructions to build, run, and test Kyverno.
 - [Building local images](#building-local-images)
     - [Building local images with docker](#building-local-images-with-docker)
     - [Building local images with ko](#building-local-images-with-ko)
+- [Deploying a local build]
 
 ## Tools
 
@@ -155,6 +156,54 @@ make ko-build-cli
 ```
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno`.
+
+## Deploying a local build
+
+After [building local images](#building-local-images), it is often usefull to deploy those images in a local cluster.
+
+We use [KinD](https://kind.sigs.k8s.io/) to create local clusters easily.
+
+### Create a local cluster
+
+If you already have a local KinD cluster running, you can skip this step.
+
+To create a local KinD cluster, run:
+```console
+make kind-create-cluster
+```
+
+You can override the k8s version by setting the `KIND_IMAGE` environment variable (default value is `kindest/node:v1.24.0`).
+
+### Build and deploy local images
+
+To build local images and deploy them on a local KinD cluster, run:
+```console
+# deploy kyverno helm chart
+make kind-deploy-kyverno
+```
+or
+```console
+# deploy kyverno-policies helm chart
+make kind-deploy-kyverno-policies
+```
+or
+```console
+# deploy both kyverno and kyverno-policies helm charts
+make kind-deploy-all
+```
+
+This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
+
+> **Note**: This actually uses `ko` to build local images.
+
+
+
+
+
+
+
+
+
 
 ## Building and publishing an image locally
 
