@@ -21,6 +21,8 @@ export K8S_VERSION
 TEST_GIT_BRANCH ?= main
 
 KIND_IMAGE?=kindest/node:v1.24.0
+GOOS                 ?= $(shell go env GOOS)
+GOARCH               ?= $(shell go env GOARCH)
 
 #########
 # TOOLS #
@@ -456,10 +458,13 @@ verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify a
 # HELM
 ##################################
 
+# .PHONY: gen-helm-docs
 .PHONY: gen-helm-docs
-gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
-	# @$(HELM_DOCS) -s file
+gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+# gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
+# 	# @$(HELM_DOCS) -s file
+# 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
 gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
