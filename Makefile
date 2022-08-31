@@ -1,26 +1,25 @@
 .DEFAULT_GOAL: build
 
-##################################
-# DEFAULTS
-##################################
+############
+# DEFAULTS #
+############
 
-GIT_VERSION := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
-GIT_VERSION_DEV := $(shell git describe --match "[0-9].[0-9]-dev*")
-GIT_BRANCH := $(shell git branch | grep \* | cut -d ' ' -f2)
-GIT_HASH := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
-TIMESTAMP := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
-VERSION ?= $(shell git describe --match "v[0-9]*")
+GIT_VERSION          := $(shell git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))
+GIT_VERSION_DEV      := $(shell git describe --match "[0-9].[0-9]-dev*")
+GIT_BRANCH           := $(shell git branch | grep \* | cut -d ' ' -f2)
+GIT_HASH             := $(GIT_BRANCH)/$(shell git log -1 --pretty=format:"%H")
+TIMESTAMP            := $(shell date '+%Y-%m-%d_%I:%M:%S%p')
+VERSION              ?= $(shell git describe --match "v[0-9]*")
+REGISTRY             ?= ghcr.io
+REPO                  = $(REGISTRY)/kyverno
+IMAGE_TAG_LATEST_DEV  = $(shell git describe --match "[0-9].[0-9]-dev*" | cut -d '-' -f-2)
+IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
+IMAGE_TAG            ?= $(GIT_VERSION)
+K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
+TEST_GIT_BRANCH      ?= main
+KIND_IMAGE           ?= kindest/node:v1.24.0
 
-REGISTRY?=ghcr.io
-REPO=$(REGISTRY)/kyverno
-IMAGE_TAG_LATEST_DEV=$(shell git describe --match "[0-9].[0-9]-dev*" | cut -d '-' -f-2)
-IMAGE_TAG_DEV=$(GIT_VERSION_DEV)
-IMAGE_TAG?=$(GIT_VERSION)
-K8S_VERSION ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 export K8S_VERSION
-TEST_GIT_BRANCH ?= main
-
-KIND_IMAGE?=kindest/node:v1.24.0
 
 #########
 # TOOLS #
@@ -78,7 +77,7 @@ $(KO):
 install-tools: $(TOOLS) ## Install tools
 
 .PHONY: clean-tools
-clean-tools: ## Remove tools
+clean-tools: ## Remove installed tools
 	@rm -rf $(TOOLS_DIR)
 
 #################
@@ -89,9 +88,9 @@ CMD_DIR        := ./cmd
 KYVERNO_DIR    := $(CMD_DIR)/kyverno
 KYVERNOPRE_DIR := $(CMD_DIR)/initContainer
 CLI_DIR        := $(CMD_DIR)/cli/kubectl-kyverno
-KYVERNO        := $(KYVERNO_DIR)/kyverno
-KYVERNOPRE     := $(KYVERNOPRE_DIR)/kyvernopre
-CLI            := $(CLI_DIR)/kubectl-kyverno
+KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
+KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
+CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 PACKAGE        ?= github.com/kyverno/kyverno
 GOOS           ?= $(shell go env GOOS)
 GOARCH         ?= $(shell go env GOARCH)
@@ -107,89 +106,96 @@ fmt: ## Run go fmt
 vet: ## Run go vet
 	@go vet ./...
 
-$(KYVERNO): fmt vet
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
+$(KYVERNO_BIN): fmt vet
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO_BIN) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
 
-$(KYVERNOPRE): fmt vet
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
+$(KYVERNOPRE_BIN): fmt vet
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
 
-$(CLI): fmt vet
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI) -ldflags=$(LD_FLAGS) $(CLI_DIR)
+$(CLI_BIN): fmt vet
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
 .PHONY: build-kyverno
-build-kyverno: $(KYVERNO) ## Build kyverno
+build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
 
 .PHONY: build-kyvernopre
-build-kyvernopre: $(KYVERNOPRE) ## Build kyvernopre
+build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
 .PHONY: build-cli
-build-cli: $(CLI) ## Build CLI
+build-cli: $(CLI_BIN) ## Build CLI binary
 
-build-all: build-kyverno build-kyvernopre build-cli ## Build all
+build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
 
 ##############
 # BUILD (KO) #
 ##############
 
-INITC_KIND_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
-KYVERNO_KIND_IMAGE  := ko.local/github.com/kyverno/kyverno/cmd/kyverno
-INITC_IMAGE         := kyvernopre
+KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
+KO_TAGS             := latest,$(IMAGE_TAG)
+KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
+KYVERNOPRE_IMAGE    := kyvernopre
 KYVERNO_IMAGE       := kyverno
 CLI_IMAGE           := kyverno-cli
-KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
-REPO_KYVERNO        := $(REPO)/kyverno
-REPO_KYVERNOPRE     := $(REPO)/kyvernopre
-REPO_CLI            := $(REPO)/kyverno-cli
+
+.PHONY: ko-build-kyvernopre
+ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-kyverno
+ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-cli
+ko-build-cli: $(KO) ## Build CLI local image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+
+.PHONY: ko-build-all
+ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
+
+################
+# PUBLISH (KO) #
+################
+
+REPO_KYVERNOPRE     := $(REPO)/$(KYVERNOPRE_IMAGE)
+REPO_KYVERNO        := $(REPO)/$(KYVERNO_IMAGE)
+REPO_CLI            := $(REPO)/$(CLI_IMAGE)
 REGISTRY_USERNAME	?= dummy
+INITC_KIND_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
+KYVERNO_KIND_IMAGE  := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 
 .PHONY: ko-login
 ko-login: $(KO)
 	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
-.PHONY: ko-build-initContainer
-ko-build-initContainer: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-kyvernopre
+ko-publish-kyvernopre: ko-login
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-kyverno
-ko-build-kyverno: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-kyverno
+ko-publish-kyverno: ko-login
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-cli
-ko-build-cli: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-cli
+ko-publish-cli: ko-login
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-initContainer-dev
-ko-build-initContainer-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-kyvernopre-dev
+ko-publish-kyvernopre-dev: ko-login
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-kyverno-dev
-ko-build-kyverno-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-kyverno-dev
+ko-publish-kyverno-dev: ko-login
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-cli-dev
-ko-build-cli-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-cli-dev
+ko-publish-cli-dev: ko-login
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
 
-.PHONY: ko-build-initContainer-local
-ko-build-initContainer-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
+.PHONY: ko-publish-all
+ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli
 
-.PHONY: ko-build-kyverno-local
-ko-build-kyverno-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
-
-.PHONY: ko-build-cli-local
-ko-build-cli-local: $(KO)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=latest,$(IMAGE_TAG_DEV) --platform=$(KO_PLATFORM)
-
-.PHONY: ko-build-all
-ko-build-all: ko-build-initContainer ko-build-kyverno ko-build-cli
-
-.PHONY: ko-build-all-dev
-ko-build-all-dev: ko-build-initContainer-dev ko-build-kyverno-dev ko-build-cli-dev
-
-.PHONY: ko-build-all-local
-ko-build-all-local: ko-build-initContainer-local ko-build-kyverno-local ko-build-cli-local
+.PHONY: ko-publish-all-dev
+ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev
 
 ##################
 # BUILD (DOCKER) #
@@ -203,22 +209,22 @@ docker-buildx-builder:
 
 .PHONY: docker-build-initContainer
 docker-build-initContainer: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-push-initContainer
 docker-push-initContainer: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-push-initContainer-dev
 docker-build-initContainer-dev: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) \
-		--tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(INITC_IMAGE):latest \
+		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-push-initContainer-dev
 docker-push-initContainer-dev: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) \
-		--tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(INITC_IMAGE):latest \
+		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-build-kyverno
@@ -245,11 +251,11 @@ docker-push-cli: docker-buildx-builder
 
 .PHONY: docker-get-initContainer-digest
 docker-get-initContainer-digest:
-	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-get-initContainer-digest-dev
 docker-get-initContainer-digest-dev:
-	@docker buildx imagetools inspect --raw $(REPO)/$(INITC_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-get-kyverno-digest
 docker-get-kyverno-digest:
@@ -304,16 +310,16 @@ kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
 .PHONY: e2e-kustomize
 e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	cd config && \
-	$(KUSTOMIZE) edit set image $(REPO)/$(INITC_IMAGE)=$(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNOPRE_IMAGE)=$(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
 	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 	$(KUSTOMIZE) build config/ -o config/install.yaml
 
 .PHONY: e2e-init-container
-e2e-init-container: kind-e2e-cluster | ko-build-initContainer-local
+e2e-init-container: kind-e2e-cluster | ko-build-kyvernopre
 	$(KIND) load docker-image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: e2e-kyverno-container
-e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno-local
+e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno
 	$(KIND) load docker-image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: create-e2e-infrastructure
@@ -337,28 +343,28 @@ test-clean: ## Clean tests cache
 test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
 
 .PHONY: test-cli-policies
-test-cli-policies: $(CLI)
-	@$(CLI) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+test-cli-policies: $(CLI_BIN)
+	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
 
 .PHONY: test-cli-local
-test-cli-local: $(CLI)
-	@$(CLI) test ./test/cli/test
+test-cli-local: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test
 
 .PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI)
-	@$(CLI) test ./test/cli/test-mutate
+test-cli-local-mutate: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test-mutate
 
 .PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI)
-	@$(CLI) test ./test/cli/test-generate
+test-cli-local-generate: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test-generate
 
 .PHONY: test-cli-test-case-selector-flag
-test-cli-test-case-selector-flag: $(CLI)
-	@$(CLI) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+test-cli-test-case-selector-flag: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
 
 .PHONY: test-cli-registry
-test-cli-registry: $(CLI)
-	@$(CLI) test ./test/cli/registry --registry
+test-cli-registry: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/registry --registry
 
 test-unit: $(GO_ACC) ## Run unit tests
 	@echo "	running unit tests"

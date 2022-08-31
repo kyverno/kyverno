@@ -52,7 +52,7 @@ jobs:
             export TEST_GIT_BRANCH=${{ github.event.pull_request.base.ref }}
           fi
           make -j4 test-cli
-          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kyverno
+          CLI_PATH=$PWD/cmd/cli/kubectl-kyverno/kubectl-kyverno
           $CLI_PATH test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
           $CLI_PATH test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
