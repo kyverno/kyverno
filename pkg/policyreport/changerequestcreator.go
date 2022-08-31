@@ -114,7 +114,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(c.tickerInterval)
 	defer ticker.Stop()
 
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		err := CleanupPolicyReport(c.client)
 		if err != nil {
 			c.log.Error(err, "failed to delete old reports")

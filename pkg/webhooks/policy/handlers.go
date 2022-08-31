@@ -53,7 +53,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	if toggle.AutogenInternals() {
+	if toggle.AutogenInternals.Enabled() {
 		return admissionutils.Response(true)
 	}
 	if request.SubResource != "" {

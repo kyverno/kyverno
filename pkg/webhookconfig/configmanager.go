@@ -502,7 +502,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 	update := func(meta *metav1.ObjectMeta, p kyvernov1.PolicyInterface, status *kyvernov1.PolicyStatus) bool {
 		copy := status.DeepCopy()
 		status.SetReady(ready)
-		if toggle.AutogenInternals() {
+		if toggle.AutogenInternals.Enabled() {
 			var rules []kyvernov1.Rule
 			for _, rule := range autogen.ComputeRules(p) {
 				if strings.HasPrefix(rule.Name, "autogen-") {
