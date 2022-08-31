@@ -309,33 +309,40 @@ LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
 
 $(GOPATH_SHIM):
+	@echo Create gopath shim...
 	@mkdir -p $(GOPATH_SHIM)
 
+.INTERMEDIATE: $(PACKAGE_SHIM)
 $(PACKAGE_SHIM): $(GOPATH_SHIM)
+	@echo Create package shim...
 	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
 
 .PHONY: codegen-client-clientset
-codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN)
+codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
+	@echo Generate clientset...
 	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) --go-header-file ./scripts/boilerplate.go.txt --clientset-name versioned --output-package $(CLIENTSET_PACKAGE) --input-base "" --input $(INPUT_DIRS)
 
 .PHONY: codegen-client-listers
-codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN)
+codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
+	@echo Generate listers...
 	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(LISTERS_PACKAGE) --input-dirs $(INPUT_DIRS)
 
 .PHONY: codegen-client-informers
-codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN)
-	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) \
-		--versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
+codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
+	@echo Generate informers...
+	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
 
-.PHONY: codegen-client-kyverno
-codegen-client-kyverno: codegen-client-clientset codegen-client-listers codegen-client-informers
+.PHONY: codegen-client-all
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
 codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+	@echo Generate kyverno crds...
 	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: codegen-crds-report
 codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@echo Generate policy reports crds...
 	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: codegen-crds-all
@@ -343,17 +350,19 @@ codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
 
 .PHONY: codegen-deepcopy-kyverno
 codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate Kyverno deep copy functions
+	@echo Generate kyverno deep copy functions...
 	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
 
 .PHONY: codegen-deepcopy-report
 codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
+	@echo Generate policy reports deep copy functions...
 	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
 
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
 
 .PHONY: codegen-all
-codegen-all: codegen-deepcopy-all codegen-crds-all ## Generate all CRDs and deep copy functions
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all ## Generate clientset, listers, informers, all CRDs and deep copy functions
 
 ##################################
 # KYVERNO

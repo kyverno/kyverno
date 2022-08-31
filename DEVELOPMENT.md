@@ -362,7 +362,28 @@ We are using code generation tools to create the following portions of code:
 
 ### Generating kubernetes API client
 
-TODO
+Based on the [APIs golang code definitions](./api), you can generate the corresponding Kubernetes client by running:
+```console
+# generate clientset, listers and informers
+make codegen-client-all
+```
+or
+```console
+# generate clientset
+make codegen-client-clientset
+```
+or
+```console
+# generate listers
+make codegen-client-listers
+```
+or
+```console
+# generate informers
+make codegen-client-informers
+```
+
+This will output generated files in the [/pkg/client](./pkg/client) package.
 
 ### Generating API deep copy functions
 
