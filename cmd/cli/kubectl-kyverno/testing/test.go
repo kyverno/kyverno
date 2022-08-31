@@ -542,7 +542,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 			var userDefinedPolicyName string
 			found, err := isNamespacedPolicy(test.Policy)
 			if err != nil {
-				log.Log.V(3).Info("error while checking the policy is namespaced or not", "policy: ", test.Policy, "error: ", err)
+				log.Log.V(3).Info("error when determining if policy is namespaced or not", "policy: ", test.Policy, "error: ", err)
 				continue
 			}
 

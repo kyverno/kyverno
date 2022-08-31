@@ -184,9 +184,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				}
 				if !rf {
 					if len(name) == 5 {
-						return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].old : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].old : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 					} else {
-						return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].old : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].old : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
 					}
 				}
 
@@ -213,9 +213,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							}
 							if !pf {
 								if len(patched) == 5 {
-									return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].patched : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 								} else {
-									return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].patched : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
 								}
 							}
 						}
@@ -246,9 +246,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 								}
 								if !cf {
 									if len(clone) == 5 {
-										return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 									} else if len(clone) != 5 && len(clone) != 0 {
-										return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
 									}
 								}
 							}
@@ -270,9 +270,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							}
 							if !gf {
 								if len(generated) == 5 {
-									return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].generated : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 								} else {
-									return fmt.Errorf("resources given in the pool didn't matched with the results[%v].resources[%v].generated : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
 								}
 							}
 						}
