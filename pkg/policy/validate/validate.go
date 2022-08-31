@@ -94,6 +94,10 @@ func validationElemCount(v *kyvernov1.Validation) int {
 		count++
 	}
 
+	if v.PodSecurity != nil {
+		count++
+	}
+
 	if v.Manifests != nil && len(v.Manifests.Attestors) != 0 {
 		count++
 	}
