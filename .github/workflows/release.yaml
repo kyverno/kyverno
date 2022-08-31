@@ -12,7 +12,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: ko-publish-initContainer
+      publish_command: ko-publish-kyvernopre
       image_name: kyvernopre
       tag: release
       main: cmd/initContainer

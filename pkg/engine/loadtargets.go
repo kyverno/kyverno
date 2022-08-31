@@ -75,6 +75,7 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
+
 		return []unstructured.Unstructured{*obj}, nil
 	}
 
