@@ -18,6 +18,7 @@ IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 TEST_GIT_BRANCH      ?= main
 KIND_IMAGE           ?= kindest/node:v1.24.0
+KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 
@@ -497,22 +498,49 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
 
-##################################
-# HELP
-##################################
+########
+# KIND #
+########
 
-.PHONY: help
-help: ## Shows the available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+.PHONY: kind-create-cluster
+kind-create-cluster: $(KIND) ## Create KinD cluster
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
 
-.PHONY: kind-deploy
-kind-deploy: $(KIND) ko-build-kyvernopre-local ko-build-kyverno-local
-	$(KIND) load docker-image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
-	$(KIND) load docker-image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
-	helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+.PHONY: kind-delete-cluster
+kind-delete-cluster: $(KIND) ## Delete KinD cluster
+	@$(KIND) delete cluster --name $(KIND_NAME)
+
+.PHONY: kind-load-kyvernopre
+kind-load-kyvernopre: $(KIND) ko-build-kyvernopre ## Build kyvernopre image and load it in KinD cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: kind-load-kyverno
+kind-load-kyverno: $(KIND) ko-build-kyverno ## Build kyverno image and load it in KinD cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: kind-load-all
+kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in KinD cluster
+
+.PHONY: kind-deploy-kyverno
+kind-deploy-kyverno: kind-load-all ## Build images, load them in KinD cluster and deploy kyverno helm chart
+	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(KYVERNO_KIND_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(INITC_KIND_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
-	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+
+.PHONY: kind-deploy-kyverno-policies
+kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
+	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+
+.PHONY: kind-deploy-all
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in KinD cluster and deploy helm charts
+
+########
+# HELP #
+########
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
