@@ -130,7 +130,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if ns == "" {
 			ns = "default"
 		}
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			policy = label[policyLabel]
 			return strings.Join([]string{ns, policy}, "/")
 		} else {
@@ -143,7 +143,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if rule != "" || policy != "" {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			policy = label[policyLabel]
 			return strings.Join([]string{"", policy}, "/")
 		} else {
@@ -337,7 +337,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 	var namespace, policyName string
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		namespace = strings.Split(key, "/")[0]
 		policyName = strings.Split(key, "/")[1]
 	} else {
@@ -348,7 +348,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		deleteResources := getDeletedResources(aggregatedRequests)
 		if len(deleteResources) != 0 {
 			for _, dr := range deleteResources {
@@ -494,7 +494,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if toggle.SplitPolicyReport() {
+				if toggle.SplitPolicyReport.Enabled() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), cpolr.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -538,7 +538,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if toggle.SplitPolicyReport() {
+				if toggle.SplitPolicyReport.Enabled() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -579,7 +579,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 
 	var selector labels.Selector
 	if namespace == "" {
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
@@ -605,7 +605,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))

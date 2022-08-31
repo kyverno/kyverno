@@ -21,7 +21,7 @@ func GenerateJSONPatchesForDefaults(policy kyvernov1.PolicyInterface, log logr.L
 	var updateMsgs []string
 	spec := policy.GetSpec()
 	// if autogenInternals is enabled, we don't mutate most of the policy fields
-	if !toggle.AutogenInternals() {
+	if !toggle.AutogenInternals.Enabled() {
 		// default 'ValidationFailureAction'
 		if patch, updateMsg := defaultvalidationFailureAction(spec, log); patch != nil {
 			patches = append(patches, patch)

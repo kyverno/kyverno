@@ -47,14 +47,14 @@ const (
 
 func GeneratePolicyReportName(ns, policyName string) string {
 	if ns == "" {
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			return TrimmedName(clusterpolicyreport + "-" + policyName)
 		}
 		return clusterpolicyreport
 	}
 
 	var name string
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		name = fmt.Sprintf("polr-ns-%s-%s", ns, policyName)
 	} else {
 		name = fmt.Sprintf("polr-ns-%s", ns)
