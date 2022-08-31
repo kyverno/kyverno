@@ -348,16 +348,6 @@ This will build local images, load built images in every node of the KinD cluste
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
-
-
-
-
-
-
-
-
-
-
 ## Building and publishing an image locally
 
 First, make sure you [install `ko`](https://github.com/google/ko#install)
