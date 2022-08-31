@@ -13,8 +13,8 @@ import (
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
@@ -91,7 +91,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+	client, err := dclient.NewClient(clientConfig, kubeClient, nil, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)

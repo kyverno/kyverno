@@ -13,15 +13,15 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/background"
 	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -130,17 +130,43 @@ func main() {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
+
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+
+	// Metrics Configuration
+	var metricsConfig *metrics.MetricsConfig
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		setupLog.Error(err, "failed to fetch metrics config")
+		os.Exit(1)
+	}
+
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		log.Log.WithName("Metrics"),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize metrics")
+		os.Exit(1)
+	}
+
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
@@ -151,8 +177,6 @@ func main() {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
-
-	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
 		addr := ":" + profilePort
@@ -168,7 +192,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, policyControllerResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient.VersionedClient(), policyControllerResyncPeriod)
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -176,6 +200,21 @@ func main() {
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	var registryOptions []registryclient.Option
+
+	if otel == "grpc" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(ctx, metricsPusher)
+		defer cancel()
+	}
+
+	if otel == "prometheus" {
+		go func() {
+			setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
+			}
+		}()
+	}
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -211,8 +250,8 @@ func main() {
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
-	reportReqGen := policyreport.NewReportChangeRequestGenerator(kyvernoClient,
-		dynamicClient,
+	reportReqGen := policyreport.NewReportChangeRequestGenerator(
+		kyvernoClient,
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
@@ -223,7 +262,6 @@ func main() {
 
 	prgen, err := policyreport.NewReportGenerator(
 		kyvernoClient,
-		dynamicClient,
 		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
 		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
 		kyvernoV1alpha2.ReportChangeRequests(),
@@ -247,6 +285,7 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
 		debug,
@@ -268,44 +307,6 @@ func main() {
 	}
 	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
 
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		setupLog.Error(err, "failed to fetch metrics config")
-		os.Exit(1)
-	}
-
-	// Metrics Configuration
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		log.Log.WithName("Metrics"),
-	)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize metrics")
-		os.Exit(1)
-	}
-
-	if otel == "grpc" {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(ctx, metricsPusher)
-		defer cancel()
-	}
-
-	if otel == "prometheus" {
-		go func() {
-			setupLog.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
-
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.V(2).Info("Enabling tracing for Kyverno...")
@@ -324,7 +325,6 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -347,7 +347,6 @@ func main() {
 	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
 
 	urc := background.NewController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -360,7 +359,6 @@ func main() {
 	)
 
 	grcc := generatecleanup.NewController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
