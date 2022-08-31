@@ -232,18 +232,27 @@ docker-buildx-builder:
 docker-build-kyvernopre: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-.PHONY: docker-push-initContainer
-docker-push-initContainer: docker-buildx-builder
+.PHONY: docker-build-kyverno
+docker-build-kyverno: docker-buildx-builder
+	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+.PHONY: docker-build-cli
+docker-build-cli: docker-buildx-builder
+	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+.PHONY: docker-build-all
+docker-build-all: docker-build-kyvernopre docker-build-kyverno docker-build-cli ## Build all local images (with docker)
+
+####################
+# PUBLISH (DOCKER) #
+####################
+
+.PHONY: docker-publish-kyvernopre
+docker-publish-kyvernopre: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-.PHONY: docker-push-initContainer-dev
-docker-build-initContainer-dev: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) \
-		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
-		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
-
-.PHONY: docker-push-initContainer-dev
-docker-push-initContainer-dev: docker-buildx-builder
+.PHONY: docker-publish-kyvernopre-dev
+docker-publish-kyvernopre-dev: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) \
 		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
