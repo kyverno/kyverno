@@ -22,8 +22,6 @@ KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
 
-export K8S_VERSION
-
 #########
 # TOOLS #
 #########
@@ -396,23 +394,19 @@ code-cov-report: ## Generate code coverage report
 
 # Test E2E
 test-e2e:
-	$(eval export E2E="ok")
-	go test ./test/e2e/verifyimages -v
-	go test ./test/e2e/metrics -v
-	go test ./test/e2e/mutate -v
-	go test ./test/e2e/generate -v
-	$(eval export E2E="")
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
 
 test-e2e-local:
-	$(eval export E2E="ok")
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
-	go test ./test/e2e/verifyimages -v
-	go test ./test/e2e/metrics -v
-	go test ./test/e2e/mutate -v
-	go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
 	kill  $!
-	$(eval export E2E="")
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
