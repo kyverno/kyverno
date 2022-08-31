@@ -17,10 +17,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -179,6 +185,7 @@ type validator struct {
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
 	deny             *kyvernov1.Deny
+	podSecurity      *kyvernov1.PodSecurity
 }
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
@@ -192,6 +199,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *va
 		pattern:          ruleCopy.Validation.GetPattern(),
 		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
 		deny:             ruleCopy.Validation.Deny,
+		podSecurity:      ruleCopy.Validation.PodSecurity,
 	}
 }
 
@@ -251,6 +259,12 @@ func (v *validator) validate() *response.RuleResponse {
 		}
 
 		return ruleResponse
+	}
+	if v.podSecurity.Exclude != nil {
+		if !isDeleteRequest(v.ctx) {
+			ruleResponse := v.validatePodSecurity()
+			return ruleResponse
+		}
 	}
 
 	v.log.V(2).Info("invalid validation rule: either patterns or deny conditions are expected")
@@ -425,6 +439,100 @@ func (v *validator) getDenyMessage(deny bool) string {
 	}
 
 	return raw.(string)
+}
+
+func getSpec(v *validator) (podSpec *corev1.PodSpec, metadata *metav1.ObjectMeta, err error) {
+	kind := v.ctx.NewResource.GetKind()
+
+	if kind == "DaemonSet" || kind == "Deployment" || kind == "Job" || kind == "StatefulSet" {
+		var deployment appsv1.Deployment
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &deployment)
+		if err != nil {
+			return nil, nil, err
+		}
+		podSpec = &deployment.Spec.Template.Spec
+		metadata = &deployment.Spec.Template.ObjectMeta
+		return podSpec, metadata, nil
+	} else if kind == "CronJob" {
+		var cronJob batchv1.CronJob
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &cronJob)
+		if err != nil {
+			return nil, nil, err
+		}
+		podSpec = &cronJob.Spec.JobTemplate.Spec.Template.Spec
+		metadata = &cronJob.Spec.JobTemplate.ObjectMeta
+	} else if kind == "Pod" {
+		var pod corev1.Pod
+
+		resourceBytes, err := v.ctx.NewResource.MarshalJSON()
+		if err != nil {
+			return nil, nil, err
+		}
+		err = json.Unmarshal(resourceBytes, &pod)
+		if err != nil {
+			return nil, nil, err
+		}
+		podSpec = &pod.Spec
+		metadata = &pod.ObjectMeta
+		return podSpec, metadata, nil
+	}
+
+	if err != nil {
+		return nil, nil, err
+	}
+	return podSpec, metadata, err
+}
+
+// Unstructured
+func (v *validator) validatePodSecurity() *response.RuleResponse {
+	// Marshal pod metadata and spec
+	podSpec, metadata, err := getSpec(v)
+	if err != nil {
+		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
+	}
+	// Get pod security admission version
+	var apiVersion api.Version
+
+	// Version set to "latest" by default
+	if v.podSecurity.Version == "" || v.podSecurity.Version == "latest" {
+		apiVersion = api.LatestVersion()
+	} else {
+		parsedApiVersion, err := api.ParseVersion(v.podSecurity.Version)
+		if err != nil {
+			return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
+		}
+		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
+	}
+	level := &api.LevelVersion{
+		Level:   v.podSecurity.Level,
+		Version: apiVersion,
+	}
+	pod := &corev1.Pod{
+		Spec:       *podSpec,
+		ObjectMeta: *metadata,
+	}
+	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to evaluate validation rule `%s`: %v", v.rule.Name, err)
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError, nil)
+	}
+	if allowed {
+		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
+	} else {
+		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, pss.FormatChecksPrint(pssChecks))
+		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
+	}
 }
 
 func (v *validator) validateResourceWithRule() *response.RuleResponse {

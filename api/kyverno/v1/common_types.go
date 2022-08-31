@@ -6,6 +6,7 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/pod-security-admission/api"
 )
 
 // FailurePolicyType specifies a failure policy that defines how unrecognized errors from the admission endpoint are handled.
@@ -313,6 +314,46 @@ type Validation struct {
 	// Deny defines conditions used to pass or fail a validation rule.
 	// +optional
 	Deny *Deny `json:"deny,omitempty" yaml:"deny,omitempty"`
+
+	// PodSecurity applies exemptions for Kubernetes Pod Security admission
+	// by specifying exclusions for Pod Security Standards controls.
+	// +optional
+	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
+}
+
+type PodSecurity struct {
+	// Level defines the Pod Security Standard level to be applied to workloads.
+	// Allowed values are privileged, baseline, and restricted.
+	// +kubebuilder:validation:Enum=privileged;baseline;restricted
+	Level api.Level `json:"level,omitempty" yaml:"level,omitempty"`
+
+	// Version defines the Pod Security Standard versions that Kubernetes supports.
+	// Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.
+	// +kubebuilder:validation:Enum=v1.19;v1.20;v1.21;v1.22;v1.23;v1.24;v1.25;latest
+	// +optional
+	Version string `json:"version,omitempty" yaml:"version,omitempty"`
+
+	// Exclude specifies the Pod Security Standard controls to be excluded.
+	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+}
+type PodSecurityStandard struct {
+	// ControlName specifies the name of the Pod Security Standard control.
+	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+	ControlName string `json:"controlName" yaml:"controlName"`
+
+	// Images is a list of matching image patterns.
+	// Each image is the image name consisting of the registry address, repository, image, and tag.
+	// +optional
+	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
+
+	// RestrictedField selects the field for the given Pod Security Standard control.
+	// When not set, all restricted fields for the control are selected.
+	// +optional
+	RestrictedField string `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
+
+	// Values defines the allowed values that can be excluded.
+	// +optional
+	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
