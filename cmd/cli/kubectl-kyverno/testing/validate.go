@@ -41,12 +41,19 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	if tests.Metadata.Name == "" {
 		return fmt.Errorf("test execution failed because metadata.name is empty")
 	}
-	for k := range tests.Metadata.Labels {
-		if tests.Metadata.Labels[k] == "" {
-			return fmt.Errorf("test execution failed because metadata.labels.%v does not have a value", k)
+	if len(tests.Metadata.Labels) > 0 {
+		for k := range tests.Metadata.Labels {
+			if tests.Metadata.Labels[k] == "" {
+				return fmt.Errorf("test execution failed because metadata.labels.%v does not have a value", k)
+			}
 		}
-		if tests.Metadata.Annotations[k] == "" {
-			return fmt.Errorf("test execution failed because metadata.annotations.%v does not have a value", k)
+	}
+
+	if len(tests.Metadata.Annotations) > 0 {
+		for k := range tests.Metadata.Annotations {
+			if tests.Metadata.Annotations[k] == "" {
+				return fmt.Errorf("test execution failed because metadata.annotations.%v does not have a value", k)
+			}
 		}
 	}
 
