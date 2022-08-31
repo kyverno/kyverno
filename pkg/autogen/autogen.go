@@ -267,7 +267,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 }
 
 func ComputeRules(p kyvernov1.PolicyInterface) []kyvernov1.Rule {
-	if !toggle.AutogenInternals() {
+	if !toggle.AutogenInternals.Enabled() {
 		spec := p.GetSpec()
 		return spec.Rules
 	}

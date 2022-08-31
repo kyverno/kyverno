@@ -6,7 +6,7 @@ package auth
 
 // 	"github.com/golang/glog"
 // 	"github.com/kyverno/kyverno/pkg/config"
-// 	dclient "github.com/kyverno/kyverno/pkg/dclient"
+// 	dclient "github.com/kyverno/kyverno/pkg/clients/dclient"
 // 	"github.com/kyverno/kyverno/pkg/signal"
 // )
 

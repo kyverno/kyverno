@@ -337,7 +337,6 @@ func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return l.MarshalJSON()
 }
 

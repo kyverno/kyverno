@@ -10,11 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -58,6 +59,8 @@ type webhookConfigManager struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
+	metricsConfig metrics.MetricsConfigManager
+
 	// serverIP used to get the name of debug webhooks
 	serverIP           string
 	autoUpdateWebhooks bool
@@ -84,6 +87,7 @@ func newWebhookConfigManager(
 	npInformer kyvernov1informers.PolicyInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
+	metricsConfig metrics.MetricsConfigManager,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -102,6 +106,7 @@ func newWebhookConfigManager(
 		npLister:             npInformer.Lister(),
 		mutateLister:         mwcInformer.Lister(),
 		validateLister:       vwcInformer.Lister(),
+		metricsConfig:        metricsConfig,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
@@ -458,6 +463,7 @@ func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName st
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")
@@ -485,6 +491,7 @@ func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName 
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")
@@ -495,7 +502,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 	update := func(meta *metav1.ObjectMeta, p kyvernov1.PolicyInterface, status *kyvernov1.PolicyStatus) bool {
 		copy := status.DeepCopy()
 		status.SetReady(ready)
-		if toggle.AutogenInternals() {
+		if toggle.AutogenInternals.Enabled() {
 			var rules []kyvernov1.Rule
 			for _, rule := range autogen.ComputeRules(p) {
 				if strings.HasPrefix(rule.Name, "autogen-") {
