@@ -287,7 +287,7 @@ The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno
 
 ## Deploying a local build
 
-After [building local images](#building-local-images), it is often usefull to deploy those images in a local cluster.
+After [building local images](#building-local-images), it is often useful to deploy those images in a local cluster.
 
 We use [KinD](https://kind.sigs.k8s.io/) to create local clusters easily.
 
