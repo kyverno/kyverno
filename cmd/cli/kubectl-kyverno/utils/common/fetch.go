@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -85,6 +86,7 @@ func whenClusterIsTrue(resourceTypes []string, dClient dclient.Interface, namesp
 					log.Log.V(3).Info(fmt.Sprintf("%s not found in cluster", resourcePath))
 				} else {
 					fmt.Printf("\n----------------------------------------------------------------------\nresource %s not found in cluster\n----------------------------------------------------------------------\n", resourcePath)
+					os.Exit(1)
 				}
 				return nil, fmt.Errorf("%s not found in cluster", resourcePath)
 			}
@@ -102,6 +104,7 @@ func whenClusterIsFalse(resourcePaths []string, policyReport bool) ([]*unstructu
 				log.Log.V(3).Info(fmt.Sprintf("failed to load resources: %s.", resourcePath), "error", err)
 			} else {
 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
+				os.Exit(1)
 			}
 			continue
 		}
@@ -143,7 +146,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 			}
 			if err != nil {
 				fmt.Printf("\n----------------------------------------------------------------------\nfailed to load resources: %s. \nerror: %s\n----------------------------------------------------------------------\n", resourcePath, err)
-				continue
+				os.Exit(1)
 			}
 
 			getResources, err := GetResource(resourceBytes)

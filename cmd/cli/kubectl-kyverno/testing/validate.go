@@ -81,9 +81,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	}
 
 	for k := range tests.Spec.Resources {
-		resourceFullPath[k] = getFullPath(tests.Spec.Resources[k], policyResourcePath, isGit)
+		resourceFullPath[k] = getFullPath(tests.Spec.Resources[k], policyResourcePath, isGit, "resource")
 	}
-	policyFullPath := getFullPath(tests.Spec.Policies, policyResourcePath, isGit)
+	policyFullPath := getFullPath(tests.Spec.Policies, policyResourcePath, isGit, "policy")
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)

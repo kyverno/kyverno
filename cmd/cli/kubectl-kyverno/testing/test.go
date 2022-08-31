@@ -806,19 +806,21 @@ func buildMessage(resp *response.EngineResponse) string {
 	return bldr.String()
 }
 
-func getFullPath(paths []string, policyResourcePath string, isGit bool) []string {
+func getFullPath(paths []string, policyResourcePath string, isGit bool, resourceType string) []string {
 	var pols []string
 	var pol string
 	if !isGit {
 		for _, path := range paths {
 			home, _ := os.UserHomeDir()
 			pol = filepath.Join(policyResourcePath, path)
-			_, err := ioutil.ReadDir(pol)
-			if err != nil {
-				_, err1 := ioutil.ReadFile(pol)
-				if err1 != nil {
-					pol = filepath.Join(home, path)
-				}
+			_, err1 := ioutil.ReadFile(pol)
+			if err1 != nil {
+				pol = filepath.Join(home, path)
+			}
+			_, err2 := ioutil.ReadFile(pol)
+			if err2 != nil {
+				fmt.Printf("failed to load %s: %s \nerror: %s\n", resourceType, path, err2)
+				os.Exit(1)
 			}
 			pols = append(pols, pol)
 		}
@@ -995,9 +997,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	globalValMap, valuesMap, namespaceSelectorMap := GetVariables(values.Spec.Variables)
 	resourceFullPath := make(map[string][]string)
-	policyFullPath := getFullPath(values.Spec.Policies, policyResourcePath, isGit)
+	policyFullPath := getFullPath(values.Spec.Policies, policyResourcePath, isGit, "policy")
 	for k := range values.Spec.Resources {
-		resourceFullPath[k] = getFullPath(values.Spec.Resources[k], policyResourcePath, isGit)
+		resourceFullPath[k] = getFullPath(values.Spec.Resources[k], policyResourcePath, isGit, "resource")
 	}
 
 	policies, err := common.GetPoliciesFromPaths(fs, policyFullPath, isGit, policyResourcePath)
