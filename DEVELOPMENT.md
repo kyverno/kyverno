@@ -5,7 +5,6 @@ This document covers basic needs to work with Kyverno codebase.
 It contains instructions to build, run, and test Kyverno.
 
 - [Tools](#tools)
-- [Building and publishing an image locally](#building-and-publishing-an-image-locally)
 - [Building local binaries](#building-local-binaries)
 - [Building local images](#building-local-images)
     - [Building local images with docker](#building-local-images-with-docker)
@@ -17,6 +16,10 @@ It contains instructions to build, run, and test Kyverno.
     - [Create a local cluster](#create-a-local-cluster)
     - [Build and load local images](#build-and-load-local-images)
     - [Deploy with helm](#deploy-with-helm)
+- [Code generation](#code-generation)
+    - [Generating kubernetes API client](#generating-kubernetes-api-client)
+    - [Generating API deep copy functions](#generating-api-deep-copy-functions)
+    - [Generating CRD definitions](#generating-crd-definitions)
 
 ## Tools
 
@@ -347,6 +350,59 @@ This will build local images, load built images in every node of the KinD cluste
 > **Note**: This actually uses `ko` to build local images.
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
+## Code generation
+
+We are using code generation tools to create the following portions of code:
+- [Generating kubernetes API client](#generating-kubernetes-api-client)
+- [Generating API deep copy functions](#generating-api-deep-copy-functions)
+- [Generating CRD definitions](#generating-crd-definitions)
+
+> **Note**: You can run `make codegen-all` to build all generated code at once.
+
+### Generating kubernetes API client
+
+TODO
+
+### Generating API deep copy functions
+
+Based on the [APIs golang code definitions](./api), you can generate the corresponding deep copy functions by running:
+```console
+# generate all deep copy functions
+make codegen-deepcopy-all
+```
+or
+```console
+# generate kyverno deep copy functions
+make codegen-deepcopy-kyverno
+```
+or
+```console
+# generate policy reports deep copy functions
+make codegen-deepcopy-report
+```
+
+This will output files named `zz_generated.deepcopy.go` in every API package.
+
+### Generating CRD definitions
+
+Based on the [APIs golang code definitions](./api), you can generate the corresponding CRDs manifests by running:
+```console
+# generate all CRDs
+make codegen-crds-all
+```
+or
+```console
+# generate Kyverno CRDs
+make codegen-crds-kyverno
+```
+or
+```console
+# generate policy reports CRDs
+make codegen-crds-report
+```
+
+This will output CRDs manifests [/config/crds](./config/crds).
 
 ## Building and publishing an image locally
 
