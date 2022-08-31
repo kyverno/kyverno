@@ -283,6 +283,35 @@ docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publ
 .PHONY: docker-publish-all-dev
 docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev
 
+###########
+# CODEGEN #
+###########
+
+.PHONY: codegen-crds-kyverno
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-report
+codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-all
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+
+.PHONY: codegen-deepcopy-kyverno
+codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate Kyverno deep copy functions
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
+
+.PHONY: codegen-deepcopy-report
+codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
+
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
+
+.PHONY: codegen-all
+codegen-all: codegen-deepcopy-all codegen-crds-all ## Generate all CRDs and deep copy functions
+
 ##################################
 # KYVERNO
 ##################################
