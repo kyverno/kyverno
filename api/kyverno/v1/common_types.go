@@ -321,6 +321,8 @@ type Validation struct {
 	PodSecurity *PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 }
 
+// PodSecurity applies exemptions for Kubernetes Pod Security admission
+// by specifying exclusions for Pod Security Standards controls.
 type PodSecurity struct {
 	// Level defines the Pod Security Standard level to be applied to workloads.
 	// Allowed values are privileged, baseline, and restricted.
@@ -336,6 +338,8 @@ type PodSecurity struct {
 	// Exclude specifies the Pod Security Standard controls to be excluded.
 	Exclude []PodSecurityStandard `json:"exclude,omitempty" yaml:"exclude,omitempty"`
 }
+
+// PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
 type PodSecurityStandard struct {
 	// ControlName specifies the name of the Pod Security Standard control.
 	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
