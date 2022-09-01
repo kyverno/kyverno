@@ -20,6 +20,7 @@ It contains instructions to build, run, and test Kyverno.
     - [Generating kubernetes API client](#generating-kubernetes-api-client)
     - [Generating API deep copy functions](#generating-api-deep-copy-functions)
     - [Generating CRD definitions](#generating-crd-definitions)
+    - [Generating API docs](#generating-api-docs)
 
 ## Tools
 
@@ -357,6 +358,7 @@ We are using code generation tools to create the following portions of code:
 - [Generating kubernetes API client](#generating-kubernetes-api-client)
 - [Generating API deep copy functions](#generating-api-deep-copy-functions)
 - [Generating CRD definitions](#generating-crd-definitions)
+- [Generating API docs](#generating-api-docs)
 
 > **Note**: You can run `make codegen-all` to build all generated code at once.
 
@@ -424,6 +426,16 @@ make codegen-crds-report
 ```
 
 This will output CRDs manifests [/config/crds](./config/crds).
+
+### Generating API docs
+
+Based on the [APIs golang code definitions](./api), you can generate the corresponding API reference docs by running:
+```console
+# generate API docs
+make codegen-api-docs
+```
+
+This will output API docs in [/docs/crd](./docs/crd).
 
 ## Building and publishing an image locally
 
