@@ -33,6 +33,16 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	if tests.TypeMeta.APIVersion == "" {
 		return fmt.Errorf("test execution failed because apiversion is empty")
 	}
+	apiv := strings.FieldsFunc(tests.TypeMeta.APIVersion, Split)
+	if len(apiv) < 2 {
+		return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
+	}
+	if len(apiv) > 1 {
+		if apiv[0] != "cli.kyverno.io" || apiv[1] != "v1beta1" {
+			return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
+		}
+		return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
+	}
 	if tests.TypeMeta.Kind == "" {
 		return fmt.Errorf("test execution failed because kind is empty")
 	} else if tests.TypeMeta.Kind != "KyvernoTest" {
