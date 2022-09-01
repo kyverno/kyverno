@@ -344,12 +344,12 @@ func OverrideRuntimeErrorHandler() {
 	logger := log.Log.WithName("RuntimeErrorHandler")
 	if len(runtime.ErrorHandlers) > 0 {
 		runtime.ErrorHandlers[0] = func(err error) {
-			logger.V(6).Info("runtime error: %s", err)
+			logger.V(6).Info("runtime error", "msg", err.Error())
 		}
 	} else {
 		runtime.ErrorHandlers = []func(err error){
 			func(err error) {
-				logger.V(6).Info("runtime error: %s", err)
+				logger.V(6).Info("runtime error", "msg", err.Error())
 			},
 		}
 	}
