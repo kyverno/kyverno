@@ -27,8 +27,11 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	var rof bool
 	var rpf bool
 	var repf bool
+	var matchname bool
 
 	resourceFullPath := make(map[string][]string)
+
+	nm := regexp.MustCompile(`^[a-z]([a-z0-9\-]*[a-z])?$`)
 
 	if tests.TypeMeta.APIVersion == "" {
 		return fmt.Errorf("test execution failed because apiversion is empty")
@@ -50,8 +53,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	if tests.Metadata.Name == "" {
 		return fmt.Errorf("test execution failed because metadata.name is empty")
 	}
-	if strings.Contains(tests.Metadata.Name, " ") {
-		return fmt.Errorf("test execution failed because metadata.name value is not valid")
+	matchname = nm.MatchString(tests.Metadata.Name)
+	if !matchname {
+		return fmt.Errorf("test execution failed because Metadata.Name is not valid")
 	}
 	if len(tests.Metadata.Labels) > 0 {
 		for k := range tests.Metadata.Labels {
@@ -138,12 +142,20 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		if r.Policy == "" {
 			return fmt.Errorf("test execution failed because spec.results[%v].policy is empty", k)
 		}
+		matchname = nm.MatchString(r.Policy)
+		if !matchname {
+			return fmt.Errorf("test execution failed because spec.results[%v].policy is not valid", k)
+		}
 		rpf = false
 		for _, p := range filteredPolicies {
 			if p.GetName() == r.Policy {
 				rpf = true
 				if r.Rule == "" {
 					return fmt.Errorf("test execution failed because spec.results[%v].rule is empty", k)
+				}
+				matchname = nm.MatchString(r.Rule)
+				if !matchname {
+					return fmt.Errorf("test execution failed because sspec.results[%v].rule is not valid", k)
 				}
 				repf = false
 				for _, rn := range p.GetSpec().Rules {
@@ -319,6 +331,10 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				if v.Name == "" {
 					return fmt.Errorf("test execution failed because spec.variables.policies[%v].name is empty", vp)
 				}
+				match := nm.MatchString(v.Name)
+				if !match {
+					return fmt.Errorf("test execution failed because spec.variables.policies[%v].name is not a valid name", vp)
+				}
 				pof = false
 				for _, k := range filteredPolicies {
 					if v.Name == k.GetName() {
@@ -345,6 +361,10 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 					if vor.Name == "" {
 						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is empty", vp, vr)
 					}
+					match := nm.MatchString(vor.Name)
+					if !match {
+						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is not a valid name", vp, vr)
+					}
 					for ka, voa := range vor.Attestations {
 						if voa.PredicateType == "" {
 							return fmt.Errorf("stest execution failed because spec.variables.policies[%v].rules[%v].attestations[%v].predicateType is empty", vp, vr, ka)
@@ -358,6 +378,10 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							if von.Name == "" {
 								return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].namespaceSelector[%v].name is empty", vp, vr, vn)
 							}
+							match := nm.MatchString(von.Name)
+							if !match {
+								return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].namespaceSelector[%v].name is not a valid name", vp, vr, vn)
+							}
 							if len(von.Labels) < 1 {
 								return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].namespaceSelector[%v].labels is empty", vp, vr, vn)
 							}
@@ -368,6 +392,10 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 					for re, vre := range v.Resources {
 						if vre.Name == "" {
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].name is empty", vp, re)
+						}
+						match := nm.MatchString(vre.Name)
+						if !match {
+							return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].name is not a valid name", vp, re)
 						}
 						for _, r := range resourcesMap {
 							rov := false
@@ -383,6 +411,10 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 						for s, vrs := range vre.UserInfo.Subjects {
 							if vrs.Name == "" {
 								return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].userInfo.subjects[%v].name is empty", vp, re, s)
+							}
+							match := nm.MatchString(vrs.Name)
+							if !match {
+								return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].userInfo.subjects[%v].name is not a valid name", vp, re, s)
 							}
 							if vrs.Kind == "" {
 								return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].userInfo.subjects[%v].kind is empty", vp, re, s)
