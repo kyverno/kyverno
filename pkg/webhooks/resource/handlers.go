@@ -22,13 +22,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +60,7 @@ type handlers struct {
 	eventGen          event.Interface
 	auditHandler      AuditHandler
 	openAPIController openapi.ValidateInterface
+	pcBuilder         webhookutils.PolicyContextBuilder
 }
 
 func NewHandlers(
@@ -93,6 +94,7 @@ func NewHandlers(
 		eventGen:          eventGen,
 		auditHandler:      auditHandler,
 		openAPIController: openAPIController,
+		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
 	}
 }
 
@@ -100,13 +102,12 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	if request.Operation == admissionv1.Delete {
 		h.handleDelete(logger, request)
 	}
-
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
-
 	kind := request.Kind.Kind
-	logger.V(4).Info("received an admission request in validating webhook", "kind", kind)
+	logger = logger.WithValues("kind", kind)
+	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
 	requestTime := time.Now()
@@ -117,60 +118,23 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
-		logger.V(4).Info("no policies matched admission request", "kind", kind)
+		logger.V(4).Info("no policies matched admission request")
 	}
-
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
 		go h.handleUpdatesForGenerateRules(logger, request, []kyvernov1.PolicyInterface{})
 	}
 
-	logger.V(4).Info("processing policies for validate admission request",
-		"kind", kind, "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
+	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	var roles, clusterRoles []string
-	if containsRBACInfo(policies, generatePolicies) {
-		var err error
-		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configuration)
-		if err != nil {
-			return errorResponse(logger, err, "failed to fetch RBAC data")
-		}
-	}
-
-	userRequestInfo := kyvernov1beta1.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
-	}
-
-	ctx, err := newVariablesContext(request, &userRequestInfo)
+	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
 	if err != nil {
-		return errorResponse(logger, err, "failed create policy rule context")
+		return errorResponse(logger, err, "failed create policy context")
 	}
 
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
-	}
-
-	newResource, oldResource, err := utils.ExtractResources(nil, request)
-	if err != nil {
-		return errorResponse(logger, err, "failed create parse resource")
-	}
-
-	if err := ctx.AddImageInfos(&newResource); err != nil {
-		return errorResponse(logger, err, "failed add image information to policy rule context")
-	}
-
-	policyContext := &engine.PolicyContext{
-		NewResource:         newResource,
-		OldResource:         oldResource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    h.configuration.GetExcludeGroupRole(),
-		ExcludeResourceFunc: h.configuration.ToFilter,
-		JSONContext:         ctx,
-		Client:              h.client,
-		AdmissionOperation:  true,
 	}
 
 	vh := &validationHandler{
@@ -207,21 +171,20 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		} else {
 			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
 		}
-
 		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
-	logger.V(4).Info("received an admission request in mutating webhook", "kind", kind)
+	logger = logger.WithValues("kind", kind)
+	logger.V(4).Info("received an admission request in mutating webhook")
 	requestTime := time.Now()
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
-		logger.V(4).Info("no policies matched mutate admission request", "kind", kind)
+		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess()
 	}
-	logger.V(4).Info("processing policies for mutate admission request", "kind", kind, "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	addRoles := containsRBACInfo(mutatePolicies)
-	policyContext, err := h.buildPolicyContext(request, addRoles)
+	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
+	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.ResponseFailure(err.Error())
@@ -235,64 +198,21 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "mutation failed")
 		return admissionutils.ResponseFailure(err.Error())
 	}
-
 	newRequest := patchRequest(mutatePatches, request, logger)
 	imagePatches, imageVerifyWarnings, err := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
 	if err != nil {
 		logger.Error(err, "image verification failed")
 		return admissionutils.ResponseFailure(err.Error())
 	}
-
 	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
 	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
 		warnings := append(mutateWarnings, imageVerifyWarnings...)
 		logger.V(2).Info("mutation webhook", "warnings", warnings)
 		return admissionutils.ResponseSuccessWithPatchAndWarnings(patch, warnings)
 	}
-
 	admissionResponse := admissionutils.ResponseSuccessWithPatch(patch)
 	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
 	return admissionResponse
-}
-
-func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
-	userRequestInfo := kyvernov1beta1.RequestInfo{
-		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
-	}
-	if addRoles {
-		var err error
-		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configuration)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-		}
-	}
-	ctx, err := newVariablesContext(request, &userRequestInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create policy rule context")
-	}
-	resource, err := convertResource(request, request.Object.Raw)
-	if err != nil {
-		return nil, err
-	}
-	if err := ctx.AddImageInfos(&resource); err != nil {
-		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
-	}
-	policyContext := &engine.PolicyContext{
-		NewResource:         resource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    h.configuration.GetExcludeGroupRole(),
-		ExcludeResourceFunc: h.configuration.ToFilter,
-		JSONContext:         ctx,
-		Client:              h.client,
-		AdmissionOperation:  true,
-	}
-	if request.Operation == admissionv1.Update {
-		policyContext.OldResource, err = convertResource(request, request.OldObject.Raw)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return policyContext, nil
 }
 
 func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts time.Time) ([]byte, []string, error) {
@@ -467,7 +387,6 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	} else {
 		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
 	}
-
 	return deletionTimeStamp != nil
 }
 

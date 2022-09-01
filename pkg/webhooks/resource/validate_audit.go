@@ -5,17 +5,14 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/userinfo"
-	"github.com/kyverno/kyverno/pkg/utils"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -48,6 +45,7 @@ type auditHandler struct {
 	pCache      policycache.Cache
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
+	pcBuilder   webhookutils.PolicyContextBuilder
 
 	rbLister  rbacv1listers.RoleBindingLister
 	crbLister rbacv1listers.ClusterRoleBindingLister
@@ -84,6 +82,7 @@ func NewValidateAuditHandler(pCache policycache.Cache,
 		configHandler: dynamicConfig,
 		client:        client,
 		metricsConfig: metricsConfig,
+		pcBuilder:     webhookutils.NewPolicyContextBuilder(dynamicConfig, client, rbInformer.Lister(), crbInformer.Lister()),
 	}
 	c.informersSynced = []cache.InformerSynced{rbInformer.Informer().HasSynced, crbInformer.Informer().HasSynced, namespaces.Informer().HasSynced}
 	return c
@@ -140,7 +139,6 @@ func (h *auditHandler) processNextWorkItem() bool {
 }
 
 func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
-	var roles, clusterRoles []string
 	var err error
 	// time at which the corresponding the admission request's processing got initiated
 	admissionRequestTimestamp := time.Now()
@@ -148,48 +146,15 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 
 	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 
-	// getRoleRef only if policy has roles/clusterroles defined
-	if containsRBACInfo(policies) {
-		roles, clusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configHandler)
-		if err != nil {
-			logger.Error(err, "failed to get RBAC information for request")
-		}
-	}
-
-	userRequestInfo := v1beta1.RequestInfo{
-		Roles:             roles,
-		ClusterRoles:      clusterRoles,
-		AdmissionUserInfo: request.UserInfo,
-	}
-
-	ctx, err := newVariablesContext(request, &userRequestInfo)
+	policyContext, err := h.pcBuilder.Build(request, policies...)
 	if err != nil {
-		return errors.Wrap(err, "unable to build variable context")
+		logger.Error(err, "failed create policy context")
+		return errors.Wrap(err, "failed create policy context")
 	}
 
 	namespaceLabels := make(map[string]string)
 	if request.Kind.Kind != "Namespace" && request.Namespace != "" {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
-	}
-
-	newResource, oldResource, err := utils.ExtractResources(nil, request)
-	if err != nil {
-		return errors.Wrap(err, "failed create parse resource")
-	}
-
-	if err := ctx.AddImageInfos(&newResource); err != nil {
-		return errors.Wrap(err, "failed add image information to policy rule context")
-	}
-
-	policyContext := &engine.PolicyContext{
-		NewResource:         newResource,
-		OldResource:         oldResource,
-		AdmissionInfo:       userRequestInfo,
-		ExcludeGroupRole:    h.configHandler.GetExcludeGroupRole(),
-		ExcludeResourceFunc: h.configHandler.ToFilter,
-		JSONContext:         ctx,
-		Client:              h.client,
-		AdmissionOperation:  true,
 	}
 
 	vh := &validationHandler{
