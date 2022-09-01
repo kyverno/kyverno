@@ -360,8 +360,16 @@ codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy repor
 .PHONY: codegen-deepcopy-all
 codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
 
+.PHONY: codegen-api-docs
+codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
+	@echo Generate api docs...
+	@rm -rf docs/crd && mkdir -p docs/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+
 .PHONY: codegen-all
-codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all ## Generate clientset, listers, informers, all CRDs and deep copy functions
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
 
 ##################################
 # KYVERNO
@@ -381,16 +389,8 @@ unused-package-check:
 # Generate Docs for types.go
 ##################################
 
-.PHONY: generate-api-docs
-generate-api-docs: $(GEN_CRD_API_REFERENCE_DOCS) ## Generate api reference docs
-	rm -rf docs/crd
-	mkdir docs/crd
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
-
 .PHONY: verify-api-docs
-verify-api-docs: generate-api-docs ## Check api reference docs are up to date
+verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
