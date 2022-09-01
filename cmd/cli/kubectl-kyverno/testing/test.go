@@ -811,14 +811,17 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool, resource
 	var pol string
 	if !isGit {
 		for _, path := range paths {
-			pol = filepath.Join(policyResourcePath, path)
-			_, err1 := ioutil.ReadFile(pol)
-			if err1 != nil {
-				pol = filepath.Join(path)
+			patharr := strings.FieldsFunc(path, Split)
+			if len(patharr) > 0 {
+				if patharr[0] == "home" {
+					pol = path
+				} else {
+					pol = filepath.Join(policyResourcePath, path)
+				}
 			}
-			_, err2 := ioutil.ReadFile(pol)
-			if err2 != nil {
-				fmt.Printf("failed to load %s: %s \nerror: %s\n", resourceType, path, err2)
+			_, err := ioutil.ReadFile(pol)
+			if err != nil {
+				fmt.Printf("failed to load %s: %s \nerror: %s\n", resourceType, path, err)
 				os.Exit(1)
 			}
 			pols = append(pols, pol)
