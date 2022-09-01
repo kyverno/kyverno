@@ -31,6 +31,10 @@ KIND                               := $(TOOLS_DIR)/kind
 KIND_VERSION                       := v0.14.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
+CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
+LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
+CODE_GEN_VERSION                   := v0.19.0
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -43,7 +47,7 @@ HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.6.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.12.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -55,6 +59,15 @@ $(KIND):
 
 $(CONTROLLER_GEN):
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
+$(CLIENT_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/client-gen@$(CODE_GEN_VERSION)
+
+$(LISTER_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/lister-gen@$(CODE_GEN_VERSION)
+
+$(INFORMER_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/informer-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
@@ -130,6 +143,7 @@ build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
 ##############
 
 PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 KYVERNOPRE_IMAGE    := kyvernopre
@@ -138,15 +152,15 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build CLI local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
@@ -226,8 +240,6 @@ docker-buildx-builder:
 # BUILD (DOCKER) #
 ##################
 
-LOCAL_PLATFORM := linux/$(GOARCH)
-
 .PHONY: docker-build-kyvernopre
 docker-build-kyvernopre: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
@@ -282,6 +294,74 @@ docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publ
 
 .PHONY: docker-publish-all-dev
 docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev
+
+###########
+# CODEGEN #
+###########
+
+GOPATH_SHIM        := ${PWD}/.gopath
+PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
+OUT_PACKAGE        := $(PACKAGE)/pkg/client
+INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
+LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
+INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
+
+$(GOPATH_SHIM):
+	@echo Create gopath shim...
+	@mkdir -p $(GOPATH_SHIM)
+
+.INTERMEDIATE: $(PACKAGE_SHIM)
+$(PACKAGE_SHIM): $(GOPATH_SHIM)
+	@echo Create package shim...
+	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
+
+.PHONY: codegen-client-clientset
+codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
+	@echo Generate clientset...
+	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) --go-header-file ./scripts/boilerplate.go.txt --clientset-name versioned --output-package $(CLIENTSET_PACKAGE) --input-base "" --input $(INPUT_DIRS)
+
+.PHONY: codegen-client-listers
+codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
+	@echo Generate listers...
+	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(LISTERS_PACKAGE) --input-dirs $(INPUT_DIRS)
+
+.PHONY: codegen-client-informers
+codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
+	@echo Generate informers...
+	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
+
+.PHONY: codegen-client-all
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
+
+.PHONY: codegen-crds-kyverno
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+	@echo Generate kyverno crds...
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-report
+codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@echo Generate policy reports crds...
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-all
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+
+.PHONY: codegen-deepcopy-kyverno
+codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate Kyverno deep copy functions
+	@echo Generate kyverno deep copy functions...
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
+
+.PHONY: codegen-deepcopy-report
+codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
+	@echo Generate policy reports deep copy functions...
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
+
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
+
+.PHONY: codegen-all
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all ## Generate clientset, listers, informers, all CRDs and deep copy functions
 
 ##################################
 # KYVERNO
