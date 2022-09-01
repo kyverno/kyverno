@@ -115,16 +115,14 @@ func validateJSONPatchValue(patch string) error {
 	}
 
 	for _, operation := range decodedPatch {
-		v, err := operation.ValueInterface()
-		vs := fmt.Sprintf("%v", v)
-		if err != nil {
-			return err
-		}
-		if strings.ContainsAny(vs, `"`) {
-			return fmt.Errorf("%s", vs)
+		v, _ := operation.ValueInterface()
+		if v != nil {
+			vs := fmt.Sprintf("%v", v)
+			if strings.ContainsAny(vs, `"`) || strings.ContainsAny(vs, `'`) {
+				return fmt.Errorf("%s", vs)
+			}
 		}
 	}
-
 	return nil
 }
 
