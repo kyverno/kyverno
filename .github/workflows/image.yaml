@@ -14,7 +14,7 @@ jobs:
   push-init-kyverno:
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: ko-publish-initContainer
+      publish_command: ko-publish-kyvernopre
       image_name: kyvernopre
       tag: image
     secrets:

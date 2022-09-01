@@ -3,7 +3,7 @@ package cleanup
 import (
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 

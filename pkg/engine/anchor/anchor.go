@@ -156,8 +156,10 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 			return returnPath, ac.AnchorError.Error()
 		}
 		return "", nil
+	} else {
+		msg := "conditional anchor key doesn't exist in the resource"
+		return currentPath, NewConditionalAnchorError(msg).Error()
 	}
-	return "", nil
 }
 
 // NewGlobalAnchorHandler returns an instance of condition acnhor handler

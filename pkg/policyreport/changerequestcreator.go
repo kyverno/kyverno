@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/patrickmn/go-cache"
@@ -114,7 +114,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	ticker := time.NewTicker(c.tickerInterval)
 	defer ticker.Stop()
 
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		err := CleanupPolicyReport(c.client)
 		if err != nil {
 			c.log.Error(err, "failed to delete old reports")
