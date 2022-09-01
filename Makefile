@@ -370,9 +370,9 @@ codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Genera
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
 	@echo Generate api docs...
 	@rm -rf docs/crd && mkdir -p docs/crd
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+	@GOPATH="" $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	@GOPATH="" $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
+	@GOPATH="" $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
 .PHONY: codegen-all
 codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
@@ -507,7 +507,7 @@ helm-test-values:
 .PHONY: kustomize-crd
 kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
 	# Create CRD for helm deployment Helm
-	$(KUSTOMIZE) build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	$(KUSTOMIZE) build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -534,15 +534,11 @@ kyverno-crd: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 report-crd: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
 
-.PHONY: deepcopy-autogen
-deepcopy-autogen: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate deep copy code
-	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GOIMPORTS) -w ./api/
-
 .PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
+codegen: kyverno-crd report-crd codegen-deepcopy-all codegen-api-docs gen-helm ## Update all generated code and docs
 
 .PHONY: verify-api
-verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
+verify-api: kyverno-crd report-crd codegen-deepcopy-all ## Check api is up to date
 	git --no-pager diff api
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
 	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
