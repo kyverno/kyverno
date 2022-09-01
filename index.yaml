@@ -2486,6 +2486,46 @@ entries:
           description: Support for failurePolicy setting in kyverno-policies helm chart
         - kind: added
           description: Add posibility to set validationFailureAction by Policy
+        - kind: added
+          description: Added ability to get additional policies from restricted
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.7.3
+    created: "2022-09-01T06:37:46.519609227Z"
+    description: Kubernetes Pod Security Standards implemented as Kyverno policies
+    digest: 9cfe978c81f1c208614ead70a5f090d80b89ba7c1bbbdee1f4d79a92ab69aa87
+    home: https://kyverno.io/policies/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno-policies
+    sources:
+    - https://github.com/kyverno/policies
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-policies-v2.5.5.tgz
+    version: v2.5.5
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Support for artifacthub.io/changes annotation
+        - kind: fixed
+          description: Fix Kyverno version check when image tag contains registry port number
+        - kind: fixed
+          description: Ensure preconditions are present with default values
+        - kind: added
+          description: Support for failurePolicy setting in kyverno-policies helm chart
+        - kind: added
+          description: Add posibility to set validationFailureAction by Policy
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
@@ -3677,4 +3717,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-08-26T10:48:11.886755395Z"
+generated: "2022-09-01T06:37:46.517804116Z"
