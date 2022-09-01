@@ -44,7 +44,7 @@ KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.6.0
+HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.12.0
 TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
@@ -561,7 +561,7 @@ verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify a
 # .PHONY: gen-helm-docs
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
-	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 # gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
 # 	# @$(HELM_DOCS) -s file
 # 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
