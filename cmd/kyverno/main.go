@@ -112,6 +112,7 @@ func main() {
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
 	flag.Func(toggle.SplitPolicyReportFlagName, toggle.SplitPolicyReportDescription, toggle.SplitPolicyReport.Parse)
+	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)

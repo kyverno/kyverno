@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
@@ -123,18 +124,20 @@ func (s *server) cleanup(ctx context.Context) {
 
 func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-		newResource, oldResource, err := utils.ExtractResources(nil, request)
-		if err != nil {
-			logger.Error(err, "Failed to extract resources")
-			return admissionutils.ResponseFailure(err.Error())
-		}
-		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
-			resLabels := resource.GetLabels()
-			if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
-				// TODO(eddycharly): make this logic configurable
-				if request.UserInfo.Username != "system:serviceaccount:kyverno:kyverno" {
-					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-					return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
+		if toggle.ProtectManagedResources.Enabled() {
+			newResource, oldResource, err := utils.ExtractResources(nil, request)
+			if err != nil {
+				logger.Error(err, "Failed to extract resources")
+				return admissionutils.ResponseFailure(err.Error())
+			}
+			for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
+				resLabels := resource.GetLabels()
+				if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+					// TODO(eddycharly): make this logic configurable
+					if request.UserInfo.Username != "system:serviceaccount:kyverno:kyverno" {
+						logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
+						return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
+					}
 				}
 			}
 		}
