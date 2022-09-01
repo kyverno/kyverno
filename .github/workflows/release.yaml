@@ -12,7 +12,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: ko-build-initContainer
+      publish_command: ko-publish-kyvernopre
       image_name: kyvernopre
       tag: release
       main: cmd/initContainer
@@ -27,7 +27,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: ko-build-kyverno
+      publish_command: ko-publish-kyverno
       image_name: kyverno
       tag: release
       main: cmd/kyverno
@@ -42,7 +42,7 @@ jobs:
       id-token: write
     uses: ./.github/workflows/reuse.yaml
     with:
-      publish_command: ko-build-cli
+      publish_command: ko-publish-cli
       image_name: kyverno-cli
       tag: release
       main: cmd/cli/kubectl-kyverno

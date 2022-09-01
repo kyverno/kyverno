@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -148,7 +148,7 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	var polrName string
 
 	if ns != nil {
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			err = eraseSplitResultEntries(pclient, ns, selector)
 			if err != nil {
 				errors = append(errors, fmt.Sprintf("%v", err))
