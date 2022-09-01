@@ -57,7 +57,7 @@ linters-settings:
         alias: $1$2
       - pkg: k8s.io/api/(\w+)/(v[\w\d]+)
         alias: $1$2
-      - pkg: github.com/kyverno/kyverno/pkg/dclient
+      - pkg: github.com/kyverno/kyverno/pkg/clients/dclient
         alias: dclient
       - pkg: github.com/kyverno/kyverno/pkg/client/clientset/versioned
         alias: kyvernoclient

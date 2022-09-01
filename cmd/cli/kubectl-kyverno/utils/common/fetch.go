@@ -12,7 +12,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"golang.org/x/text/cases"

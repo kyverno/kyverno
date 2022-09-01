@@ -14,7 +14,11 @@ on:
         type: string
       main: 
         type: string
-
+    secrets:
+      registry_username:
+        required: true
+      registry_password:
+        required: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -99,13 +103,13 @@ jobs:
           fi
 
       - name: ko build dev image
-        id: ko-build-dev
+        id: ko-publish-dev
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}}-dev)"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)"
 
       - name: ko build release image
-        id: ko-build
+        id: ko-publish
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: |
           echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}})"
@@ -120,7 +124,7 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-build-dev.outputs.digest }}
+          ${{ steps.ko-publish-dev.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
@@ -132,10 +136,10 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-build.outputs.digest }}
+          ${{ steps.ko-publish.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-build.outputs.digest }}
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}

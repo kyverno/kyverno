@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -344,12 +344,12 @@ func OverrideRuntimeErrorHandler() {
 	logger := log.Log.WithName("RuntimeErrorHandler")
 	if len(runtime.ErrorHandlers) > 0 {
 		runtime.ErrorHandlers[0] = func(err error) {
-			logger.V(6).Info("runtime error: %s", err)
+			logger.V(6).Info("runtime error", "msg", err.Error())
 		}
 	} else {
 		runtime.ErrorHandlers = []func(err error){
 			func(err error) {
-				logger.V(6).Info("runtime error: %s", err)
+				logger.V(6).Info("runtime error", "msg", err.Error())
 			},
 		}
 	}

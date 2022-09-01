@@ -792,7 +792,8 @@ If specified Repository will override other OCI image repository locations for t
 </h3>
 <p>
 (<em>Appears on:</em>
-<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>)
+<a href="#kyverno.io/v1.ImageVerification">ImageVerification</a>, 
+<a href="#kyverno.io/v1.Manifests">Manifests</a>)
 </p>
 <p>
 </p>
@@ -1234,6 +1235,49 @@ Kubernetes apiextensions/v1.JSON
 of conditions (without <code>any</code> or <code>all</code> statements) is also supported for backwards compatibility
 but will be deprecated in the next major release.
 See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">https://kyverno.io/docs/writing-policies/validate/#deny-rules</a></p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.DryRunOption">DryRunOption
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Manifests">Manifests</a>)
+</p>
+<p>
+<p>DryRunOption is a configuration for dryrun.
+If enable is set to &ldquo;true&rdquo;, manifest verification performs &ldquo;dryrun &amp; compare&rdquo;
+which provides robust matching against changes by defaults and other admission controllers.
+Dryrun requires additional permissions. See config/dryrun/dryrun_rbac.yaml</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>enable</code></br>
+<em>
+bool
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespace</code></br>
+<em>
+string
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>
@@ -2206,6 +2250,90 @@ map[string]string
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v1.Manifests">Manifests
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>attestors</code></br>
+<em>
+<a href="#kyverno.io/v1.AttestorSet">
+[]AttestorSet
+</a>
+</em>
+</td>
+<td>
+<p>Attestors specified the required attestors (i.e. authorities)</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotationDomain</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnnotationDomain is custom domain of annotation for message nad signature. Default is &ldquo;cosign.sigstore.dev&rdquo;.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ignoreFields</code></br>
+<em>
+<a href="#kyverno.io/v1.IgnoreFieldList">
+IgnoreFieldList
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Fields which will be ignored while comparing manifests.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>dryRun</code></br>
+<em>
+<a href="#kyverno.io/v1.DryRunOption">
+DryRunOption
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>DryRun configuration</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>repository</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>Repository is an optional alternate OCI repository to use for resource bundle reference.
+The repository can be overridden per Attestor or Attestation.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v1.MatchResources">MatchResources
 </h3>
 <p>
@@ -2360,6 +2488,167 @@ See <a href="https://tools.ietf.org/html/rfc6902">https://tools.ietf.org/html/rf
 <td>
 <em>(Optional)</em>
 <p>ForEach applies mutation rules to a list of sub-elements by creating a context for each entry in the list and looping over it to apply the specified logic.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.ObjectFieldBinding">ObjectFieldBinding
+</h3>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>fields</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>objects</code></br>
+<em>
+github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest.ObjectReferenceList
+</em>
+</td>
+<td>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.PodSecurity">PodSecurity
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.Validation">Validation</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>level</code></br>
+<em>
+k8s.io/pod-security-admission/api.Level
+</em>
+</td>
+<td>
+<p>Level defines the Pod Security Standard level to be applied to workloads.
+Allowed values are privileged, baseline, and restricted.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>version</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Version defines the Pod Security Standard versions that Kubernetes supports.
+Allowed values are v1.19, v1.20, v1.21, v1.22, v1.23, v1.24, v1.25, latest. Defaults to latest.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code></br>
+<em>
+<a href="#kyverno.io/v1.PodSecurityStandard">
+[]PodSecurityStandard
+</a>
+</em>
+</td>
+<td>
+<p>Exclude specifies the Pod Security Standard controls to be excluded.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.PodSecurityStandard">PodSecurityStandard
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PodSecurity">PodSecurity</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>controlName</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<p>ControlName specifies the name of the Pod Security Standard control.
+See: <a href="https://kubernetes.io/docs/concepts/security/pod-security-standards/">https://kubernetes.io/docs/concepts/security/pod-security-standards/</a></p>
+</td>
+</tr>
+<tr>
+<td>
+<code>images</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Images is a list of matching image patterns.
+Each image is the image name consisting of the registry address, repository, image, and tag.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>restrictedField</code></br>
+<em>
+string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RestrictedField selects the field for the given Pod Security Standard control.
+When not set, all restricted fields for the control are selected.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>values</code></br>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Values defines the allowed values that can be excluded.</p>
 </td>
 </tr>
 </tbody>
@@ -3209,6 +3498,20 @@ string
 </tr>
 <tr>
 <td>
+<code>manifests</code></br>
+<em>
+<a href="#kyverno.io/v1.Manifests">
+Manifests
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Manifest specifies conditions for manifest verification</p>
+</td>
+</tr>
+<tr>
+<td>
 <code>foreach</code></br>
 <em>
 <a href="#kyverno.io/v1.ForEachValidation">
@@ -3262,6 +3565,21 @@ Deny
 <td>
 <em>(Optional)</em>
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>podSecurity</code></br>
+<em>
+<a href="#kyverno.io/v1.PodSecurity">
+PodSecurity
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PodSecurity applies exemptions for Kubernetes Pod Security admission
+by specifying exclusions for Pod Security Standards controls.</p>
 </td>
 </tr>
 </tbody>
