@@ -2299,6 +2299,8 @@ spec:
                               description: Exclude specifies the Pod Security Standard
                                 controls to be excluded.
                               items:
+                                description: PodSecurityStandard specifies the Pod
+                                  Security Standard controls to be excluded.
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of
@@ -5081,6 +5083,8 @@ spec:
                                   description: Exclude specifies the Pod Security
                                     Standard controls to be excluded.
                                   items:
+                                    description: PodSecurityStandard specifies the
+                                      Pod Security Standard controls to be excluded.
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name

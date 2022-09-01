@@ -1456,6 +1456,7 @@ spec:
                             exclude:
                               description: Exclude specifies the Pod Security Standard controls to be excluded.
                               items:
+                                description: PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
@@ -3140,6 +3141,7 @@ spec:
                                 exclude:
                                   description: Exclude specifies the Pod Security Standard controls to be excluded.
                                   items:
+                                    description: PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
@@ -5643,6 +5645,7 @@ spec:
                             exclude:
                               description: Exclude specifies the Pod Security Standard controls to be excluded.
                               items:
+                                description: PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
@@ -7327,6 +7330,7 @@ spec:
                                 exclude:
                                   description: Exclude specifies the Pod Security Standard controls to be excluded.
                                   items:
+                                    description: PodSecurityStandard specifies the Pod Security Standard controls to be excluded.
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
