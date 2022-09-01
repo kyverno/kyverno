@@ -130,6 +130,7 @@ build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
 ##############
 
 PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 KYVERNOPRE_IMAGE    := kyvernopre
@@ -138,15 +139,15 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build CLI local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
@@ -226,8 +227,6 @@ docker-buildx-builder:
 # BUILD (DOCKER) #
 ##################
 
-LOCAL_PLATFORM := linux/$(GOARCH)
-
 .PHONY: docker-build-kyvernopre
 docker-build-kyvernopre: docker-buildx-builder
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
@@ -282,6 +281,35 @@ docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publ
 
 .PHONY: docker-publish-all-dev
 docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev
+
+###########
+# CODEGEN #
+###########
+
+.PHONY: codegen-crds-kyverno
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-report
+codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-all
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+
+.PHONY: codegen-deepcopy-kyverno
+codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate Kyverno deep copy functions
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
+
+.PHONY: codegen-deepcopy-report
+codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
+
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
+
+.PHONY: codegen-all
+codegen-all: codegen-deepcopy-all codegen-crds-all ## Generate all CRDs and deep copy functions
 
 ##################################
 # KYVERNO
