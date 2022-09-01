@@ -130,6 +130,7 @@ build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
 ##############
 
 PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 KYVERNOPRE_IMAGE    := kyvernopre
@@ -138,15 +139,15 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build CLI local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
@@ -225,8 +226,6 @@ docker-buildx-builder:
 ##################
 # BUILD (DOCKER) #
 ##################
-
-LOCAL_PLATFORM := linux/$(GOARCH)
 
 .PHONY: docker-build-kyvernopre
 docker-build-kyvernopre: docker-buildx-builder
