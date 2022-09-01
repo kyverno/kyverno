@@ -367,7 +367,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				}
 				for vr, vor := range v.Rules {
 					if len(vor.Values) < 1 || len(vor.ForeachValues) < 1 || len(vor.NamespaceSelector) < 1 {
-						return fmt.Errorf("test execution failed becuase spec.variables.policies[%v].rules[%v] is empty", vp, vr)
+						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v] is empty", vp, vr)
 					}
 					for ka, voa := range vor.Attestations {
 						if voa.PredicateType == "" {
@@ -402,7 +402,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].name is not a valid name", vp, re)
 						}
 						if len(vre.Values) < 1 || len(vre.UserInfo.ClusterRoles) < 1 || len(vre.UserInfo.Roles) < 1 || len(vre.UserInfo.Subjects) < 1 {
-							return fmt.Errorf("test execution failed becuase spec.variables.policies[%v].recources[%v] is empty", vp, re)
+							return fmt.Errorf("test execution failed because spec.variables.policies[%v].recources[%v] is empty", vp, re)
 						}
 						for _, r := range resourcesMap {
 							rov := false
