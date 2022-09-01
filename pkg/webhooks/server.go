@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -133,8 +134,7 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 			for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 				resLabels := resource.GetLabels()
 				if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
-					// TODO(eddycharly): make this logic configurable
-					if request.UserInfo.Username != "system:serviceaccount:kyverno:kyverno" {
+					if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 						logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 						return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
 					}
