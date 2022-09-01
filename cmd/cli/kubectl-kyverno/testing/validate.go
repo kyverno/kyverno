@@ -90,6 +90,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		return fmt.Errorf("test execution failed because spec.resources is empty")
 	} else {
 		for kr := range tests.Spec.Resources {
+			if len(tests.Spec.Resources[kr]) < 1 {
+				return fmt.Errorf("test execution failed because spec.resources.%v is empty", kr)
+			}
 			for k, p := range tests.Spec.Resources[kr] {
 				match := r.MatchString(p)
 				if !match {
@@ -102,7 +105,6 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	if len(tests.Spec.Results) < 1 {
 		return fmt.Errorf("test execution failed because spec.results is empty")
 	}
-
 	for k := range tests.Spec.Resources {
 		resourceFullPath[k] = getFullPath(tests.Spec.Resources[k], policyResourcePath, isGit, "resource")
 	}
@@ -171,7 +173,6 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		if !rpf {
 			return fmt.Errorf("test execution failed because spec.results[%v].policy not found in spec.policies", k)
 		}
-
 		for re, res := range tests.Spec.Results {
 			for resk, testr := range res.Resources {
 				n = false
@@ -340,6 +341,13 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 					if v.Name == k.GetName() {
 						pof = true
 						for vr, vor := range v.Rules {
+							if vor.Name == "" {
+								return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is empty", vp, vr)
+							}
+							match := nm.MatchString(vor.Name)
+							if !match {
+								return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is not a valid name", vp, vr)
+							}
 							rof = false
 							for _, k := range filteredPolicies {
 								for _, r := range k.GetSpec().Rules {
@@ -358,16 +366,12 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 					return fmt.Errorf("test execution failed because spec.variables.policies[%v].name does not match with any policy name mentioned in spec.policies", vp)
 				}
 				for vr, vor := range v.Rules {
-					if vor.Name == "" {
-						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is empty", vp, vr)
-					}
-					match := nm.MatchString(vor.Name)
-					if !match {
-						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].name is not a valid name", vp, vr)
+					if len(vor.Values) < 1 || len(vor.ForeachValues) < 1 || len(vor.NamespaceSelector) < 1 {
+						return fmt.Errorf("test execution failed becuase spec.variables.policies[%v].rules[%v] is empty", vp, vr)
 					}
 					for ka, voa := range vor.Attestations {
 						if voa.PredicateType == "" {
-							return fmt.Errorf("stest execution failed because spec.variables.policies[%v].rules[%v].attestations[%v].predicateType is empty", vp, vr, ka)
+							return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].attestations[%v].predicateType is empty", vp, vr, ka)
 						}
 						if voa.PredicateResource == "" {
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v].attestations[%v].predicateResource is empty", vp, vr, ka)
@@ -396,6 +400,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 						match := nm.MatchString(vre.Name)
 						if !match {
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].name is not a valid name", vp, re)
+						}
+						if len(vre.Values) < 1 || len(vre.UserInfo.ClusterRoles) < 1 || len(vre.UserInfo.Roles) < 1 || len(vre.UserInfo.Subjects) < 1 {
+							return fmt.Errorf("test execution failed becuase spec.variables.policies[%v].recources[%v] is empty", vp, re)
 						}
 						for _, r := range resourcesMap {
 							rov := false
