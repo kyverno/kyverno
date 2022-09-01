@@ -16,11 +16,9 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	"github.com/pkg/errors"
 	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -71,20 +69,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
-	ctx := enginectx.NewContext()
-	if err := ctx.AddRequest(request); err != nil {
-		return nil, errors.Wrap(err, "failed to load incoming request in context")
-	}
-	if err := ctx.AddUserInfo(*userRequestInfo); err != nil {
-		return nil, errors.Wrap(err, "failed to load userInfo in context")
-	}
-	if err := ctx.AddServiceAccount(userRequestInfo.AdmissionUserInfo.Username); err != nil {
-		return nil, errors.Wrap(err, "failed to load service account in context")
-	}
-	return ctx, nil
 }
 
 func containsRBACInfo(policies ...[]kyvernov1.PolicyInterface) bool {
@@ -148,20 +132,6 @@ func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
 			}},
 		},
 	}
-}
-
-func convertResource(request *admissionv1.AdmissionRequest, resourceRaw []byte) (unstructured.Unstructured, error) {
-	resource, err := utils.ConvertResource(resourceRaw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-	if err != nil {
-		return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert raw resource to unstructured format")
-	}
-	if request.Kind.Kind == "Secret" && request.Operation == admissionv1.Update {
-		resource, err = utils.NormalizeSecret(&resource)
-		if err != nil {
-			return unstructured.Unstructured{}, errors.Wrap(err, "failed to convert secret to unstructured format")
-		}
-	}
-	return resource, nil
 }
 
 // returns true -> if there is even one policy that blocks resource request
