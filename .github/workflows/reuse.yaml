@@ -112,7 +112,7 @@ jobs:
         id: ko-publish
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: |
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}})"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})"
 
       - name: Sign dev image
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
