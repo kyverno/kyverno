@@ -129,7 +129,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 
 	logger.V(4).Info("processing policies for validate admission request", "kind", kind, "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
-	policyContext, err := h.pcBuilder.Build(request, true)
+	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
 	if err != nil {
 		return errorResponse(logger, err, "failed create policy context")
 	}
@@ -185,8 +185,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseSuccess()
 	}
 	logger.V(4).Info("processing policies for mutate admission request", "kind", kind, "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
-	addRoles := containsRBACInfo(mutatePolicies)
-	policyContext, err := h.pcBuilder.Build(request, addRoles)
+	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
 		return admissionutils.ResponseFailure(err.Error())
@@ -219,46 +218,6 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
 	return admissionResponse
 }
-
-// func (h *handlers) buildPolicyContext(request *admissionv1.AdmissionRequest, addRoles bool) (*engine.PolicyContext, error) {
-// 	userRequestInfo := kyvernov1beta1.RequestInfo{
-// 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
-// 	}
-// 	if addRoles {
-// 		var err error
-// 		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(h.rbLister, h.crbLister, request, h.configuration)
-// 		if err != nil {
-// 			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-// 		}
-// 	}
-// 	ctx, err := newVariablesContext(request, &userRequestInfo)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "failed to create policy rule context")
-// 	}
-// 	resource, err := convertResource(request, request.Object.Raw)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	if err := ctx.AddImageInfos(&resource); err != nil {
-// 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
-// 	}
-// 	policyContext := &engine.PolicyContext{
-// 		NewResource:         resource,
-// 		AdmissionInfo:       userRequestInfo,
-// 		ExcludeGroupRole:    h.configuration.GetExcludeGroupRole(),
-// 		ExcludeResourceFunc: h.configuration.ToFilter,
-// 		JSONContext:         ctx,
-// 		Client:              h.client,
-// 		AdmissionOperation:  true,
-// 	}
-// 	if request.Operation == admissionv1.Update {
-// 		policyContext.OldResource, err = convertResource(request, request.OldObject.Raw)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 	}
-// 	return policyContext, nil
-// }
 
 func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts time.Time) ([]byte, []string, error) {
 	mutatePatches, mutateEngineResponses, err := h.handleMutation(logger, request, policyContext, policies)
@@ -432,7 +391,6 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 	} else {
 		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
 	}
-
 	return deletionTimeStamp != nil
 }
 

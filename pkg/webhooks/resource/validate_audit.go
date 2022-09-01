@@ -146,7 +146,7 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 
 	policies := h.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 
-	policyContext, err := h.pcBuilder.Build(request, true)
+	policyContext, err := h.pcBuilder.Build(request, policies...)
 	if err != nil {
 		logger.Error(err, "failed create policy context")
 		return errors.Wrap(err, "failed create policy context")

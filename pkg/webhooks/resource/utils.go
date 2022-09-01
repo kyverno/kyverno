@@ -8,7 +8,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -69,54 +68,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func containsRBACInfo(policies ...[]kyvernov1.PolicyInterface) bool {
-	for _, policySlice := range policies {
-		for _, policy := range policySlice {
-			for _, rule := range autogen.ComputeRules(policy) {
-				if checkForRBACInfo(rule) {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-func checkForRBACInfo(rule kyvernov1.Rule) bool {
-	if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
-		return true
-	}
-	if len(rule.MatchResources.All) > 0 {
-		for _, rf := range rule.MatchResources.All {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.MatchResources.Any) > 0 {
-		for _, rf := range rule.MatchResources.Any {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.ExcludeResources.All) > 0 {
-		for _, rf := range rule.ExcludeResources.All {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rf := range rule.ExcludeResources.Any {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
