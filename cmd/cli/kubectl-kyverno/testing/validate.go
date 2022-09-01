@@ -41,7 +41,6 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		if apiv[0] != "cli.kyverno.io" || apiv[1] != "v1beta1" {
 			return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
 		}
-		return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
 	}
 	if tests.TypeMeta.Kind == "" {
 		return fmt.Errorf("test execution failed because kind is empty")
@@ -50,6 +49,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	}
 	if tests.Metadata.Name == "" {
 		return fmt.Errorf("test execution failed because metadata.name is empty")
+	}
+	if strings.Contains(tests.Metadata.Name, " ") {
+		return fmt.Errorf("test execution failed because metadata.name value is not valid")
 	}
 	if len(tests.Metadata.Labels) > 0 {
 		for k := range tests.Metadata.Labels {
