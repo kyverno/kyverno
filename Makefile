@@ -300,6 +300,7 @@ docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev
 ###########
 
 GOPATH_SHIM        := ${PWD}/.gopath
+GOPKG_SHIM         := $(GOPATH_SHIM)/pkg
 PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE        := $(PACKAGE)/pkg/client
 INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/policyreport/v1alpha2
@@ -311,8 +312,13 @@ $(GOPATH_SHIM):
 	@echo Create gopath shim...
 	@mkdir -p $(GOPATH_SHIM)
 
+.INTERMEDIATE: $(GOPKG_SHIM)
+$(GOPKG_SHIM): $(GOPATH_SHIM)
+	@echo Create gopkg shim...
+	@ln -s -f $(GOPATH)/pkg $(GOPKG_SHIM)
+
 .INTERMEDIATE: $(PACKAGE_SHIM)
-$(PACKAGE_SHIM): $(GOPATH_SHIM)
+$(PACKAGE_SHIM): $(GOPKG_SHIM)
 	@echo Create package shim...
 	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
 
