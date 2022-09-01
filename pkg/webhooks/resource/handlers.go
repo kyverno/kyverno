@@ -102,13 +102,12 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	if request.Operation == admissionv1.Delete {
 		h.handleDelete(logger, request)
 	}
-
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
-
 	kind := request.Kind.Kind
-	logger.V(4).Info("received an admission request in validating webhook", "kind", kind)
+	logger = logger.WithValues("kind", kind)
+	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
 	requestTime := time.Now()
@@ -119,15 +118,14 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
-		logger.V(4).Info("no policies matched admission request", "kind", kind)
+		logger.V(4).Info("no policies matched admission request")
 	}
-
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
 		go h.handleUpdatesForGenerateRules(logger, request, []kyvernov1.PolicyInterface{})
 	}
 
-	logger.V(4).Info("processing policies for validate admission request", "kind", kind, "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
+	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
 
 	policyContext, err := h.pcBuilder.Build(request, generatePolicies...)
 	if err != nil {
@@ -176,15 +174,16 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
-	logger.V(4).Info("received an admission request in mutating webhook", "kind", kind)
+	logger = logger.WithValues("kind", kind)
+	logger.V(4).Info("received an admission request in mutating webhook")
 	requestTime := time.Now()
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
-		logger.V(4).Info("no policies matched mutate admission request", "kind", kind)
+		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess()
 	}
-	logger.V(4).Info("processing policies for mutate admission request", "kind", kind, "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
+	logger.V(4).Info("processing policies for mutate admission request", "mutatePolicies", len(mutatePolicies), "verifyImagesPolicies", len(verifyImagesPolicies))
 	policyContext, err := h.pcBuilder.Build(request, mutatePolicies...)
 	if err != nil {
 		logger.Error(err, "failed to build policy context")
@@ -199,21 +198,18 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "mutation failed")
 		return admissionutils.ResponseFailure(err.Error())
 	}
-
 	newRequest := patchRequest(mutatePatches, request, logger)
 	imagePatches, imageVerifyWarnings, err := h.applyImageVerifyPolicies(logger, newRequest, policyContext, verifyImagesPolicies)
 	if err != nil {
 		logger.Error(err, "image verification failed")
 		return admissionutils.ResponseFailure(err.Error())
 	}
-
 	patch := jsonutils.JoinPatches(mutatePatches, imagePatches)
 	if len(mutateWarnings) > 0 || len(imageVerifyWarnings) > 0 {
 		warnings := append(mutateWarnings, imageVerifyWarnings...)
 		logger.V(2).Info("mutation webhook", "warnings", warnings)
 		return admissionutils.ResponseSuccessWithPatchAndWarnings(patch, warnings)
 	}
-
 	admissionResponse := admissionutils.ResponseSuccessWithPatch(patch)
 	logger.V(4).Info("completed mutating webhook", "response", admissionResponse)
 	return admissionResponse
