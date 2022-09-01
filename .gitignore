@@ -11,3 +11,4 @@ kubectl-kyverno
 /release
 .DS_Store
 .tools
+.gopath
