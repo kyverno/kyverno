@@ -26,9 +26,11 @@ jobs:
           go-version: 1.18
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -76,9 +78,11 @@ jobs:
           go-version: 1.18
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -102,9 +106,11 @@ jobs:
           go-version: 1.18
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -137,9 +143,11 @@ jobs:
           go-version: 1.18
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
