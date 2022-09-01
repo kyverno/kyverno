@@ -127,16 +127,16 @@ $(KYVERNOPRE_BIN): fmt vet
 $(CLI_BIN): fmt vet
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
-.PHONY: build-kyverno
-build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
-
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
-.PHONY: build-cli
-build-cli: $(CLI_BIN) ## Build CLI binary
+.PHONY: build-kyverno
+build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
 
-build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
+.PHONY: build-cli
+build-cli: $(CLI_BIN) ## Build cli binary
+
+build-all: build-kyvernopre build-kyverno build-cli ## Build all binaries
 
 ##############
 # BUILD (KO) #
@@ -159,7 +159,7 @@ ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
-ko-build-cli: $(KO) ## Build CLI local image (with ko)
+ko-build-cli: $(KO) ## Build cli local image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
@@ -181,53 +181,53 @@ ko-login: $(KO)
 	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
 .PHONY: ko-publish-kyvernopre
-ko-publish-kyvernopre: ko-login
+ko-publish-kyvernopre: ko-login ## Build and publish kyvernopre image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
-ko-publish-kyverno: ko-login
+ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli
-ko-publish-cli: ko-login
+ko-publish-cli: ko-login ## Build and publish cli image (with ko)
 	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyvernopre-dev
-ko-publish-kyvernopre-dev: ko-login
+ko-publish-kyvernopre-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-dev
-ko-publish-kyverno-dev: ko-login
+ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli-dev
-ko-publish-cli-dev: ko-login
+ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli
+ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev
+ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev ## Build and publish all dev images (with ko)
 
 ##################
 # UTILS (DOCKER) #
 ##################
 
 .PHONY: docker-get-kyvernopre-digest
-docker-get-kyvernopre-digest:
+docker-get-kyvernopre-digest: ## Get kyvernopre image digest (with docker)
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-get-kyvernopre-digest-dev
-docker-get-kyvernopre-digest-dev:
+docker-get-kyvernopre-digest-dev: ## Get kyvernopre dev image digest (with docker)
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-get-kyverno-digest
-docker-get-kyverno-digest:
+docker-get-kyverno-digest: ## Get kyverno image digest (with docker)
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-get-kyverno-digest-dev
-docker-get-kyverno-digest-dev:
+docker-get-kyverno-digest-dev: ## Get kyverno dev image digest (with docker)
 	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-buildx-builder
@@ -241,15 +241,15 @@ docker-buildx-builder:
 ##################
 
 .PHONY: docker-build-kyvernopre
-docker-build-kyvernopre: docker-buildx-builder
+docker-build-kyvernopre: docker-buildx-builder ## Build kyvernopre local image (with docker)
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-build-kyverno
-docker-build-kyverno: docker-buildx-builder
+docker-build-kyverno: docker-buildx-builder ## Build kyverno local image (with docker)
 	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-build-cli
-docker-build-cli: docker-buildx-builder
+docker-build-cli: docker-buildx-builder ## Build cli local image (with docker)
 	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-build-all
@@ -260,40 +260,40 @@ docker-build-all: docker-build-kyvernopre docker-build-kyverno docker-build-cli 
 ####################
 
 .PHONY: docker-publish-kyvernopre
-docker-publish-kyvernopre: docker-buildx-builder
+docker-publish-kyvernopre: docker-buildx-builder ## Build and publish kyvernopre image (with docker)
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-publish-kyvernopre-dev
-docker-publish-kyvernopre-dev: docker-buildx-builder
+docker-publish-kyvernopre-dev: docker-buildx-builder ## Build and publish kyvernopre dev image (with docker)
 	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
 		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-publish-kyverno
-docker-publish-kyverno: docker-buildx-builder
+docker-publish-kyverno: docker-buildx-builder ## Build and publish kyverno image (with docker)
 	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-publish-kyverno-dev
-docker-publish-kyverno-dev: docker-buildx-builder
+docker-publish-kyverno-dev: docker-buildx-builder ## Build and publish kyverno dev image (with docker)
 	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
 		--tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNO_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-publish-cli
-docker-publish-cli: docker-buildx-builder
+docker-publish-cli: docker-buildx-builder ## Build and publish cli image (with docker)
 	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-publish-cli-dev
-docker-publish-cli-dev: docker-buildx-builder
+docker-publish-cli-dev: docker-buildx-builder ## Build and publish cli dev image (with docker)
 	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
 		--tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(CLI_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-publish-all
-docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publish-cli
+docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publish-cli ## Build and publish all images (with docker)
 
 .PHONY: docker-publish-all-dev
-docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev
+docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev ## Build and publish all dev images (with docker)
 
 ###########
 # CODEGEN #
@@ -335,7 +335,7 @@ codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
 codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
 
 .PHONY: codegen-crds-kyverno
-codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	@echo Generate kyverno crds...
 	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
@@ -348,7 +348,7 @@ codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
 codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
 
 .PHONY: codegen-deepcopy-kyverno
-codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate Kyverno deep copy functions
+codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate kyverno deep copy functions
 	@echo Generate kyverno deep copy functions...
 	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
 
@@ -521,7 +521,7 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+kyverno-crd: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
@@ -579,26 +579,26 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 ########
 
 .PHONY: kind-create-cluster
-kind-create-cluster: $(KIND) ## Create KinD cluster
+kind-create-cluster: $(KIND) ## Create kind cluster
 	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
 
 .PHONY: kind-delete-cluster
-kind-delete-cluster: $(KIND) ## Delete KinD cluster
+kind-delete-cluster: $(KIND) ## Delete kind cluster
 	@$(KIND) delete cluster --name $(KIND_NAME)
 
 .PHONY: kind-load-kyvernopre
-kind-load-kyvernopre: $(KIND) ko-build-kyvernopre ## Build kyvernopre image and load it in KinD cluster
+kind-load-kyvernopre: $(KIND) ko-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
 	@$(KIND) load docker-image --name $(KIND_NAME) $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-kyverno
-kind-load-kyverno: $(KIND) ko-build-kyverno ## Build kyverno image and load it in KinD cluster
+kind-load-kyverno: $(KIND) ko-build-kyverno ## Build kyverno image and load it in kind cluster
 	@$(KIND) load docker-image --name $(KIND_NAME) $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-all
-kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in KinD cluster
+kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
-kind-deploy-kyverno: kind-load-all ## Build images, load them in KinD cluster and deploy kyverno helm chart
+kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(KYVERNO_KIND_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
@@ -611,7 +611,7 @@ kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
 	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-all
-kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in KinD cluster and deploy helm charts
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 ########
 # HELP #
@@ -619,4 +619,4 @@ kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build ima
 
 .PHONY: help
 help: ## Shows the available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
