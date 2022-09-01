@@ -160,10 +160,13 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 			return fmt.Errorf("test execution failed because spec.results[%v].policy not found in spec.policies", k)
 		}
 
-		for _, res := range tests.Spec.Results {
-			for _, testr := range res.Resources {
+		for re, res := range tests.Spec.Results {
+			for resk, testr := range res.Resources {
 				n = false
 				name := strings.FieldsFunc(testr.Old, Split)
+				if testr.Old == "" {
+					return fmt.Errorf("results[%v].resources[%v].old field is mandaotry", re, resk)
+				}
 				for k := range resourcesMap {
 					if k == name[0] {
 						n = true
@@ -176,6 +179,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		}
 
 		for re, res := range tests.Spec.Results {
+			if len(res.Resources) < 1 {
+				return fmt.Errorf("results[%v].resources is found empty", re)
+			}
 			for resk, testr := range res.Resources {
 				rf = false
 				pf = false
@@ -304,6 +310,8 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		}
 		if r.Result == "" {
 			return fmt.Errorf("test execution failed because spec.results[%v].result is empty", k)
+		} else if r.Result != "fail" && r.Result != "pass" && r.Result != "skip" {
+			return fmt.Errorf("test execution failed because spec.results[%v].result is not correct. only pass, fail or skip value can be used", k)
 		}
 
 		if len(tests.Spec.Variables.Policies) > 0 {
