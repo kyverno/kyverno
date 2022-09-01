@@ -21,6 +21,7 @@ KIND_IMAGE           ?= kindest/node:v1.24.0
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
+KOCACHE              ?= /tmp/ko-cache
 
 #########
 # TOOLS #
@@ -152,15 +153,15 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
@@ -182,27 +183,27 @@ ko-login: $(KO)
 
 .PHONY: ko-publish-kyvernopre
 ko-publish-kyvernopre: ko-login ## Build and publish kyvernopre image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
 ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli
 ko-publish-cli: ko-login ## Build and publish cli image (with ko)
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyvernopre-dev
 ko-publish-kyvernopre-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-dev
 ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli-dev
 ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KOCACHE=$(KOCACHE) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
 ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ## Build and publish all images (with ko)
