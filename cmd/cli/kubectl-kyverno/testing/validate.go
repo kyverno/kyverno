@@ -180,6 +180,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				if testr.Object == "" {
 					return fmt.Errorf("results[%v].resources[%v].object field is mandatory", re, resk)
 				}
+				if len(name) < 4 || len(name) > 5 {
+					return fmt.Errorf("results[%v].resources[%v].object field is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/group/namespace/name", re, resk)
+				}
 				for k := range resourcesMap {
 					if k == name[0] {
 						n = true
@@ -234,6 +237,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							if len(patched) == 0 {
 								return fmt.Errorf("mutate rule detected but result[%v].resources[%v].patched is empty", re, resk)
 							}
+							if len(patched) < 4 || len(patched) > 5 {
+								return fmt.Errorf("results[%v].resources[%v].patched field is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/group/namespace/name", re, resk)
+							}
 							for _, r := range resourcesMap["patchedResource_pool"] {
 								if patched[1] == r.GroupVersionKind().Version && patched[len(patched)-2] == r.GetNamespace() && patched[len(patched)-1] == r.GetName() {
 									if len(patched) == 5 {
@@ -245,7 +251,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 									} else if len(patched) == 4 {
 										pf = true
 									} else {
-										return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/namespace/name", re, resk)
+										return fmt.Errorf("result[%v].resources[%v].patched is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/namespace/name", re, resk)
 									}
 								}
 							}
@@ -266,7 +272,13 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							if len(generated) == 0 {
 								return fmt.Errorf("generate rule policy detected but result[%v].resources[%v].generated is empty", re, resk)
 							}
+							if len(generated) < 4 || len(generated) > 5 {
+								return fmt.Errorf("results[%v].resources[%v].generated field is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/group/namespace/name", re, resk)
+							}
 							if clone != nil {
+								if len(clone) < 4 || len(clone) > 5 {
+									return fmt.Errorf("results[%v].resources[%v].cloneSource field is not defined properly. ---> Correct format - cloneSource: cloneSourceResource:apiversion/group/namespace/name", re, resk)
+								}
 								for _, r := range resourcesMap["cloneSourceResource_pool"] {
 									if clone[1] == r.GroupVersionKind().Version && clone[len(clone)-2] == r.GetNamespace() && clone[len(clone)-1] == r.GetName() {
 										if len(clone) == 5 {
@@ -274,11 +286,11 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 												cf = true
 											}
 										} else if r.GroupVersionKind().Group != "" {
-											return fmt.Errorf("result[%v].resources[%v].clone is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/group/namespace/name", re, resk)
+											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/group/namespace/name", re, resk)
 										} else if len(clone) == 4 {
 											cf = true
 										} else {
-											return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
+											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
 										}
 									}
 								}
