@@ -104,7 +104,7 @@ func Test_NamespaceSelector(t *testing.T) {
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		if toggle.AutogenInternals() {
+		if toggle.AutogenInternals.Enabled() {
 			assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
 		} else {
 			assert.Equal(t, int64(rc.Skip), int64(0))

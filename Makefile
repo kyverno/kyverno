@@ -1,4 +1,4 @@
-.DEFAULT_GOAL: build
+.DEFAULT_GOAL: build-all
 
 ############
 # DEFAULTS #
@@ -18,8 +18,9 @@ IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
 TEST_GIT_BRANCH      ?= main
 KIND_IMAGE           ?= kindest/node:v1.24.0
-
-export K8S_VERSION
+KIND_NAME            ?= kind
+GOOS                 ?= $(shell go env GOOS)
+GOARCH               ?= $(shell go env GOARCH)
 
 #########
 # TOOLS #
@@ -30,6 +31,10 @@ KIND                               := $(TOOLS_DIR)/kind
 KIND_VERSION                       := v0.14.0
 CONTROLLER_GEN                     := $(TOOLS_DIR)/controller-gen
 CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
+CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
+LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
+INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
+CODE_GEN_VERSION                   := v0.19.0
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -39,10 +44,10 @@ KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
-HELM_DOCS_VERSION                  := v1.6.0
+HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := v0.12.0
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -54,6 +59,15 @@ $(KIND):
 
 $(CONTROLLER_GEN):
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
+
+$(CLIENT_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/client-gen@$(CODE_GEN_VERSION)
+
+$(LISTER_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/lister-gen@$(CODE_GEN_VERSION)
+
+$(INFORMER_GEN):
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/informer-gen@$(CODE_GEN_VERSION)
 
 $(GEN_CRD_API_REFERENCE_DOCS):
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
@@ -92,8 +106,6 @@ KYVERNO_BIN    := $(KYVERNO_DIR)/kyverno
 KYVERNOPRE_BIN := $(KYVERNOPRE_DIR)/kyvernopre
 CLI_BIN        := $(CLI_DIR)/kubectl-kyverno
 PACKAGE        ?= github.com/kyverno/kyverno
-GOOS           ?= $(shell go env GOOS)
-GOARCH         ?= $(shell go env GOARCH)
 CGO_ENABLED    ?= 0 
 LD_FLAGS        = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
 LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DEV) -X $(PACKAGE)/pkg/version.BuildHash=$(GIT_HASH) -X $(PACKAGE)/pkg/version.BuildTime=$(TIMESTAMP)"
@@ -115,22 +127,23 @@ $(KYVERNOPRE_BIN): fmt vet
 $(CLI_BIN): fmt vet
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
-.PHONY: build-kyverno
-build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
-
 .PHONY: build-kyvernopre
 build-kyvernopre: $(KYVERNOPRE_BIN) ## Build kyvernopre binary
 
-.PHONY: build-cli
-build-cli: $(CLI_BIN) ## Build CLI binary
+.PHONY: build-kyverno
+build-kyverno: $(KYVERNO_BIN) ## Build kyverno binary
 
-build-all: build-kyverno build-kyvernopre build-cli ## Build all binaries
+.PHONY: build-cli
+build-cli: $(CLI_BIN) ## Build cli binary
+
+build-all: build-kyvernopre build-kyverno build-cli ## Build all binaries
 
 ##############
 # BUILD (KO) #
 ##############
 
-KO_PLATFORM         := linux/amd64,linux/arm64,linux/s390x
+PLATFORMS           := linux/amd64,linux/arm64,linux/s390x
+LOCAL_PLATFORM      := linux/$(GOARCH)
 KO_TAGS             := latest,$(IMAGE_TAG)
 KO_TAGS_DEV         := latest,$(IMAGE_TAG_DEV)
 KYVERNOPRE_IMAGE    := kyvernopre
@@ -139,15 +152,15 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
-ko-build-cli: $(KO) ## Build CLI local image (with ko)
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+ko-build-cli: $(KO) ## Build cli local image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
 ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all local images (with ko)
@@ -168,38 +181,54 @@ ko-login: $(KO)
 	@$(KO) login $(REGISTRY) --username $(REGISTRY_USERNAME) --password $(REGISTRY_PASSWORD)
 
 .PHONY: ko-publish-kyvernopre
-ko-publish-kyvernopre: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
+ko-publish-kyvernopre: ko-login ## Build and publish kyvernopre image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno
-ko-publish-kyverno: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
+ko-publish-kyverno: ko-login ## Build and publish kyverno image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli
-ko-publish-cli: ko-login
-	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(KO_PLATFORM)
+ko-publish-cli: ko-login ## Build and publish cli image (with ko)
+	@LD_FLAGS=$(LD_FLAGS) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyvernopre-dev
-ko-publish-kyvernopre-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+ko-publish-kyvernopre-dev: ko-login ## Build and publish kyvernopre dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNOPRE) $(KO) build $(KYVERNOPRE_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-kyverno-dev
-ko-publish-kyverno-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+ko-publish-kyverno-dev: ko-login ## Build and publish kyverno dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_KYVERNO) $(KO) build $(KYVERNO_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-cli-dev
-ko-publish-cli-dev: ko-login
-	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(KO_PLATFORM)
+ko-publish-cli-dev: ko-login ## Build and publish cli dev image (with ko)
+	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=$(REPO_CLI) $(KO) build $(CLI_DIR) --bare --tags=$(KO_TAGS_DEV) --platform=$(PLATFORMS)
 
 .PHONY: ko-publish-all
-ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli
+ko-publish-all: ko-publish-kyvernopre ko-publish-kyverno ko-publish-cli ## Build and publish all images (with ko)
 
 .PHONY: ko-publish-all-dev
-ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev
+ko-publish-all-dev: ko-publish-kyvernopre-dev ko-publish-kyverno-dev ko-publish-cli-dev ## Build and publish all dev images (with ko)
 
 ##################
-# BUILD (DOCKER) #
+# UTILS (DOCKER) #
 ##################
+
+.PHONY: docker-get-kyvernopre-digest
+docker-get-kyvernopre-digest: ## Get kyvernopre image digest (with docker)
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+
+.PHONY: docker-get-kyvernopre-digest-dev
+docker-get-kyvernopre-digest-dev: ## Get kyvernopre dev image digest (with docker)
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+
+.PHONY: docker-get-kyverno-digest
+docker-get-kyverno-digest: ## Get kyverno image digest (with docker)
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+
+.PHONY: docker-get-kyverno-digest-dev
+docker-get-kyverno-digest-dev: ## Get kyverno dev image digest (with docker)
+	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
 
 .PHONY: docker-buildx-builder
 docker-buildx-builder:
@@ -207,63 +236,140 @@ docker-buildx-builder:
 		docker buildx create --name kyverno --use;\
 	fi
 
-.PHONY: docker-build-initContainer
-docker-build-initContainer: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+##################
+# BUILD (DOCKER) #
+##################
 
-.PHONY: docker-push-initContainer
-docker-push-initContainer: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
-
-.PHONY: docker-push-initContainer-dev
-docker-build-initContainer-dev: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) \
-		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
-		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
-
-.PHONY: docker-push-initContainer-dev
-docker-push-initContainer-dev: docker-buildx-builder
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) \
-		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
-		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+.PHONY: docker-build-kyvernopre
+docker-build-kyvernopre: docker-buildx-builder ## Build kyvernopre local image (with docker)
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
 .PHONY: docker-build-kyverno
-docker-build-kyverno: docker-buildx-builder
-	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+docker-build-kyverno: docker-buildx-builder ## Build kyverno local image (with docker)
+	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-.PHONY: docker-push-kyverno
-docker-push-kyverno: docker-buildx-builder
-	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+.PHONY: docker-build-cli
+docker-build-cli: docker-buildx-builder ## Build cli local image (with docker)
+	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-.PHONY: docker-push-kyverno-dev
-docker-push-kyverno-dev: docker-buildx-builder
-	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) \
+.PHONY: docker-build-all
+docker-build-all: docker-build-kyvernopre docker-build-kyverno docker-build-cli ## Build all local images (with docker)
+
+####################
+# PUBLISH (DOCKER) #
+####################
+
+.PHONY: docker-publish-kyvernopre
+docker-publish-kyvernopre: docker-buildx-builder ## Build and publish kyvernopre image (with docker)
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+.PHONY: docker-publish-kyvernopre-dev
+docker-publish-kyvernopre-dev: docker-buildx-builder ## Build and publish kyvernopre dev image (with docker)
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
+		--tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNOPRE_IMAGE):latest \
+		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
+
+.PHONY: docker-publish-kyverno
+docker-publish-kyverno: docker-buildx-builder ## Build and publish kyverno image (with docker)
+	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+
+.PHONY: docker-publish-kyverno-dev
+docker-publish-kyverno-dev: docker-buildx-builder ## Build and publish kyverno dev image (with docker)
+	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
 		--tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(KYVERNO_IMAGE):latest \
 		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
-.PHONY: docker-build-cli
-docker-build-cli: docker-buildx-builder
-	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plane --platform $(KO_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+.PHONY: docker-publish-cli
+docker-publish-cli: docker-buildx-builder ## Build and publish cli image (with docker)
+	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
 
-.PHONY: docker-push-cli
-docker-push-cli: docker-buildx-builder
-	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plane --push --platform $(KO_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+.PHONY: docker-publish-cli-dev
+docker-publish-cli-dev: docker-buildx-builder ## Build and publish cli dev image (with docker)
+	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --push --platform $(PLATFORMS) \
+		--tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG_DEV) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG_LATEST_DEV)-latest --tag $(REPO)/$(CLI_IMAGE):latest \
+		. --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
-.PHONY: docker-get-initContainer-digest
-docker-get-initContainer-digest:
-	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+.PHONY: docker-publish-all
+docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publish-cli ## Build and publish all images (with docker)
 
-.PHONY: docker-get-initContainer-digest-dev
-docker-get-initContainer-digest-dev:
-	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+.PHONY: docker-publish-all-dev
+docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev ## Build and publish all dev images (with docker)
 
-.PHONY: docker-get-kyverno-digest
-docker-get-kyverno-digest:
-	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+###########
+# CODEGEN #
+###########
 
-.PHONY: docker-get-kyverno-digest-dev
-docker-get-kyverno-digest-dev:
-	@docker buildx imagetools inspect --raw $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) | perl -pe 'chomp if eof' | openssl dgst -sha256 | sed 's/^.* //'
+GOPATH_SHIM        := ${PWD}/.gopath
+PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
+OUT_PACKAGE        := $(PACKAGE)/pkg/client
+INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/policyreport/v1alpha2
+CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
+LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
+INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
+
+$(GOPATH_SHIM):
+	@echo Create gopath shim...
+	@mkdir -p $(GOPATH_SHIM)
+
+.INTERMEDIATE: $(PACKAGE_SHIM)
+$(PACKAGE_SHIM): $(GOPATH_SHIM)
+	@echo Create package shim...
+	@mkdir -p $(GOPATH_SHIM)/src/github.com/kyverno && ln -s -f ${PWD} $(PACKAGE_SHIM)
+
+.PHONY: codegen-client-clientset
+codegen-client-clientset: $(PACKAGE_SHIM) $(CLIENT_GEN) ## Generate clientset
+	@echo Generate clientset...
+	@GOPATH=$(GOPATH_SHIM) $(CLIENT_GEN) --go-header-file ./scripts/boilerplate.go.txt --clientset-name versioned --output-package $(CLIENTSET_PACKAGE) --input-base "" --input $(INPUT_DIRS)
+
+.PHONY: codegen-client-listers
+codegen-client-listers: $(PACKAGE_SHIM) $(LISTER_GEN) ## Generate listers
+	@echo Generate listers...
+	@GOPATH=$(GOPATH_SHIM) $(LISTER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(LISTERS_PACKAGE) --input-dirs $(INPUT_DIRS)
+
+.PHONY: codegen-client-informers
+codegen-client-informers: $(PACKAGE_SHIM) $(INFORMER_GEN) ## Generate informers
+	@echo Generate informers...
+	@GOPATH=$(GOPATH_SHIM) $(INFORMER_GEN) --go-header-file ./scripts/boilerplate.go.txt --output-package $(INFORMERS_PACKAGE) --input-dirs $(INPUT_DIRS) --versioned-clientset-package $(CLIENTSET_PACKAGE)/versioned --listers-package $(LISTERS_PACKAGE)
+
+.PHONY: codegen-client-all
+codegen-client-all: codegen-client-clientset codegen-client-listers codegen-client-informers ## Generate clientset, listers and informers
+
+.PHONY: codegen-crds-kyverno
+codegen-crds-kyverno: $(CONTROLLER_GEN) ## Generate kyverno CRDs
+	@echo Generate kyverno crds...
+	@$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-report
+codegen-crds-report: $(CONTROLLER_GEN) ## Generate policy reports CRDs
+	@echo Generate policy reports crds...
+	@$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
+
+.PHONY: codegen-crds-all
+codegen-crds-all: codegen-crds-kyverno codegen-crds-report ## Generate all CRDs
+
+.PHONY: codegen-deepcopy-kyverno
+codegen-deepcopy-kyverno: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate kyverno deep copy functions
+	@echo Generate kyverno deep copy functions...
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/kyverno/..." && $(GOIMPORTS) -w ./api/kyverno
+
+.PHONY: codegen-deepcopy-report
+codegen-deepcopy-report: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate policy reports deep copy functions
+	@echo Generate policy reports deep copy functions...
+	@$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./api/policyreport/..." && $(GOIMPORTS) -w ./api/policyreport
+
+.PHONY: codegen-deepcopy-all
+codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Generate all deep copy functions
+
+.PHONY: codegen-api-docs
+codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
+	@echo Generate api docs...
+	@rm -rf docs/crd && mkdir -p docs/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
+
+.PHONY: codegen-all
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
 
 ##################################
 # KYVERNO
@@ -283,16 +389,8 @@ unused-package-check:
 # Generate Docs for types.go
 ##################################
 
-.PHONY: generate-api-docs
-generate-api-docs: $(GEN_CRD_API_REFERENCE_DOCS) ## Generate api reference docs
-	rm -rf docs/crd
-	mkdir docs/crd
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	$(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
-
 .PHONY: verify-api-docs
-verify-api-docs: generate-api-docs ## Check api reference docs are up to date
+verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 	git --no-pager diff docs
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
 	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
@@ -378,23 +476,19 @@ code-cov-report: ## Generate code coverage report
 
 # Test E2E
 test-e2e:
-	$(eval export E2E="ok")
-	go test ./test/e2e/verifyimages -v
-	go test ./test/e2e/metrics -v
-	go test ./test/e2e/mutate -v
-	go test ./test/e2e/generate -v
-	$(eval export E2E="")
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
 
 test-e2e-local:
-	$(eval export E2E="ok")
 	kubectl apply -f https://raw.githubusercontent.com/kyverno/kyverno/main/config/github/rbac.yaml
 	kubectl port-forward -n kyverno service/kyverno-svc-metrics  8000:8000 &
-	go test ./test/e2e/verifyimages -v
-	go test ./test/e2e/metrics -v
-	go test ./test/e2e/mutate -v
-	go test ./test/e2e/generate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/verifyimages -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/metrics -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/mutate -v
+	E2E=ok K8S_VERSION=$(K8S_VERSION) go test ./test/e2e/generate -v
 	kill  $!
-	$(eval export E2E="")
 
 helm-test-values:
 	sed -i -e "s|nameOverride:.*|nameOverride: kyverno|g" charts/kyverno/values.yaml
@@ -427,7 +521,7 @@ release-notes:
 ##################################
 
 .PHONY: kyverno-crd
-kyverno-crd: $(CONTROLLER_GEN) ## Generate Kyverno CRDs
+kyverno-crd: $(CONTROLLER_GEN) ## Generate kyverno CRDs
 	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
 
 .PHONY: report-crd
@@ -462,10 +556,13 @@ verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify a
 # HELM
 ##################################
 
+# .PHONY: gen-helm-docs
 .PHONY: gen-helm-docs
-gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
-	# @$(HELM_DOCS) -s file
-	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
+gen-helm-docs: ## Generate Helm docs
+	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+# gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
+# 	# @$(HELM_DOCS) -s file
+# 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
 gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
@@ -477,22 +574,49 @@ verify-helm: gen-helm ## Check Helm charts are up to date
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
 	git diff --quiet --exit-code charts
 
-##################################
-# HELP
-##################################
+########
+# KIND #
+########
 
-.PHONY: help
-help: ## Shows the available commands
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+.PHONY: kind-create-cluster
+kind-create-cluster: $(KIND) ## Create kind cluster
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
 
-.PHONY: kind-deploy
-kind-deploy: $(KIND) ko-build-initContainer-local ko-build-kyverno-local
-	$(KIND) load docker-image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
-	$(KIND) load docker-image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
-	helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+.PHONY: kind-delete-cluster
+kind-delete-cluster: $(KIND) ## Delete kind cluster
+	@$(KIND) delete cluster --name $(KIND_NAME)
+
+.PHONY: kind-load-kyvernopre
+kind-load-kyvernopre: $(KIND) ko-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: kind-load-kyverno
+kind-load-kyverno: $(KIND) ko-build-kyverno ## Build kyverno image and load it in kind cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+
+.PHONY: kind-load-all
+kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
+
+.PHONY: kind-deploy-kyverno
+kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(KYVERNO_KIND_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(INITC_KIND_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
-	helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+
+.PHONY: kind-deploy-kyverno-policies
+kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
+	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+
+.PHONY: kind-deploy-all
+kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+
+########
+# HELP #
+########
+
+.PHONY: help
+help: ## Shows the available commands
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-40s\033[0m %s\n", $$1, $$2}'
