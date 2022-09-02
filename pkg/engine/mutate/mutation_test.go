@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 
-	types "github.com/kyverno/kyverno/api/kyverno/v1"
+	types "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"gotest.tools/assert"

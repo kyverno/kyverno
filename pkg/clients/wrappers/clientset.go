@@ -5,6 +5,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v2beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -14,6 +15,7 @@ import (
 type Interface interface {
 	VersionedClient() versioned.Interface
 	KyvernoV1() kyvernov1.KyvernoV1Interface
+	KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface
 	KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface
 	KyvernoV1alpha2() kyvernov1alpha2.KyvernoV1alpha2Interface
 	Wgpolicyk8sV1alpha2() wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface
@@ -22,6 +24,7 @@ type Interface interface {
 type Clientset struct {
 	versionedClient     versioned.Interface
 	kyvernoV1           *kyvernov1.KyvernoV1Client
+	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV1alpha2     *kyvernov1alpha2.KyvernoV1alpha2Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
@@ -33,6 +36,10 @@ func (c *Clientset) VersionedClient() versioned.Interface {
 
 func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return c.kyvernoV1
+}
+
+func (c *Clientset) KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface {
+	return c.kyvernoV2beta1
 }
 
 func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
@@ -61,6 +68,11 @@ func NewForConfig(c *rest.Config, m *metrics.MetricsConfig) (*Clientset, error) 
 	cs.kyvernoV1 = kyvernov1.NewForConfig(
 		kClientset.KyvernoV1().RESTClient(),
 		kClientset.KyvernoV1(),
+		clientQueryMetric)
+
+	cs.kyvernoV2beta1 = kyvernov2beta1.NewForConfig(
+		kClientset.KyvernoV2beta1().RESTClient(),
+		kClientset.KyvernoV2beta1(),
 		clientQueryMetric)
 
 	cs.kyvernoV1beta1 = kyvernov1beta1.NewForConfig(

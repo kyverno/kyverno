@@ -3,7 +3,7 @@ package common
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 )

@@ -1,7 +1,7 @@
 package policy
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -36,9 +36,6 @@ func isMatchResourcesAllValid(rule kyvernov1.Rule) bool {
 
 func fetchUniqueKinds(rule kyvernov1.Rule) []string {
 	var kindlist []string
-
-	kindlist = append(kindlist, rule.MatchResources.Kinds...)
-
 	for _, all := range rule.MatchResources.Any {
 		kindlist = append(kindlist, all.Kinds...)
 	}

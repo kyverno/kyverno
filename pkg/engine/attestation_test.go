@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/image"
@@ -228,9 +228,9 @@ var scanPredicate = `
 
 func Test_Conditions(t *testing.T) {
 
-	conditions := []v1.AnyAllConditions{
+	conditions := []v2beta1.AnyAllConditions{
 		{
-			AnyConditions: []v1.Condition{
+			AnyConditions: []v2beta1.Condition{
 				{
 					RawKey:   &apiextv1.JSON{Raw: []byte("\"{{ matches[].vulnerability[].cvss[?metrics.impactScore > '8.0'][] | length(@) }}\"")},
 					Operator: "Equals",

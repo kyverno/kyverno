@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
@@ -75,10 +75,6 @@ func CanAutoGen(spec *kyvernov1.Spec) (applyAutoGen bool, controllers string) {
 			return false, "none"
 		}
 		match, exclude := rule.MatchResources, rule.ExcludeResources
-		if !checkAutogenSupport(&needed, match.ResourceDescription, exclude.ResourceDescription) {
-			logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in resource description may not be applicable.", "rule", rule.Name)
-			return false, ""
-		}
 		for _, value := range match.Any {
 			if !checkAutogenSupport(&needed, value.ResourceDescription) {
 				logger.V(3).Info("skip generating rule on pod controllers: Name / Selector in match any block is not be applicable.", "rule", rule.Name)
@@ -263,7 +259,7 @@ func convertRule(rule kyvernoRule, kind string) (*kyvernov1.Rule, error) {
 		out.Context = *rule.Context
 	}
 	if rule.AnyAllConditions != nil {
-		out.SetAnyAllConditions(*rule.AnyAllConditions)
+		out.RawAnyAllConditions = rule.AnyAllConditions
 	}
 	if rule.Mutation != nil {
 		out.Mutation = *rule.Mutation

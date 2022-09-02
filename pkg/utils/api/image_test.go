@@ -3,7 +3,7 @@ package api
 import (
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"gotest.tools/assert"

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -382,7 +382,7 @@ func Test_Exclude(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec.Rules[0].ExcludeResources.Any[0].Namespaces = []string{"fake-namespce"}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
@@ -446,7 +446,7 @@ func Test_ForEachPod(t *testing.T) {
 
 	policy := policies[0]
 	spec := policy.GetSpec()
-	spec.Rules[0].ExcludeResources.Namespaces = []string{"fake-namespce"}
+	spec.Rules[0].ExcludeResources.Any[0].Namespaces = []string{"fake-namespce"}
 
 	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
 	if len(errs) != 0 {
@@ -486,8 +486,8 @@ func Test_CronJob_hasExclude(t *testing.T) {
 
 	spec := policy.GetSpec()
 	rule := spec.Rules[0].DeepCopy()
-	rule.ExcludeResources.Kinds = []string{"Pod"}
-	rule.ExcludeResources.Namespaces = []string{"test"}
+	rule.ExcludeResources.Any[0].Kinds = []string{"Pod"}
+	rule.ExcludeResources.Any[0].Namespaces = []string{"test"}
 	spec.Rules[0] = *rule
 
 	rulePatches, errs := GenerateRulePatches(spec, controllers)
@@ -691,9 +691,11 @@ spec:
 			expectedRules: []kyverno.Rule{{
 				Name: "check-image",
 				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"Pod"},
-					},
+					Any: kyverno.ResourceFilters{{
+						ResourceDescription: kyverno.ResourceDescription{
+							Kinds: []string{"Pod"},
+						},
+					}},
 				},
 				VerifyImages: []kyverno.ImageVerification{{
 					ImageReferences: []string{"*"},
@@ -730,9 +732,11 @@ kA==
 			}, {
 				Name: "autogen-check-image",
 				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet"},
-					},
+					Any: kyverno.ResourceFilters{{
+						ResourceDescription: kyverno.ResourceDescription{
+							Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet"},
+						},
+					}},
 				},
 				VerifyImages: []kyverno.ImageVerification{{
 					ImageReferences: []string{"*"},
@@ -769,8 +773,12 @@ kA==
 			}, {
 				Name: "autogen-cronjob-check-image",
 				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"CronJob"},
+					Any: kyverno.ResourceFilters{
+						{
+							ResourceDescription: kyverno.ResourceDescription{
+								Kinds: []string{"CronJob"},
+							},
+						},
 					},
 				},
 				VerifyImages: []kyverno.ImageVerification{{

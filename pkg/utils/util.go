@@ -7,7 +7,9 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
+	//kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -15,6 +17,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -352,5 +355,116 @@ func OverrideRuntimeErrorHandler() {
 				logger.V(6).Info("runtime error", "msg", err.Error())
 			},
 		}
+	}
+}
+
+func IsConversionRequired(spec *kyvernov2.Spec) bool {
+	for _, rule := range spec.Rules {
+		if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
+			return true
+		}
+		if rule.RawAnyAllConditions.AnyConditions == nil && rule.RawAnyAllConditions.AllConditions == nil {
+			return true
+		}
+		if rule.Validation.Deny.RawAnyAllConditions.AnyConditions == nil && rule.Validation.Deny.RawAnyAllConditions.AllConditions == nil {
+			return true
+		}
+	}
+	return false
+}
+func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.ClusterPolicy) (policyBytes []byte) {
+
+	if v1Policy != nil {
+		policyCopy := v1Policy
+		var matchResources kyvernov1.MatchResources
+		var preconditions kyvernov2.AnyAllConditions
+		var deny kyvernov2.AnyAllConditions
+
+		for i, rule := range v1Policy.GetSpec().Rules {
+			if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
+				matchResources = kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: *rule.MatchResources.ResourceDescription.DeepCopy(),
+						},
+					},
+				}
+				policyCopy.Spec.Rules[i].MatchResources = matchResources
+			}
+
+			if rule.RawAnyAllConditions != nil {
+				kyvernoAnyAllConditions, _ := ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
+				switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
+				case []kyvernov2.Condition:
+					preconditions = kyvernov2.AnyAllConditions{
+						AnyConditions: typedAnyAllConditions,
+					}
+				}
+				test1, _ := json.Marshal(preconditions)
+				policyCopy.Spec.Rules[i].RawAnyAllConditions = &apiextv1.JSON{Raw: test1}
+			}
+
+			if rule.Validation.Deny != nil {
+				if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+					kyvernoConditions, _ := ApiextensionsJsonToKyvernoConditions(target)
+					switch typedConditions := kyvernoConditions.(type) {
+					case []kyvernov2.Condition:
+						deny = kyvernov2.AnyAllConditions{
+							AnyConditions: typedConditions,
+						}
+					}
+				}
+				test2, _ := json.Marshal(deny)
+				policyCopy.Spec.Rules[i].Validation.Deny.RawAnyAllConditions = &apiextv1.JSON{Raw: test2}
+			}
+		}
+		policyBytes, _ = json.Marshal(policyCopy)
+		return policyBytes
+	} else {
+		clusterPolicyCopy := v1ClusterPolicy
+		var matchResources kyvernov1.MatchResources
+		var preconditions kyvernov2.AnyAllConditions
+		var deny kyvernov2.AnyAllConditions
+
+		for i, rule := range v1ClusterPolicy.GetSpec().Rules {
+			if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
+				matchResources = kyvernov1.MatchResources{
+					Any: []kyvernov1.ResourceFilter{
+						{
+							ResourceDescription: *rule.MatchResources.ResourceDescription.DeepCopy(),
+						},
+					},
+				}
+				clusterPolicyCopy.Spec.Rules[i].MatchResources = matchResources
+			}
+
+			if rule.RawAnyAllConditions != nil {
+				kyvernoAnyAllConditions, _ := ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
+				switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
+				case []kyvernov2.Condition:
+					preconditions = kyvernov2.AnyAllConditions{
+						AnyConditions: typedAnyAllConditions,
+					}
+				}
+				test1, _ := json.Marshal(preconditions)
+				clusterPolicyCopy.Spec.Rules[i].RawAnyAllConditions = &apiextv1.JSON{Raw: test1}
+			}
+
+			if rule.Validation.Deny != nil {
+				if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
+					kyvernoConditions, _ := ApiextensionsJsonToKyvernoConditions(target)
+					switch typedConditions := kyvernoConditions.(type) {
+					case []kyvernov2.Condition:
+						deny = kyvernov2.AnyAllConditions{
+							AnyConditions: typedConditions,
+						}
+					}
+				}
+				test2, _ := json.Marshal(deny)
+				clusterPolicyCopy.Spec.Rules[i].Validation.Deny.RawAnyAllConditions = &apiextv1.JSON{Raw: test2}
+			}
+		}
+		policyBytes, _ = json.Marshal(clusterPolicyCopy)
+		return policyBytes
 	}
 }

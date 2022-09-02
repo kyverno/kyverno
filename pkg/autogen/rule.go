@@ -4,11 +4,10 @@ import (
 	"reflect"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // the kyvernoRule holds the temporary kyverno rule struct
@@ -25,7 +24,7 @@ type kyvernoRule struct {
 	MatchResources   *kyvernov1.MatchResources     `json:"match"`
 	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
 	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *apiextensions.JSON           `json:"preconditions,omitempty"`
+	AnyAllConditions *kyvernov1.AnyAllConditions   `json:"preconditions,omitempty"`
 	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
 	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
 	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
@@ -51,7 +50,7 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
-	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.GetAnyAllConditions())
+	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
 	case kyvernov1.AnyAllConditions:
 		if !reflect.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
@@ -81,17 +80,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.MatchResources.Any = grf(rule.MatchResources.Any, kinds)
 	} else if len(rule.MatchResources.All) > 0 {
 		rule.MatchResources.All = grf(rule.MatchResources.All, kinds)
-	} else {
-		rule.MatchResources.Kinds = kinds
 	}
 	if len(rule.ExcludeResources.Any) > 0 {
 		rule.ExcludeResources.Any = grf(rule.ExcludeResources.Any, kinds)
 	} else if len(rule.ExcludeResources.All) > 0 {
 		rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
-	} else {
-		if len(rule.ExcludeResources.Kinds) != 0 {
-			rule.ExcludeResources.Kinds = kinds
-		}
 	}
 	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
 		newMutation := kyvernov1.Mutation{}

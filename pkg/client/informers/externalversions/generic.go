@@ -21,6 +21,7 @@ package externalversions
 import (
 	"fmt"
 
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	v1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -55,6 +56,15 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
+	// Group=kyverno.io, Version=v2beta1
+	case v2beta1.SchemeGroupVersion.WithResource("clusterpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().ClusterPolicies().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("generaterequests"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().GenerateRequests().Informer()}, nil
+	case v2beta1.SchemeGroupVersion.WithResource("policies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V2beta1().Policies().Informer()}, nil	
+
+
 	// Group=kyverno.io, Version=v1
 	case v1.SchemeGroupVersion.WithResource("clusterpolicies"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().ClusterPolicies().Informer()}, nil

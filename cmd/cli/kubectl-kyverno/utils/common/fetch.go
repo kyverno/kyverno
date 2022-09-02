@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -124,8 +124,11 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 	resourceTypesMap := make(map[string]bool)
 	for _, policy := range policies {
 		for _, rule := range autogen.ComputeRules(policy) {
-			for _, kind := range rule.MatchResources.Kinds {
-				resourceTypesMap[kind] = true
+			all := rule.ExcludeResources.Any
+			for _, value := range all {
+				for _, kind := range value.Kinds {
+					resourceTypesMap[kind] = true
+				}
 			}
 		}
 	}
@@ -292,14 +295,6 @@ func GetPatchedAndGeneratedResource(resourceBytes []byte) (unstructured.Unstruct
 // GetKindsFromRule will return the kinds from policy match block
 func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 	resourceTypesMap := make(map[string]bool)
-	for _, kind := range rule.MatchResources.Kinds {
-		if strings.Contains(kind, "/") {
-			lastElement := kind[strings.LastIndex(kind, "/")+1:]
-			resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
-		}
-		resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(kind)] = true
-	}
-
 	if rule.MatchResources.Any != nil {
 		for _, resFilter := range rule.MatchResources.Any {
 			for _, kind := range resFilter.ResourceDescription.Kinds {

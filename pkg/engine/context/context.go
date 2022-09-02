@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"

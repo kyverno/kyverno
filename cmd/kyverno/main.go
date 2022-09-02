@@ -195,6 +195,7 @@ func main() {
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV2beta1 := kyvernoInformer.Kyverno().V2beta1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
@@ -255,6 +256,7 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+
 		changeRequestLimit,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
@@ -284,6 +286,8 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		kyvernoV2beta1.ClusterPolicies(),
+		kyvernoV2beta1.Policies(),
 		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
@@ -328,6 +332,8 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		kyvernoV2beta1.ClusterPolicies(),
+		kyvernoV2beta1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		configuration,
 		eventGenerator,
@@ -350,6 +356,8 @@ func main() {
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		kyvernoV2beta1.ClusterPolicies(),
+		kyvernoV2beta1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),
 		kubeInformer.Core().V1().Namespaces(),
 		kubeKyvernoInformer.Core().V1().Pods(),
@@ -358,7 +366,7 @@ func main() {
 	)
 
 	policyCache := policycache.NewCache()
-	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), kyvernoV2beta1.ClusterPolicies(), kyvernoV2beta1.Policies())
 
 	auditHandler := webhooksresource.NewValidateAuditHandler(
 		policyCache,

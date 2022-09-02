@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -60,8 +60,8 @@ func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resour
 
 // removeConditions mutates the rule to remove AnyAllConditions
 func removeConditions(rule *kyvernov1.Rule) {
-	if rule.GetAnyAllConditions() != nil {
-		rule.SetAnyAllConditions(nil)
+	if rule.RawAnyAllConditions != nil {
+		rule.RawAnyAllConditions = nil
 	}
 
 	for i, fem := range rule.Mutation.ForEachMutation {

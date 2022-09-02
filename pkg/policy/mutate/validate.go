@@ -3,7 +3,7 @@ package mutate
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule

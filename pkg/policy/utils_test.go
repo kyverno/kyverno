@@ -3,7 +3,7 @@ package policy
 import (
 	"testing"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyverno "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -86,18 +86,6 @@ func Test_fetchUniqueKinds(t *testing.T) {
 		rule kyverno.Rule
 		want []string
 	}{
-		{
-			name: "Unique MatchResource kinds",
-			rule: kyverno.Rule{
-				MatchResources: kyverno.MatchResources{
-					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"kind1", "kind2"},
-					},
-				},
-			},
-			want: []string{"kind1", "kind2"},
-		},
-
 		{
 			name: "Any with same kind are valid",
 			rule: kyverno.Rule{

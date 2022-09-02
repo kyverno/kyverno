@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
@@ -144,7 +144,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func mutateResource(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructured.Unstructured, logger logr.Logger) (*response.RuleResponse, unstructured.Unstructured) {
-	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
+	preconditionsPassed, err := checkPreconditions(logger, ctx, rule.RawAnyAllConditions)
 	if err != nil {
 		return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
 	}
@@ -174,7 +174,7 @@ func mutateForEach(rule *kyvernov1.Rule, ctx *PolicyContext, resource unstructur
 			return ruleError(rule, response.Mutation, "failed to load context", err), resource
 		}
 
-		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.GetAnyAllConditions())
+		preconditionsPassed, err := checkPreconditions(logger, ctx, rule.RawAnyAllConditions)
 		if err != nil {
 			return ruleError(rule, response.Mutation, "failed to evaluate preconditions", err), resource
 		}

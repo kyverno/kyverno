@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -63,22 +63,46 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	if kind == "Namespace" {
 		namespace = ""
 	}
+	match, exclude := rule.MatchResources, rule.ExcludeResources
+	if len(match.Any) > 0 {
+		for _, value := range match.Any {
+			list := pc.getResourceList(kind, namespace, value.Selector, log)
+			if list != nil {
+				for _, r := range list.Items {
+					if pc.match(r, value) {
+						resourceMap[string(r.GetUID())] = r
+					}
+				}
+			}
+			// skip resources to be filtered
 
-	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	if list != nil {
-		for _, r := range list.Items {
-			if pc.match(r, rule) {
-				resourceMap[string(r.GetUID())] = r
+		}
+	} else {
+		for _, value := range match.All {
+			list := pc.getResourceList(kind, namespace, value.Selector, log)
+			if list != nil {
+				for _, r := range list.Items {
+					if pc.match(r, value) {
+						resourceMap[string(r.GetUID())] = r
+					}
+				}
 			}
 		}
 	}
 
-	// skip resources to be filtered
-	excludeResources(resourceMap, rule.ExcludeResources.ResourceDescription, pc.configHandler, log)
+	if len(exclude.Any) > 0 {
+		for _, value := range match.Any {
+			excludeResources(resourceMap, value.ResourceDescription, pc.configHandler, log)
+		}
+	} else {
+		for _, value := range match.All {
+			excludeResources(resourceMap, value.ResourceDescription, pc.configHandler, log)
+		}
+	}
 	return resourceMap
 }
 
-func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Rule) bool {
+func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.ResourceFilter) bool {
 	if r.GetDeletionTimestamp() != nil {
 		return false
 	}
@@ -90,8 +114,8 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Ru
 	}
 
 	// match name
-	if rule.MatchResources.Name != "" {
-		if !wildcard.Match(rule.MatchResources.Name, r.GetName()) {
+	if rule.Name != "" {
+		if !wildcard.Match(rule.Name, r.GetName()) {
 			return false
 		}
 	}

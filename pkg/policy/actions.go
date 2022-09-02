@@ -3,7 +3,7 @@ package policy
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
@@ -61,8 +61,19 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 			}
 		}
 
-		if utils.ContainsString(rule.MatchResources.Kinds, rule.Generation.Kind) {
-			return fmt.Errorf("generation kind and match resource kind should not be the same")
+		match := rule.MatchResources
+		if len(match.Any) > 0 {
+			for _, value := range match.Any {
+				if utils.ContainsString(value.Kinds, rule.Generation.Kind) {
+					return fmt.Errorf("generation kind and match resource kind should not be the same")
+				}
+			}
+		} else {
+			for _, value := range match.All {
+				if utils.ContainsString(value.Kinds, rule.Generation.Kind) {
+					return fmt.Errorf("generation kind and match resource kind should not be the same")
+				}
+			}
 		}
 	}
 

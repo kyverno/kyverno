@@ -3,7 +3,7 @@ package engine
 import (
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -114,24 +114,21 @@ func filterRule(rule kyvernov1.Rule, policyContext *PolicyContext) *response.Rul
 	}
 
 	ruleCopy := rule.DeepCopy()
-	if after, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.GetAnyAllConditions()); err != nil {
+	if preconditions, err := variables.SubstituteAllInPreconditions(logger, ctx, ruleCopy.RawAnyAllConditions); err != nil {
 		logger.V(4).Info("failed to substitute vars in preconditions, skip current rule", "rule name", ruleCopy.Name)
 		return nil
 	} else {
-		ruleCopy.SetAnyAllConditions(after)
-	}
+		copyConditions, err := common.TransformConditions(preconditions)
+		if err != nil {
+			logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
+			return nil
+		}
 
-	// operate on the copy of the conditions, as we perform variable substitution
-	copyConditions, err := common.TransformConditions(ruleCopy.GetAnyAllConditions())
-	if err != nil {
-		logger.V(4).Info("cannot copy AnyAllConditions", "reason", err.Error())
-		return nil
-	}
-
-	// evaluate pre-conditions
-	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
-		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return nil
+		// evaluate pre-conditions
+		if !variables.EvaluateConditions(logger, ctx, copyConditions) {
+			logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
+			return nil
+		}
 	}
 
 	// build rule Response

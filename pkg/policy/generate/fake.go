@@ -1,7 +1,7 @@
 package generate
 
 import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/policy/generate/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )

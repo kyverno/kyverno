@@ -3,7 +3,7 @@ package pss
 import (
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/pod-security-admission/policy"

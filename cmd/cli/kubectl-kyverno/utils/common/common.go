@@ -15,8 +15,8 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -411,11 +411,7 @@ func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructu
 	policyWithNamespaceSelector := false
 OuterLoop:
 	for _, p := range autogen.ComputeRules(policy) {
-		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
-			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
-			policyWithNamespaceSelector = true
-			break
-		}
+
 		for _, m := range p.MatchResources.Any {
 			if m.ResourceDescription.NamespaceSelector != nil {
 				policyWithNamespaceSelector = true
@@ -992,11 +988,20 @@ func CheckVariableForPolicy(valuesMap map[string]map[string]Resource, globalValM
 func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	kindOnwhichPolicyIsApplied := make(map[string]struct{})
 	for _, rule := range autogen.ComputeRules(policy) {
-		for _, kind := range rule.MatchResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		match, exclude := rule.MatchResources, rule.ExcludeResources
+		if len(match.Any) > 0 {
+			for _, v := range match.Any {
+				for _, k := range v.ResourceDescription.Kinds {
+					kindOnwhichPolicyIsApplied[k] = struct{}{}
+				}
+			}
 		}
-		for _, kind := range rule.ExcludeResources.ResourceDescription.Kinds {
-			kindOnwhichPolicyIsApplied[kind] = struct{}{}
+		if len(exclude.Any) > 0 {
+			for _, v := range exclude.Any {
+				for _, k := range v.Kinds {
+					kindOnwhichPolicyIsApplied[k] = struct{}{}
+				}
+			}
 		}
 	}
 	return kindOnwhichPolicyIsApplied

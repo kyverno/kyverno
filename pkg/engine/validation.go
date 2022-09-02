@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -190,12 +190,16 @@ type validator struct {
 
 func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
+	var anyAllConditions kyvernov1.AnyAllConditions
+	if ruleCopy.RawAnyAllConditions != nil {
+		anyAllConditions = *ruleCopy.RawAnyAllConditions
+	}
 	return &validator{
 		log:              log,
 		rule:             ruleCopy,
 		ctx:              ctx,
 		contextEntries:   ruleCopy.Context,
-		anyAllConditions: ruleCopy.GetAnyAllConditions(),
+		anyAllConditions: anyAllConditions,
 		pattern:          ruleCopy.Validation.GetPattern(),
 		anyPattern:       ruleCopy.Validation.GetAnyPattern(),
 		deny:             ruleCopy.Validation.Deny,
@@ -400,8 +404,7 @@ func (v *validator) loadContext() error {
 }
 
 func (v *validator) validateDeny() *response.RuleResponse {
-	anyAllCond := v.deny.GetAnyAllConditions()
-	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, anyAllCond)
+	anyAllCond, err := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.deny.RawAnyAllConditions)
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in deny conditions", err)
 	}

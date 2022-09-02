@@ -9,7 +9,7 @@ import (
 
 	"github.com/googleapis/gnostic/compiler"
 	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -143,8 +143,18 @@ func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) er
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
-			for _, kind := range rule.MatchResources.Kinds {
-				kindToRules[kind] = append(kindToRules[kind], rule)
+			if len(rule.MatchResources.All) > 0 {
+				for _, value := range rule.MatchResources.All {
+					for _, kind := range value.ResourceDescription.Kinds {
+						kindToRules[kind] = append(kindToRules[kind], rule)
+					}
+				}
+			} else {
+				for _, value := range rule.MatchResources.Any {
+					for _, kind := range value.ResourceDescription.Kinds {
+						kindToRules[kind] = append(kindToRules[kind], rule)
+					}
+				}
 			}
 		}
 	}
