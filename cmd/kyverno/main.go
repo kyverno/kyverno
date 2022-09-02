@@ -354,8 +354,6 @@ func main() {
 	urc := background.NewController(
 		kyvernoClient,
 		dynamicClient,
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
 		kyvernoV2beta1.ClusterPolicies(),
 		kyvernoV2beta1.Policies(),
 		kyvernoV1beta1.UpdateRequests(),

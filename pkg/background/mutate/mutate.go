@@ -180,7 +180,7 @@ func updateURStatus(statusControl common.StatusControlInterface, ur kyvernov1bet
 	return nil
 }
 
-func addAnnotation(policy kyvernov1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
+func addAnnotation(policy kyvernov2beta1.PolicyInterface, patched *unstructured.Unstructured, r response.RuleResponse) (patchedNew *unstructured.Unstructured, err error) {
 	if patched == nil {
 		return
 	}

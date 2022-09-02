@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
@@ -67,7 +66,6 @@ type controller struct {
 
 // NewController returns an instance of the Generate-Request Controller
 func NewController(
-	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
 	cpolInformer kyvernov2beta1informers.ClusterPolicyInformer,
