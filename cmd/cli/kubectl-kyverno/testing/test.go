@@ -1116,8 +1116,9 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		_, err := policy2.Validate(policy, nil, true, openAPIController)
 		if err != nil {
 			fmt.Print("\n")
+			fmt.Printf("policy : %v is not a valid policy\n", policy.GetName())
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
-			continue
+			os.Exit(1)
 		}
 
 		matches := common.HasVariables(policy)
