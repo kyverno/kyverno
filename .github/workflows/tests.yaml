@@ -28,9 +28,6 @@ jobs:
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6ca5574367befbc9efdb2fa25978084159c5902d # pin@v1.3.0
 
-      - name: Unshallow
-        run: git fetch --prune --unshallow
-
       - name: Setup go
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # pin@v3
         with:
@@ -65,9 +62,6 @@ jobs:
       - name: Checking unused pkgs using go mod tidy
         run: |
           make unused-package-check
-
-      - name: Verify generated code is up to date
-        run: make verify-codegen
 
       - name: Go vet
         run: |
