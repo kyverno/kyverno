@@ -21,6 +21,7 @@ KIND_IMAGE           ?= kindest/node:v1.24.0
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
 GOARCH               ?= $(shell go env GOARCH)
+BUILD_WITH           ?= ko
 
 #########
 # TOOLS #
@@ -112,19 +113,24 @@ LD_FLAGS_DEV    = "-s -w -X $(PACKAGE)/pkg/version.BuildVersion=$(GIT_VERSION_DE
 
 .PHONY: fmt
 fmt: ## Run go fmt
+	@echo Go fmt...
 	@go fmt ./...
 
 .PHONY: vet
 vet: ## Run go vet
+	@echo Go vet...
 	@go vet ./...
 
-$(KYVERNO_BIN): fmt vet
-	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO_BIN) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
-
 $(KYVERNOPRE_BIN): fmt vet
+	@echo Build kyvernopre binary...
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
 
+$(KYVERNO_BIN): fmt vet
+	@echo Build kyverno binary...
+	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNO_BIN) -ldflags=$(LD_FLAGS) $(KYVERNO_DIR)
+
 $(CLI_BIN): fmt vet
+	@echo Build cli binary...
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(CLI_BIN) -ldflags=$(LD_FLAGS) $(CLI_DIR)
 
 .PHONY: build-kyvernopre
@@ -152,14 +158,17 @@ CLI_IMAGE           := kyverno-cli
 
 .PHONY: ko-build-kyvernopre
 ko-build-kyvernopre: $(KO) ## Build kyvernopre local image (with ko)
+	@echo Build kyvernopre local image with ko...
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNOPRE_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-kyverno
 ko-build-kyverno: $(KO) ## Build kyverno local image (with ko)
+	@echo Build kyverno local image with ko...
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(KYVERNO_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-cli
 ko-build-cli: $(KO) ## Build cli local image (with ko)
+	@echo Build cli local image with ko...
 	@LD_FLAGS=$(LD_FLAGS_DEV) KO_DOCKER_REPO=ko.local $(KO) build $(CLI_DIR) --preserve-import-paths --tags=$(KO_TAGS_DEV) --platform=$(LOCAL_PLATFORM)
 
 .PHONY: ko-build-all
@@ -172,9 +181,9 @@ ko-build-all: ko-build-kyvernopre ko-build-kyverno ko-build-cli ## Build all loc
 REPO_KYVERNOPRE     := $(REPO)/$(KYVERNOPRE_IMAGE)
 REPO_KYVERNO        := $(REPO)/$(KYVERNO_IMAGE)
 REPO_CLI            := $(REPO)/$(CLI_IMAGE)
-REGISTRY_USERNAME	?= dummy
-INITC_KIND_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
-KYVERNO_KIND_IMAGE  := ko.local/github.com/kyverno/kyverno/cmd/kyverno
+REGISTRY_USERNAME   ?= dummy
+KO_KYVERNOPRE_IMAGE := ko.local/github.com/kyverno/kyverno/cmd/initcontainer
+KO_KYVERNO_IMAGE    := ko.local/github.com/kyverno/kyverno/cmd/kyverno
 
 .PHONY: ko-login
 ko-login: $(KO)
@@ -240,17 +249,23 @@ docker-buildx-builder:
 # BUILD (DOCKER) #
 ##################
 
+DOCKER_KYVERNOPRE_IMAGE := $(REPO)/$(KYVERNOPRE_IMAGE)
+DOCKER_KYVERNO_IMAGE    := $(REPO)/$(KYVERNO_IMAGE)
+
 .PHONY: docker-build-kyvernopre
 docker-build-kyvernopre: docker-buildx-builder ## Build kyvernopre local image (with docker)
-	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@echo Build kyvernopre local image with docker...
+	@docker buildx build --file $(KYVERNOPRE_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-build-kyverno
 docker-build-kyverno: docker-buildx-builder ## Build kyverno local image (with docker)
-	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@echo Build kyverno local image with docker...
+	@docker buildx build --file $(KYVERNO_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(KYVERNO_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-build-cli
 docker-build-cli: docker-buildx-builder ## Build cli local image (with docker)
-	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG) . --build-arg LD_FLAGS=$(LD_FLAGS)
+	@echo Build cli local image with docker...
+	@docker buildx build --file $(CLI_DIR)/Dockerfile --progress plain --load --platform $(LOCAL_PLATFORM) --tag $(REPO)/$(CLI_IMAGE):$(IMAGE_TAG_DEV) . --build-arg LD_FLAGS=$(LD_FLAGS_DEV)
 
 .PHONY: docker-build-all
 docker-build-all: docker-build-kyvernopre docker-build-kyverno docker-build-cli ## Build all local images (with docker)
@@ -294,6 +309,25 @@ docker-publish-all: docker-publish-kyvernopre docker-publish-kyverno docker-publ
 
 .PHONY: docker-publish-all-dev
 docker-publish-all-dev: docker-publish-kyvernopre-dev docker-publish-kyverno-dev docker-publish-cli-dev ## Build and publish all dev images (with docker)
+
+#################
+# BUILD (IMAGE) #
+#################
+
+LOCAL_KYVERNOPRE_IMAGE := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNOPRE_IMAGE)
+LOCAL_KYVERNO_IMAGE    := $($(shell echo $(BUILD_WITH) | tr '[:lower:]' '[:upper:]')_KYVERNO_IMAGE)
+
+.PHONY: image-build-kyvernopre
+image-build-kyvernopre: $(BUILD_WITH)-build-kyvernopre
+
+.PHONY: image-build-kyverno
+image-build-kyverno: $(BUILD_WITH)-build-kyverno
+
+.PHONY: image-build-cli
+image-build-cli: $(BUILD_WITH)-build-cli
+
+.PHONY: image-build-all
+image-build-all: $(BUILD_WITH)-build-all
 
 ###########
 # CODEGEN #
@@ -371,6 +405,41 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 .PHONY: codegen-all
 codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
 
+##################
+# VERIFY CODEGEN #
+##################
+
+.PHONY: verify-crds
+verify-crds: codegen-crds-all ## Check CRDs are up to date
+	@git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".'
+	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code config
+
+.PHONY: verify-client
+verify-client: codegen-client-all ## Check client is up to date
+	@git --no-pager diff pkg/client
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
+	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code pkg/client
+
+.PHONY: verify-deepcopy
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
+	@git --no-pager diff api
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".'
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code api
+
+.PHONY: verify-api-docs
+verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
+	@git --no-pager diff docs
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
+	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code docs
+
+.PHONY: verify-codegen
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+
 ##################################
 # KYVERNO
 ##################################
@@ -386,17 +455,6 @@ unused-package-check:
 	fi
 
 ##################################
-# Generate Docs for types.go
-##################################
-
-.PHONY: verify-api-docs
-verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	git --no-pager diff docs
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
-	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code docs
-
-##################################
 # Create e2e Infrastructure
 ##################################
 
@@ -408,17 +466,17 @@ kind-e2e-cluster: $(KIND) ## Create kind cluster for e2e tests
 .PHONY: e2e-kustomize
 e2e-kustomize: $(KUSTOMIZE) ## Build kustomize manifests for e2e tests
 	cd config && \
-	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNOPRE_IMAGE)=$(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV) && \
-	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNOPRE_IMAGE)=$(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV) && \
+	$(KUSTOMIZE) edit set image $(REPO)/$(KYVERNO_IMAGE)=$(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 	$(KUSTOMIZE) build config/ -o config/install.yaml
 
 .PHONY: e2e-init-container
-e2e-init-container: kind-e2e-cluster | ko-build-kyvernopre
-	$(KIND) load docker-image $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
+e2e-init-container: kind-e2e-cluster | image-build-kyvernopre
+	$(KIND) load docker-image $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: e2e-kyverno-container
-e2e-kyverno-container: kind-e2e-cluster | ko-build-kyverno
-	$(KIND) load docker-image $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+e2e-kyverno-container: kind-e2e-cluster | image-build-kyverno
+	$(KIND) load docker-image $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: create-e2e-infrastructure
 create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomize | ## Setup infrastructure for e2e tests
@@ -495,13 +553,13 @@ helm-test-values:
 	sed -i -e "s|fullnameOverride:.*|fullnameOverride: kyverno|g" charts/kyverno/values.yaml
 	sed -i -e "s|namespace:.*|namespace: kyverno|g" charts/kyverno/values.yaml
 	sed -i -e "s|tag:  # replaced in e2e tests.*|tag: $(IMAGE_TAG_DEV)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(INITC_KIND_IMAGE)|" charts/kyverno/values.yaml
-	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(KYVERNO_KIND_IMAGE)|" charts/kyverno/values.yaml
+	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(LOCAL_KYVERNOPRE_IMAGE)|" charts/kyverno/values.yaml
+	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(LOCAL_KYVERNO_IMAGE)|" charts/kyverno/values.yaml
 
 .PHONY: kustomize-crd
 kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
 	# Create CRD for helm deployment Helm
-	$(KUSTOMIZE) build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	$(KUSTOMIZE) build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -517,42 +575,6 @@ release-notes:
 	true
 
 ##################################
-# CODEGEN
-##################################
-
-.PHONY: kyverno-crd
-kyverno-crd: $(CONTROLLER_GEN) ## Generate kyverno CRDs
-	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
-
-.PHONY: report-crd
-report-crd: $(CONTROLLER_GEN) ## Generate policy reports CRDs
-	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
-
-.PHONY: deepcopy-autogen
-deepcopy-autogen: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate deep copy code
-	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GOIMPORTS) -w ./api/
-
-.PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
-
-.PHONY: verify-api
-verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
-	git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
-	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code api
-
-.PHONY: verify-config
-verify-config: kyverno-crd report-crd ## Check config is up to date
-	git --no-pager diff config
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
-	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code config
-
-.PHONY: verify-codegen
-verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
-
-##################################
 # HELM
 ##################################
 
@@ -560,19 +582,16 @@ verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify a
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
-# gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
-# 	# @$(HELM_DOCS) -s file
-# 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
 gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git --no-pager diff charts
+	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts
+	@git diff --quiet --exit-code charts
 
 ########
 # KIND #
@@ -587,12 +606,12 @@ kind-delete-cluster: $(KIND) ## Delete kind cluster
 	@$(KIND) delete cluster --name $(KIND_NAME)
 
 .PHONY: kind-load-kyvernopre
-kind-load-kyvernopre: $(KIND) ko-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
-	@$(KIND) load docker-image --name $(KIND_NAME) $(INITC_KIND_IMAGE):$(IMAGE_TAG_DEV)
+kind-load-kyvernopre: $(KIND) image-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-kyverno
-kind-load-kyverno: $(KIND) ko-build-kyverno ## Build kyverno image and load it in kind cluster
-	@$(KIND) load docker-image --name $(KIND_NAME) $(KYVERNO_KIND_IMAGE):$(IMAGE_TAG_DEV)
+kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
+	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-all
 kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
@@ -600,9 +619,9 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load t
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
-		--set image.repository=$(KYVERNO_KIND_IMAGE) \
+		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
-		--set initImage.repository=$(INITC_KIND_IMAGE) \
+		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
 
