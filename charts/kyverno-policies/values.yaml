@@ -92,3 +92,7 @@ customLabels: {}
 
 # -- Policies background mode
 background: true
+
+# -- Kyverno version
+# The default of "autodetect" will try to determine the currently installed version from the deployment
+kyvernoVersion: autodetect
