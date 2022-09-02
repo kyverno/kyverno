@@ -6,21 +6,27 @@ It contains instructions to build, run, and test Kyverno.
 
 - [Tools](#tools)
 - [Building local binaries](#building-local-binaries)
+  - [Building kyvernopre locally](#building-kyvernopre-locally)
+  - [Building kyverno locally](#building-kyverno-locally)
+  - [Building cli locally](#building-cli-locally)
 - [Building local images](#building-local-images)
-    - [Building local images with docker](#building-local-images-with-docker)
-    - [Building local images with ko](#building-local-images-with-ko)
+  - [Building local images with docker](#building-local-images-with-docker)
+  - [Building local images with ko](#building-local-images-with-ko)
+  - [Switching between docker and ko](#switching-between-docker-and-ko)
 - [Pushing images](#pushing-images)
-    - [Pushing images with docker](#pushing-images-with-docker)
-    - [Pushing images with ko](#pushing-images-with-ko)
+  - [Pushing images with docker](#pushing-images-with-docker)
+  - [Pushing images with ko](#pushing-images-with-ko)
 - [Deploying a local build](#deploying-a-local-build)
-    - [Create a local cluster](#create-a-local-cluster)
-    - [Build and load local images](#build-and-load-local-images)
-    - [Deploy with helm](#deploy-with-helm)
+  - [Create a local cluster](#create-a-local-cluster)
+  - [Build and load local images](#build-and-load-local-images)
+  - [Deploy with helm](#deploy-with-helm)
 - [Code generation](#code-generation)
-    - [Generating kubernetes API client](#generating-kubernetes-api-client)
-    - [Generating API deep copy functions](#generating-api-deep-copy-functions)
-    - [Generating CRD definitions](#generating-crd-definitions)
-    - [Generating API docs](#generating-api-docs)
+  - [Generating kubernetes API client](#generating-kubernetes-api-client)
+  - [Generating API deep copy functions](#generating-api-deep-copy-functions)
+  - [Generating CRD definitions](#generating-crd-definitions)
+  - [Generating API docs](#generating-api-docs)
+  <!-- - [Generating helm charts CRDs]
+  - [Generating helm charts docs] -->
 
 ## Tools
 
@@ -99,6 +105,8 @@ For example:
 - `make docker-build-kyverno` creates a docker image using the `docker` build system
 - `make ko-build-kyverno` creates a docker image using the `ko` build system
 
+It is also possible to [switch between docker and ko](#switching-between-docker-and-ko) build systems easily.
+
 <!-- TODO: explain the way images are tagged. -->
 
 ### Building local images with docker
@@ -166,6 +174,21 @@ make ko-build-cli
 ```
 
 The resulting image should be available locally, named `ko.local/github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno`.
+
+### Switching between docker and ko
+
+The sections above cover building images with `docker` or `ko` by prefixing build commands (`docker-build-*` or `ko-build-*`).
+
+You can achieve the same results by setting the `BUILD_WITH` environment variable, and invoke a generic `image-build-*` target:
+```console
+# build kyverno image with ko
+BUILD_WITH=ko     make image-build-kyverno
+# build kyverno image with docker
+BUILD_WITH=docker make image-build-kyverno
+```
+
+Depending on the `BUILD_WITH` environment variable (default value is `ko`), the resulting images will be the same as noted in sections
+[building local images with docker](#building-local-images-with-docker) and [building local images with ko](#building-local-images-with-ko).
 
 ## Pushing images
 
@@ -293,7 +316,10 @@ The resulting image should be available remotely, named `ghcr.io/kyverno/kyverno
 
 After [building local images](#building-local-images), it is often useful to deploy those images in a local cluster.
 
-We use [KinD](https://kind.sigs.k8s.io/) to create local clusters easily.
+We use [KinD](https://kind.sigs.k8s.io/) to create local clusters easily, and have targets to:
+- [Create a local cluster](#create-a-local-cluster)
+- [Build and load local images](#build-and-load-local-images)
+- [Deploy with helm](#deploy-with-helm)
 
 ### Create a local cluster
 
@@ -328,6 +354,13 @@ make kind-load-all
 
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
 
+In any case, you can choose the build system (`docker` or `ko`) by setting the `BUILD_WITH` environment variable:
+> **Note**: See [switching between docker and ko](#switching-between-docker-and-ko).
+```console
+# build kyvernopre and kyverno images and load them in KinD cluster (with docker)
+BUILD_WITH=docker make kind-load-all
+```
+
 ### Deploy with helm
 
 To build local images, load them on a local KinD cluster, and deploy helm charts, run:
@@ -348,9 +381,14 @@ make kind-deploy-all
 
 This will build local images, load built images in every node of the KinD cluster, and deploy `kyverno` and/or `kyverno-policies` helm charts in the cluster (overriding image repositories and tags).
 
-> **Note**: This actually uses `ko` to build local images.
-
 You can override the KinD cluster name by setting the `KIND_NAME` environment variable (default value is `kind`).
+
+In any case, you can choose the build system (`docker` or `ko`) by setting the `BUILD_WITH` environment variable:
+> **Note**: See [switching between docker and ko](#switching-between-docker-and-ko).
+```console
+# build images, load them in KinD cluster and deploy helm charts (with docker)
+BUILD_WITH=docker make kind-deploy-all
+```
 
 ## Code generation
 
