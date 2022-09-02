@@ -17,7 +17,7 @@ import (
 // +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:resource:shortName=pol
-
+// +kubebuilder:storageversion
 // Policy declares validation, mutation, and generation behaviors for matching resources.
 // See: https://kyverno.io/docs/writing-policies/ for more information.
 type Policy struct {
