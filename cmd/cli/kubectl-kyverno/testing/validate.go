@@ -176,9 +176,9 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 		for re, res := range tests.Spec.Results {
 			for resk, testr := range res.Resources {
 				n = false
-				name := strings.FieldsFunc(testr.Old, Split)
-				if testr.Old == "" {
-					return fmt.Errorf("results[%v].resources[%v].old field is mandaotry", re, resk)
+				name := strings.FieldsFunc(testr.Object, Split)
+				if testr.Object == "" {
+					return fmt.Errorf("results[%v].resources[%v].object field is mandaotry", re, resk)
 				}
 				for k := range resourcesMap {
 					if k == name[0] {
@@ -200,7 +200,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				pf = false
 				cf = false
 				gf = false
-				name := strings.FieldsFunc(testr.Old, Split)
+				name := strings.FieldsFunc(testr.Object, Split)
 				patched := strings.FieldsFunc(testr.Patched, Split)
 				clone := strings.FieldsFunc(testr.CloneSource, Split)
 				generated := strings.FieldsFunc(testr.Generated, Split)
@@ -212,19 +212,19 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 								rf = true
 							}
 						} else if r.GroupVersionKind().Group != "" {
-							return fmt.Errorf("result[%v].resources[%v].old is not defined properly. ---> Correct format - old: my_resource_pool:apiversion/group/namespace/name", re, resk)
+							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/group/namespace/name", re, resk)
 						} else if len(name) == 4 {
 							rf = true
 						} else {
-							return fmt.Errorf("result[%v].resources[%v].old is not defined properly. ---> Correct format - old: my_resource_pool:apiversion/namespace/name", re, resk)
+							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/namespace/name", re, resk)
 						}
 					}
 				}
 				if !rf {
 					if len(name) == 5 {
-						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].old : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 					} else {
-						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].old : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
 					}
 				}
 
@@ -245,7 +245,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 									} else if len(patched) == 4 {
 										pf = true
 									} else {
-										return fmt.Errorf("result[%v].resources[%v].old is not defined properly. ---> Correct format - old: my_resource_pool:apiversion/namespace/name", re, resk)
+										return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/namespace/name", re, resk)
 									}
 								}
 							}
@@ -278,7 +278,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 										} else if len(clone) == 4 {
 											cf = true
 										} else {
-											return fmt.Errorf("result[%v].resources[%v].old is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
+											return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
 										}
 									}
 								}
