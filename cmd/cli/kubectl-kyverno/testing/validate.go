@@ -180,8 +180,8 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				if testr.Object == "" {
 					return fmt.Errorf("results[%v].resources[%v].object field is mandatory", re, resk)
 				}
-				if len(name) < 4 || len(name) > 5 {
-					return fmt.Errorf("results[%v].resources[%v].object field is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/group/namespace/name", re, resk)
+				if len(name) < 5 || len(name) > 6 {
+					return fmt.Errorf("results[%v].resources[%v].object field is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/kind/group/namespace/name", re, resk)
 				}
 				for k := range resourcesMap {
 					if k == name[0] {
@@ -209,25 +209,25 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				generated := strings.FieldsFunc(testr.Generated, Split)
 
 				for _, r := range resourcesMap[name[0]] {
-					if name[1] == r.GroupVersionKind().Version && name[len(name)-2] == r.GetNamespace() && name[len(name)-1] == r.GetName() {
-						if len(name) == 5 {
-							if r.GroupVersionKind().Group == name[2] {
+					if name[1] == r.GroupVersionKind().Version && name[2] == r.GetKind() && name[len(name)-2] == r.GetNamespace() && name[len(name)-1] == r.GetName() {
+						if len(name) == 6 {
+							if r.GroupVersionKind().Group == name[3] {
 								rf = true
 							}
 						} else if r.GroupVersionKind().Group != "" {
-							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/group/namespace/name", re, resk)
-						} else if len(name) == 4 {
+							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/kind/group/namespace/name", re, resk)
+						} else if len(name) == 5 {
 							rf = true
 						} else {
-							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/namespace/name", re, resk)
+							return fmt.Errorf("result[%v].resources[%v].object is not defined properly. ---> Correct format - object: my_resource_pool:apiversion/kind/namespace/name", re, resk)
 						}
 					}
 				}
 				if !rf {
-					if len(name) == 5 {
-						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+					if len(name) == 6 {
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4], name[5])
 					} else {
-						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+						return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].object : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 					}
 				}
 
@@ -237,29 +237,29 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							if len(patched) == 0 {
 								return fmt.Errorf("mutate rule detected but result[%v].resources[%v].patched is empty", re, resk)
 							}
-							if len(patched) < 4 || len(patched) > 5 {
-								return fmt.Errorf("results[%v].resources[%v].patched field is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/group/namespace/name", re, resk)
+							if len(patched) < 5 || len(patched) > 6 {
+								return fmt.Errorf("results[%v].resources[%v].patched field is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/kind/group/namespace/name", re, resk)
 							}
 							for _, r := range resourcesMap["patchedResource_pool"] {
-								if patched[1] == r.GroupVersionKind().Version && patched[len(patched)-2] == r.GetNamespace() && patched[len(patched)-1] == r.GetName() {
-									if len(patched) == 5 {
-										if r.GroupVersionKind().Group == patched[2] {
+								if patched[1] == r.GroupVersionKind().Version && patched[2] == r.GetKind() && patched[len(patched)-2] == r.GetNamespace() && patched[len(patched)-1] == r.GetName() {
+									if len(patched) == 6 {
+										if r.GroupVersionKind().Group == patched[3] {
 											pf = true
 										}
 									} else if r.GroupVersionKind().Group != "" {
-										return fmt.Errorf("result[%v].resources[%v].patched is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/group/namespace/name", re, resk)
-									} else if len(patched) == 4 {
+										return fmt.Errorf("result[%v].resources[%v].patched is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/kind/group/namespace/name", re, resk)
+									} else if len(patched) == 5 {
 										pf = true
 									} else {
-										return fmt.Errorf("result[%v].resources[%v].patched is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/namespace/name", re, resk)
+										return fmt.Errorf("result[%v].resources[%v].patched is not defined properly. ---> Correct format - patched: patchedResource_pool:apiversion/kind/namespace/name", re, resk)
 									}
 								}
 							}
 							if !pf {
-								if len(patched) == 5 {
-									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+								if len(patched) == 6 {
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4], name[5])
 								} else {
-									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].patched : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 								}
 							}
 						}
@@ -272,66 +272,63 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 							if len(generated) == 0 {
 								return fmt.Errorf("generate rule policy detected but result[%v].resources[%v].generated is empty", re, resk)
 							}
-							if len(generated) < 4 || len(generated) > 5 {
-								return fmt.Errorf("results[%v].resources[%v].generated field is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/group/namespace/name", re, resk)
+							if len(generated) < 5 || len(generated) > 6 {
+								return fmt.Errorf("results[%v].resources[%v].generated field is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/kind/group/namespace/name", re, resk)
 							}
 							if clone != nil {
-								if len(clone) < 4 || len(clone) > 5 {
-									return fmt.Errorf("results[%v].resources[%v].cloneSource field is not defined properly. ---> Correct format - cloneSource: cloneSourceResource:apiversion/group/namespace/name", re, resk)
+								if len(clone) < 5 || len(clone) > 6 {
+									return fmt.Errorf("results[%v].resources[%v].cloneSource field is not defined properly. ---> Correct format - cloneSource: cloneSourceResource:apiversion/kind/group/namespace/name", re, resk)
 								}
 								for _, r := range resourcesMap["cloneSourceResource_pool"] {
-									if clone[1] == r.GroupVersionKind().Version && clone[len(clone)-2] == r.GetNamespace() && clone[len(clone)-1] == r.GetName() {
-										if len(clone) == 5 {
-											if r.GroupVersionKind().Group == clone[2] {
+									if clone[1] == r.GroupVersionKind().Version && clone[2] == r.GetKind() && clone[len(clone)-2] == r.GetNamespace() && clone[len(clone)-1] == r.GetName() {
+										if len(clone) == 6 {
+											if r.GroupVersionKind().Group == clone[3] {
 												cf = true
 											}
 										} else if r.GroupVersionKind().Group != "" {
-											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/group/namespace/name", re, resk)
-										} else if len(clone) == 4 {
+											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/kind/group/namespace/name", re, resk)
+										} else if len(clone) == 5 {
 											cf = true
 										} else {
-											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/namespace/name", re, resk)
+											return fmt.Errorf("result[%v].resources[%v].cloneSource is not defined properly. ---> Correct format - cloneSource: cloneSourceResource_pool:apiversion/kind/namespace/name", re, resk)
 										}
 									}
 								}
 								if !cf {
-									if len(clone) == 5 {
-										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+									if len(clone) == 6 {
+										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4], name[5])
 									} else if len(clone) != 5 && len(clone) != 0 {
-										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+										return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].cloneSource : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 									}
 								}
 							}
 
 							for _, r := range resourcesMap["generatedResource_pool"] {
-								if generated[1] == r.GroupVersionKind().Version && generated[len(generated)-2] == r.GetNamespace() && generated[len(generated)-1] == r.GetName() {
-									if len(generated) == 5 {
-										if r.GroupVersionKind().Group == generated[2] {
+								if generated[1] == r.GroupVersionKind().Version && generated[2] == r.GetKind() && generated[len(generated)-2] == r.GetNamespace() && generated[len(generated)-1] == r.GetName() {
+									if len(generated) == 6 {
+										if r.GroupVersionKind().Group == generated[3] {
 											gf = true
 										}
 									} else if r.GroupVersionKind().Group != "" {
-										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/group/namespace/name", re, resk)
-									} else if len(generated) == 4 {
+										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/kind/group/namespace/name", re, resk)
+									} else if len(generated) == 5 {
 										gf = true
 									} else {
-										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/namespace/name", re, resk)
+										return fmt.Errorf("result[%v].resources[%v].generated is not defined properly. ---> Correct format - generated: generatedResource_pool:apiversion/kind/namespace/name", re, resk)
 									}
 								}
 							}
 							if !gf {
-								if len(generated) == 5 {
-									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
+								if len(generated) == 6 {
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4], name[5])
 								} else {
-									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v", re, resk, name[0], name[1], name[2], name[3])
+									return fmt.Errorf("resources given in the pool didn't match with the results[%v].resources[%v].generated : %v:%v/%v/%v/%v", re, resk, name[0], name[1], name[2], name[3], name[4])
 								}
 							}
 						}
 					}
 				}
 			}
-		}
-		if r.Kind == "" {
-			return fmt.Errorf("test execution failed because spec.results[%v].kind is empty", k)
 		}
 		if r.Result == "" {
 			return fmt.Errorf("test execution failed because spec.results[%v].result is empty", k)
