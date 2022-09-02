@@ -1,9 +1,11 @@
 package wildcard
 
 import (
-	wildcard "github.com/kyverno/go-wildcard"
+	"github.com/gobwas/glob"
 )
 
 func Match(pattern, name string) bool {
-	return wildcard.Match(pattern, name)
+	var g glob.Glob
+	g = glob.MustCompile(pattern)
+	return g.Match(name)
 }

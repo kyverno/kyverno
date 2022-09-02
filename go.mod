@@ -27,7 +27,6 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/kataras/tablewriter v0.0.0-20180708051242-e063d29b7c23
-	github.com/kyverno/go-wildcard v1.0.5
 	github.com/lensesio/tableprinter v0.0.0-20201125135848-89e81fc956e7
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/onsi/ginkgo v1.16.5
@@ -77,7 +76,10 @@ require (
 	google.golang.org/grpc v1.48.0
 )
 
-require github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
+require (
+	github.com/gobwas/glob v0.2.3
+	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
+)
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
@@ -175,7 +177,6 @@ require (
 	github.com/go-playground/locales v0.14.0 // indirect
 	github.com/go-playground/universal-translator v0.18.0 // indirect
 	github.com/go-playground/validator/v10 v10.11.0 // indirect
-	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.2 // indirect
