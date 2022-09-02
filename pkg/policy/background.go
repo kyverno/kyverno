@@ -32,13 +32,6 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 }
 
 func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
-	if path := userInfoDefined(rule.MatchResources.UserInfo); path != "" {
-		return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/%s", idx, path)
-	}
-
-	if path := userInfoDefined(rule.ExcludeResources.UserInfo); path != "" {
-		return fmt.Errorf("invalid variable used at path: spec/rules[%d]/exclude/%s", idx, path)
-	}
 
 	if len(rule.MatchResources.Any) > 0 {
 		for i, value := range rule.MatchResources.Any {

@@ -445,7 +445,7 @@ func convertGR(pclient kyvernoclient.Interface) error {
 	logger := log.Log.WithName("convertGenerateRequest")
 
 	var errors []error
-	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
+	grs, err := pclient.KyvernoV2beta1().GenerateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		logger.Error(err, "failed to list update requests")
 		return err

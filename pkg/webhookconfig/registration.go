@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -78,6 +79,8 @@ func NewRegister(
 	kDeplInformer appsv1informers.DeploymentInformer,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
+	v2pInformer kyvernov2beta1informers.ClusterPolicyInformer,
+	v2npInformer kyvernov2beta1informers.PolicyInformer,
 	metricsConfig metrics.MetricsConfigManager,
 	serverIP string,
 	webhookTimeout int32,
@@ -104,7 +107,7 @@ func NewRegister(
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 	}
 
-	register.manage = newWebhookConfigManager(client.Discovery(), kubeClient, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, metricsConfig, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(client.Discovery(), kubeClient, kyvernoClient, pInformer, npInformer, v2pInformer, v2npInformer, mwcInformer, vwcInformer, metricsConfig, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
 
 	return register
 }
@@ -188,12 +191,12 @@ func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitG
 	}
 
 	logger := wrc.log.WithName("ResetPolicyStatus")
-	cpols, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().List(context.TODO(), metav1.ListOptions{})
+	cpols, err := wrc.kyvernoClient.KyvernoV2beta1().ClusterPolicies().List(context.TODO(), metav1.ListOptions{})
 	if err == nil {
 		for _, item := range cpols.Items {
 			cpol := item
 			cpol.Status.SetReady(false)
-			if _, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
+			if _, err := wrc.kyvernoClient.KyvernoV2beta1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set ClusterPolicy status READY=false", "name", cpol.GetName())
 			}
 		}
@@ -201,12 +204,12 @@ func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitG
 		logger.Error(err, "failed to list clusterpolicies")
 	}
 
-	pols, err := wrc.kyvernoClient.KyvernoV1().Policies(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+	pols, err := wrc.kyvernoClient.KyvernoV2beta1().Policies(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
 	if err == nil {
 		for _, item := range pols.Items {
 			pol := item
 			pol.Status.SetReady(false)
-			if _, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
+			if _, err := wrc.kyvernoClient.KyvernoV2beta1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
 				logger.Error(err, "failed to set Policy status READY=false", "namespace", pol.GetNamespace(), "name", pol.GetName())
 			}
 		}

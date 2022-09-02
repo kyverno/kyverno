@@ -257,7 +257,7 @@ func eraseSplitResultEntries(pclient kyvernoclient.Interface, ns *string, select
 
 func (pc *PolicyController) requeuePolicies() {
 	logger := pc.log.WithName("requeuePolicies")
-	if cpols, err := pc.pLister.List(labels.Everything()); err == nil {
+	if cpols, err := pc.v2pLister.List(labels.Everything()); err == nil {
 		for _, cpol := range cpols {
 			if !pc.canBackgroundProcess(cpol) {
 				continue
@@ -267,7 +267,7 @@ func (pc *PolicyController) requeuePolicies() {
 	} else {
 		logger.Error(err, "unable to list ClusterPolicies")
 	}
-	if pols, err := pc.npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
+	if pols, err := pc.v2npLister.Policies(metav1.NamespaceAll).List(labels.Everything()); err == nil {
 		for _, p := range pols {
 			if !pc.canBackgroundProcess(p) {
 				continue

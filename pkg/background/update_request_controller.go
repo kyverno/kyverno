@@ -7,13 +7,14 @@ import (
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/background/mutate"
-	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	pkgCommon "github.com/kyverno/kyverno/pkg/common"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1informers "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/kubernetes"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/retry"
@@ -48,8 +50,8 @@ type controller struct {
 	kyvernoClient kyvernoclient.Interface
 
 	// listers
-	cpolLister kyvernov1listers.ClusterPolicyLister
-	polLister  kyvernov1listers.PolicyLister
+	cpolLister kyvernov2beta1listers.ClusterPolicyLister
+	polLister  kyvernov2beta1listers.PolicyLister
 	urLister   kyvernov1beta1listers.UpdateRequestNamespaceLister
 	nsLister   corev1listers.NamespaceLister
 	podLister  corev1listers.PodLister
@@ -65,10 +67,11 @@ type controller struct {
 
 // NewController returns an instance of the Generate-Request Controller
 func NewController(
+	kubeClient kubernetes.Interface,
 	kyvernoClient kyvernoclient.Interface,
 	client dclient.Interface,
-	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-	polInformer kyvernov1informers.PolicyInformer,
+	cpolInformer kyvernov2beta1informers.ClusterPolicyInformer,
+	polInformer kyvernov2beta1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	namespaceInformer corev1informers.NamespaceInformer,
 	podInformer corev1informers.PodInformer,
@@ -419,7 +422,7 @@ func (c *controller) cleanUR(ur *kyvernov1beta1.UpdateRequest) error {
 	return nil
 }
 
-func (c *controller) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+func (c *controller) getPolicy(key string) (kyvernov2beta1.PolicyInterface, error) {
 	namespace, name, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return nil, err

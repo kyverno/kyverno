@@ -2,13 +2,16 @@ package resource
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+
+	//kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
@@ -18,6 +21,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -27,7 +31,7 @@ import (
 func (h *handlers) handleGenerate(
 	logger logr.Logger,
 	request *admissionv1.AdmissionRequest,
-	policies []kyvernov1.PolicyInterface,
+	policies []kyvernov2beta1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	admissionRequestTimestamp time.Time,
 	latencySender *chan int64,
@@ -87,7 +91,7 @@ func (h *handlers) handleGenerate(
 }
 
 // handleUpdatesForGenerateRules handles admission-requests for update
-func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface) {
+func (h *handlers) handleUpdatesForGenerateRules(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov2beta1.PolicyInterface) {
 	if request.Operation != admissionv1.Update {
 		return
 	}
@@ -157,7 +161,7 @@ func (h *handlers) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger
 }
 
 // handleUpdateGenerateTargetResource - handles update of target resource for generate policy
-func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
+func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.AdmissionRequest, policies []kyvernov2beta1.PolicyInterface, resLabels map[string]string, logger logr.Logger) {
 	enqueueBool := false
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
@@ -168,7 +172,17 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+	policy, err := h.kyvernoClient.KyvernoV2beta1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+
+	if utils.IsConversionRequired(policy.GetSpec()) {
+		v1Policy, _ := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+		policyBytes := utils.ConvertPolicyToV2(nil, v1Policy)
+		var v1policy *kyvernov2beta1.Policy
+		if err := json.Unmarshal(policyBytes, &policy); err != nil {
+			logger.Error(err, "failed to convert object resource to unstructured format")
+		}
+		policy = (*kyvernov2beta1.ClusterPolicy)(v1policy)
+	}
 	if err != nil {
 		logger.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return

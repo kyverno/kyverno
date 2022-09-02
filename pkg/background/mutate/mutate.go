@@ -6,9 +6,11 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+
+	//kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -29,8 +31,8 @@ type MutateExistingController struct {
 	statusControl common.StatusControlInterface
 
 	// listers
-	policyLister  kyvernov1listers.ClusterPolicyLister
-	npolicyLister kyvernov1listers.PolicyLister
+	policyLister  kyvernov2beta1listers.ClusterPolicyLister
+	npolicyLister kyvernov2beta1listers.PolicyLister
 
 	configuration config.Configuration
 	eventGen      event.Interface
@@ -42,8 +44,8 @@ type MutateExistingController struct {
 func NewMutateExistingController(
 	client dclient.Interface,
 	statusControl common.StatusControlInterface,
-	policyLister kyvernov1listers.ClusterPolicyLister,
-	npolicyLister kyvernov1listers.PolicyLister,
+	policyLister kyvernov2beta1listers.ClusterPolicyLister,
+	npolicyLister kyvernov2beta1listers.PolicyLister,
 	dynamicConfig config.Configuration,
 	eventGen event.Interface,
 	log logr.Logger,
@@ -136,7 +138,7 @@ func (c *MutateExistingController) ProcessUR(ur *kyvernov1beta1.UpdateRequest) e
 	return updateURStatus(c.statusControl, *ur, err)
 }
 
-func (c *MutateExistingController) getPolicy(key string) (kyvernov1.PolicyInterface, error) {
+func (c *MutateExistingController) getPolicy(key string) (kyvernov2beta1.PolicyInterface, error) {
 	pNamespace, pName, err := cache.SplitMetaNamespaceKey(key)
 	if err != nil {
 		return nil, err
