@@ -68,10 +68,10 @@ func GetImageInfo(image string) (*ImageInfo, error) {
 	}, nil
 }
 
-func addDefaultDomain(name string) string {
+func addDefaultDomain(name string, defaultRegistry string) string {
 	i := strings.IndexRune(name, '/')
 	if i == -1 || (!strings.ContainsAny(name[:i], ".:") && name[:i] != "localhost" && strings.ToLower(name[:i]) == name[:i]) {
-		return "docker.io/" + name
+		return defaultRegistry + name
 	}
 	return name
 }

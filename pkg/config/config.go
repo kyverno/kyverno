@@ -82,6 +82,8 @@ var (
 	kyvernoConfigMapName = osutils.GetEnvWithFallback("INIT_CONFIG", "kyverno")
 	// defaultExcludeGroupRole ...
 	defaultExcludeGroupRole []string = []string{"system:serviceaccounts:kube-system", "system:nodes", "system:kube-scheduler"}
+	// defaultRegistry is the default registry for Kyverno
+	defaultRegistry = "docker.io/"
 )
 
 func KyvernoNamespace() string {
@@ -108,6 +110,8 @@ func KyvernoConfigMapName() string {
 type Configuration interface {
 	// ToFilter checks if the given resource is set to be filtered in the configuration
 	ToFilter(kind, namespace, name string) bool
+	// GetdefaultRegistry returns default registry
+	GetdefaultRegistry() string
 	// GetExcludeGroupRole return exclude roles
 	GetExcludeGroupRole() []string
 	// GetExcludeUsername return exclude username
@@ -126,6 +130,7 @@ type Configuration interface {
 
 // configuration stores the configuration
 type configuration struct {
+	defaultRegistry             string
 	mux                         sync.RWMutex
 	filters                     []filter
 	excludeGroupRole            []string
@@ -140,6 +145,7 @@ type configuration struct {
 // NewConfiguration ...
 func NewConfiguration(client kubernetes.Interface, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) (Configuration, error) {
 	cd := &configuration{
+		defaultRegistry:             defaultRegistry,
 		reconcilePolicyReport:       reconcilePolicyReport,
 		updateWebhookConfigurations: updateWebhookConfigurations,
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
@@ -170,6 +176,12 @@ func (cd *configuration) ToFilter(kind, namespace, name string) bool {
 		}
 	}
 	return false
+}
+
+func (cd *configuration) GetExclGetdefaultRegistry() string {
+	cd.mux.RLock()
+	defer cd.mux.RUnlock()
+	return cd.defaultRegistry
 }
 
 func (cd *configuration) GetExcludeGroupRole() []string {
@@ -239,6 +251,10 @@ func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, upda
 	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
+	//defaultRegistry, ok := cm.Data["defaultRegistry"]
+	//if !ok {
+	//	logger.V(4).Info("configuration: No defaultRegistry defined in ConfigMap")
+	//} else {
 	filters, ok := cm.Data["resourceFilters"]
 	if !ok {
 		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
