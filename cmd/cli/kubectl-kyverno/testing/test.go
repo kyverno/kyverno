@@ -970,7 +970,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	if err := json.Unmarshal(policyBytes, values); err != nil {
 		return sanitizederror.NewWithError("failed to decode yaml", err)
 	}
-	err1 := validation(values, isGit, policyResourcePath)
+	err1 := validation(values, isGit, policyResourcePath, string(policyBytes))
 	if err1 != nil {
 		fmt.Printf("Error : %q\n", err1)
 		os.Exit(1)

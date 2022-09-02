@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -14,8 +15,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/dclient"
 )
 
-func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath string) error {
-
+func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath string, policyBytes string) error {
+	d := json.NewDecoder(strings.NewReader(policyBytes))
+	d.DisallowUnknownFields()
+	if err := d.Decode(&kyvernov1.Test_manifest{}); err != nil {
+		return fmt.Errorf("error : %v", err)
+	}
 	var fs billy.Filesystem
 	var dClient dclient.Interface
 	var rf bool
@@ -36,14 +41,8 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	if tests.TypeMeta.APIVersion == "" {
 		return fmt.Errorf("test execution failed because apiversion is empty")
 	}
-	apiv := strings.FieldsFunc(tests.TypeMeta.APIVersion, Split)
-	if len(apiv) < 2 {
+	if tests.TypeMeta.APIVersion != "cli.kyverno.io/v1beta1" {
 		return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
-	}
-	if len(apiv) > 1 {
-		if apiv[0] != "cli.kyverno.io" || apiv[1] != "v1beta1" {
-			return fmt.Errorf("test execution failed because apiversion value is not correct. Correct format `apiVersion: cli.kyverno.io/v1beta1`")
-		}
 	}
 	if tests.TypeMeta.Kind == "" {
 		return fmt.Errorf("test execution failed because kind is empty")
@@ -140,7 +139,6 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 	}
 
 	for k, r := range tests.Spec.Results {
-
 		if r.Policy == "" {
 			return fmt.Errorf("test execution failed because spec.results[%v].policy is empty", k)
 		}
@@ -375,7 +373,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 					return fmt.Errorf("test execution failed because spec.variables.policies[%v].name does not match with any policy name mentioned in spec.policies", vp)
 				}
 				for vr, vor := range v.Rules {
-					if len(vor.Values) < 1 || len(vor.ForeachValues) < 1 || len(vor.NamespaceSelector) < 1 {
+					if len(vor.Values) < 1 && len(vor.ForeachValues) < 1 && len(vor.NamespaceSelector) < 1 {
 						return fmt.Errorf("test execution failed because spec.variables.policies[%v].rules[%v] is empty", vp, vr)
 					}
 					for ka, voa := range vor.Attestations {
@@ -410,7 +408,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 						if !match {
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].resources[%v].name is not a valid name", vp, re)
 						}
-						if len(vre.Values) < 1 || len(vre.UserInfo.ClusterRoles) < 1 || len(vre.UserInfo.Roles) < 1 || len(vre.UserInfo.Subjects) < 1 {
+						if len(vre.Values) < 1 && len(vre.UserInfo.ClusterRoles) < 1 && len(vre.UserInfo.Roles) < 1 && len(vre.UserInfo.Subjects) < 1 {
 							return fmt.Errorf("test execution failed because spec.variables.policies[%v].recources[%v] is empty", vp, re)
 						}
 						for _, r := range resourcesMap {
