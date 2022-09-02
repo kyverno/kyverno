@@ -14,7 +14,7 @@ type KyvernoV2beta1Interface interface {
 
 type KyvernoV2beta1Client struct {
 	restClient              rest.Interface
-	kyvernov2beta1Interface kyvernov2beta1.KyvernoV1Interface
+	kyvernov2beta1Interface kyvernov2beta1.KyvernoV2beta1Interface
 	clientQueryMetric       utils.ClientQueryMetric
 }
 
@@ -35,6 +35,6 @@ func (c *KyvernoV2beta1Client) RESTClient() rest.Interface {
 	return c.restClient
 }
 
-func NewForConfig(restClient rest.Interface, kyvernov1Interface kyvernov1.KyvernoV1Interface, m utils.ClientQueryMetric) *KyvernoV2beta1Client {
+func NewForConfig(restClient rest.Interface, kyvernov2beta1Interface kyvernov2beta1.KyvernoV2beta1Interface, m utils.ClientQueryMetric) *KyvernoV2beta1Client {
 	return &KyvernoV2beta1Client{restClient, kyvernov2beta1Interface, m}
 }

@@ -35,10 +35,10 @@ type clusterPoliciesControl struct {
 	clientQueryMetric utils.ClientQueryMetric
 }
 
-func newClusterPolicies(c *KyvernoV1Client) *clusterPoliciesControl {
+func newClusterPolicies(c *KyvernoV2beta1Client) *clusterPoliciesControl {
 	return &clusterPoliciesControl{
 		client:            c.RESTClient(),
-		cpolClient:        c.kyvernov1Interface,
+		cpolClient:        c.kyvernov2beta1Interface,
 		clientQueryMetric: c.clientQueryMetric,
 	}
 }
