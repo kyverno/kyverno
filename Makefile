@@ -121,6 +121,13 @@ vet: ## Run go vet
 	@echo Go vet...
 	@go vet ./...
 
+.PHONY: unused-package-check
+unused-package-check:
+	@tidy=$$(go mod tidy); \
+	if [ -n "$${tidy}" ]; then \
+		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
+	fi
+
 $(KYVERNOPRE_BIN): fmt vet
 	@echo Build kyvernopre binary...
 	@CGO_ENABLED=$(CGO_ENABLED) GOOS=$(GOOS) go build -o $(KYVERNOPRE_BIN) -ldflags=$(LD_FLAGS) $(KYVERNOPRE_DIR)
@@ -402,8 +409,21 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
 	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
 
+.PHONY: codegen-helm-docs
+codegen-helm-docs: ## Generate helm docs
+	@echo Generate helm docs...
+	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+
+.PHONY: codegen-helm-crds
+codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
+	@echo Generate helm crds...
+	@$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+
+.PHONY: codegen-helm-all
+codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
+
 .PHONY: codegen-all
-codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs codegen-helm-all ## Generate all generated code
 
 ##################
 # VERIFY CODEGEN #
@@ -433,26 +453,19 @@ verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 	@git --no-pager diff docs
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
-	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".'
+	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.'
 	@git diff --quiet --exit-code docs
+
+.PHONY: verify-helm
+verify-helm: codegen-helm-all ## Check Helm charts are up to date
+	@git --no-pager diff charts
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".'
+	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code charts
 
 .PHONY: verify-codegen
 verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
-
-##################################
-# KYVERNO
-##################################
-
-.PHONY: unused-package-check
-unused-package-check:
-	@echo "------------------"
-	@echo "--> Check unused packages for the all kyverno components"
-	@echo "------------------"
-	@tidy=$$(go mod tidy); \
-	if [ -n "$${tidy}" ]; then \
-		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
-	fi
 
 ##################################
 # Create e2e Infrastructure
@@ -558,8 +571,6 @@ helm-test-values:
 
 .PHONY: kustomize-crd
 kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
-	# Create CRD for helm deployment Helm
-	$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	$(KUSTOMIZE) build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
@@ -573,25 +584,6 @@ release:
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
-
-##################################
-# HELM
-##################################
-
-# .PHONY: gen-helm-docs
-.PHONY: gen-helm-docs
-gen-helm-docs: ## Generate Helm docs
-	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
-
-.PHONY: gen-helm
-gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
-
-.PHONY: verify-helm
-verify-helm: gen-helm ## Check Helm charts are up to date
-	@git --no-pager diff charts
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
-	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
-	@git diff --quiet --exit-code charts
 
 ########
 # KIND #
