@@ -371,6 +371,41 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 .PHONY: codegen-all
 codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs ## Generate clientset, listers, informers, all CRDs, deep copy functions and API docs
 
+##################
+# VERIFY CODEGEN #
+##################
+
+.PHONY: verify-crds
+verify-crds: codegen-crds-all ## Check CRDs are up to date
+	@git --no-pager diff config
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".'
+	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code config
+
+.PHONY: verify-client
+verify-client: codegen-client-all ## Check client is up to date
+	@git --no-pager diff pkg/client
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
+	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code pkg/client
+
+.PHONY: verify-deepcopy
+verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
+	@git --no-pager diff api
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".'
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code api
+
+.PHONY: verify-api-docs
+verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
+	@git --no-pager diff docs
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
+	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
+	@git diff --quiet --exit-code docs
+
+.PHONY: verify-codegen
+verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+
 ##################################
 # KYVERNO
 ##################################
@@ -384,17 +419,6 @@ unused-package-check:
 	if [ -n "$${tidy}" ]; then \
 		echo "go mod tidy checking failed!"; echo "$${tidy}"; echo; \
 	fi
-
-##################################
-# Generate Docs for types.go
-##################################
-
-.PHONY: verify-api-docs
-verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	git --no-pager diff docs
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make generate-api-docs".'
-	@echo 'To correct this, locally run "make generate-api-docs", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code docs
 
 ##################################
 # Create e2e Infrastructure
@@ -517,42 +541,6 @@ release-notes:
 	true
 
 ##################################
-# CODEGEN
-##################################
-
-.PHONY: kyverno-crd
-kyverno-crd: $(CONTROLLER_GEN) ## Generate kyverno CRDs
-	$(CONTROLLER_GEN) crd paths=./api/kyverno/... crd:crdVersions=v1 output:dir=./config/crds
-
-.PHONY: report-crd
-report-crd: $(CONTROLLER_GEN) ## Generate policy reports CRDs
-	$(CONTROLLER_GEN) crd paths=./api/policyreport/... crd:crdVersions=v1 output:dir=./config/crds
-
-.PHONY: deepcopy-autogen
-deepcopy-autogen: $(CONTROLLER_GEN) $(GOIMPORTS) ## Generate deep copy code
-	$(CONTROLLER_GEN) object:headerFile="scripts/boilerplate.go.txt" paths="./..." && $(GOIMPORTS) -w ./api/
-
-.PHONY: codegen
-codegen: kyverno-crd report-crd deepcopy-autogen generate-api-docs gen-helm ## Update all generated code and docs
-
-.PHONY: verify-api
-verify-api: kyverno-crd report-crd deepcopy-autogen ## Check api is up to date
-	git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
-	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code api
-
-.PHONY: verify-config
-verify-config: kyverno-crd report-crd ## Check config is up to date
-	git --no-pager diff config
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen".'
-	@echo 'To correct this, locally run "make codegen", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code config
-
-.PHONY: verify-codegen
-verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify all generated code and docs are up to date
-
-##################################
 # HELM
 ##################################
 
@@ -560,19 +548,16 @@ verify-codegen: verify-api verify-config verify-api-docs verify-helm ## Verify a
 .PHONY: gen-helm-docs
 gen-helm-docs: ## Generate Helm docs
 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
-# gen-helm-docs: $(HELM_DOCS) ## Generate Helm docs
-# 	# @$(HELM_DOCS) -s file
-# 	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.6.0 -s file
 
 .PHONY: gen-helm
 gen-helm: gen-helm-docs kustomize-crd ## Generate Helm charts stuff
 
 .PHONY: verify-helm
 verify-helm: gen-helm ## Check Helm charts are up to date
-	git --no-pager diff charts
+	@git --no-pager diff charts
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make gen-helm".'
 	@echo 'To correct this, locally run "make gen-helm", commit the changes, and re-run tests.'
-	git diff --quiet --exit-code charts
+	@git diff --quiet --exit-code charts
 
 ########
 # KIND #
