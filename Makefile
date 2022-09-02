@@ -501,7 +501,7 @@ helm-test-values:
 .PHONY: kustomize-crd
 kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
 	# Create CRD for helm deployment Helm
-	$(KUSTOMIZE) build ./config/release | kustomize cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 	# Generate install.yaml that have all resources for kyverno
 	$(KUSTOMIZE) build ./config > ./config/install.yaml
 	# Generate install_debug.yaml that for developer testing
