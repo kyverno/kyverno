@@ -36,7 +36,7 @@ type Results struct {
 }
 
 type Resources struct {
-	Object      string `json:"old,omitempty" yaml:"old,omitempty"`
+	Object      string `json:"object,omitempty" yaml:"object,omitempty"`
 	Patched     string `json:"patched,omitempty" yaml:"patched,omitempty"`
 	CloneSource string `json:"cloneSource,omitempty" yaml:"cloneSource,omitempty"`
 	Generated   string `json:"generated,omitempty" yaml:"generated,omitempty"`

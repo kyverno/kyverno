@@ -178,7 +178,7 @@ func validation(tests *kyvernov1.Test_manifest, isGit bool, policyResourcePath s
 				n = false
 				name := strings.FieldsFunc(testr.Object, Split)
 				if testr.Object == "" {
-					return fmt.Errorf("results[%v].resources[%v].object field is mandaotry", re, resk)
+					return fmt.Errorf("results[%v].resources[%v].object field is mandatory", re, resk)
 				}
 				for k := range resourcesMap {
 					if k == name[0] {
