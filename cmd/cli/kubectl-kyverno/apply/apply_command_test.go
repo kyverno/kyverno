@@ -88,3 +88,42 @@ func Test_Apply(t *testing.T) {
 		}
 	}
 }
+
+func Test_Apply_GitURL(t *testing.T) {
+	type TestCases struct {
+		PolicyPaths           []string
+		GitBranch             string
+		expectedPolicyReports []preport.PolicyReport
+	}
+
+	testcases := TestCases{
+
+		PolicyPaths: []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+		GitBranch:   "main",
+		expectedPolicyReports: []preport.PolicyReport{
+			{
+				Summary: preport.PolicyReportSummary{
+					Pass:  7,
+					Fail:  0,
+					Skip:  0,
+					Error: 0,
+					Warn:  0,
+				},
+			},
+		},
+	}
+
+	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
+		assert.Equal(t, actual[preport.StatusPass].(int64), int64(expected.Pass))
+		assert.Equal(t, actual[preport.StatusFail].(int64), int64(expected.Fail))
+		assert.Equal(t, actual[preport.StatusSkip].(int64), int64(expected.Skip))
+		assert.Equal(t, actual[preport.StatusWarn].(int64), int64(expected.Warn))
+		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error))
+	}
+
+	_, _, _, info, _ := applyCommandHelper(nil, "", true, true, "", "", "", "", testcases.PolicyPaths, false, false, testcases.GitBranch)
+	resps := buildPolicyReports(info)
+	for i, resp := range resps {
+		compareSummary(testcases.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
+	}
+}
