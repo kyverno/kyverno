@@ -493,7 +493,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 
 		label["policy.kyverno.io/policy-name"] = policy.GetName()
 		label["policy.kyverno.io/gr-name"] = ur.Name
-		if mode == Create {
+		if rdata.Action == Create {
 			if rule.Generation.Synchronize {
 				label["policy.kyverno.io/synchronize"] = "enable"
 			} else {
@@ -503,21 +503,21 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			// Reset resource version
 			newResource.SetResourceVersion("")
 			newResource.SetLabels(label)
+
 			// Create the resource
 			_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
-			if err != nil {
-				logger.Error(err, "failed to create resource>>>>>>>>>>>>>>>>>>..")
+			if err != nil && !apierrors.IsAlreadyExists(err) {
 				newGenResources = append(newGenResources, noGenResource)
 				return newGenResources, err
 			}
 
 			logger.V(2).Info("created generate target resource")
-		} else if mode == Update {
+		} else if rdata.Action == Update {
 			generatedObj, err := client.GetResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 				logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
-				_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+				_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 				if err != nil {
 					newGenResources = append(newGenResources, noGenResource)
 					return newGenResources, err
@@ -678,8 +678,6 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 			})
 		}
 
-		log.V(2).Info("clone list items are >>>>>>>>>>>>>>>>>>>>>", "items", resources.Items)
-
 		for _, rName := range resources.Items {
 			if rNamespace == namespace {
 				log.V(4).Info("skip resource self-clone")
@@ -750,7 +748,6 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 			})
 		}
 	}
-	log.Info("respones are >>>>>>>>>>>>>>>> :", "response", response)
 	return response
 }
 
