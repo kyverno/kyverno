@@ -430,12 +430,12 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 		var preconditions kyvernov2beta1.AnyAllConditions
 		var deny kyvernov2beta1.AnyAllConditions
 
-		for i, rule := range v1ClusterPolicy.GetSpec().Rules {
+		for i, rule := range v1ClusterPolicy.Spec.Rules {
 			if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
 				matchResources = kyvernov1.MatchResources{
 					Any: []kyvernov1.ResourceFilter{
 						{
-							ResourceDescription: *rule.MatchResources.ResourceDescription.DeepCopy(),
+							ResourceDescription: rule.MatchResources.ResourceDescription,
 						},
 					},
 				}
