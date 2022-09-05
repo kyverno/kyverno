@@ -141,6 +141,8 @@ func NewPolicyController(
 		kyvernoClient:      kyvernoClient,
 		pInformer:          pInformer,
 		npInformer:         npInformer,
+		v2pInformer:        v2pInformer,
+		v2npInformer:       v2npInformer,
 		eventGen:           eventGen,
 		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
 		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),

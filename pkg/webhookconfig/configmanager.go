@@ -110,6 +110,8 @@ func newWebhookConfigManager(
 		kubeClient:           kubeClient,
 		pInformer:            pInformer,
 		npInformer:           npInformer,
+		v2pInformer:          v2pInformer,
+		v2npInformer:         v2npInformer,
 		mutateInformer:       mwcInformer,
 		validateInformer:     vwcInformer,
 		pLister:              pInformer.Lister(),
