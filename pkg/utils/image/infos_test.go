@@ -3,8 +3,7 @@ package image
 import (
 	"testing"
 
-	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_GetImageInfo(t *testing.T) {
@@ -87,7 +86,7 @@ func Test_ReferenceWithTag(t *testing.T) {
 	}}
 	for _, test := range testCases {
 		imageInfo, err := GetImageInfo(test.input)
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, test.expected, imageInfo.ReferenceWithTag())
 	}
 }
@@ -98,14 +97,14 @@ func Test_ParseError(t *testing.T) {
 	}
 	for _, test := range testCases {
 		imageInfo, err := GetImageInfo(test)
-		assert.Assert(t, err != nil)
-		assert.Assert(t, is.Nil(imageInfo))
+		assert.Error(t, err)
+		assert.Nil(t, imageInfo)
 	}
 }
 
 func validateImageInfo(t *testing.T, raw, name, path, registry, tag, digest, str string) {
 	i1, err := GetImageInfo(raw)
-	assert.NilError(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, name, i1.Name)
 	assert.Equal(t, path, i1.Path)
 	assert.Equal(t, registry, i1.Registry)
