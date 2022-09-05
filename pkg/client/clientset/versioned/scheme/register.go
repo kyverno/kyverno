@@ -60,5 +60,6 @@ var AddToScheme = localSchemeBuilder.AddToScheme
 
 func init() {
 	v1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v2beta1"})
+	v1.AddToGroupVersion(Scheme, schema.GroupVersion{Version: "v1"})
 	utilruntime.Must(AddToScheme(Scheme))
 }
