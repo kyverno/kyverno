@@ -363,11 +363,15 @@ func IsConversionRequired(spec *kyvernov2beta1.Spec) bool {
 		if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
 			return true
 		}
-		if rule.RawAnyAllConditions.AnyConditions == nil && rule.RawAnyAllConditions.AllConditions == nil {
-			return true
+		if rule.RawAnyAllConditions != nil {
+			if rule.RawAnyAllConditions.AnyConditions == nil && rule.RawAnyAllConditions.AllConditions == nil {
+				return true
+			}
 		}
-		if rule.Validation.Deny.RawAnyAllConditions.AnyConditions == nil && rule.Validation.Deny.RawAnyAllConditions.AllConditions == nil {
-			return true
+		if rule.Validation.Deny != nil {
+			if rule.Validation.Deny.RawAnyAllConditions.AnyConditions == nil && rule.Validation.Deny.RawAnyAllConditions.AllConditions == nil {
+				return true
+			}
 		}
 	}
 	return false

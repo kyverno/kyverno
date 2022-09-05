@@ -186,7 +186,7 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
+	return errs
 }
 
 // Validate implements programmatic validation
