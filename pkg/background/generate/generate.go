@@ -410,7 +410,7 @@ func getResourceInfoFromRule(rule kyvernov1.Rule) (kind, name, namespace, apiver
 }
 
 func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
-	var rdatas []GenerateResponse
+	rdatas := []GenerateResponse{}
 	var cresp, dresp map[string]interface{}
 	var err error
 	var mode ResourceMode
@@ -425,42 +425,43 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 
 	logger := log.WithValues("genKind", genKind, "genAPIVersion", genAPIVersion, "genNamespace", genNamespace, "genName", genName)
 
-	// Resource to be generated
-	//newGenResource := kyvernov1.ResourceSpec{
-	//	APIVersion: genAPIVersion,
-	//	Kind:       genKind,
-	//	Namespace:  genNamespace,
-	//Name:       genName,
-	//}
-
 	if rule.Generation.Clone.Name != "" {
 		cresp, mode, err = manageClone(logger, genAPIVersion, genKind, genNamespace, genName, policy.GetName(), rule.Generation, client)
 		rdatas = append(rdatas, GenerateResponse{
-			data:   cresp,
-			action: mode,
-			err:    err,
+			Data:          cresp,
+			Action:        mode,
+			GenName:       genName,
+			GenKind:       genKind,
+			GenNamespace:  genNamespace,
+			GenAPIVersion: genAPIVersion,
+			Error:         err,
 		})
 	} else if len(rule.Generation.CloneList.Kinds) != 0 {
 		rdatas = manageCloneList(logger, genNamespace, policy.GetName(), rule.Generation, client)
 	} else {
 		dresp, mode, err = manageData(logger, genAPIVersion, genKind, genNamespace, genName, rule.Generation, client)
 		rdatas = append(rdatas, GenerateResponse{
-			data:   dresp,
-			action: mode,
-			err:    err,
+			Data:          dresp,
+			Action:        mode,
+			GenName:       genName,
+			GenKind:       genKind,
+			GenNamespace:  genNamespace,
+			GenAPIVersion: genAPIVersion,
+			Error:         err,
 		})
 	}
 
+	logger.Info("applying the response data", "rdatas", rdatas)
 	for _, rdata := range rdatas {
-		if err != nil {
-			logger.Error(err, "failed to generate resource", "mode", rdata.action)
+		if rdata.Error != nil {
+			logger.Error(err, "failed to generate resource", "mode", rdata.Action)
 			newGenResources = append(newGenResources, noGenResource)
 			return newGenResources, err
 		}
 
-		logger.V(3).Info("applying generate rule", "mode", rdata.action)
+		logger.V(3).Info("applying generate rule", "mode", rdata.Action)
 
-		if rdata.data == nil && rdata.action == Update {
+		if rdata.Data == nil && rdata.Action == Update {
 			logger.V(4).Info("no changes required for generate target resource")
 			newGenResources = append(newGenResources, noGenResource)
 			return newGenResources, nil
@@ -468,14 +469,14 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 
 		// build the resource template
 		newResource := &unstructured.Unstructured{}
-		newResource.SetUnstructuredContent(rdata.data)
-		newResource.SetName(genName)
-		newResource.SetNamespace(genNamespace)
+		newResource.SetUnstructuredContent(rdata.Data)
+		newResource.SetName(rdata.GenName)
+		newResource.SetNamespace(rdata.GenNamespace)
 		if newResource.GetKind() == "" {
-			newResource.SetKind(genKind)
+			newResource.SetKind(rdata.GenKind)
 		}
 
-		newResource.SetAPIVersion(genAPIVersion)
+		newResource.SetAPIVersion(rdata.GenAPIVersion)
 		// manage labels
 		// - app.kubernetes.io/managed-by: kyverno
 		// "kyverno.io/generated-by-kind": kind (trigger resource)
@@ -503,15 +504,16 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 			newResource.SetResourceVersion("")
 			newResource.SetLabels(label)
 			// Create the resource
-			_, err = client.CreateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+			_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 			if err != nil {
+				logger.Error(err, "failed to create resource>>>>>>>>>>>>>>>>>>..")
 				newGenResources = append(newGenResources, noGenResource)
 				return newGenResources, err
 			}
 
 			logger.V(2).Info("created generate target resource")
 		} else if mode == Update {
-			generatedObj, err := client.GetResource(genAPIVersion, genKind, genNamespace, genName)
+			generatedObj, err := client.GetResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
 			if err != nil {
 				logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
 				logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
@@ -536,7 +538,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 					}
 
 					if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
-						_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, newResource, false)
+						_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
 						if err != nil {
 							logger.Error(err, "failed to update resource")
 							newGenResources = append(newGenResources, noGenResource)
@@ -554,7 +556,7 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 						currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
 						generatedObj.SetLabels(currentGeneratedResourcelabel)
 
-						_, err = client.UpdateResource(genAPIVersion, genKind, genNamespace, generatedObj, false)
+						_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
 						if err != nil {
 							logger.Error(err, "failed to update label in existing resource")
 							newGenResources = append(newGenResources, noGenResource)
@@ -648,9 +650,9 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 	if rNamespace == "" {
 		// return nil, Skip, fmt.Errorf("failed to find source namespace")
 		response = append(response, GenerateResponse{
-			data:   nil,
-			action: Skip,
-			err:    fmt.Errorf("failed to find source namespace"),
+			Data:   nil,
+			Action: Skip,
+			Error:  fmt.Errorf("failed to find source namespace"),
 		})
 	}
 
@@ -658,43 +660,46 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 	if len(kinds) == 0 {
 		//		return nil, Skip, fmt.Errorf("failed to find kinds list")
 		response = append(response, GenerateResponse{
-			data:   nil,
-			action: Skip,
-			err:    fmt.Errorf("failed to find kinds list"),
+			Data:   nil,
+			Action: Skip,
+			Error:  fmt.Errorf("failed to find kinds list"),
 		})
 	}
 
 	for _, kind := range kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		resources, err := client.ListResource(apiVersion, kind, namespace, nil)
+		resources, err := client.ListResource(apiVersion, kind, rNamespace, nil)
 		if err != nil {
 			//return nil, Skip, fmt.Errorf("failed to list resource %s %s/%s. %v", apiVersion, kind, rNamespace, err)
 			response = append(response, GenerateResponse{
-				data:   nil,
-				action: Skip,
-				err:    fmt.Errorf("failed to list resource %s %s/%s. %v", apiVersion, kind, rNamespace, err),
+				Data:   nil,
+				Action: Skip,
+				Error:  fmt.Errorf("failed to list resource %s %s/%s. %v", apiVersion, kind, rNamespace, err),
 			})
 		}
+
+		log.V(2).Info("clone list items are >>>>>>>>>>>>>>>>>>>>>", "items", resources.Items)
 
 		for _, rName := range resources.Items {
 			if rNamespace == namespace {
 				log.V(4).Info("skip resource self-clone")
 				//		return nil, Skip, nil
 				response = append(response, GenerateResponse{
-					data:   nil,
-					action: Skip,
-					err:    nil,
+					Data:   nil,
+					Action: Skip,
+					Error:  nil,
 				})
 			}
 
 			// check if the resource as reference in clone exists?
 			obj, err := client.GetResource(apiVersion, kind, rNamespace, rName.GetName())
 			if err != nil {
+				log.Error(err, "failed to get resoruce", apiVersion, "apiVersion", kind, "kind", rNamespace, "rNamespace", rName.GetName(), "name")
 				//				return nil, Skip, fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName.GetName(), err)
 				response = append(response, GenerateResponse{
-					data:   nil,
-					action: Skip,
-					err:    fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName.GetName(), err),
+					Data:   nil,
+					Action: Skip,
+					Error:  fmt.Errorf("source resource %s %s/%s/%s not found. %v", apiVersion, kind, rNamespace, rName.GetName(), err),
 				})
 				return response
 			}
@@ -712,37 +717,48 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 				obj.SetCreationTimestamp(newResource.GetCreationTimestamp())
 				obj.SetManagedFields(newResource.GetManagedFields())
 				obj.SetResourceVersion(newResource.GetResourceVersion())
+
 				if reflect.DeepEqual(obj, newResource) {
 					//			return nil, Skip, nil
 					response = append(response, GenerateResponse{
-						data:   nil,
-						action: Skip,
-						err:    nil,
+						Data:   nil,
+						Action: Skip,
+						Error:  nil,
 					})
 				}
 				// return obj.UnstructuredContent(), Update, nil
 				response = append(response, GenerateResponse{
-					data:   obj.UnstructuredContent(),
-					action: Update,
-					err:    nil,
+					Data:          obj.UnstructuredContent(),
+					Action:        Update,
+					GenKind:       kind,
+					GenName:       rName.GetName(),
+					GenNamespace:  namespace,
+					GenAPIVersion: apiVersion,
+					Error:         nil,
 				})
 			}
 			// create the resource based on the reference clone
 			//	return obj.UnstructuredContent(), Create, nil
 			response = append(response, GenerateResponse{
-				data:   obj.UnstructuredContent(),
-				action: Create,
-				err:    nil,
+				Data:          obj.UnstructuredContent(),
+				Action:        Create,
+				GenKind:       kind,
+				GenName:       rName.GetName(),
+				GenNamespace:  namespace,
+				GenAPIVersion: apiVersion,
+				Error:         nil,
 			})
 		}
 	}
+	log.Info("respones are >>>>>>>>>>>>>>>> :", "response", response)
 	return response
 }
 
 type GenerateResponse struct {
-	data   map[string]interface{}
-	action ResourceMode
-	err    error
+	Data                                          map[string]interface{}
+	Action                                        ResourceMode
+	GenKind, GenName, GenNamespace, GenAPIVersion string
+	Error                                         error
 }
 
 // ResourceMode defines the mode for generated resource
