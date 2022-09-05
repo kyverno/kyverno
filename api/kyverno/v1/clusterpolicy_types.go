@@ -15,7 +15,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Validate Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 // +kubebuilder:storageversion

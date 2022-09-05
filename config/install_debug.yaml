@@ -37,7 +37,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Action
+      name: Validate Action
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
@@ -17708,7 +17708,7 @@ spec:
       name: Background
       type: string
     - jsonPath: .spec.validationFailureAction
-      name: Action
+      name: Validate Action
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy

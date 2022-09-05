@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	v1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
@@ -28,15 +28,15 @@ type FakeKyvernoV2beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKyvernoV2beta1) ClusterPolicies() v1.ClusterPolicyInterface {
+func (c *FakeKyvernoV2beta1) ClusterPolicies() v2beta1.ClusterPolicyInterface {
 	return &FakeClusterPolicies{c}
 }
 
-func (c *FakeKyvernoV2beta1) GenerateRequests(namespace string) v1.GenerateRequestInterface {
+func (c *FakeKyvernoV2beta1) GenerateRequests(namespace string) v2beta1.GenerateRequestInterface {
 	return &FakeGenerateRequests{c, namespace}
 }
 
-func (c *FakeKyvernoV2beta1) Policies(namespace string) v1.PolicyInterface {
+func (c *FakeKyvernoV2beta1) Policies(namespace string) v2beta1.PolicyInterface {
 	return &FakePolicies{c, namespace}
 }
 

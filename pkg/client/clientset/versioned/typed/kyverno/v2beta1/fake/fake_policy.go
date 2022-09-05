@@ -21,7 +21,7 @@ package fake
 import (
 	"context"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,25 +36,25 @@ type FakePolicies struct {
 	ns   string
 }
 
-var policiesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v1", Resource: "policies"}
+var policiesResource = schema.GroupVersionResource{Group: "kyverno.io", Version: "v2beta1", Resource: "policies"}
 
-var policiesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v1", Kind: "Policy"}
+var policiesKind = schema.GroupVersionKind{Group: "kyverno.io", Version: "v2beta1", Kind: "Policy"}
 
 // Get takes name of the policy, and returns the corresponding policy object, and an error if there is any.
-func (c *FakePolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *kyvernov1.Policy, err error) {
+func (c *FakePolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.Policy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(policiesResource, c.ns, name), &kyvernov1.Policy{})
+		Invokes(testing.NewGetAction(policiesResource, c.ns, name), &v2beta1.Policy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*kyvernov1.Policy), err
+	return obj.(*v2beta1.Policy), err
 }
 
 // List takes label and field selectors, and returns the list of Policies that match those selectors.
-func (c *FakePolicies) List(ctx context.Context, opts v1.ListOptions) (result *kyvernov1.PolicyList, err error) {
+func (c *FakePolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2beta1.PolicyList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(policiesResource, policiesKind, c.ns, opts), &kyvernov1.PolicyList{})
+		Invokes(testing.NewListAction(policiesResource, policiesKind, c.ns, opts), &v2beta1.PolicyList{})
 
 	if obj == nil {
 		return nil, err
@@ -64,8 +64,8 @@ func (c *FakePolicies) List(ctx context.Context, opts v1.ListOptions) (result *k
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &kyvernov1.PolicyList{ListMeta: obj.(*kyvernov1.PolicyList).ListMeta}
-	for _, item := range obj.(*kyvernov1.PolicyList).Items {
+	list := &v2beta1.PolicyList{ListMeta: obj.(*v2beta1.PolicyList).ListMeta}
+	for _, item := range obj.(*v2beta1.PolicyList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -81,43 +81,43 @@ func (c *FakePolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.In
 }
 
 // Create takes the representation of a policy and creates it.  Returns the server's representation of the policy, and an error, if there is any.
-func (c *FakePolicies) Create(ctx context.Context, policy *kyvernov1.Policy, opts v1.CreateOptions) (result *kyvernov1.Policy, err error) {
+func (c *FakePolicies) Create(ctx context.Context, policy *v2beta1.Policy, opts v1.CreateOptions) (result *v2beta1.Policy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(policiesResource, c.ns, policy), &kyvernov1.Policy{})
+		Invokes(testing.NewCreateAction(policiesResource, c.ns, policy), &v2beta1.Policy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*kyvernov1.Policy), err
+	return obj.(*v2beta1.Policy), err
 }
 
 // Update takes the representation of a policy and updates it. Returns the server's representation of the policy, and an error, if there is any.
-func (c *FakePolicies) Update(ctx context.Context, policy *kyvernov1.Policy, opts v1.UpdateOptions) (result *kyvernov1.Policy, err error) {
+func (c *FakePolicies) Update(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (result *v2beta1.Policy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(policiesResource, c.ns, policy), &kyvernov1.Policy{})
+		Invokes(testing.NewUpdateAction(policiesResource, c.ns, policy), &v2beta1.Policy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*kyvernov1.Policy), err
+	return obj.(*v2beta1.Policy), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePolicies) UpdateStatus(ctx context.Context, policy *kyvernov1.Policy, opts v1.UpdateOptions) (*kyvernov1.Policy, error) {
+func (c *FakePolicies) UpdateStatus(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (*v2beta1.Policy, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(policiesResource, "status", c.ns, policy), &kyvernov1.Policy{})
+		Invokes(testing.NewUpdateSubresourceAction(policiesResource, "status", c.ns, policy), &v2beta1.Policy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*kyvernov1.Policy), err
+	return obj.(*v2beta1.Policy), err
 }
 
 // Delete takes name of the policy and deletes it. Returns an error if one occurs.
 func (c *FakePolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(policiesResource, c.ns, name), &kyvernov1.Policy{})
+		Invokes(testing.NewDeleteAction(policiesResource, c.ns, name), &v2beta1.Policy{})
 
 	return err
 }
@@ -126,17 +126,17 @@ func (c *FakePolicies) Delete(ctx context.Context, name string, opts v1.DeleteOp
 func (c *FakePolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(policiesResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &kyvernov1.PolicyList{})
+	_, err := c.Fake.Invokes(action, &v2beta1.PolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched policy.
-func (c *FakePolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *kyvernov1.Policy, err error) {
+func (c *FakePolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.Policy, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(policiesResource, c.ns, name, pt, data, subresources...), &kyvernov1.Policy{})
+		Invokes(testing.NewPatchSubresourceAction(policiesResource, c.ns, name, pt, data, subresources...), &v2beta1.Policy{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*kyvernov1.Policy), err
+	return obj.(*v2beta1.Policy), err
 }

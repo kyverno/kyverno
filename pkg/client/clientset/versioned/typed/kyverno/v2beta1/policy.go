@@ -22,9 +22,9 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
@@ -38,15 +38,15 @@ type PoliciesGetter interface {
 
 // PolicyInterface has methods to work with Policy resources.
 type PolicyInterface interface {
-	Create(ctx context.Context, policy *v1.Policy, opts metav1.CreateOptions) (*v1.Policy, error)
-	Update(ctx context.Context, policy *v1.Policy, opts metav1.UpdateOptions) (*v1.Policy, error)
-	UpdateStatus(ctx context.Context, policy *v1.Policy, opts metav1.UpdateOptions) (*v1.Policy, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Policy, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.PolicyList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Policy, err error)
+	Create(ctx context.Context, policy *v2beta1.Policy, opts v1.CreateOptions) (*v2beta1.Policy, error)
+	Update(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (*v2beta1.Policy, error)
+	UpdateStatus(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (*v2beta1.Policy, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2beta1.Policy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v2beta1.PolicyList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.Policy, err error)
 	PolicyExpansion
 }
 
@@ -65,8 +65,8 @@ func newPolicies(c *KyvernoV2beta1Client, namespace string) *policies {
 }
 
 // Get takes name of the policy, and returns the corresponding policy object, and an error if there is any.
-func (c *policies) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Policy, err error) {
-	result = &v1.Policy{}
+func (c *policies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.Policy, err error) {
+	result = &v2beta1.Policy{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("policies").
@@ -78,12 +78,12 @@ func (c *policies) Get(ctx context.Context, name string, options metav1.GetOptio
 }
 
 // List takes label and field selectors, and returns the list of Policies that match those selectors.
-func (c *policies) List(ctx context.Context, opts metav1.ListOptions) (result *v1.PolicyList, err error) {
+func (c *policies) List(ctx context.Context, opts v1.ListOptions) (result *v2beta1.PolicyList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1.PolicyList{}
+	result = &v2beta1.PolicyList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("policies").
@@ -95,7 +95,7 @@ func (c *policies) List(ctx context.Context, opts metav1.ListOptions) (result *v
 }
 
 // Watch returns a watch.Interface that watches the requested policies.
-func (c *policies) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *policies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -110,8 +110,8 @@ func (c *policies) Watch(ctx context.Context, opts metav1.ListOptions) (watch.In
 }
 
 // Create takes the representation of a policy and creates it.  Returns the server's representation of the policy, and an error, if there is any.
-func (c *policies) Create(ctx context.Context, policy *v1.Policy, opts metav1.CreateOptions) (result *v1.Policy, err error) {
-	result = &v1.Policy{}
+func (c *policies) Create(ctx context.Context, policy *v2beta1.Policy, opts v1.CreateOptions) (result *v2beta1.Policy, err error) {
+	result = &v2beta1.Policy{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("policies").
@@ -123,8 +123,8 @@ func (c *policies) Create(ctx context.Context, policy *v1.Policy, opts metav1.Cr
 }
 
 // Update takes the representation of a policy and updates it. Returns the server's representation of the policy, and an error, if there is any.
-func (c *policies) Update(ctx context.Context, policy *v1.Policy, opts metav1.UpdateOptions) (result *v1.Policy, err error) {
-	result = &v1.Policy{}
+func (c *policies) Update(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (result *v2beta1.Policy, err error) {
+	result = &v2beta1.Policy{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("policies").
@@ -138,8 +138,8 @@ func (c *policies) Update(ctx context.Context, policy *v1.Policy, opts metav1.Up
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *policies) UpdateStatus(ctx context.Context, policy *v1.Policy, opts metav1.UpdateOptions) (result *v1.Policy, err error) {
-	result = &v1.Policy{}
+func (c *policies) UpdateStatus(ctx context.Context, policy *v2beta1.Policy, opts v1.UpdateOptions) (result *v2beta1.Policy, err error) {
+	result = &v2beta1.Policy{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("policies").
@@ -153,7 +153,7 @@ func (c *policies) UpdateStatus(ctx context.Context, policy *v1.Policy, opts met
 }
 
 // Delete takes name of the policy and deletes it. Returns an error if one occurs.
-func (c *policies) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *policies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("policies").
@@ -164,7 +164,7 @@ func (c *policies) Delete(ctx context.Context, name string, opts metav1.DeleteOp
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *policies) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *policies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
 	if listOpts.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
@@ -180,8 +180,8 @@ func (c *policies) DeleteCollection(ctx context.Context, opts metav1.DeleteOptio
 }
 
 // Patch applies the patch and returns the patched policy.
-func (c *policies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Policy, err error) {
-	result = &v1.Policy{}
+func (c *policies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.Policy, err error) {
+	result = &v2beta1.Policy{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("policies").

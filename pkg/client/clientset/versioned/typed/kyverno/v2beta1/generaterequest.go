@@ -22,9 +22,9 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	v2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	scheme "github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
@@ -38,15 +38,15 @@ type GenerateRequestsGetter interface {
 
 // GenerateRequestInterface has methods to work with GenerateRequest resources.
 type GenerateRequestInterface interface {
-	Create(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.CreateOptions) (*v1.GenerateRequest, error)
-	Update(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.UpdateOptions) (*v1.GenerateRequest, error)
-	UpdateStatus(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.UpdateOptions) (*v1.GenerateRequest, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.GenerateRequest, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.GenerateRequestList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.GenerateRequest, err error)
+	Create(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.CreateOptions) (*v2beta1.GenerateRequest, error)
+	Update(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.UpdateOptions) (*v2beta1.GenerateRequest, error)
+	UpdateStatus(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.UpdateOptions) (*v2beta1.GenerateRequest, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2beta1.GenerateRequest, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v2beta1.GenerateRequestList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.GenerateRequest, err error)
 	GenerateRequestExpansion
 }
 
@@ -65,8 +65,8 @@ func newGenerateRequests(c *KyvernoV2beta1Client, namespace string) *generateReq
 }
 
 // Get takes name of the generateRequest, and returns the corresponding generateRequest object, and an error if there is any.
-func (c *generateRequests) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.GenerateRequest, err error) {
-	result = &v1.GenerateRequest{}
+func (c *generateRequests) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2beta1.GenerateRequest, err error) {
+	result = &v2beta1.GenerateRequest{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -78,12 +78,12 @@ func (c *generateRequests) Get(ctx context.Context, name string, options metav1.
 }
 
 // List takes label and field selectors, and returns the list of GenerateRequests that match those selectors.
-func (c *generateRequests) List(ctx context.Context, opts metav1.ListOptions) (result *v1.GenerateRequestList, err error) {
+func (c *generateRequests) List(ctx context.Context, opts v1.ListOptions) (result *v2beta1.GenerateRequestList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
-	result = &v1.GenerateRequestList{}
+	result = &v2beta1.GenerateRequestList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -95,7 +95,7 @@ func (c *generateRequests) List(ctx context.Context, opts metav1.ListOptions) (r
 }
 
 // Watch returns a watch.Interface that watches the requested generateRequests.
-func (c *generateRequests) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *generateRequests) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -110,8 +110,8 @@ func (c *generateRequests) Watch(ctx context.Context, opts metav1.ListOptions) (
 }
 
 // Create takes the representation of a generateRequest and creates it.  Returns the server's representation of the generateRequest, and an error, if there is any.
-func (c *generateRequests) Create(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.CreateOptions) (result *v1.GenerateRequest, err error) {
-	result = &v1.GenerateRequest{}
+func (c *generateRequests) Create(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.CreateOptions) (result *v2beta1.GenerateRequest, err error) {
+	result = &v2beta1.GenerateRequest{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -123,8 +123,8 @@ func (c *generateRequests) Create(ctx context.Context, generateRequest *v1.Gener
 }
 
 // Update takes the representation of a generateRequest and updates it. Returns the server's representation of the generateRequest, and an error, if there is any.
-func (c *generateRequests) Update(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.UpdateOptions) (result *v1.GenerateRequest, err error) {
-	result = &v1.GenerateRequest{}
+func (c *generateRequests) Update(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.UpdateOptions) (result *v2beta1.GenerateRequest, err error) {
+	result = &v2beta1.GenerateRequest{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -138,8 +138,8 @@ func (c *generateRequests) Update(ctx context.Context, generateRequest *v1.Gener
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *generateRequests) UpdateStatus(ctx context.Context, generateRequest *v1.GenerateRequest, opts metav1.UpdateOptions) (result *v1.GenerateRequest, err error) {
-	result = &v1.GenerateRequest{}
+func (c *generateRequests) UpdateStatus(ctx context.Context, generateRequest *v2beta1.GenerateRequest, opts v1.UpdateOptions) (result *v2beta1.GenerateRequest, err error) {
+	result = &v2beta1.GenerateRequest{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -153,7 +153,7 @@ func (c *generateRequests) UpdateStatus(ctx context.Context, generateRequest *v1
 }
 
 // Delete takes name of the generateRequest and deletes it. Returns an error if one occurs.
-func (c *generateRequests) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *generateRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("generaterequests").
@@ -164,7 +164,7 @@ func (c *generateRequests) Delete(ctx context.Context, name string, opts metav1.
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *generateRequests) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *generateRequests) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
 	if listOpts.TimeoutSeconds != nil {
 		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
@@ -180,8 +180,8 @@ func (c *generateRequests) DeleteCollection(ctx context.Context, opts metav1.Del
 }
 
 // Patch applies the patch and returns the patched generateRequest.
-func (c *generateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.GenerateRequest, err error) {
-	result = &v1.GenerateRequest{}
+func (c *generateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2beta1.GenerateRequest, err error) {
+	result = &v2beta1.GenerateRequest{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
 		Resource("generaterequests").

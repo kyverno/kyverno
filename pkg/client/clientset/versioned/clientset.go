@@ -22,9 +22,9 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
-	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -45,10 +45,10 @@ type Interface interface {
 type Clientset struct {
 	*discovery.DiscoveryClient
 	kyvernoV1           *kyvernov1.KyvernoV1Client
+	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 	kyvernoV1beta1      *kyvernov1beta1.KyvernoV1beta1Client
 	kyvernoV1alpha2     *kyvernov1alpha2.KyvernoV1alpha2Client
 	wgpolicyk8sV1alpha2 *wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Client
-	kyvernoV2beta1      *kyvernov2beta1.KyvernoV2beta1Client
 }
 
 // KyvernoV1 retrieves the KyvernoV1Client
@@ -56,6 +56,7 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 	return c.kyvernoV1
 }
 
+// KyvernoV2beta1 retrieves the KyvernoV2beta1Client
 func (c *Clientset) KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface {
 	return c.kyvernoV2beta1
 }

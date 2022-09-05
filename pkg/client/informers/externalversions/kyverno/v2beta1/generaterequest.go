@@ -25,8 +25,8 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
@@ -36,7 +36,7 @@ import (
 // GenerateRequests.
 type GenerateRequestInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.GenerateRequestLister
+	Lister() v2beta1.GenerateRequestLister
 }
 
 type generateRequestInformer struct {
@@ -58,13 +58,13 @@ func NewGenerateRequestInformer(client versioned.Interface, namespace string, re
 func NewFilteredGenerateRequestInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
 				return client.KyvernoV2beta1().GenerateRequests(namespace).List(context.TODO(), options)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
@@ -85,6 +85,6 @@ func (f *generateRequestInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&kyvernov2beta1.GenerateRequest{}, f.defaultInformer)
 }
 
-func (f *generateRequestInformer) Lister() v1.GenerateRequestLister {
-	return v1.NewGenerateRequestLister(f.Informer().GetIndexer())
+func (f *generateRequestInformer) Lister() v2beta1.GenerateRequestLister {
+	return v2beta1.NewGenerateRequestLister(f.Informer().GetIndexer())
 }

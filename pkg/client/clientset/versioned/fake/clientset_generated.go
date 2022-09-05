@@ -22,14 +22,12 @@ import (
 	clientset "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	fakekyvernov1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1/fake"
-
-	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
-	fakekyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1/fake"
-
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	fakekyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2/fake"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
 	fakekyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1/fake"
+	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
+	fakekyvernov2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1/fake"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	fakewgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,13 +90,10 @@ func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
 }
 
 // KyvernoV2beta1 retrieves the KyvernoV2beta1Client
-func (c *Clientset) KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface{
+func (c *Clientset) KyvernoV2beta1() kyvernov2beta1.KyvernoV2beta1Interface {
 	return &fakekyvernov2beta1.FakeKyvernoV2beta1{Fake: &c.Fake}
 }
 
-func (c *Clientset) Kyvernov2beta1() kyvernov2beta1.KyvernoV2beta1Interface{
-	return &fakekyvernov2beta1.FakeKyvernoV2beta1{Fake: &c.Fake}
-}
 // KyvernoV1beta1 retrieves the KyvernoV1beta1Client
 func (c *Clientset) KyvernoV1beta1() kyvernov1beta1.KyvernoV1beta1Interface {
 	return &fakekyvernov1beta1.FakeKyvernoV1beta1{Fake: &c.Fake}

@@ -25,8 +25,8 @@ import (
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	versioned "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kyverno/kyverno/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v2beta1 "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
@@ -36,7 +36,7 @@ import (
 // ClusterPolicies.
 type ClusterPolicyInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.ClusterPolicyLister
+	Lister() v2beta1.ClusterPolicyLister
 }
 
 type clusterPolicyInformer struct {
@@ -57,13 +57,13 @@ func NewClusterPolicyInformer(client versioned.Interface, resyncPeriod time.Dura
 func NewFilteredClusterPolicyInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
-			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
 				return client.KyvernoV2beta1().ClusterPolicies().List(context.TODO(), options)
 			},
-			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
@@ -84,6 +84,6 @@ func (f *clusterPolicyInformer) Informer() cache.SharedIndexInformer {
 	return f.factory.InformerFor(&kyvernov2beta1.ClusterPolicy{}, f.defaultInformer)
 }
 
-func (f *clusterPolicyInformer) Lister() v1.ClusterPolicyLister {
-	return v1.NewClusterPolicyLister(f.Informer().GetIndexer())
+func (f *clusterPolicyInformer) Lister() v2beta1.ClusterPolicyLister {
+	return v2beta1.NewClusterPolicyLister(f.Informer().GetIndexer())
 }
