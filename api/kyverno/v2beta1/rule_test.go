@@ -14,7 +14,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 	}
 	path := field.NewPath("dummy")
 	errs := subject.Validate(path, false, nil)
-	assert.Equal(t, len(errs), 1)
+	assert.Equal(t, len(errs), 2)
 	assert.Equal(t, errs[0].Field, "dummy")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
 	assert.Equal(t, errs[0].Detail, "No operation defined in the rule 'validate-user-privilege'.(supported operations: mutate,validate,generate,verifyImages)")
@@ -28,16 +28,20 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 			  {
 				 "name": "validate-user-privilege",
 				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
+					"all": [
+						{
+							"resources": {
+								"kinds": [
+								"Deployment"
+								],
+								"selector": {
+								"matchLabels": {
+									"app.type": "prod"
+								}
+								}
+							}
+						}	 
+					]
 				 },
 				 "mutate": {
 					"patchStrategicMerge": {
@@ -103,16 +107,20 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 			  {
 				 "name": "validate-user-privilege",
 				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
+					"all": [
+						{
+							"resources": {
+							   "kinds": [
+								  "Deployment"
+							   ],
+							   "selector": {
+								  "matchLabels": {
+									 "app.type": "prod"
+								  }
+							   }
+							}
+						}	 
+					]
 				 },
 				 "validate": {
 					"message": "validate container security contexts",
