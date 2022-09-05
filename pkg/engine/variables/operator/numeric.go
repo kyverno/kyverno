@@ -6,13 +6,13 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // NewNumericOperatorHandler returns handler to manage the provided numeric operations (>, >=, <=, <)
-func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov1.ConditionOperator) OperatorHandler {
+func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov2beta1.ConditionOperator) OperatorHandler {
 	return NumericOperatorHandler{
 		ctx:       ctx,
 		log:       log,
@@ -24,19 +24,19 @@ func NewNumericOperatorHandler(log logr.Logger, ctx context.EvalInterface, op ky
 type NumericOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
-	condition kyvernov1.ConditionOperator
+	condition kyvernov2beta1.ConditionOperator
 }
 
 // compareByCondition compares a float64 key with a float64 value on the basis of the provided operator
-func compareByCondition(key float64, value float64, op kyvernov1.ConditionOperator, log logr.Logger) bool {
+func compareByCondition(key float64, value float64, op kyvernov2beta1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyvernov1.ConditionOperators["GreaterThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["GreaterThanOrEquals"]:
 		return key >= value
-	case kyvernov1.ConditionOperators["GreaterThan"]:
+	case kyvernov2beta1.ConditionOperators["GreaterThan"]:
 		return key > value
-	case kyvernov1.ConditionOperators["LessThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["LessThanOrEquals"]:
 		return key <= value
-	case kyvernov1.ConditionOperators["LessThan"]:
+	case kyvernov2beta1.ConditionOperators["LessThan"]:
 		return key < value
 	default:
 		log.V(2).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
@@ -44,15 +44,15 @@ func compareByCondition(key float64, value float64, op kyvernov1.ConditionOperat
 	}
 }
 
-func compareVersionByCondition(key semver.Version, value semver.Version, op kyvernov1.ConditionOperator, log logr.Logger) bool {
+func compareVersionByCondition(key semver.Version, value semver.Version, op kyvernov2beta1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyvernov1.ConditionOperators["GreaterThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["GreaterThanOrEquals"]:
 		return key.GTE(value)
-	case kyvernov1.ConditionOperators["GreaterThan"]:
+	case kyvernov2beta1.ConditionOperators["GreaterThan"]:
 		return key.GT(value)
-	case kyvernov1.ConditionOperators["LessThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["LessThanOrEquals"]:
 		return key.LTE(value)
-	case kyvernov1.ConditionOperators["LessThan"]:
+	case kyvernov2beta1.ConditionOperators["LessThan"]:
 		return key.LT(value)
 	default:
 		log.V(2).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))

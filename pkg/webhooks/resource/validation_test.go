@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"testing"
 
-	log "sigs.k8s.io/controller-runtime/pkg/log"
-
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"gotest.tools/assert"
+	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func TestValidate_failure_action_overrides(t *testing.T) {
@@ -524,7 +523,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 
 	for i, tc := range testcases {
 		t.Run(fmt.Sprintf("case %d", i), func(t *testing.T) {
-			var policy kyvernov1.ClusterPolicy
+			var policy kyvernov2beta1.ClusterPolicy
 			err := json.Unmarshal(tc.rawPolicy, &policy)
 			assert.NilError(t, err)
 			resourceUnstructured, err := utils.ConvertToUnstructured(tc.rawResource)
@@ -538,7 +537,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 				}
 			}
 
-			failurePolicy := kyvernov1.Fail
+			failurePolicy := kyvernov2beta1.Fail
 			blocked := blockRequest([]*response.EngineResponse{er}, failurePolicy, log.Log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
@@ -580,7 +579,7 @@ func Test_RuleSelector(t *testing.T) {
 		"spec": {"containers": [{"name": "nginx", "image": "nginx:latest"}]}
 	}`)
 
-	var policy kyvernov1.ClusterPolicy
+	var policy kyvernov2beta1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
@@ -594,16 +593,16 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
 	log := log.Log.WithName("Test_RuleSelector")
-	blocked := blockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked := blockRequest([]*response.EngineResponse{resp}, kyvernov2beta1.Fail, log)
 	assert.Assert(t, blocked == true)
 
-	applyOne := kyvernov1.ApplyOne
+	applyOne := kyvernov2beta1.ApplyOne
 	policy.Spec.ApplyRules = &applyOne
 
 	resp = engine.Validate(ctx)
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
-	blocked = blockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked = blockRequest([]*response.EngineResponse{resp}, kyvernov2beta1.Fail, log)
 	assert.Assert(t, blocked == false)
 }

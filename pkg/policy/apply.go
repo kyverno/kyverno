@@ -8,7 +8,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -18,7 +18,7 @@ import (
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
+func applyPolicy(policy kyvernov2beta1.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
 	client dclient.Interface, namespaceLabels map[string]string,
 ) (responses []*response.EngineResponse) {
@@ -72,7 +72,7 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 	return engineResponses
 }
 
-func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
+func mutation(policy kyvernov2beta1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,
 		NewResource:     resource,

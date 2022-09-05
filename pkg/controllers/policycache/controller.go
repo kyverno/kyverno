@@ -3,11 +3,11 @@ package policycache
 import (
 	"encoding/json"
 
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
-	kyvernov2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
+	kyvernov2beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v2beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	kyvernov2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
+	kyvernov2beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v2beta1"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
@@ -30,8 +30,8 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	cpolV2beta1Lister kyvernov2listers.ClusterPolicyLister
-	polV2beta1Lister  kyvernov2listers.PolicyLister
+	cpolV2beta1Lister kyvernov2beta1listers.ClusterPolicyLister
+	polV2beta1Lister  kyvernov2beta1listers.PolicyLister
 
 	// cpolSynced returns true if the cluster policy shared informer has synced at least once
 	cpolSynced cache.InformerSynced
@@ -42,7 +42,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(pcache pcache.Cache, cpolV1Informer kyvernov1informers.ClusterPolicyInformer, polv1Informer kyvernov1informers.PolicyInformer, cpolV2Informer kyvernov2informers.ClusterPolicyInformer, polv2nformer kyvernov2informers.PolicyInformer) *controller {
+func NewController(pcache pcache.Cache, cpolV1Informer kyvernov1informers.ClusterPolicyInformer, polv1Informer kyvernov1informers.PolicyInformer, cpolV2Informer kyvernov2beta1informers.ClusterPolicyInformer, polv2nformer kyvernov2beta1informers.PolicyInformer) *controller {
 	c := controller{
 		cache:             pcache,
 		cpolLister:        cpolV1Informer.Lister(),
@@ -75,7 +75,7 @@ func (c *controller) WarmUp() error {
 			if utils.IsConversionRequired(policy.GetSpec()) {
 				v1Policy, _ := c.polLister.Policies(policy.Namespace).Get(policy.Name)
 				policyBytes := utils.ConvertPolicyToV2(v1Policy, nil)
-				var policy *kyvernov2.Policy
+				var policy *kyvernov2beta1.Policy
 				if err := json.Unmarshal(policyBytes, &policy); err != nil {
 					return err
 				}
@@ -83,7 +83,6 @@ func (c *controller) WarmUp() error {
 			} else {
 				c.cache.Set(key, policy)
 			}
-
 		}
 	}
 	cpols, err := c.polV2beta1Lister.List(labels.Everything())
@@ -97,12 +96,11 @@ func (c *controller) WarmUp() error {
 			if utils.IsConversionRequired(policy.GetSpec()) {
 				v1ClusterPolicy, _ := c.cpolLister.Get(policy.Name)
 				policyBytes := utils.ConvertPolicyToV2(nil, v1ClusterPolicy)
-				var cpolicy *kyvernov2.ClusterPolicy
+				var cpolicy *kyvernov2beta1.ClusterPolicy
 				if err := json.Unmarshal(policyBytes, &cpolicy); err != nil {
 					return err
 				}
 				c.cache.Set(key, cpolicy)
-
 			} else {
 				c.cache.Set(key, policy)
 			}
@@ -129,7 +127,7 @@ func (c *controller) reconcile(key, namespace, name string) error {
 	return nil
 }
 
-func (c *controller) loadPolicy(namespace, name string) (kyvernov2.PolicyInterface, error) {
+func (c *controller) loadPolicy(namespace, name string) (kyvernov2beta1.PolicyInterface, error) {
 	if namespace == "" {
 		return c.cpolV2beta1Lister.Get(name)
 	} else {

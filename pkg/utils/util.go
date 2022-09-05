@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	//kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	// kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov2 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
@@ -358,7 +358,7 @@ func OverrideRuntimeErrorHandler() {
 	}
 }
 
-func IsConversionRequired(spec *kyvernov2.Spec) bool {
+func IsConversionRequired(spec *kyvernov2beta1.Spec) bool {
 	for _, rule := range spec.Rules {
 		if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
 			return true
@@ -372,13 +372,13 @@ func IsConversionRequired(spec *kyvernov2.Spec) bool {
 	}
 	return false
 }
-func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.ClusterPolicy) (policyBytes []byte) {
 
+func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.ClusterPolicy) (policyBytes []byte) {
 	if v1Policy != nil {
 		policyCopy := v1Policy
 		var matchResources kyvernov1.MatchResources
-		var preconditions kyvernov2.AnyAllConditions
-		var deny kyvernov2.AnyAllConditions
+		var preconditions kyvernov2beta1.AnyAllConditions
+		var deny kyvernov2beta1.AnyAllConditions
 
 		for i, rule := range v1Policy.GetSpec().Rules {
 			if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
@@ -395,8 +395,8 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 			if rule.RawAnyAllConditions != nil {
 				kyvernoAnyAllConditions, _ := ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
 				switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
-				case []kyvernov2.Condition:
-					preconditions = kyvernov2.AnyAllConditions{
+				case []kyvernov2beta1.Condition:
+					preconditions = kyvernov2beta1.AnyAllConditions{
 						AnyConditions: typedAnyAllConditions,
 					}
 				}
@@ -408,8 +408,8 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 				if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
 					kyvernoConditions, _ := ApiextensionsJsonToKyvernoConditions(target)
 					switch typedConditions := kyvernoConditions.(type) {
-					case []kyvernov2.Condition:
-						deny = kyvernov2.AnyAllConditions{
+					case []kyvernov2beta1.Condition:
+						deny = kyvernov2beta1.AnyAllConditions{
 							AnyConditions: typedConditions,
 						}
 					}
@@ -423,8 +423,8 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 	} else {
 		clusterPolicyCopy := v1ClusterPolicy
 		var matchResources kyvernov1.MatchResources
-		var preconditions kyvernov2.AnyAllConditions
-		var deny kyvernov2.AnyAllConditions
+		var preconditions kyvernov2beta1.AnyAllConditions
+		var deny kyvernov2beta1.AnyAllConditions
 
 		for i, rule := range v1ClusterPolicy.GetSpec().Rules {
 			if rule.MatchResources.Any == nil && rule.MatchResources.All == nil {
@@ -441,8 +441,8 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 			if rule.RawAnyAllConditions != nil {
 				kyvernoAnyAllConditions, _ := ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
 				switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
-				case []kyvernov2.Condition:
-					preconditions = kyvernov2.AnyAllConditions{
+				case []kyvernov2beta1.Condition:
+					preconditions = kyvernov2beta1.AnyAllConditions{
 						AnyConditions: typedAnyAllConditions,
 					}
 				}
@@ -454,8 +454,8 @@ func ConvertPolicyToV2(v1Policy *kyvernov1.Policy, v1ClusterPolicy *kyvernov1.Cl
 				if target := rule.Validation.Deny.GetAnyAllConditions(); target != nil {
 					kyvernoConditions, _ := ApiextensionsJsonToKyvernoConditions(target)
 					switch typedConditions := kyvernoConditions.(type) {
-					case []kyvernov2.Condition:
-						deny = kyvernov2.AnyAllConditions{
+					case []kyvernov2beta1.Condition:
+						deny = kyvernov2beta1.AnyAllConditions{
 							AnyConditions: typedConditions,
 						}
 					}

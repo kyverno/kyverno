@@ -2,7 +2,7 @@ package utils
 
 import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -16,11 +16,10 @@ import (
 )
 
 type PolicyContextBuilder interface {
-	Build(*admissionv1.AdmissionRequest, ...kyvernov1.PolicyInterface) (*engine.PolicyContext, error)
+	Build(*admissionv1.AdmissionRequest, ...kyvernov2beta1.PolicyInterface) (*engine.PolicyContext, error)
 }
 
-func checkForRBACInfo(rule kyvernov1.Rule) bool {
-
+func checkForRBACInfo(rule kyvernov2beta1.Rule) bool {
 	if len(rule.MatchResources.All) > 0 {
 		for _, rf := range rule.MatchResources.All {
 			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
@@ -52,7 +51,7 @@ func checkForRBACInfo(rule kyvernov1.Rule) bool {
 	return false
 }
 
-func containsRBACInfo(policies ...kyvernov1.PolicyInterface) bool {
+func containsRBACInfo(policies ...kyvernov2beta1.PolicyInterface) bool {
 	for _, policy := range policies {
 		for _, rule := range autogen.ComputeRules(policy) {
 			if checkForRBACInfo(rule) {
@@ -98,7 +97,7 @@ func NewPolicyContextBuilder(
 	}
 }
 
-func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, policies ...kyvernov1.PolicyInterface) (*engine.PolicyContext, error) {
+func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, policies ...kyvernov2beta1.PolicyInterface) (*engine.PolicyContext, error) {
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}

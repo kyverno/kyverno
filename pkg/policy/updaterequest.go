@@ -6,7 +6,7 @@ import (
 
 	"github.com/gardener/controller-manager-library/pkg/logger"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyInterface) error {
+func (pc *PolicyController) updateUR(policyKey string, policy kyvernov2beta1.PolicyInterface) error {
 	logger := pc.log.WithName("updateUR").WithName(policyKey)
 
 	if !policy.GetSpec().MutateExistingOnPolicyUpdate && !policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
@@ -100,7 +100,7 @@ func (pc *PolicyController) updateUR(policyKey string, policy kyvernov1.PolicyIn
 	return nil
 }
 
-func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov1.Rule, policy kyvernov1.PolicyInterface) (skip bool, err error) {
+func (pc *PolicyController) handleUpdateRequest(ur *kyvernov1beta1.UpdateRequest, triggerResource *unstructured.Unstructured, rule kyvernov2beta1.Rule, policy kyvernov2beta1.PolicyInterface) (skip bool, err error) {
 	policyContext, _, err := common.NewBackgroundContext(pc.client, ur, policy, triggerResource, pc.configHandler, nil, pc.log)
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to build policy context for rule %s", rule.Name)
@@ -142,7 +142,7 @@ func (pc *PolicyController) listGenerateURs(policyKey string, trigger *unstructu
 	return generateURs
 }
 
-func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType) *kyvernov1beta1.UpdateRequest {
+func newUR(policy kyvernov2beta1.PolicyInterface, trigger *unstructured.Unstructured, ruleType kyvernov1beta1.RequestType) *kyvernov1beta1.UpdateRequest {
 	var policyNameNamespaceKey string
 
 	if policy.IsNamespaced() {
@@ -167,7 +167,7 @@ func newUR(policy kyvernov1.PolicyInterface, trigger *unstructured.Unstructured,
 		Spec: kyvernov1beta1.UpdateRequestSpec{
 			Type:   ruleType,
 			Policy: policyNameNamespaceKey,
-			Resource: kyvernov1.ResourceSpec{
+			Resource: kyvernov2beta1.ResourceSpec{
 				Kind:       trigger.GetKind(),
 				Namespace:  trigger.GetNamespace(),
 				Name:       trigger.GetName(),

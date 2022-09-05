@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func (pc *PolicyController) processExistingResources(policy kyvernov1.PolicyInterface) {
+func (pc *PolicyController) processExistingResources(policy kyvernov2beta1.PolicyInterface) {
 	logger := pc.log.WithValues("policy", policy.GetName())
 	logger.V(4).Info("applying policy to existing resources")
 
@@ -35,7 +35,7 @@ func (pc *PolicyController) processExistingResources(policy kyvernov1.PolicyInte
 	}
 }
 
-func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyInterface, kind string, ns string, rule kyvernov1.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
+func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov2beta1.PolicyInterface, kind string, ns string, rule kyvernov2beta1.Rule, logger logr.Logger, metricAlreadyRegistered *bool) {
 	rMap := pc.getResourcesPerNamespace(kind, ns, rule, logger)
 	excludeAutoGenResources(policy, rMap, logger)
 	if len(rMap) == 0 {
@@ -61,19 +61,19 @@ func (pc *PolicyController) applyAndReportPerNamespace(policy kyvernov1.PolicyIn
 	pc.report(engineResponses, logger)
 }
 
-func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Logger, policy kyvernov2beta1.PolicyInterface, engineResponse response.EngineResponse) {
 	if err := policyResults.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_results_total metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
+func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov2beta1.PolicyInterface, engineResponse response.EngineResponse) {
 	if err := policyExecutionDuration.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
 
-func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
+func (pc *PolicyController) applyPolicy(policy kyvernov2beta1.PolicyInterface, resource unstructured.Unstructured, logger logr.Logger) (engineResponses []*response.EngineResponse) {
 	// pre-processing, check if the policy and resource version has been processed before
 	if !pc.rm.ProcessResource(policy.GetName(), policy.GetResourceVersion(), resource.GetKind(), resource.GetNamespace(), resource.GetName(), resource.GetResourceVersion()) {
 		logger.V(4).Info("policy and resource already processed", "policyResourceVersion", policy.GetResourceVersion(), "resourceResourceVersion", resource.GetResourceVersion(), "kind", resource.GetKind(), "namespace", resource.GetNamespace(), "name", resource.GetName())
@@ -90,7 +90,7 @@ func (pc *PolicyController) applyPolicy(policy kyvernov1.PolicyInterface, resour
 }
 
 // excludeAutoGenResources filter out the pods / jobs with ownerReference
-func excludeAutoGenResources(policy kyvernov1.PolicyInterface, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
+func excludeAutoGenResources(policy kyvernov2beta1.PolicyInterface, resourceMap map[string]unstructured.Unstructured, log logr.Logger) {
 	for uid, r := range resourceMap {
 		if engine.ManagedPodResource(policy, r) {
 			log.V(4).Info("exclude resource", "namespace", r.GetNamespace(), "kind", r.GetKind(), "name", r.GetName())
@@ -201,7 +201,7 @@ func buildKey(policy, pv, kind, ns, name, rv string) string {
 	return policy + "/" + pv + "/" + kind + "/" + ns + "/" + name + "/" + rv
 }
 
-func (pc *PolicyController) processExistingKinds(kinds []string, policy kyvernov1.PolicyInterface, rule kyvernov1.Rule, logger logr.Logger) {
+func (pc *PolicyController) processExistingKinds(kinds []string, policy kyvernov2beta1.PolicyInterface, rule kyvernov2beta1.Rule, logger logr.Logger) {
 	for _, kind := range kinds {
 		logger = logger.WithValues("rule", rule.Name, "kind", kind)
 		_, err := pc.rm.GetScope(kind)

@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
@@ -122,7 +122,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	}
 	if len(generatePolicies) == 0 && request.Operation == admissionv1.Update {
 		// handle generate source resource updates
-		go h.handleUpdatesForGenerateRules(logger, request, []kyvernov1.PolicyInterface{})
+		go h.handleUpdatesForGenerateRules(logger, request, []kyvernov2beta1.PolicyInterface{})
 	}
 
 	logger.V(4).Info("processing policies for validate admission request", "validate", len(policies), "mutate", len(mutatePolicies), "generate", len(generatePolicies))
@@ -215,7 +215,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	return admissionResponse
 }
 
-func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface, ts time.Time) ([]byte, []string, error) {
+func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov2beta1.PolicyInterface, ts time.Time) ([]byte, []string, error) {
 	mutatePatches, mutateEngineResponses, err := h.handleMutation(logger, request, policyContext, policies)
 	if err != nil {
 		return nil, nil, err
@@ -233,7 +233,7 @@ func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.
 
 // handleMutation handles mutating webhook admission request
 // return value: generated patches, triggered policies, engine responses correspdonding to the triggered policies
-func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, []*response.EngineResponse, error) {
+func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov2beta1.PolicyInterface) ([]byte, []*response.EngineResponse, error) {
 	if len(policies) == 0 {
 		return nil, nil, nil
 	}
@@ -323,7 +323,7 @@ func (h *handlers) applyMutation(request *admissionv1.AdmissionRequest, policyCo
 	return engineResponse, policyPatches, nil
 }
 
-func (h *handlers) applyImageVerifyPolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) ([]byte, []string, error) {
+func (h *handlers) applyImageVerifyPolicies(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov2beta1.PolicyInterface) ([]byte, []string, error) {
 	ok, message, imagePatches, warnings := h.handleVerifyImages(logger, request, policyContext, policies)
 	if !ok {
 		return nil, nil, errors.New(message)
@@ -333,7 +333,7 @@ func (h *handlers) applyImageVerifyPolicies(logger logr.Logger, request *admissi
 	return imagePatches, warnings, nil
 }
 
-func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov1.PolicyInterface) (bool, string, []byte, []string) {
+func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, policies []kyvernov2beta1.PolicyInterface) (bool, string, []byte, []string) {
 	if len(policies) == 0 {
 		return true, "", nil, nil
 	}

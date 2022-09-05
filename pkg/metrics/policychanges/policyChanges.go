@@ -3,7 +3,7 @@ package policychanges
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
 )
@@ -34,7 +34,7 @@ func registerPolicyChangesMetric(
 	return nil
 }
 
-func RegisterPolicy(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, policyChangeType PolicyChangeType) error {
+func RegisterPolicy(m *metrics.MetricsConfig, policy kyvernov2beta1.PolicyInterface, policyChangeType PolicyChangeType) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err

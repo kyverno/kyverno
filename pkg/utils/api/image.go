@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	imageutils "github.com/kyverno/kyverno/pkg/utils/image"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -112,7 +112,7 @@ func BuildStandardExtractors(tags ...string) []imageExtractor {
 	return extractors
 }
 
-func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) []imageExtractor {
+func lookupImageExtractor(kind string, configs kyvernov2beta1.ImageExtractorConfigs) []imageExtractor {
 	if configs != nil {
 		if extractorConfigs, ok := configs[kind]; ok {
 			extractors := []imageExtractor{}
@@ -149,7 +149,7 @@ func lookupImageExtractor(kind string, configs kyvernov1.ImageExtractorConfigs) 
 	return registeredExtractors[kind]
 }
 
-func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov1.ImageExtractorConfigs) (map[string]map[string]ImageInfo, error) {
+func ExtractImagesFromResource(resource unstructured.Unstructured, configs kyvernov2beta1.ImageExtractorConfigs) (map[string]map[string]ImageInfo, error) {
 	infos := map[string]map[string]ImageInfo{}
 
 	extractors := lookupImageExtractor(resource.GetKind(), configs)

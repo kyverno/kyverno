@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -57,7 +57,7 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 // - Namespaced resources across all namespaces if namespace is set to empty "", for Namespaced Kind
 // - Namespaced resources in the given namespace
 // - Cluster-wide resources for Cluster-wide Kind
-func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyvernov1.Rule, log logr.Logger) map[string]unstructured.Unstructured {
+func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace string, rule kyvernov2beta1.Rule, log logr.Logger) map[string]unstructured.Unstructured {
 	resourceMap := map[string]unstructured.Unstructured{}
 
 	if kind == "Namespace" {
@@ -75,7 +75,6 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 				}
 			}
 			// skip resources to be filtered
-
 		}
 	} else {
 		for _, value := range match.All {
@@ -102,7 +101,7 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	return resourceMap
 }
 
-func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.ResourceFilter) bool {
+func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov2beta1.ResourceFilter) bool {
 	if r.GetDeletionTimestamp() != nil {
 		return false
 	}
@@ -128,8 +127,8 @@ func (pc *PolicyController) match(r unstructured.Unstructured, rule kyvernov1.Re
 }
 
 // ExcludeResources ...
-func excludeResources(included map[string]unstructured.Unstructured, exclude kyvernov1.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
-	if reflect.DeepEqual(exclude, (kyvernov1.ResourceDescription{})) {
+func excludeResources(included map[string]unstructured.Unstructured, exclude kyvernov2beta1.ResourceDescription, configHandler config.Configuration, log logr.Logger) {
+	if reflect.DeepEqual(exclude, (kyvernov2beta1.ResourceDescription{})) {
 		return
 	}
 	excludeName := func(name string) Condition {

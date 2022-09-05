@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	gojmespath "github.com/jmespath/go-jmespath"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/common"
@@ -128,7 +128,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 
 		if ruleResp != nil {
 			addRuleResponse(log, resp, ruleResp, startTime)
-			if applyRules == kyvernov1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
+			if applyRules == kyvernov2beta1.ApplyOne && resp.PolicyResponse.RulesAppliedCount > 0 {
 				break
 			}
 		}
@@ -137,7 +137,7 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	return resp
 }
 
-func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) (*response.RuleResponse, error) {
+func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov2beta1.Rule) (*response.RuleResponse, error) {
 	ctxCopy := ctx.Copy()
 	ctxCopy.NewResource = *ctxCopy.OldResource.DeepCopy()
 	ctxCopy.OldResource = unstructured.Unstructured{}
@@ -153,7 +153,7 @@ func validateOldObject(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule
 	return processValidationRule(log, ctxCopy, rule), nil
 }
 
-func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov2beta1.Rule) *response.RuleResponse {
 	v := newValidator(log, ctx, rule)
 	if rule.Validation.ForEachValidation != nil {
 		return v.validateForEach()
@@ -179,18 +179,18 @@ func addRuleResponse(log logr.Logger, resp *response.EngineResponse, ruleResp *r
 type validator struct {
 	log              logr.Logger
 	ctx              *PolicyContext
-	rule             *kyvernov1.Rule
-	contextEntries   []kyvernov1.ContextEntry
+	rule             *kyvernov2beta1.Rule
+	contextEntries   []kyvernov2beta1.ContextEntry
 	anyAllConditions apiextensions.JSON
 	pattern          apiextensions.JSON
 	anyPattern       apiextensions.JSON
-	deny             *kyvernov1.Deny
-	podSecurity      *kyvernov1.PodSecurity
+	deny             *kyvernov2beta1.Deny
+	podSecurity      *kyvernov2beta1.PodSecurity
 }
 
-func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *validator {
+func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov2beta1.Rule) *validator {
 	ruleCopy := rule.DeepCopy()
-	var anyAllConditions kyvernov1.AnyAllConditions
+	var anyAllConditions kyvernov2beta1.AnyAllConditions
 	if ruleCopy.RawAnyAllConditions != nil {
 		anyAllConditions = *ruleCopy.RawAnyAllConditions
 	}
@@ -207,7 +207,7 @@ func newValidator(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *va
 	}
 }
 
-func newForeachValidator(foreach kyvernov1.ForEachValidation, rule *kyvernov1.Rule, ctx *PolicyContext, log logr.Logger) *validator {
+func newForeachValidator(foreach kyvernov2beta1.ForEachValidation, rule *kyvernov2beta1.Rule, ctx *PolicyContext, log logr.Logger) *validator {
 	ruleCopy := rule.DeepCopy()
 	anyAllConditions, err := utils.ToMap(foreach.AnyAllConditions)
 	if err != nil {
@@ -315,7 +315,7 @@ func (v *validator) validateForEach() *response.RuleResponse {
 	return ruleResponse(*v.rule, response.Validation, "rule passed", response.RuleStatusPass, nil)
 }
 
-func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
+func (v *validator) validateElements(foreach kyvernov2beta1.ForEachValidation, elements []interface{}, elementScope *bool) (*response.RuleResponse, int) {
 	v.ctx.JSONContext.Checkpoint()
 	defer v.ctx.JSONContext.Restore()
 	applyCount := 0
@@ -575,7 +575,7 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 }
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
-func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *PolicyContext) bool {
+func matches(logger logr.Logger, rule *kyvernov2beta1.Rule, ctx *PolicyContext) bool {
 	err := MatchesResourceDescription(ctx.NewResource, *rule, ctx.AdmissionInfo, ctx.ExcludeGroupRole, ctx.NamespaceLabels, "")
 	if err == nil {
 		return true
@@ -728,7 +728,7 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 	return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 }
 
-func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {
+func buildAnyPatternErrorMessage(rule *kyvernov2beta1.Rule, errors []string) string {
 	errStr := strings.Join(errors, " ")
 	if rule.Validation.Message == "" {
 		return fmt.Sprintf("validation error: %s", errStr)
@@ -775,6 +775,6 @@ func (v *validator) substituteDeny() error {
 		return err
 	}
 
-	v.deny = i.(*kyvernov1.Deny)
+	v.deny = i.(*kyvernov2beta1.Deny)
 	return nil
 }

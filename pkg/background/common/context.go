@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -17,7 +17,7 @@ import (
 )
 
 func NewBackgroundContext(dclient dclient.Interface, ur *kyvernov1beta1.UpdateRequest,
-	policy kyvernov1.PolicyInterface,
+	policy kyvernov2beta1.PolicyInterface,
 	trigger *unstructured.Unstructured,
 	cfg config.Configuration,
 	namespaceLabels map[string]string,

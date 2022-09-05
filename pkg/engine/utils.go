@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -141,7 +141,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check
 // should be: OR (across & inside) attributes
-func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescription, userInfo kyvernov1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func doesResourceMatchConditionBlock(conditionBlock kyvernov2beta1.ResourceDescription, userInfo kyvernov2beta1.UserInfo, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 
 	if len(conditionBlock.Kinds) > 0 {
@@ -276,7 +276,7 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyvernov2beta1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
 	rule := ruleRef.DeepCopy()
 	resource := *resourceRef.DeepCopy()
 	admissionInfo := *admissionInfoRef.DeepCopy()
@@ -343,15 +343,15 @@ func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef k
 	return nil
 }
 
-func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionMatchHelper(rmr kyvernov2beta1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
-	if reflect.DeepEqual(admissionInfo, kyvernov1.RequestInfo{}) {
-		rmr.UserInfo = kyvernov1.UserInfo{}
+	if reflect.DeepEqual(admissionInfo, kyvernov2beta1.RequestInfo{}) {
+		rmr.UserInfo = kyvernov2beta1.UserInfo{}
 	}
 
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov1.ResourceDescription{}) ||
-		!reflect.DeepEqual(rmr.UserInfo, kyvernov1.UserInfo{}) {
+	if !reflect.DeepEqual(rmr.ResourceDescription, kyvernov2beta1.ResourceDescription{}) ||
+		!reflect.DeepEqual(rmr.UserInfo, kyvernov2beta1.UserInfo{}) {
 		matchErrs := doesResourceMatchConditionBlock(rmr.ResourceDescription, rmr.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		errs = append(errs, matchErrs...)
 	} else {
@@ -360,11 +360,11 @@ func matchesResourceDescriptionMatchHelper(rmr kyvernov1.ResourceFilter, admissi
 	return errs
 }
 
-func matchesResourceDescriptionExcludeHelper(rer kyvernov1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
+func matchesResourceDescriptionExcludeHelper(rer kyvernov2beta1.ResourceFilter, admissionInfo kyvernov1beta1.RequestInfo, resource unstructured.Unstructured, dynamicConfig []string, namespaceLabels map[string]string) []error {
 	var errs []error
 	// checking if resource matches the rule
-	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov1.ResourceDescription{}) ||
-		!reflect.DeepEqual(rer.UserInfo, kyvernov1.UserInfo{}) {
+	if !reflect.DeepEqual(rer.ResourceDescription, kyvernov2beta1.ResourceDescription{}) ||
+		!reflect.DeepEqual(rer.UserInfo, kyvernov2beta1.UserInfo{}) {
 		excludeErrs := doesResourceMatchConditionBlock(rer.ResourceDescription, rer.UserInfo, admissionInfo, resource, dynamicConfig, namespaceLabels)
 		// it was a match so we want to exclude it
 		if len(excludeErrs) == 0 {
@@ -396,8 +396,8 @@ func excludeResource(podControllers string, resource unstructured.Unstructured) 
 // ManagedPodResource returns true:
 // - if the policy has auto-gen annotation && resource == Pod
 // - if the auto-gen contains cronJob && resource == Job
-func ManagedPodResource(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) bool {
-	podControllers, ok := policy.GetAnnotations()[kyvernov1.PodControllersAnnotation]
+func ManagedPodResource(policy kyvernov2beta1.PolicyInterface, resource unstructured.Unstructured) bool {
+	podControllers, ok := policy.GetAnnotations()[kyvernov2beta1.PodControllersAnnotation]
 	if !ok || strings.ToLower(podControllers) == "none" {
 		return false
 	}
@@ -442,12 +442,12 @@ func evaluateList(jmesPath string, ctx context.EvalInterface) ([]interface{}, er
 	return l, nil
 }
 
-func ruleError(rule *kyvernov1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
+func ruleError(rule *kyvernov2beta1.Rule, ruleType response.RuleType, msg string, err error) *response.RuleResponse {
 	msg = fmt.Sprintf("%s: %s", msg, err.Error())
 	return ruleResponse(*rule, ruleType, msg, response.RuleStatusError, nil)
 }
 
-func ruleResponse(rule kyvernov1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
+func ruleResponse(rule kyvernov2beta1.Rule, ruleType response.RuleType, msg string, status response.RuleStatus, patchedResource *unstructured.Unstructured) *response.RuleResponse {
 	resp := &response.RuleResponse{
 		Name:    rule.Name,
 		Type:    ruleType,

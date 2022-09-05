@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // GetPolicy - extracts policies from YAML bytes
-func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, err error) {
+func GetPolicy(bytes []byte) (policies []kyvernov2beta1.PolicyInterface, err error) {
 	documents, err := yamlutils.SplitDocuments(bytes)
 	if err != nil {
 		return nil, err
@@ -21,7 +21,7 @@ func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert to JSON: %v", err)
 		}
-		policy := &kyvernov1.ClusterPolicy{}
+		policy := &kyvernov2beta1.ClusterPolicy{}
 		if err := json.Unmarshal(policyBytes, policy); err != nil {
 			return nil, fmt.Errorf("failed to decode policy: %v", err)
 		}

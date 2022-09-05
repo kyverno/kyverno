@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -616,11 +616,11 @@ func Test_VerifyManifest_SignedYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(signed_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
-		Entries: []kyvernov1.Attestor{
+	verifyRule := kyvernov2beta1.Manifests{}
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
@@ -638,11 +638,11 @@ func Test_VerifyManifest_UnsignedYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(unsigned_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
-		Entries: []kyvernov1.Attestor{
+	verifyRule := kyvernov2beta1.Manifests{}
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
@@ -660,11 +660,11 @@ func Test_VerifyManifest_InvalidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(invalid_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
-		Entries: []kyvernov1.Attestor{
+	verifyRule := kyvernov2beta1.Manifests{}
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
@@ -682,16 +682,16 @@ func Test_VerifyManifest_MustAll_InvalidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
-		Entries: []kyvernov1.Attestor{
+	verifyRule := kyvernov2beta1.Manifests{}
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub2,
 				},
 			},
@@ -710,18 +710,18 @@ func Test_VerifyManifest_MustAll_ValidYAML(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig2_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
+	verifyRule := kyvernov2beta1.Manifests{}
 	count := 3
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
 		Count: &count,
-		Entries: []kyvernov1.Attestor{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub2,
 				},
 			},
@@ -742,18 +742,18 @@ func Test_VerifyManifest_AtLeastOne(t *testing.T) {
 	_ = json.Unmarshal([]byte(multi_sig_adreq), &request)
 	policyContext.JSONContext.AddRequest(request)
 	policyContext.Policy.SetName("test-policy")
-	verifyRule := kyvernov1.Manifests{}
+	verifyRule := kyvernov2beta1.Manifests{}
 	count := 1
-	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov1.AttestorSet{
+	verifyRule.Attestors = append(verifyRule.Attestors, kyvernov2beta1.AttestorSet{
 		Count: &count,
-		Entries: []kyvernov1.Attestor{
+		Entries: []kyvernov2beta1.Attestor{
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub,
 				},
 			},
 			{
-				Keys: &kyvernov1.StaticKeyAttestor{
+				Keys: &kyvernov2beta1.StaticKeyAttestor{
 					PublicKeys: ecdsaPub2,
 				},
 			},

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	common "github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/background/generate"
@@ -271,7 +270,7 @@ func (c *controller) updatePolicy(_, obj interface{}) {
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
-	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov2beta1.ClusterPolicy)
 	if !ok {
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return

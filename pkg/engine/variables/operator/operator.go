@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
@@ -25,47 +25,47 @@ type OperatorHandler interface {
 type VariableSubstitutionHandler = func(log logr.Logger, ctx context.EvalInterface, pattern interface{}) (interface{}, error)
 
 // CreateOperatorHandler returns the operator handler based on the operator used in condition
-func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov1.ConditionOperator) OperatorHandler {
+func CreateOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov2beta1.ConditionOperator) OperatorHandler {
 	str := strings.ToLower(string(op))
 	switch str {
-	case strings.ToLower(string(kyvernov1.ConditionOperators["Equal"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["Equals"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["Equal"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["Equals"])):
 		return NewEqualHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["NotEqual"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["NotEquals"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["NotEqual"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["NotEquals"])):
 		return NewNotEqualHandler(log, ctx)
 
 	// deprecated
-	case strings.ToLower(string(kyvernov1.ConditionOperators["In"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["In"])):
 		return NewInHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["AnyIn"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["AnyIn"])):
 		return NewAnyInHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["AllIn"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["AllIn"])):
 		return NewAllInHandler(log, ctx)
 
 	// deprecated
-	case strings.ToLower(string(kyvernov1.ConditionOperators["NotIn"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["NotIn"])):
 		return NewNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["AnyNotIn"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["AnyNotIn"])):
 		return NewAnyNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["AllNotIn"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["AllNotIn"])):
 		return NewAllNotInHandler(log, ctx)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["GreaterThanOrEquals"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["GreaterThan"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["LessThanOrEquals"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["LessThan"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["GreaterThanOrEquals"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["GreaterThan"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["LessThanOrEquals"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["LessThan"])):
 		return NewNumericOperatorHandler(log, ctx, op)
 
-	case strings.ToLower(string(kyvernov1.ConditionOperators["DurationGreaterThanOrEquals"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["DurationGreaterThan"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["DurationLessThanOrEquals"])),
-		strings.ToLower(string(kyvernov1.ConditionOperators["DurationLessThan"])):
+	case strings.ToLower(string(kyvernov2beta1.ConditionOperators["DurationGreaterThanOrEquals"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["DurationGreaterThan"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["DurationLessThanOrEquals"])),
+		strings.ToLower(string(kyvernov2beta1.ConditionOperators["DurationLessThan"])):
 		log.V(2).Info("DEPRECATED: The Duration* operators have been replaced with the other existing operators that now also support duration values", "operator", str)
 		return NewDurationOperatorHandler(log, ctx, op)
 

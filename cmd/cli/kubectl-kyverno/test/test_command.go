@@ -18,7 +18,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/kataras/tablewriter"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
@@ -893,7 +893,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		os.Exit(1)
 	}
 
-	filteredPolicies := []kyvernov1.PolicyInterface{}
+	filteredPolicies := []kyvernov2beta1.PolicyInterface{}
 	for _, p := range policies {
 		for _, res := range values.Results {
 			if p.GetName() == res.Policy {
@@ -905,7 +905,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 
 	ruleToCloneSourceResource := map[string]string{}
 	for _, p := range filteredPolicies {
-		filteredRules := []kyvernov1.Rule{}
+		filteredRules := []kyvernov2beta1.Rule{}
 
 		for _, rule := range autogen.ComputeRules(p) {
 			for _, res := range values.Results {

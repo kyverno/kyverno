@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -29,7 +29,7 @@ type validationHandler struct {
 func (v *validationHandler) handleValidation(
 	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
-	policies []kyvernov1.PolicyInterface,
+	policies []kyvernov2beta1.PolicyInterface,
 	policyContext *engine.PolicyContext,
 	namespaceLabels map[string]string,
 	admissionRequestTimestamp time.Time,
@@ -53,13 +53,13 @@ func (v *validationHandler) handleValidation(
 	}
 
 	var engineResponses []*response.EngineResponse
-	failurePolicy := kyvernov1.Ignore
+	failurePolicy := kyvernov2beta1.Ignore
 	for _, policy := range policies {
 		logger.V(3).Info("evaluating policy", "policy", policy.GetName())
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
-		if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
-			failurePolicy = kyvernov1.Fail
+		if policy.GetSpec().GetFailurePolicy() == kyvernov2beta1.Fail {
+			failurePolicy = kyvernov2beta1.Fail
 		}
 
 		engineResponse := engine.Validate(policyContext)

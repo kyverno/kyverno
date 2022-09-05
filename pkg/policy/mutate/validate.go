@@ -3,16 +3,16 @@ package mutate
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 )
 
 // Mutate provides implementation to validate 'mutate' rule
 type Mutate struct {
-	mutation kyvernov1.Mutation
+	mutation kyvernov2beta1.Mutation
 }
 
 // NewMutateFactory returns a new instance of Mutate validation checker
-func NewMutateFactory(m kyvernov1.Mutation) *Mutate {
+func NewMutateFactory(m kyvernov2beta1.Mutation) *Mutate {
 	return &Mutate{
 		mutation: m,
 	}

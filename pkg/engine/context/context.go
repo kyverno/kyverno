@@ -7,7 +7,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -75,7 +75,7 @@ type Interface interface {
 
 	// GenerateCustomImageInfo returns image infos as defined by a custom image extraction config
 	// and updates the context
-	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error)
+	GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov2beta1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error)
 
 	// Checkpoint creates a copy of the current internal state and pushes it into a stack of stored states.
 	Checkpoint()
@@ -266,7 +266,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	return addToContext(ctx, images, "images")
 }
 
-func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error) {
+func (ctx *context) GenerateCustomImageInfo(resource *unstructured.Unstructured, imageExtractorConfigs kyvernov2beta1.ImageExtractorConfigs) (map[string]map[string]apiutils.ImageInfo, error) {
 	images, err := apiutils.ExtractImagesFromResource(*resource, imageExtractorConfigs)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to extract images")

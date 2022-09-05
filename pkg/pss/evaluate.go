@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -49,7 +49,7 @@ func evaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []PSSCheckRe
 
 // When we specify the controlName only we want to exclude all restrictedFields for this control.
 // Remove all PSSChecks related to this control
-func trimExemptedChecks(pssChecks []PSSCheckResult, rule *kyvernov1.PodSecurity) []PSSCheckResult {
+func trimExemptedChecks(pssChecks []PSSCheckResult, rule *kyvernov2beta1.PodSecurity) []PSSCheckResult {
 	// Keep in memory the number of checks that have been removed
 	// to avoid panics when removing a new check.
 	removedChecks := 0
@@ -68,7 +68,7 @@ func trimExemptedChecks(pssChecks []PSSCheckResult, rule *kyvernov1.PodSecurity)
 	return pssChecks
 }
 
-func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude kyvernov1.PodSecurityStandard, restrictedField string) (bool, error) {
+func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude kyvernov2beta1.PodSecurityStandard, restrictedField string) (bool, error) {
 	if err := enginectx.AddJSONObject(ctx, pod); err != nil {
 		return false, errors.Wrap(err, "failed to add podSpec to engine context")
 	}
@@ -82,7 +82,7 @@ func forbiddenValuesExempted(ctx enginectx.Interface, pod *corev1.Pod, check PSS
 	return true, nil
 }
 
-func checkContainer(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []kyvernov1.PodSecurityStandard, restrictedField restrictedField, containerName string, containerTypePrefix string) (bool, error) {
+func checkContainer(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []kyvernov2beta1.PodSecurityStandard, restrictedField restrictedField, containerName string, containerTypePrefix string) (bool, error) {
 	matchedOnce := false
 	// Container.Name with double quotes
 	formatedContainerName := fmt.Sprintf(`"%s"`, containerName)
@@ -113,7 +113,7 @@ func checkContainer(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResu
 	return true, nil
 }
 
-func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []kyvernov1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
+func checkContainerLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, exclude []kyvernov2beta1.PodSecurityStandard, restrictedField restrictedField) (bool, error) {
 	if strings.Contains(restrictedField.path, "spec.containers[*]") {
 		for _, container := range pod.Spec.Containers {
 			allowed, err := checkContainer(ctx, pod, check, exclude, restrictedField, container.Name, "spec.containers[*]")
@@ -146,7 +146,7 @@ func checkHostNamespacesControl(check PSSCheckResult, restrictedField string) bo
 	return strings.Contains(check.CheckResult.ForbiddenDetail, hostNamespace)
 }
 
-func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *kyvernov1.PodSecurity, restrictedField restrictedField) (bool, error) {
+func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSCheckResult, rule *kyvernov2beta1.PodSecurity, restrictedField restrictedField) (bool, error) {
 	// Specific checks for controls with multiple pod-level restrictedFields
 	// TO DO: SELinux control
 	if check.ID == "hostNamespaces" {
@@ -172,7 +172,7 @@ func checkPodLevelFields(ctx enginectx.Interface, pod *corev1.Pod, check PSSChec
 	return true, nil
 }
 
-func exemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, error) {
+func exemptProfile(checks []PSSCheckResult, rule *kyvernov2beta1.PodSecurity, pod *corev1.Pod) (bool, error) {
 	ctx := enginectx.NewContext()
 
 	// 1. Iterate over check.RestrictedFields
@@ -215,7 +215,7 @@ func exemptProfile(checks []PSSCheckResult, rule *kyvernov1.PodSecurity, pod *co
 }
 
 // Check if the pod creation is allowed after exempting some PSS controls
-func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
+func EvaluatePod(rule *kyvernov2beta1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []PSSCheckResult, error) {
 	// 1. Evaluate containers that match images specified in exclude
 	podWithMatchingContainers := getPodWithMatchingContainers(rule.Exclude, pod)
 	pssChecks := evaluatePSS(level, &podWithMatchingContainers)
@@ -240,7 +240,7 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 	return true, pssChecks, nil
 }
 
-func appendAllowedValues(controls []restrictedField, exclude *kyvernov1.PodSecurityStandard) {
+func appendAllowedValues(controls []restrictedField, exclude *kyvernov2beta1.PodSecurityStandard) {
 	for _, control := range controls {
 		if control.path == exclude.RestrictedField {
 			for _, allowedValue := range control.allowedValues {
@@ -255,7 +255,7 @@ func appendAllowedValues(controls []restrictedField, exclude *kyvernov1.PodSecur
 	}
 }
 
-func allowedValuesSlice(excludeValues []interface{}, exclude kyvernov1.PodSecurityStandard) bool {
+func allowedValuesSlice(excludeValues []interface{}, exclude kyvernov2beta1.PodSecurityStandard) bool {
 	for _, values := range excludeValues {
 		v := reflect.TypeOf(values)
 		switch v.Kind() {
@@ -323,7 +323,7 @@ func allowedValuesSlice(excludeValues []interface{}, exclude kyvernov1.PodSecuri
 	return true
 }
 
-func allowedValues(resourceValue interface{}, exclude kyvernov1.PodSecurityStandard, controls []restrictedField) bool {
+func allowedValues(resourceValue interface{}, exclude kyvernov2beta1.PodSecurityStandard, controls []restrictedField) bool {
 	appendAllowedValues(controls, &exclude)
 
 	v := reflect.TypeOf(resourceValue)

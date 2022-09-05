@@ -12,7 +12,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/jmespath/go-jmespath"
 	"github.com/jmoiron/jsonq"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -78,7 +78,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov2beta1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -203,7 +203,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 					return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
 				}
 			} else {
-				checkWildcardPolicyValidation(rule, rulePath)
+				_ = checkWildcardPolicyValidation(rule, rulePath)
 			}
 		}
 		for _, value := range match.All {
@@ -213,7 +213,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 					return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 				}
 			} else {
-				checkWildcardPolicyValidation(rule, rulePath)
+				_ = checkWildcardPolicyValidation(rule, rulePath)
 			}
 		}
 		for _, value := range exclude.Any {
@@ -223,7 +223,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 					return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
 				}
 			} else {
-				checkWildcardPolicyValidation(rule, rulePath)
+				_ = checkWildcardPolicyValidation(rule, rulePath)
 			}
 		}
 		for _, value := range exclude.All {
@@ -233,7 +233,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 					return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
 				}
 			} else {
-				checkWildcardPolicyValidation(rule, rulePath)
+				_ = checkWildcardPolicyValidation(rule, rulePath)
 			}
 		}
 
@@ -292,7 +292,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	return nil, nil
 }
 
-func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
+func ValidateVariables(p kyvernov2beta1.PolicyInterface, backgroundMode bool) error {
 	vars := hasVariables(p)
 	if len(vars) == 0 {
 		return nil
@@ -312,7 +312,7 @@ func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 }
 
 // hasInvalidVariables - checks for unexpected variables in the policy
-func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) error {
+func hasInvalidVariables(policy kyvernov2beta1.PolicyInterface, background bool) error {
 	for _, r := range autogen.ComputeRules(policy) {
 		ruleCopy := r.DeepCopy()
 
@@ -336,7 +336,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 	return nil
 }
 
-func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) error {
+func ValidateOnPolicyUpdate(p kyvernov2beta1.PolicyInterface, onPolicyUpdate bool) error {
 	vars := hasVariables(p)
 	if len(vars) == 0 {
 		return nil
@@ -354,7 +354,7 @@ func ValidateOnPolicyUpdate(p kyvernov1.PolicyInterface, onPolicyUpdate bool) er
 }
 
 // for now forbidden sections are match, exclude and
-func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
+func ruleForbiddenSectionsHaveVariables(rule *kyvernov2beta1.Rule) error {
 	var err error
 
 	err = jsonPatchPathHasVariables(rule.Mutation.PatchesJSON6902)
@@ -376,7 +376,7 @@ func ruleForbiddenSectionsHaveVariables(rule *kyvernov1.Rule) error {
 }
 
 // hasVariables - check for variables in the policy
-func hasVariables(policy kyvernov1.PolicyInterface) [][]string {
+func hasVariables(policy kyvernov2beta1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
 	matches := variables.RegexVariables.FindAllStringSubmatch(string(policyRaw), -1)
 	return matches
@@ -422,7 +422,7 @@ func objectHasVariables(object interface{}) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool) *context.MockContext {
+func buildContext(rule *kyvernov2beta1.Rule, background bool) *context.MockContext {
 	re := getAllowedVariables(background)
 	ctx := context.NewMockContext(re)
 
@@ -447,7 +447,7 @@ func getAllowedVariables(background bool) *regexp.Regexp {
 	return allowedVariables
 }
 
-func addContextVariables(entries []kyvernov1.ContextEntry, ctx *context.MockContext) {
+func addContextVariables(entries []kyvernov2beta1.ContextEntry, ctx *context.MockContext) {
 	for _, contextEntry := range entries {
 		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
@@ -489,7 +489,7 @@ func validateElementInForEach(document apiextensions.JSON) error {
 	return err
 }
 
-func validateMatchKindHelper(rule kyvernov1.Rule) error {
+func validateMatchKindHelper(rule kyvernov2beta1.Rule) error {
 	if !ruleOnlyDealsWithResourceMetaData(rule) {
 		return fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 			" the rule does not match any kind")
@@ -499,7 +499,7 @@ func validateMatchKindHelper(rule kyvernov1.Rule) error {
 }
 
 // isLabelAndAnnotationsString :- Validate if labels and annotations contains only string values
-func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
+func isLabelAndAnnotationsString(rule kyvernov2beta1.Rule) bool {
 	checkLabelAnnotation := func(metaKey map[string]interface{}) bool {
 		for mk := range metaKey {
 			if mk == "labels" {
@@ -596,7 +596,7 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 	return true
 }
 
-func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
+func ruleOnlyDealsWithResourceMetaData(rule kyvernov2beta1.Rule) bool {
 	patches, _ := rule.Mutation.GetPatchStrategicMerge().(map[string]interface{})
 	for k := range patches {
 		if k != "metadata" {
@@ -640,7 +640,7 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 	return true
 }
 
-func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
+func validateResources(path *field.Path, rule kyvernov2beta1.Rule) (string, error) {
 	// validate userInfo in match and exclude
 
 	if len(rule.MatchResources.Any) > 0 && len(rule.MatchResources.All) > 0 {
@@ -721,9 +721,9 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 		return schemaKey, err
 	}
 	switch typedConditions := kyvernoConditions.(type) {
-	case kyvernov1.AnyAllConditions:
+	case kyvernov2beta1.AnyAllConditions:
 		// validating the conditions under 'any', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
+		if !reflect.DeepEqual(typedConditions, kyvernov2beta1.AnyAllConditions{}) && typedConditions.AnyConditions != nil {
 			for i, condition := range typedConditions.AnyConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.any[%d].%s", schemaKey, i, path), err
@@ -731,7 +731,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 			}
 		}
 		// validating the conditions under 'all', if there are any
-		if !reflect.DeepEqual(typedConditions, kyvernov1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
+		if !reflect.DeepEqual(typedConditions, kyvernov2beta1.AnyAllConditions{}) && typedConditions.AllConditions != nil {
 			for i, condition := range typedConditions.AllConditions {
 				if path, err := validateConditionValues(condition); err != nil {
 					return fmt.Sprintf("%s.all[%d].%s", schemaKey, i, path), err
@@ -739,7 +739,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 			}
 		}
 
-	case []kyvernov1.Condition: // backwards compatibility
+	case []kyvernov2beta1.Condition: // backwards compatibility
 		for i, condition := range typedConditions {
 			if path, err := validateConditionValues(condition); err != nil {
 				return fmt.Sprintf("%s[%d].%s", schemaKey, i, path), err
@@ -751,7 +751,7 @@ func validateConditions(conditions apiextensions.JSON, schemaKey string) (string
 
 // validateConditionValues validates whether all the values under the 'value' field of a 'conditions' field
 // are apt with respect to the provided 'condition.key'
-func validateConditionValues(c kyvernov1.Condition) (string, error) {
+func validateConditionValues(c kyvernov2beta1.Condition) (string, error) {
 	k := c.GetKey()
 	v := c.GetValue()
 	if k == nil || v == nil || c.Operator == "" {
@@ -766,7 +766,7 @@ func validateConditionValues(c kyvernov1.Condition) (string, error) {
 	}
 }
 
-func validateValuesKeyRequest(c kyvernov1.Condition) (string, error) {
+func validateValuesKeyRequest(c kyvernov2beta1.Condition) (string, error) {
 	k := c.GetKey()
 	switch strings.ReplaceAll(k.(string), " ", "") {
 	case "{{request.operation}}":
@@ -778,7 +778,7 @@ func validateValuesKeyRequest(c kyvernov1.Condition) (string, error) {
 
 // validateConditionValuesKeyRequestOperation validates whether all the values under the 'value' field of a 'conditions' field
 // are one of ["CREATE", "UPDATE", "DELETE", "CONNECT"] when 'condition.key' is {{request.operation}}
-func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, error) {
+func validateConditionValuesKeyRequestOperation(c kyvernov2beta1.Condition) (string, error) {
 	valuesAllowed := map[string]bool{
 		"CREATE":  true,
 		"UPDATE":  true,
@@ -811,7 +811,7 @@ func validateConditionValuesKeyRequestOperation(c kyvernov1.Condition) (string, 
 	return "", nil
 }
 
-func validateRuleContext(rule kyvernov1.Rule) error {
+func validateRuleContext(rule kyvernov2beta1.Rule) error {
 	if rule.Context == nil || len(rule.Context) == 0 {
 		return nil
 	}
@@ -846,7 +846,7 @@ func validateRuleContext(rule kyvernov1.Rule) error {
 	return nil
 }
 
-func validateVariable(entry kyvernov1.ContextEntry) error {
+func validateVariable(entry kyvernov2beta1.ContextEntry) error {
 	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
 	// will be inserted by the variable
 	// Skip validation if a variable is detected
@@ -865,7 +865,7 @@ func validateVariable(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-func validateConfigMap(entry kyvernov1.ContextEntry) error {
+func validateConfigMap(entry kyvernov2beta1.ContextEntry) error {
 	if entry.ConfigMap.Name == "" {
 		return fmt.Errorf("a name is required for configMap context entry")
 	}
@@ -877,7 +877,7 @@ func validateConfigMap(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-func validateAPICall(entry kyvernov1.ContextEntry) error {
+func validateAPICall(entry kyvernov2beta1.ContextEntry) error {
 	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
 	// will be inserted by the variable
 	// Skip validation if a variable is detected
@@ -893,7 +893,7 @@ func validateAPICall(entry kyvernov1.ContextEntry) error {
 	return nil
 }
 
-func validateImageRegistry(entry kyvernov1.ContextEntry) error {
+func validateImageRegistry(entry kyvernov2beta1.ContextEntry) error {
 	if entry.ImageRegistry.Reference == "" {
 		return fmt.Errorf("a ref is required for imageRegistry context entry")
 	}
@@ -927,8 +927,8 @@ func validateImageRegistry(entry kyvernov1.ContextEntry) error {
 // Returns error if
 // - kinds is empty array in matched resource block, i.e. kinds: []
 // - selector is invalid
-func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (string, error) {
-	if reflect.DeepEqual(rd, kyvernov1.ResourceDescription{}) {
+func validateMatchedResourceDescription(rd kyvernov2beta1.ResourceDescription) (string, error) {
+	if reflect.DeepEqual(rd, kyvernov2beta1.ResourceDescription{}) {
 		return "", fmt.Errorf("match resources not specified")
 	}
 
@@ -937,7 +937,7 @@ func validateMatchedResourceDescription(rd kyvernov1.ResourceDescription) (strin
 
 // checkClusterResourceInMatchAndExclude returns false if namespaced ClusterPolicy contains cluster wide resources in
 // Match and Exclude block
-func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
+func checkClusterResourceInMatchAndExclude(rule kyvernov2beta1.Rule, clusterResources sets.String, mock bool, res []*metav1.APIResourceList) error {
 	if !mock {
 		// Check for generate policy
 		// - if resource to be generated is namespaced resource then the namespace field
@@ -968,7 +968,7 @@ func checkClusterResourceInMatchAndExclude(rule kyvernov1.Rule, clusterResources
 }
 
 // jsonPatchOnPod checks if a rule applies JSON patches to Pod
-func jsonPatchOnPod(rule kyvernov1.Rule) bool {
+func jsonPatchOnPod(rule kyvernov2beta1.Rule) bool {
 	if !rule.HasMutate() {
 		return false
 	}
@@ -976,9 +976,9 @@ func jsonPatchOnPod(rule kyvernov1.Rule) bool {
 	return false
 }
 
-func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
+func podControllerAutoGenExclusion(policy kyvernov2beta1.PolicyInterface) bool {
 	annotations := policy.GetAnnotations()
-	val, ok := annotations[kyvernov1.PodControllersAnnotation]
+	val, ok := annotations[kyvernov2beta1.PodControllersAnnotation]
 	if !ok || val == "none" {
 		return false
 	}
@@ -993,7 +993,7 @@ func podControllerAutoGenExclusion(policy kyvernov1.PolicyInterface) bool {
 
 // validateKinds verifies if an API resource that matches 'kind' is valid kind
 // and found in the cache, returns error if not found
-func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvernov1.PolicyInterface) error {
+func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvernov2beta1.PolicyInterface) error {
 	for _, kind := range kinds {
 		gv, k := kubeutils.GetKindFromGVK(kind)
 
@@ -1007,7 +1007,7 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 	return nil
 }
 
-func checkWildcardPolicyValidation(rule kyvernov1.Rule, rulePath *field.Path) error {
+func checkWildcardPolicyValidation(rule kyvernov2beta1.Rule, rulePath *field.Path) error {
 	var errs field.ErrorList
 	if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
 		return fmt.Errorf("wildcard policy does not support rule type")
@@ -1024,7 +1024,7 @@ func checkWildcardPolicyValidation(rule kyvernov1.Rule, rulePath *field.Path) er
 		if rule.Validation.Deny != nil {
 			kyvernoConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.Validation.Deny.RawAnyAllConditions)
 			switch typedConditions := kyvernoConditions.(type) {
-			case []kyvernov1.Condition: // backwards compatibility
+			case []kyvernov2beta1.Condition: // backwards compatibility
 				for _, condition := range typedConditions {
 					key := condition.GetKey()
 					if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {

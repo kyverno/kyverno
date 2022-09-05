@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -16,7 +16,7 @@ type EngineResponse struct {
 	PatchedResource unstructured.Unstructured
 
 	// Original policy
-	Policy kyvernov1.PolicyInterface
+	Policy kyvernov2beta1.PolicyInterface
 
 	// Policy Response
 	PolicyResponse PolicyResponse
@@ -33,7 +33,7 @@ type PolicyResponse struct {
 	// rule response
 	Rules []RuleResponse `json:"rules"`
 	// ValidationFailureAction: audit (default) or enforce
-	ValidationFailureAction kyvernov1.ValidationFailureAction
+	ValidationFailureAction kyvernov2beta1.ValidationFailureAction
 
 	ValidationFailureActionOverrides []ValidationFailureActionOverride
 }
@@ -226,9 +226,9 @@ func (er EngineResponse) getRules(status RuleStatus) []string {
 	return rules
 }
 
-func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
+func (er *EngineResponse) GetValidationFailureAction() kyvernov2beta1.ValidationFailureAction {
 	for _, v := range er.PolicyResponse.ValidationFailureActionOverrides {
-		if v.Action != kyvernov1.Enforce && v.Action != kyvernov1.Audit {
+		if v.Action != kyvernov2beta1.Enforce && v.Action != kyvernov2beta1.Audit {
 			continue
 		}
 		for _, ns := range v.Namespaces {
@@ -241,6 +241,6 @@ func (er *EngineResponse) GetValidationFailureAction() kyvernov1.ValidationFailu
 }
 
 type ValidationFailureActionOverride struct {
-	Action     kyvernov1.ValidationFailureAction `json:"action"`
-	Namespaces []string                          `json:"namespaces"`
+	Action     kyvernov2beta1.ValidationFailureAction `json:"action"`
+	Namespaces []string                               `json:"namespaces"`
 }

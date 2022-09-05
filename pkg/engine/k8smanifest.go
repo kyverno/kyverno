@@ -14,7 +14,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/auth"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -34,7 +34,7 @@ const (
 //go:embed resources/default-config.yaml
 var defaultConfigBytes []byte
 
-func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov1.Rule) *response.RuleResponse {
+func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvernov2beta1.Rule) *response.RuleResponse {
 	if isDeleteRequest(ctx) {
 		return nil
 	}
@@ -42,7 +42,7 @@ func processYAMLValidationRule(log logr.Logger, ctx *PolicyContext, rule *kyvern
 	return ruleResp
 }
 
-func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.Logger) *response.RuleResponse {
+func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov2beta1.Rule, logger logr.Logger) *response.RuleResponse {
 	verified, reason, err := verifyManifest(ctx, *rule.Validation.Manifests, logger)
 	if err != nil {
 		logger.V(3).Info("verifyManifest return err", "error", err.Error())
@@ -55,7 +55,7 @@ func handleVerifyManifest(ctx *PolicyContext, rule *kyvernov1.Rule, logger logr.
 	return ruleResponse(*rule, response.Validation, reason, response.RuleStatusPass, nil)
 }
 
-func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests, logger logr.Logger) (bool, string, error) {
+func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov2beta1.Manifests, logger logr.Logger) (bool, string, error) {
 	// load AdmissionRequest
 	request, err := policyContext.JSONContext.Query("request")
 	if err != nil {
@@ -145,7 +145,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	return true, msg, nil
 }
 
-func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
+func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet kyvernov2beta1.AttestorSet, vo *k8smanifest.VerifyResourceOption, path string, uid string, logger logr.Logger) (bool, string, error) {
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
 	requiredCount := getRequiredCount(attestorSet)
@@ -159,7 +159,7 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 		var reason string
 		attestorPath := fmt.Sprintf("%s.entries[%d]", path, i)
 		if a.Attestor != nil {
-			nestedAttestorSet, err := kyvernov1.AttestorSetUnmarshal(a.Attestor)
+			nestedAttestorSet, err := kyvernov2beta1.AttestorSetUnmarshal(a.Attestor)
 			if err != nil {
 				entryError = errors.Wrapf(err, "failed to unmarshal nested attestor %s", attestorPath)
 			} else {
@@ -204,7 +204,7 @@ func verifyManifestAttestorSet(resource unstructured.Unstructured, attestorSet k
 	return false, reason, nil
 }
 
-func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
+func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov2beta1.Attestor, vo *k8smanifest.VerifyResourceOption, attestorPath, uid string, i int, logger logr.Logger) (bool, string, error) {
 	// check annotations
 	if a.Annotations != nil {
 		mnfstAnnotations := resource.GetAnnotations()
@@ -257,7 +257,7 @@ func k8sVerifyResource(resource unstructured.Unstructured, a kyvernov1.Attestor,
 	}
 }
 
-func buildVerifyResourceOptionsAndPath(a kyvernov1.Attestor, vo *k8smanifest.VerifyResourceOption, uid string, i int) (*k8smanifest.VerifyResourceOption, string, []string, error) {
+func buildVerifyResourceOptionsAndPath(a kyvernov2beta1.Attestor, vo *k8smanifest.VerifyResourceOption, uid string, i int) (*k8smanifest.VerifyResourceOption, string, []string, error) {
 	subPath := ""
 	var entryError error
 	envVariables := []string{}

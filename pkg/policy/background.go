@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 )
 
 // ContainsUserVariables returns error if variable that does not start from request.object
-func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
+func containsUserVariables(policy kyvernov2beta1.PolicyInterface, vars [][]string) error {
 	for _, rule := range policy.GetSpec().Rules {
 		if rule.IsMutateExisting() {
 			return nil
@@ -31,8 +31,7 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 	return nil
 }
 
-func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
-
+func hasUserMatchExclude(idx int, rule *kyvernov2beta1.Rule) error {
 	if len(rule.MatchResources.Any) > 0 {
 		for i, value := range rule.MatchResources.Any {
 			if path := userInfoDefined(value.UserInfo); path != "" {
@@ -68,7 +67,7 @@ func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
 	return nil
 }
 
-func userInfoDefined(ui kyvernov1.UserInfo) string {
+func userInfoDefined(ui kyvernov2beta1.UserInfo) string {
 	if len(ui.Roles) > 0 {
 		return "roles"
 	}

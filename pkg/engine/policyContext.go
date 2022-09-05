@@ -2,7 +2,7 @@ package engine
 
 import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -11,7 +11,7 @@ import (
 // PolicyContext contains the contexts for engine to process
 type PolicyContext struct {
 	// Policy is the policy to be processed
-	Policy kyvernov1.PolicyInterface
+	Policy kyvernov2beta1.PolicyInterface
 
 	// NewResource is the resource to be processed
 	NewResource unstructured.Unstructured

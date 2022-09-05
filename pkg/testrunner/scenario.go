@@ -11,7 +11,7 @@ import (
 	"runtime"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
@@ -62,7 +62,7 @@ type Validation struct {
 
 type Generation struct {
 	// generated resources
-	GeneratedResources []kyvernov1.ResourceSpec `yaml:"generatedResources"`
+	GeneratedResources []kyvernov2beta1.ResourceSpec `yaml:"generatedResources"`
 	// expected response from the policy engine
 	PolicyResponse response.PolicyResponse `yaml:"policyresponse"`
 }
@@ -208,7 +208,7 @@ func createNamespace(client dclient.Interface, ns *unstructured.Unstructured) er
 	return err
 }
 
-func validateGeneratedResources(t *testing.T, client dclient.Interface, policy kyvernov1.ClusterPolicy, namespace string, expected []kyvernov1.ResourceSpec) {
+func validateGeneratedResources(t *testing.T, client dclient.Interface, policy kyvernov2beta1.ClusterPolicy, namespace string, expected []kyvernov2beta1.ResourceSpec) {
 	t.Helper()
 	t.Log("--validate if resources are generated---")
 	// list of expected generated resources
@@ -442,17 +442,17 @@ func loadObjects(t *testing.T, path string) []k8sRuntime.Object {
 	return resources
 }
 
-func loadPolicy(t *testing.T, path string) *kyvernov1.ClusterPolicy {
+func loadPolicy(t *testing.T, path string) *kyvernov2beta1.ClusterPolicy {
 	t.Helper()
 	t.Logf("loading policy from %s", path)
 	data, err := loadFile(t, path)
 	if err != nil {
 		return nil
 	}
-	var policies []*kyvernov1.ClusterPolicy
+	var policies []*kyvernov2beta1.ClusterPolicy
 	pBytes := bytes.Split(data, []byte("---"))
 	for _, p := range pBytes {
-		policy := kyvernov1.ClusterPolicy{}
+		policy := kyvernov2beta1.ClusterPolicy{}
 		pBytes, err := apiyaml.ToJSON(p)
 		if err != nil {
 			t.Error(err)

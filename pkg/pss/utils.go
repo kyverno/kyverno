@@ -3,7 +3,7 @@ package pss
 import (
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/pod-security-admission/policy"
@@ -41,7 +41,7 @@ func containsContainer(containers interface{}, containerName string) bool {
 }
 
 // Get copy of pod with containers (containers, initContainers, ephemeralContainers) matching the exclude.image
-func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithMatchingContainers(exclude []kyvernov2beta1.PodSecurityStandard, pod *corev1.Pod) (podCopy corev1.Pod) {
 	podCopy = *pod
 	podCopy.Spec.Containers = []corev1.Container{}
 	podCopy.Spec.InitContainers = []corev1.Container{}
@@ -96,7 +96,7 @@ func getPodWithMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *
 }
 
 // Get containers NOT matching images specified in Exclude values
-func getPodWithNotMatchingContainers(exclude []kyvernov1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
+func getPodWithNotMatchingContainers(exclude []kyvernov2beta1.PodSecurityStandard, pod *corev1.Pod, podWithMatchingContainers *corev1.Pod) (podCopy corev1.Pod) {
 	// Only copy containers because we have already evaluated the pod-level controls
 	// e.g.: spec.securityContext.hostProcess
 	podCopy.Spec.Containers = []corev1.Container{}

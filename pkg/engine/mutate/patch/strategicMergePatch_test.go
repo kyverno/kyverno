@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
@@ -239,7 +239,7 @@ func Test_PolicyDeserilize(t *testing.T) {
 }
 `)
 
-	var policy kyvernov1.ClusterPolicy
+	var policy kyvernov2beta1.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 

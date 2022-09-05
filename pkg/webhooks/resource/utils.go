@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
@@ -87,7 +87,7 @@ func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
 
 // returns true -> if there is even one policy that blocks resource request
 // returns false -> if all the policies are meant to report only, we dont block resource request
-func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
+func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov2beta1.FailurePolicyType, log logr.Logger) bool {
 	for _, er := range engineReponses {
 		if engineutils2.BlockRequest(er, failurePolicy) {
 			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
@@ -184,7 +184,7 @@ func hasAnnotations(context *engine.PolicyContext) bool {
 	return len(annotations) != 0
 }
 
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
+func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov2beta1.Rule, logger logr.Logger) (kyvernov2beta1.Rule, error) {
 	var apiVersion, kind, name, namespace string
 	sourceRequest := &admissionv1.AdmissionRequest{}
 	kind = resLabels["kyverno.io/generated-by-kind"]
@@ -306,7 +306,7 @@ func transform(admissionRequestInfo kyvernov1beta1.AdmissionRequestInfoObject, u
 	ur := kyvernov1beta1.UpdateRequestSpec{
 		Type:   ruleType,
 		Policy: PolicyNameNamespaceKey,
-		Resource: kyvernov1.ResourceSpec{
+		Resource: kyvernov2beta1.ResourceSpec{
 			Kind:       er.PolicyResponse.Resource.Kind,
 			Namespace:  er.PolicyResponse.Resource.Namespace,
 			Name:       er.PolicyResponse.Resource.Name,

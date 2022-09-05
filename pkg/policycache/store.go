@@ -3,7 +3,7 @@ package policycache
 import (
 	"sync"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/policy"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -12,11 +12,11 @@ import (
 
 type store interface {
 	// set inserts a policy in the cache
-	set(string, kyvernov1.PolicyInterface)
+	set(string, kyvernov2beta1.PolicyInterface)
 	// unset removes a policy from the cache
 	unset(string)
 	// get finds policies that match a given type, gvk and namespace
-	get(PolicyType, string, string) []kyvernov1.PolicyInterface
+	get(PolicyType, string, string) []kyvernov2beta1.PolicyInterface
 }
 
 type policyCache struct {
@@ -30,7 +30,7 @@ func newPolicyCache() store {
 	}
 }
 
-func (pc *policyCache) set(key string, policy kyvernov1.PolicyInterface) {
+func (pc *policyCache) set(key string, policy kyvernov2beta1.PolicyInterface) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
 	pc.store.set(key, policy)
@@ -44,7 +44,7 @@ func (pc *policyCache) unset(key string) {
 	logger.V(4).Info("policy is removed from cache", "key", key)
 }
 
-func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []kyvernov1.PolicyInterface {
+func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []kyvernov2beta1.PolicyInterface {
 	pc.lock.RLock()
 	defer pc.lock.RUnlock()
 	return pc.store.get(pkey, kind, nspace)
@@ -52,7 +52,7 @@ func (pc *policyCache) get(pkey PolicyType, kind, nspace string) []kyvernov1.Pol
 
 type policyMap struct {
 	// policies maps names to policy interfaces
-	policies map[string]kyvernov1.PolicyInterface
+	policies map[string]kyvernov2beta1.PolicyInterface
 	// kindType stores names of ClusterPolicies and Namespaced Policies.
 	// Since both the policy name use same type (i.e. string), Both policies can be differentiated based on
 	// "namespace". namespace policy get stored with policy namespace with policy name"
@@ -62,7 +62,7 @@ type policyMap struct {
 
 func newPolicyMap() *policyMap {
 	return &policyMap{
-		policies: map[string]kyvernov1.PolicyInterface{},
+		policies: map[string]kyvernov2beta1.PolicyInterface{},
 		kindType: map[string]map[PolicyType]sets.String{},
 	}
 }
@@ -73,12 +73,12 @@ func computeKind(gvk string) string {
 	return kind
 }
 
-func computeEnforcePolicy(spec *kyvernov1.Spec) bool {
-	if spec.GetValidationFailureAction() == kyvernov1.Enforce {
+func computeEnforcePolicy(spec *kyvernov2beta1.Spec) bool {
+	if spec.GetValidationFailureAction() == kyvernov2beta1.Enforce {
 		return true
 	}
 	for _, k := range spec.ValidationFailureActionOverrides {
-		if k.Action == kyvernov1.Enforce {
+		if k.Action == kyvernov2beta1.Enforce {
 			return true
 		}
 	}
@@ -93,7 +93,7 @@ func set(set sets.String, item string, value bool) sets.String {
 	}
 }
 
-func (m *policyMap) set(key string, policy kyvernov1.PolicyInterface) {
+func (m *policyMap) set(key string, policy kyvernov2beta1.PolicyInterface) {
 	enforcePolicy := computeEnforcePolicy(policy.GetSpec())
 	m.policies[key] = policy
 	type state struct {
@@ -143,9 +143,9 @@ func (m *policyMap) unset(key string) {
 	}
 }
 
-func (m *policyMap) get(key PolicyType, gvk, namespace string) []kyvernov1.PolicyInterface {
+func (m *policyMap) get(key PolicyType, gvk, namespace string) []kyvernov2beta1.PolicyInterface {
 	kind := computeKind(gvk)
-	var result []kyvernov1.PolicyInterface
+	var result []kyvernov2beta1.PolicyInterface
 	for policyName := range m.kindType[kind][key] {
 		ns, _, isNamespacedPolicy := policy.ParseNamespacedPolicy(policyName)
 		policy := m.policies[policyName]

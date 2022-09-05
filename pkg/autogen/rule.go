@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -20,17 +20,17 @@ import (
 // https://github.com/kyverno/kyverno/issues/568
 
 type kyvernoRule struct {
-	Name             string                        `json:"name"`
-	MatchResources   *kyvernov1.MatchResources     `json:"match"`
-	ExcludeResources *kyvernov1.MatchResources     `json:"exclude,omitempty"`
-	Context          *[]kyvernov1.ContextEntry     `json:"context,omitempty"`
-	AnyAllConditions *kyvernov1.AnyAllConditions   `json:"preconditions,omitempty"`
-	Mutation         *kyvernov1.Mutation           `json:"mutate,omitempty"`
-	Validation       *kyvernov1.Validation         `json:"validate,omitempty"`
-	VerifyImages     []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	Name             string                             `json:"name"`
+	MatchResources   *kyvernov2beta1.MatchResources     `json:"match"`
+	ExcludeResources *kyvernov2beta1.MatchResources     `json:"exclude,omitempty"`
+	Context          *[]kyvernov2beta1.ContextEntry     `json:"context,omitempty"`
+	AnyAllConditions *kyvernov2beta1.AnyAllConditions   `json:"preconditions,omitempty"`
+	Mutation         *kyvernov2beta1.Mutation           `json:"mutate,omitempty"`
+	Validation       *kyvernov2beta1.Validation         `json:"validate,omitempty"`
+	VerifyImages     []kyvernov2beta1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
-func createRule(rule *kyvernov1.Rule) *kyvernoRule {
+func createRule(rule *kyvernov2beta1.Rule) *kyvernoRule {
 	if rule == nil {
 		return nil
 	}
@@ -38,25 +38,25 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 		Name:         rule.Name,
 		VerifyImages: rule.VerifyImages,
 	}
-	if !reflect.DeepEqual(rule.MatchResources, kyvernov1.MatchResources{}) {
+	if !reflect.DeepEqual(rule.MatchResources, kyvernov2beta1.MatchResources{}) {
 		jsonFriendlyStruct.MatchResources = rule.MatchResources.DeepCopy()
 	}
-	if !reflect.DeepEqual(rule.ExcludeResources, kyvernov1.MatchResources{}) {
+	if !reflect.DeepEqual(rule.ExcludeResources, kyvernov2beta1.MatchResources{}) {
 		jsonFriendlyStruct.ExcludeResources = rule.ExcludeResources.DeepCopy()
 	}
-	if !reflect.DeepEqual(rule.Mutation, kyvernov1.Mutation{}) {
+	if !reflect.DeepEqual(rule.Mutation, kyvernov2beta1.Mutation{}) {
 		jsonFriendlyStruct.Mutation = rule.Mutation.DeepCopy()
 	}
-	if !reflect.DeepEqual(rule.Validation, kyvernov1.Validation{}) {
+	if !reflect.DeepEqual(rule.Validation, kyvernov2beta1.Validation{}) {
 		jsonFriendlyStruct.Validation = rule.Validation.DeepCopy()
 	}
 	kyvernoAnyAllConditions, _ := utils.ApiextensionsJsonToKyvernoConditions(rule.RawAnyAllConditions)
 	switch typedAnyAllConditions := kyvernoAnyAllConditions.(type) {
-	case kyvernov1.AnyAllConditions:
-		if !reflect.DeepEqual(typedAnyAllConditions, kyvernov1.AnyAllConditions{}) {
+	case kyvernov2beta1.AnyAllConditions:
+		if !reflect.DeepEqual(typedAnyAllConditions, kyvernov2beta1.AnyAllConditions{}) {
 			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
 		}
-	case []kyvernov1.Condition:
+	case []kyvernov2beta1.Condition:
 		if len(typedAnyAllConditions) > 0 {
 			jsonFriendlyStruct.AnyAllConditions = rule.DeepCopy().RawAnyAllConditions
 		}
@@ -67,9 +67,9 @@ func createRule(rule *kyvernov1.Rule) *kyvernoRule {
 	return &jsonFriendlyStruct
 }
 
-type generateResourceFilters func(kyvernov1.ResourceFilters, []string) kyvernov1.ResourceFilters
+type generateResourceFilters func(kyvernov2beta1.ResourceFilters, []string) kyvernov2beta1.ResourceFilters
 
-func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyvernov1.Rule {
+func generateRule(name string, rule *kyvernov2beta1.Rule, tplKey, shift string, kinds []string, grf generateResourceFilters) *kyvernov2beta1.Rule {
 	if rule == nil {
 		return nil
 	}
@@ -87,7 +87,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.ExcludeResources.All = grf(rule.ExcludeResources.All, kinds)
 	}
 	if target := rule.Mutation.GetPatchStrategicMerge(); target != nil {
-		newMutation := kyvernov1.Mutation{}
+		newMutation := kyvernov2beta1.Mutation{}
 		newMutation.SetPatchStrategicMerge(
 			map[string]interface{}{
 				"spec": map[string]interface{}{
@@ -99,9 +99,9 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if len(rule.Mutation.ForEachMutation) > 0 && rule.Mutation.ForEachMutation != nil {
-		var newForeachMutation []kyvernov1.ForEachMutation
+		var newForeachMutation []kyvernov2beta1.ForEachMutation
 		for _, foreach := range rule.Mutation.ForEachMutation {
-			temp := kyvernov1.ForEachMutation{
+			temp := kyvernov2beta1.ForEachMutation{
 				List:             foreach.List,
 				Context:          foreach.Context,
 				AnyAllConditions: foreach.AnyAllConditions,
@@ -115,13 +115,13 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			)
 			newForeachMutation = append(newForeachMutation, temp)
 		}
-		rule.Mutation = kyvernov1.Mutation{
+		rule.Mutation = kyvernov2beta1.Mutation{
 			ForEachMutation: newForeachMutation,
 		}
 		return rule
 	}
 	if target := rule.Validation.GetPattern(); target != nil {
-		newValidate := kyvernov1.Validation{
+		newValidate := kyvernov2beta1.Validation{
 			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 		}
 		newValidate.SetPattern(
@@ -135,7 +135,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if rule.Validation.Deny != nil {
-		deny := kyvernov1.Validation{
+		deny := kyvernov2beta1.Validation{
 			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "deny"),
 			Deny:    rule.Validation.Deny,
 		}
@@ -143,11 +143,11 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		return rule
 	}
 	if rule.Validation.PodSecurity != nil && len(rule.Validation.PodSecurity.Exclude) > 0 {
-		newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
+		newExclude := make([]kyvernov2beta1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
 		copy(newExclude, rule.Validation.PodSecurity.Exclude)
-		podSecurity := kyvernov1.Validation{
+		podSecurity := kyvernov2beta1.Validation{
 			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
-			PodSecurity: &kyvernov1.PodSecurity{
+			PodSecurity: &kyvernov2beta1.PodSecurity{
 				Level:   rule.Validation.PodSecurity.Level,
 				Version: rule.Validation.PodSecurity.Version,
 				Exclude: newExclude,
@@ -170,23 +170,23 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 			}
 			patterns = append(patterns, newPattern)
 		}
-		rule.Validation = kyvernov1.Validation{
+		rule.Validation = kyvernov2beta1.Validation{
 			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "anyPattern"),
 		}
 		rule.Validation.SetAnyPattern(patterns)
 		return rule
 	}
 	if len(rule.Validation.ForEachValidation) > 0 && rule.Validation.ForEachValidation != nil {
-		newForeachValidate := make([]kyvernov1.ForEachValidation, len(rule.Validation.ForEachValidation))
+		newForeachValidate := make([]kyvernov2beta1.ForEachValidation, len(rule.Validation.ForEachValidation))
 		copy(newForeachValidate, rule.Validation.ForEachValidation)
-		rule.Validation = kyvernov1.Validation{
+		rule.Validation = kyvernov2beta1.Validation{
 			Message:           variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "pattern"),
 			ForEachValidation: newForeachValidate,
 		}
 		return rule
 	}
 	if rule.VerifyImages != nil {
-		newVerifyImages := make([]kyvernov1.ImageVerification, len(rule.VerifyImages))
+		newVerifyImages := make([]kyvernov2beta1.ImageVerification, len(rule.VerifyImages))
 		for i, vi := range rule.VerifyImages {
 			newVerifyImages[i] = *vi.DeepCopy()
 		}
@@ -208,7 +208,7 @@ func isAutogenRuleName(name string) bool {
 	return strings.HasPrefix(name, "autogen-")
 }
 
-func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []string) kyvernov1.ResourceFilters {
+func getAnyAllAutogenRule(v kyvernov2beta1.ResourceFilters, match string, kinds []string) kyvernov2beta1.ResourceFilters {
 	anyKind := v.DeepCopy()
 	for i, value := range v {
 		if kubeutils.ContainsKind(value.Kinds, match) {
@@ -218,7 +218,7 @@ func getAnyAllAutogenRule(v kyvernov1.ResourceFilters, match string, kinds []str
 	return anyKind
 }
 
-func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
+func generateRuleForControllers(rule *kyvernov2beta1.Rule, controllers string) *kyvernov2beta1.Rule {
 	if isAutogenRuleName(rule.Name) || controllers == "" {
 		logger.V(5).Info("skip generateRuleForControllers")
 		return nil
@@ -258,13 +258,13 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 		"template",
 		"spec/template",
 		strings.Split(controllers, ","),
-		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
+		func(r kyvernov2beta1.ResourceFilters, kinds []string) kyvernov2beta1.ResourceFilters {
 			return getAnyAllAutogenRule(r, "Pod", kinds)
 		},
 	)
 }
 
-func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Rule {
+func generateCronJobRule(rule *kyvernov2beta1.Rule, controllers string) *kyvernov2beta1.Rule {
 	hasCronJob := strings.Contains(controllers, PodControllerCronJob) || strings.Contains(controllers, "all")
 	if !hasCronJob {
 		return nil
@@ -276,7 +276,7 @@ func generateCronJobRule(rule *kyvernov1.Rule, controllers string) *kyvernov1.Ru
 		"jobTemplate",
 		"spec/jobTemplate/spec/template",
 		[]string{PodControllerCronJob},
-		func(r kyvernov1.ResourceFilters, kinds []string) kyvernov1.ResourceFilters {
+		func(r kyvernov2beta1.ResourceFilters, kinds []string) kyvernov2beta1.ResourceFilters {
 			return getAnyAllAutogenRule(r, "Job", kinds)
 		},
 	)

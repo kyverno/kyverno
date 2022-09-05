@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
@@ -79,7 +79,7 @@ func RetryFunc(retryInterval, timeout time.Duration, run func() error, msg strin
 	}
 }
 
-func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
+func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov2beta1.PolicyInterface, client dclient.Interface, kyvernoClient kyvernoclient.Interface, urlister kyvernov1beta1listers.UpdateRequestNamespaceLister, pName string, logger logr.Logger) bool {
 	generatePolicyWithClone := false
 	for _, rule := range policy.GetSpec().Rules {
 		clone, sync := rule.GetCloneSyncForGenerate()
@@ -108,7 +108,7 @@ func ProcessDeletePolicyForCloneGenerateRule(policy kyvernov1.PolicyInterface, c
 	return generatePolicyWithClone
 }
 
-func updateSourceResource(pName string, rule kyvernov1.Rule, client dclient.Interface, log logr.Logger) error {
+func updateSourceResource(pName string, rule kyvernov2beta1.Rule, client dclient.Interface, log logr.Logger) error {
 	obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 	if err != nil {
 		return errors.Wrapf(err, "source resource %s/%s/%s not found", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)

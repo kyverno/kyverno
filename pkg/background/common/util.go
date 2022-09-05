@@ -5,7 +5,7 @@ import (
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -46,7 +46,7 @@ func Update(client kyvernoclient.Interface, urLister kyvernov1beta1listers.Updat
 	return ur, err
 }
 
-func UpdateStatus(client kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
+func UpdateStatus(client kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov2beta1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
 	var ur *kyvernov1beta1.UpdateRequest
 	err := retry.RetryOnConflict(DefaultRetry, func() error {
 		ur, err := urLister.Get(name)

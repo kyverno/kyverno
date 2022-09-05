@@ -5,12 +5,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
 // NewDurationOperatorHandler returns handler to manage the provided duration operations (>, >=, <=, <)
-func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov1.ConditionOperator) OperatorHandler {
+func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op kyvernov2beta1.ConditionOperator) OperatorHandler {
 	return DurationOperatorHandler{
 		ctx:       ctx,
 		log:       log,
@@ -22,19 +22,19 @@ func NewDurationOperatorHandler(log logr.Logger, ctx context.EvalInterface, op k
 type DurationOperatorHandler struct {
 	ctx       context.EvalInterface
 	log       logr.Logger
-	condition kyvernov1.ConditionOperator
+	condition kyvernov2beta1.ConditionOperator
 }
 
 // durationCompareByCondition compares a time.Duration key with a time.Duration value on the basis of the provided operator
-func durationCompareByCondition(key time.Duration, value time.Duration, op kyvernov1.ConditionOperator, log logr.Logger) bool {
+func durationCompareByCondition(key time.Duration, value time.Duration, op kyvernov2beta1.ConditionOperator, log logr.Logger) bool {
 	switch op {
-	case kyvernov1.ConditionOperators["DurationGreaterThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["DurationGreaterThanOrEquals"]:
 		return key >= value
-	case kyvernov1.ConditionOperators["DurationGreaterThan"]:
+	case kyvernov2beta1.ConditionOperators["DurationGreaterThan"]:
 		return key > value
-	case kyvernov1.ConditionOperators["DurationLessThanOrEquals"]:
+	case kyvernov2beta1.ConditionOperators["DurationLessThanOrEquals"]:
 		return key <= value
-	case kyvernov1.ConditionOperators["DurationLessThan"]:
+	case kyvernov2beta1.ConditionOperators["DurationLessThan"]:
 		return key < value
 	default:
 		log.V(2).Info(fmt.Sprintf("Expected operator, one of [DurationGreaterThanOrEquals, DurationGreaterThan, DurationLessThanOrEquals, DurationLessThan], found %s", op))

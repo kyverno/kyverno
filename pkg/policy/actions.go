@@ -3,7 +3,7 @@ package policy
 import (
 	"fmt"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/api/kyverno/v2beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
@@ -21,7 +21,7 @@ type Validation interface {
 // - Mutate
 // - Validation
 // - Generate
-func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mock bool) error {
+func validateActions(idx int, rule *kyvernov2beta1.Rule, client dclient.Interface, mock bool) error {
 	if rule == nil {
 		return nil
 	}
