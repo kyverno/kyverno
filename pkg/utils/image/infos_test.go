@@ -84,9 +84,6 @@ func Test_ReferenceWithTag(t *testing.T) {
 	}, {
 		input:    "docker.io/test/centos@sha256:dead07b4d8ed7e29e98de0f4504d87e8880d4347859d839686a31da35a3b532f",
 		expected: "docker.io/test/centos:",
-	}, {
-		input:    "+-x",
-		expected: "docker.io/test/centos:",
 	}}
 	for _, test := range testCases {
 		imageInfo, err := GetImageInfo(test.input)
