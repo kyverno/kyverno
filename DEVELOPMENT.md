@@ -25,8 +25,8 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating API deep copy functions](#generating-api-deep-copy-functions)
   - [Generating CRD definitions](#generating-crd-definitions)
   - [Generating API docs](#generating-api-docs)
-  <!-- - [Generating helm charts CRDs]
-  - [Generating helm charts docs] -->
+  - [Generating helm charts CRDs](#generating-helm-charts-crds)
+  - [Generating helm charts docs](#generating-helm-charts-docs)
 
 ## Tools
 
@@ -474,6 +474,36 @@ make codegen-api-docs
 ```
 
 This will output API docs in [/docs/crd](./docs/crd).
+
+### Generating helm charts CRDs
+
+Based on the [APIs golang code definitions](./api), you can generate the corresponding CRD definitions for helm charts by running:
+```console
+# generate helm CRDs
+make codegen-helm-crds
+```
+
+This will output CRDs templates in [/charts/kyverno/templates/crds.yaml](./charts/kyverno/templates/crds.yaml).
+
+> **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
+
+### Generating helm charts docs
+
+Based on the helm charts default values:
+- [kyverno](./charts/kyverno/values.yaml)
+- [kyverno-policies](./charts/kyverno-policies/values.yaml)
+
+You can generate the corresponding helm chart docs by running:
+```console
+# generate helm docs
+make codegen-helm-docs
+```
+
+This will output docs in helm charts respective `README.md`:
+- [kyverno](./charts/kyverno/README.md)
+- [kyverno-policies](./charts/kyverno-policies/README.md)
+
+> **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
 
 ## Building and publishing an image locally
 
