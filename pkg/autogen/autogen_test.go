@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -298,7 +298,7 @@ func Test_Any(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -336,7 +336,7 @@ func Test_All(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -375,7 +375,7 @@ func Test_Exclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -409,7 +409,7 @@ func Test_CronJobOnly(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -439,7 +439,7 @@ func Test_ForEachPod(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -474,7 +474,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -511,7 +511,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -542,7 +542,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -572,7 +572,7 @@ func Test_Deny(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -610,7 +610,7 @@ func Test_ValidatePodSecurity(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -810,7 +810,7 @@ kA==
 	}
 
 	for _, test := range testCases {
-		policies, err := utils.GetPolicy([]byte(test.policy))
+		policies, err := yamlutils.GetPolicy([]byte(test.policy))
 		assert.NilError(t, err)
 		assert.Equal(t, 1, len(policies))
 		rules := computeRules(policies[0])
