@@ -1,8 +1,9 @@
 package os
 
 import (
-	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetEnvWithFallback(t *testing.T) {
@@ -37,14 +38,11 @@ func TestGetEnvWithFallback(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		os.Clearenv()
 		t.Run(tt.name, func(t *testing.T) {
 			for k, v := range tt.setup {
-				os.Setenv(k, v)
+				t.Setenv(k, v)
 			}
-			if got := GetEnvWithFallback(tt.args.name, tt.args.fallback); got != tt.want {
-				t.Errorf("GetEnvWithFallback() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, GetEnvWithFallback(tt.args.name, tt.args.fallback))
 		})
 	}
 }
