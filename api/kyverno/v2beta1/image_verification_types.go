@@ -9,7 +9,6 @@ import (
 // are signed with the supplied public key. Once the image is verified it is
 // mutated to include the SHA digest retrieved during the registration.
 type ImageVerification struct {
-
 	// ImageReferences is a list of matching image reference patterns. At least one pattern in the
 	// list must match the image for the rule to apply. Each image reference consists of a registry
 	// address (defaults to docker.io), repository, image, and tag (defaults to latest).
