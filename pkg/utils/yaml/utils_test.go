@@ -2,6 +2,8 @@ package yaml
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSplitDocuments(t *testing.T) {
@@ -83,17 +85,13 @@ func TestSplitDocuments(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotDocuments, err := SplitDocuments(tt.args.yamlBytes)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("SplitDocuments() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if len(gotDocuments) != len(tt.wantDocuments) {
-				t.Errorf("SplitDocuments() docs count = %v, want %v", len(gotDocuments), len(tt.wantDocuments))
-				return
-			}
-			for i := range gotDocuments {
-				if string(gotDocuments[i]) != tt.wantDocuments[i] {
-					t.Errorf("SplitDocuments() doc %v = %v, want %v", i, string(gotDocuments[i]), tt.wantDocuments[i])
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(tt.wantDocuments), len(gotDocuments))
+				for i := range gotDocuments {
+					assert.Equal(t, tt.wantDocuments[i], string(gotDocuments[i]))
 				}
 			}
 		})
