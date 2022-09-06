@@ -7006,8 +7006,7 @@ spec:
                         rule should be applied by evaluating a set of conditions.
                         The declaration can contain nested `any` or `all` statements.
                         A direct list of conditions (without `any` or `all` statements
-                        is supported for backwards compatibility but will be deprecated
-                        in the next major release. See: https://kyverno.io/docs/writing-policies/preconditions/'
+                        is supported for backwards compatibility but See: https://kyverno.io/docs/writing-policies/preconditions/'
                       properties:
                         all:
                           description: AllConditions enable variable-based conditional
@@ -7116,8 +7115,7 @@ spec:
                               description: 'Multiple conditions can be declared under
                                 an `any` or `all` statement. A direct list of conditions
                                 (without `any` or `all` statements) is also supported
-                                for backwards compatibility but will be deprecated
-                                in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
                               properties:
                                 all:
                                   description: AllConditions enable variable-based
