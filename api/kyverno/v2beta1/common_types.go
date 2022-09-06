@@ -38,40 +38,6 @@ type Validation struct {
 	PodSecurity *kyvernov1.PodSecurity `json:"podSecurity,omitempty" yaml:"podSecurity,omitempty"`
 }
 
-// AnyAllConditions consists of conditions wrapped denoting a logical criteria to be fulfilled.
-// AnyConditions get fulfilled when at least one of its sub-conditions passes.
-// AllConditions get fulfilled only when all of its sub-conditions pass.
-type AnyAllConditions struct {
-	// AnyConditions enable variable-based conditional rule execution. This is useful for
-	// finer control of when an rule is applied. A condition can reference object data
-	// using JMESPath notation.
-	// Here, at least one of the conditions need to pass
-	// +optional
-	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
-
-	// AllConditions enable variable-based conditional rule execution. This is useful for
-	// finer control of when an rule is applied. A condition can reference object data
-	// using JMESPath notation.
-	// Here, all of the conditions need to pass
-	// +optional
-	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
-}
-type Condition struct {
-	// Key is the context entry (using JMESPath) for conditional rule evaluation.
-	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
-
-	// Operator is the conditional operation to perform. Valid operators are:
-	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
-	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
-	// DurationLessThanOrEquals, DurationLessThan
-	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
-
-	// Value is the conditional value, or set of values. The values can be fixed set
-	// or can be variables declared using JMESPath.
-	// +optional
-	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
-}
-
 // ConditionOperator is the operation performed on condition key and value.
 // +kubebuilder:validation:Enum=Equals;NotEquals;In;AnyIn;AllIn;NotIn;AnyNotIn;AllNotIn;GreaterThanOrEquals;GreaterThan;LessThanOrEquals;LessThan;DurationGreaterThanOrEquals;DurationGreaterThan;DurationLessThanOrEquals;DurationLessThan
 type ConditionOperator string
