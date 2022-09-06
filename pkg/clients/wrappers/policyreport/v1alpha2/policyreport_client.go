@@ -1,38 +1,23 @@
 package v1alpha2
 
 import (
-	policyreportv1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
-	"k8s.io/client-go/rest"
 )
 
-type Wgpolicyk8sV1alpha2Interface interface {
-	RESTClient() rest.Interface
-	ClusterPolicyReportsGetter
-	PolicyReportsGetter
+type client struct {
+	v1alpha2.Wgpolicyk8sV1alpha2Interface
+	clientQueryMetric utils.ClientQueryMetric
 }
 
-type Wgpolicyk8sV1alpha2Client struct {
-	restClient                   rest.Interface
-	wgpolicyk8sV1alpha2Interface policyreportv1alpha2.Wgpolicyk8sV1alpha2Interface
-	clientQueryMetric            utils.ClientQueryMetric
+func (c *client) ClusterPolicyReports() v1alpha2.ClusterPolicyReportInterface {
+	return wrapClusterPolicyReports(c.Wgpolicyk8sV1alpha2Interface.ClusterPolicyReports(), c.clientQueryMetric)
 }
 
-func (c *Wgpolicyk8sV1alpha2Client) ClusterPolicyReports() ClusterPolicyReportControlInterface {
-	return newClusterPolicyReports(c)
+func (c *client) PolicyReports(namespace string) v1alpha2.PolicyReportInterface {
+	return wrapPolicyReports(c.Wgpolicyk8sV1alpha2Interface.PolicyReports(namespace), c.clientQueryMetric, namespace)
 }
 
-func (c *Wgpolicyk8sV1alpha2Client) PolicyReports(namespace string) PolicyReportControlInterface {
-	return newPolicyReports(c, namespace)
-}
-
-func (c *Wgpolicyk8sV1alpha2Client) RESTClient() rest.Interface {
-	if c == nil {
-		return nil
-	}
-	return c.restClient
-}
-
-func NewForConfig(restClient rest.Interface, wgpolicyk8sV1alpha2Interface policyreportv1alpha2.Wgpolicyk8sV1alpha2Interface, m utils.ClientQueryMetric) *Wgpolicyk8sV1alpha2Client {
-	return &Wgpolicyk8sV1alpha2Client{restClient, wgpolicyk8sV1alpha2Interface, m}
+func Wrap(inner v1alpha2.Wgpolicyk8sV1alpha2Interface, m utils.ClientQueryMetric) v1alpha2.Wgpolicyk8sV1alpha2Interface {
+	return &client{inner, m}
 }
