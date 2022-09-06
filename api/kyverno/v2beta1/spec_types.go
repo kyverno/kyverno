@@ -3,26 +3,10 @@ package v2beta1
 import (
 	"fmt"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
-
-// ValidationFailureAction defines the policy validation failure action
-type ValidationFailureAction string
-
-// Policy Reporting Modes
-const (
-	// Enforce blocks the request on failure
-	Enforce ValidationFailureAction = "enforce"
-	// Audit indicates not to block the request on failure, but report failures as policy violations
-	Audit ValidationFailureAction = "audit"
-)
-
-type ValidationFailureActionOverride struct {
-	// +kubebuilder:validation:Enum=audit;enforce
-	Action     ValidationFailureAction `json:"action,omitempty" yaml:"action,omitempty"`
-	Namespaces []string                `json:"namespaces,omitempty" yaml:"namespaces,omitempty"`
-}
 
 // Spec contains a list of Rule instances and other policy controls.
 type Spec struct {
@@ -35,13 +19,13 @@ type Spec struct {
 	// been applied i.e. the rule matches and results in a pass, fail, or error. When
 	// set to `All` all rules in the policy are processed. The default is `All`.
 	// +optional
-	ApplyRules *ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
+	ApplyRules *kyvernov1.ApplyRulesType `json:"applyRules,omitempty" yaml:"applyRules,omitempty"`
 
 	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 	// Rules within the same policy share the same failure behavior.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
-	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
+	FailurePolicy *kyvernov1.FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
 
 	// ValidationFailureAction defines if a validation policy rule violation should block
 	// the admission review request (enforce), or allow (audit) the admission review request
@@ -49,12 +33,12 @@ type Spec struct {
 	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
-	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
+	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
 	// namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
 	// +optional
-	ValidationFailureActionOverrides []ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
+	ValidationFailureActionOverrides []kyvernov1.ValidationFailureActionOverride `json:"validationFailureActionOverrides,omitempty" yaml:"validationFailureActionOverrides,omitempty"`
 
 	// Background controls if rules are applied to existing resources during a background scan.
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
@@ -194,26 +178,26 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetFailurePolicy() FailurePolicyType {
+func (s *Spec) GetFailurePolicy() kyvernov1.FailurePolicyType {
 	if s.FailurePolicy == nil {
-		return Fail
+		return kyvernov1.Fail
 	}
 	return *s.FailurePolicy
 }
 
 // GetValidationFailureAction returns the validation failure action to be applied
-func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
+func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
 	if s.ValidationFailureAction == "" {
-		return Audit
+		return kyvernov1.Audit
 	}
 
 	return s.ValidationFailureAction
 }
 
 // GetFailurePolicy returns the failure policy to be applied
-func (s *Spec) GetApplyRules() ApplyRulesType {
+func (s *Spec) GetApplyRules() kyvernov1.ApplyRulesType {
 	if s.ApplyRules == nil {
-		return ApplyAll
+		return kyvernov1.ApplyAll
 	}
 	return *s.ApplyRules
 }

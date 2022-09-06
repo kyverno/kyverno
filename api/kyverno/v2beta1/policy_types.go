@@ -3,6 +3,7 @@ package v2beta1
 import (
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -30,13 +31,13 @@ type Policy struct {
 	// Status contains policy runtime information.
 	// +optional
 	// Deprecated. Policy metrics are available via the metrics endpoint
-	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Status kyvernov1.PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
 func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations[PodControllersAnnotation]
+	val, ok := annotations[kyvernov1.PodControllersAnnotation]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
@@ -97,18 +98,14 @@ func (p *Policy) IsReady() bool {
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
 func (p *Policy) Validate(clusterResources sets.String) (errs field.ErrorList) {
-	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
-	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+	errs = append(errs, kyvernov1.ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
+	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
 }
 
 func (p *Policy) GetKind() string {
 	return p.Kind
-}
-
-func (p *Policy) CreateDeepCopy() PolicyInterface {
-	return p.DeepCopy()
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
