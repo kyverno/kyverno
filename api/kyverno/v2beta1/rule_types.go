@@ -41,7 +41,6 @@ type Rule struct {
 	// Preconditions are used to determine if a policy rule should be applied by evaluating a
 	// set of conditions. The declaration can contain nested `any` or `all` statements. A direct list
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
-	// will be deprecated in the next major release.
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
 	RawAnyAllConditions *kyvernov1.AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`

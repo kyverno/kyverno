@@ -27,11 +27,6 @@ type Policy struct {
 
 	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
-
-	// Status contains policy runtime information.
-	// +optional
-	// Deprecated. Policy metrics are available via the metrics endpoint
-	Status kyvernov1.PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -87,11 +82,6 @@ func (p *Policy) GetSpec() *Spec {
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *Policy) IsNamespaced() bool {
 	return true
-}
-
-// IsReady indicates if the policy is ready to serve the admission request
-func (p *Policy) IsReady() bool {
-	return p.Status.IsReady()
 }
 
 // Validate implements programmatic validation.
