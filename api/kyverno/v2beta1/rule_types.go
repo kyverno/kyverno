@@ -165,7 +165,13 @@ func (r *Rule) ValidateMatchExcludeConflict(path *field.Path) (errs field.ErrorL
 		}
 		return errs
 	}
-	return errs
+	if reflect.DeepEqual(r.ExcludeResources.Any, r.MatchResources.Any) {
+		return errs
+	}
+	if reflect.DeepEqual(r.ExcludeResources.All, r.MatchResources.All) {
+		return errs
+	}
+	return append(errs, field.Invalid(path, r, "Rule is matching an empty set"))
 }
 
 // Validate implements programmatic validation
