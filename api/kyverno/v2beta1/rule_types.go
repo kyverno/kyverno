@@ -52,7 +52,7 @@ type Rule struct {
 
 	// Validation is used to validate matching resources.
 	// +optional
-	Validation kyvernov1.Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
+	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
 
 	// Generation is used to create new resources.
 	// +optional
