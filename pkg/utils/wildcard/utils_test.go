@@ -1,6 +1,10 @@
 package wildcard
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestContainsWildcard(t *testing.T) {
 	type args struct {
@@ -79,9 +83,7 @@ func TestContainsWildcard(t *testing.T) {
 	}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ContainsWildcard(tt.args.v); got != tt.want {
-				t.Errorf("ContainsWildcard() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, ContainsWildcard(tt.args.v))
 		})
 	}
 }

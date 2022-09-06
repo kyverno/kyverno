@@ -2,6 +2,8 @@ package wildcard
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMatch(t *testing.T) {
@@ -347,10 +349,8 @@ func TestMatch(t *testing.T) {
 		},
 	}
 	// Iterating over the test cases, call the function under test and asert the output.
-	for i, testCase := range testCases {
+	for _, testCase := range testCases {
 		actualResult := Match(testCase.pattern, testCase.text)
-		if testCase.matched != actualResult {
-			t.Errorf("Test %d: Expected the result to be `%v`, but instead found it to be `%v`", i+1, testCase.matched, actualResult)
-		}
+		assert.Equal(t, testCase.matched, actualResult)
 	}
 }
