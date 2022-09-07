@@ -39,7 +39,6 @@ spec:
     name: v1
     schema:
       openAPIV3Schema:
-        description: GenerateRequest is a request to process generate rule.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

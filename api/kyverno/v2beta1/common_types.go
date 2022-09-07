@@ -88,3 +88,16 @@ type Deny struct {
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
 	RawAnyAllConditions *kyvernov1.AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
 }
+
+// ResourceFilters is a slice of ResourceFilter
+type ResourceFilters []ResourceFilter
+
+// ResourceFilter allow users to "AND" or "OR" between resources
+type ResourceFilter struct {
+	// UserInfo contains information about the user performing the operation.
+	// +optional
+	kyvernov1.UserInfo `json:",omitempty" yaml:",omitempty"`
+
+	// ResourceDescription contains information about the resource being created or modified.
+	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
+}
