@@ -1,40 +1,23 @@
 package v1alpha2
 
 import (
-	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
-	"k8s.io/client-go/rest"
 )
 
-type KyvernoV1alpha2Interface interface {
-	RESTClient() rest.Interface
-	ClusterReportChangeRequestsGetter
-	ReportChangeRequestsGetter
+type client struct {
+	v1alpha2.KyvernoV1alpha2Interface
+	clientQueryMetric utils.ClientQueryMetric
 }
 
-type KyvernoV1alpha2Client struct {
-	restClient               rest.Interface
-	kyvernov1alpha2Interface kyvernov1alpha2.KyvernoV1alpha2Interface
-	clientQueryMetric        utils.ClientQueryMetric
+func (c *client) ClusterReportChangeRequests() v1alpha2.ClusterReportChangeRequestInterface {
+	return wrapClusterReportChangeRequests(c.KyvernoV1alpha2Interface.ClusterReportChangeRequests(), c.clientQueryMetric)
 }
 
-func (c *KyvernoV1alpha2Client) ClusterReportChangeRequests() ClusterReportChangeRequestControlInterface {
-	return newClusterReportChangeRequests(c)
+func (c *client) ReportChangeRequests(namespace string) v1alpha2.ReportChangeRequestInterface {
+	return wrapReportChangeRequests(c.KyvernoV1alpha2Interface.ReportChangeRequests(namespace), c.clientQueryMetric, namespace)
 }
 
-func (c *KyvernoV1alpha2Client) ReportChangeRequests(namespace string) ReportChangeRequestControlInterface {
-	return newReportChangeRequests(c, namespace)
-}
-
-// RESTClient returns a RESTClient that is used to communicate
-// with API server by this client implementation.
-func (c *KyvernoV1alpha2Client) RESTClient() rest.Interface {
-	if c == nil {
-		return nil
-	}
-	return c.restClient
-}
-
-func NewForConfig(restClient rest.Interface, kyvernov1alpha2Interface kyvernov1alpha2.KyvernoV1alpha2Interface, m utils.ClientQueryMetric) *KyvernoV1alpha2Client {
-	return &KyvernoV1alpha2Client{restClient, kyvernov1alpha2Interface, m}
+func Wrap(inner v1alpha2.KyvernoV1alpha2Interface, m utils.ClientQueryMetric) v1alpha2.KyvernoV1alpha2Interface {
+	return &client{inner, m}
 }
