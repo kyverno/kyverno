@@ -28,23 +28,6 @@ type updateRequestResponse struct {
 	err error
 }
 
-func excludeKyvernoResources(kind string) bool {
-	switch kind {
-	case "ClusterPolicyReport":
-		return true
-	case "PolicyReport":
-		return true
-	case "ReportChangeRequest":
-		return true
-	case "GenerateRequest":
-		return true
-	case "ClusterReportChangeRequest":
-		return true
-	default:
-		return false
-	}
-}
-
 func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
 	logger.Error(err, message)
 	return admissionutils.ResponseFailure(message + ": " + err.Error())
