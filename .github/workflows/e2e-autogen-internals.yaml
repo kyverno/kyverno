@@ -14,7 +14,6 @@ on:
       - 'release*'
     paths-ignore:
       - 'README.md'
-      - 'docs/**'
       - '.github/config.yml'
 
 permissions: read-all
