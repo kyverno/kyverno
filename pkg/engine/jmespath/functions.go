@@ -428,7 +428,8 @@ func GetFunctions() []*FunctionEntry {
 			Note:       "converts a pair of lists containing keys and values to an object",
 		},
 		{
-			Entry: &gojmespath.FunctionEntry{Name: random,
+			Entry: &gojmespath.FunctionEntry{
+				Name: random,
 				Arguments: []ArgSpec{
 					{Types: []JpType{JpString}},
 				},
