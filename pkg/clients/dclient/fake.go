@@ -31,8 +31,9 @@ func NewEmptyFakeClient() Interface {
 	scheme := runtime.NewScheme()
 
 	return &client{
-		client:  fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...),
-		kclient: kubefake.NewSimpleClientset(objects...),
+		client:          fake.NewSimpleDynamicClientWithCustomListKinds(scheme, gvrToListKind, objects...),
+		kclient:         kubefake.NewSimpleClientset(objects...),
+		discoveryClient: NewFakeDiscoveryClient(nil),
 	}
 }
 
