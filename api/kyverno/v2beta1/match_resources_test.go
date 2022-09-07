@@ -29,32 +29,6 @@ func Test_MatchResources(t *testing.T) {
 				},
 			}},
 		},
-	}, {
-		name:       "any-all",
-		namespaced: true,
-		subject: MatchResources{
-			Any: kyvernov1.ResourceFilters{{
-				UserInfo: kyvernov1.UserInfo{
-					Subjects: []rbacv1.Subject{{
-						Kind:      "ServiceAccount",
-						Namespace: "ns",
-						Name:      "sa-1",
-					}},
-				},
-			}},
-			All: kyvernov1.ResourceFilters{{
-				UserInfo: kyvernov1.UserInfo{
-					Subjects: []rbacv1.Subject{{
-						Kind:      "ServiceAccount",
-						Namespace: "ns",
-						Name:      "sa-1",
-					}},
-				},
-			}},
-		},
-		errors: []string{
-			`dummy: Invalid value: v2beta1.MatchResources{Any:v2beta1.ResourceFilters{v2beta1.ResourceFilter{UserInfo:v2beta1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v2beta1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil)}}}, All:v2beta1.ResourceFilters{v2beta1.ResourceFilter{UserInfo:v2beta1.UserInfo{Roles:[]string(nil), ClusterRoles:[]string(nil), Subjects:[]v1.Subject{v1.Subject{Kind:"ServiceAccount", APIGroup:"", Name:"sa-1", Namespace:"ns"}}}, ResourceDescription:v2beta1.ResourceDescription{Kinds:[]string(nil), Name:"", Names:[]string(nil), Namespaces:[]string(nil), Annotations:map[string]string(nil), Selector:(*v1.LabelSelector)(nil), NamespaceSelector:(*v1.LabelSelector)(nil)}}}}: Can't specify any and all together`,
-		},
 	}}
 
 	path := field.NewPath("dummy")
