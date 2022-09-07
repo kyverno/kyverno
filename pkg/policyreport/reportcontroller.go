@@ -10,11 +10,11 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -54,7 +54,7 @@ var LabelSelector = &metav1.LabelSelector{
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
-	pclient kyvernoclient.Interface
+	pclient versioned.Interface
 
 	clusterReportInformer    policyreportv1alpha2informers.ClusterPolicyReportInformer
 	reportInformer           policyreportv1alpha2informers.PolicyReportInformer
@@ -82,7 +82,7 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	pclient kyvernoclient.Interface,
+	pclient versioned.Interface,
 	clusterReportInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
 	reportInformer policyreportv1alpha2informers.PolicyReportInformer,
 	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,

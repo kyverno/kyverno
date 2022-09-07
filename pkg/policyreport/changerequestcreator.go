@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/patrickmn/go-cache"
@@ -26,7 +26,7 @@ type creator interface {
 }
 
 type changeRequestCreator struct {
-	client kyvernoclient.Interface
+	client versioned.Interface
 
 	// addCache preserves requests that are to be added to report
 	RCRCache *cache.Cache
@@ -45,7 +45,7 @@ type changeRequestCreator struct {
 	log logr.Logger
 }
 
-func newChangeRequestCreator(client kyvernoclient.Interface, tickerInterval time.Duration, log logr.Logger) creator {
+func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
 		client:         client,
 		RCRCache:       cache.New(0, 24*time.Hour),
