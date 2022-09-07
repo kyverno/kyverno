@@ -400,7 +400,6 @@ func getResourceInfoForDataAndClone(rule kyvernov1.Rule) (kind, name, namespace,
 			return "", "", "", "", fmt.Errorf("%s", "name can not be empty")
 		}
 	}
-	// TODO: add string checks
 	namespace = rule.Generation.Namespace
 	apiversion = rule.Generation.APIVersion
 	return
@@ -456,6 +455,11 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 
 		logger.V(3).Info("applying generate rule", "mode", rdata.Action)
+
+		// skip processing the response in case of skip action
+		if rdata.Action == Skip {
+			continue
+		}
 
 		if rdata.Data == nil && rdata.Action == Update {
 			logger.V(4).Info("no changes required for generate target resource")
