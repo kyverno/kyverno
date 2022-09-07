@@ -6,7 +6,6 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -26,47 +25,38 @@ func wrapUpdateRequests(c v1beta1.UpdateRequestInterface, m utils.ClientQueryMet
 	}
 }
 
-func (c *updateRequests) Create(ctx context.Context, updateRequest *kyvernov1beta1.UpdateRequest, opts metav1.CreateOptions) (*kyvernov1beta1.UpdateRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientCreate, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Create(ctx, updateRequest, opts)
+func (c *updateRequests) Create(ctx context.Context, o *kyvernov1beta1.UpdateRequest, opts metav1.CreateOptions) (*kyvernov1beta1.UpdateRequest, error) {
+	return utils.Create(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, o, opts, c.inner.Create)
 }
 
-func (c *updateRequests) Update(ctx context.Context, updateRequest *kyvernov1beta1.UpdateRequest, opts metav1.UpdateOptions) (*kyvernov1beta1.UpdateRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientUpdate, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Update(ctx, updateRequest, opts)
+func (c *updateRequests) Update(ctx context.Context, o *kyvernov1beta1.UpdateRequest, opts metav1.UpdateOptions) (*kyvernov1beta1.UpdateRequest, error) {
+	return utils.Update(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, o, opts, c.inner.Update)
 }
 
-func (c *updateRequests) UpdateStatus(ctx context.Context, updateRequest *kyvernov1beta1.UpdateRequest, opts metav1.UpdateOptions) (*kyvernov1beta1.UpdateRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientUpdateStatus, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.UpdateStatus(ctx, updateRequest, opts)
+func (c *updateRequests) UpdateStatus(ctx context.Context, o *kyvernov1beta1.UpdateRequest, opts metav1.UpdateOptions) (*kyvernov1beta1.UpdateRequest, error) {
+	return utils.UpdateStatus(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, o, opts, c.inner.UpdateStatus)
 }
 
 func (c *updateRequests) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDelete, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Delete(ctx, name, opts)
+	return utils.Delete(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, name, opts, c.inner.Delete)
 }
 
 func (c *updateRequests) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDeleteCollection, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.DeleteCollection(ctx, opts, listOpts)
+	return utils.DeleteCollection(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, opts, listOpts, c.inner.DeleteCollection)
 }
 
 func (c *updateRequests) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1beta1.UpdateRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientGet, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Get(ctx, name, opts)
+	return utils.Get(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, name, opts, c.inner.Get)
 }
 
 func (c *updateRequests) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1beta1.UpdateRequestList, error) {
-	c.clientQueryMetric.Record(metrics.ClientCreate, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.List(ctx, opts)
+	return utils.List(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, opts, c.inner.List)
 }
 
 func (c *updateRequests) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	c.clientQueryMetric.Record(metrics.ClientWatch, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Watch(ctx, opts)
+	return utils.Watch(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, opts, c.inner.Watch)
 }
 
-func (c *updateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1beta1.UpdateRequest, err error) {
-	c.clientQueryMetric.Record(metrics.ClientPatch, metrics.KyvernoClient, "UpdateRequest", c.ns)
-	return c.inner.Patch(ctx, name, pt, data, opts, subresources...)
+func (c *updateRequests) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*kyvernov1beta1.UpdateRequest, error) {
+	return utils.Patch(ctx, c.clientQueryMetric, "UpdateRequest", c.ns, name, pt, data, opts, c.inner.Patch, subresources...)
 }
