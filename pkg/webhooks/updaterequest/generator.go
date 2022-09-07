@@ -7,9 +7,9 @@ import (
 	backoff "github.com/cenkalti/backoff"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,14 +24,14 @@ type Generator interface {
 // generator defines the implementation to manage update request resource
 type generator struct {
 	// clients
-	client kyvernoclient.Interface
+	client versioned.Interface
 
 	// listers
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister
 }
 
 // NewGenerator returns a new instance of UpdateRequest resource generator
-func NewGenerator(client kyvernoclient.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer) Generator {
+func NewGenerator(client versioned.Interface, urInformer kyvernov1beta1informers.UpdateRequestInformer) Generator {
 	return &generator{
 		client:   client,
 		urLister: urInformer.Lister().UpdateRequests(config.KyvernoNamespace()),

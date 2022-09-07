@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -42,7 +42,7 @@ const (
 type Register struct {
 	// clients
 	kubeClient    kubernetes.Interface
-	kyvernoClient kyvernoclient.Interface
+	kyvernoClient versioned.Interface
 	clientConfig  *rest.Config
 
 	// listers
@@ -72,7 +72,7 @@ func NewRegister(
 	clientConfig *rest.Config,
 	client dclient.Interface,
 	kubeClient kubernetes.Interface,
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer appsv1informers.DeploymentInformer,

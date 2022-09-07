@@ -192,7 +192,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient.VersionedClient(), policyControllerResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, policyControllerResyncPeriod)
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()

@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -114,7 +114,7 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 	}
 }
 
-func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, nslabels map[string]string) error {
+func cleanupReportChangeRequests(pclient versioned.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, nslabels map[string]string) error {
 	var errors []string
 	var gracePeriod int64 = 0
 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
@@ -138,7 +138,7 @@ func cleanupReportChangeRequests(pclient kyvernoclient.Interface, rcrLister kyve
 	return fmt.Errorf("%v", strings.Join(errors, ";"))
 }
 
-func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error {
+func eraseResultEntries(pclient versioned.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error {
 	selector, err := metav1.LabelSelectorAsSelector(policyreport.LabelSelector)
 	if err != nil {
 		return fmt.Errorf("failed to erase results entries %v", err)
@@ -217,7 +217,7 @@ func eraseResultEntries(pclient kyvernoclient.Interface, reportLister policyrepo
 	return fmt.Errorf("failed to erase results entries %v", strings.Join(errors, ";"))
 }
 
-func eraseSplitResultEntries(pclient kyvernoclient.Interface, ns *string, selector labels.Selector) error {
+func eraseSplitResultEntries(pclient versioned.Interface, ns *string, selector labels.Selector) error {
 	var errors []string
 
 	if ns != nil {

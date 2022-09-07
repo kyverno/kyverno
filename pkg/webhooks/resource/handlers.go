@@ -8,9 +8,9 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -40,7 +40,7 @@ import (
 type handlers struct {
 	// clients
 	client        dclient.Interface
-	kyvernoClient kyvernoclient.Interface
+	kyvernoClient versioned.Interface
 
 	// config
 	configuration config.Configuration
@@ -65,7 +65,7 @@ type handlers struct {
 
 func NewHandlers(
 	client dclient.Interface,
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	configuration config.Configuration,
 	metricsConfig *metrics.MetricsConfig,
 	pCache policycache.Cache,
