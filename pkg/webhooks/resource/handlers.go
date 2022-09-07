@@ -227,7 +227,7 @@ func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.
 	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
 	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
 
-	warnings := getWarningMessages(mutateEngineResponses)
+	warnings := webhookutils.GetWarningMessages(mutateEngineResponses)
 	return mutatePatches, warnings, nil
 }
 
@@ -376,7 +376,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 		}
 	}
 
-	warnings := getWarningMessages(engineResponses)
+	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
 }
 
