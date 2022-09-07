@@ -1,8 +1,8 @@
-## v1.8.0
+## v1.8.0-rc1
 
 ### Note
 
-- A new flag `protectManagedResources` to enable kyverno managed resources protection. When this is enabled, kyverno managed resources can only be modified or deleted by the controller.
+- A new flag `protectManagedResources` to enable kyverno managed resources protection (default value is `false`). When this is enabled, kyverno managed resources can only be modified or deleted by the controller.
 
 ## v1.7.2-rc2
 
