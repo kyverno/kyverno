@@ -98,7 +98,7 @@ func NewHandlers(
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 	if request.Operation == admissionv1.Delete {
 		h.handleDelete(logger, request)
 	}
@@ -110,7 +110,6 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
-	requestTime := time.Now()
 	policies := h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	generatePolicies := h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
@@ -143,14 +142,14 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		prGenerator: h.prGenerator,
 	}
 
-	ok, msg, warnings := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, requestTime)
+	ok, msg, warnings := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
 	}
 
 	h.auditHandler.Add(request.DeepCopy())
-	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, requestTime)
+	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	if warnings != nil {
 		return admissionutils.ResponseSuccessWithWarnings(warnings)
@@ -160,7 +159,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	return admissionutils.ResponseSuccess()
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 	if excludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -176,7 +175,6 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")
-	requestTime := time.Now()
 	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
 	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
@@ -193,7 +191,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	if err := enginectx.MutateResourceWithImageInfo(request.Object.Raw, policyContext.JSONContext); err != nil {
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
-	mutatePatches, mutateWarnings, err := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, requestTime)
+	mutatePatches, mutateWarnings, err := h.applyMutatePolicies(logger, request, policyContext, mutatePolicies, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
 		return admissionutils.ResponseFailure(err.Error())
