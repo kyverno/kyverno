@@ -134,20 +134,6 @@ func getBlockedMessages(engineResponses []*response.EngineResponse) string {
 	return msg
 }
 
-func getWarningMessages(engineResponses []*response.EngineResponse) []string {
-	var warnings []string
-	for _, er := range engineResponses {
-		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != response.RuleStatusPass {
-				msg := fmt.Sprintf("policy %s.%s: %s", er.Policy.GetName(), rule.Name, rule.Message)
-				warnings = append(warnings, msg)
-			}
-		}
-	}
-
-	return warnings
-}
-
 func getAction(hasViolations bool, i int) string {
 	action := "error"
 	if hasViolations {

@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -98,7 +99,7 @@ func (v *validationHandler) handleValidation(
 	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
 	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 
-	warnings := getWarningMessages(engineResponses)
+	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
 }
 
