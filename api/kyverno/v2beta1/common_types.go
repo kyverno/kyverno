@@ -45,10 +45,8 @@ type ConditionOperator string
 // ConditionOperators stores all the valid ConditionOperator types as key-value pairs.
 // "Equals" evaluates if the key is equal to the value.
 // "NotEquals" evaluates if the key is not equal to the value.
-// "In" evaluates if the key is contained in the set of values.
 // "AnyIn" evaluates if any of the keys are contained in the set of values.
 // "AllIn" evaluates if all the keys are contained in the set of values.
-// "NotIn" evaluates if the key is not contained in the set of values.
 // "AnyNotIn" evaluates if any of the keys are not contained in the set of values.
 // "AllNotIn" evaluates if all the keys are not contained in the set of values.
 // "GreaterThanOrEquals" evaluates if the key (numeric) is greater than or equal to the value (numeric).
@@ -62,10 +60,8 @@ type ConditionOperator string
 var ConditionOperators = map[string]ConditionOperator{
 	"Equals":                      ConditionOperator("Equals"),
 	"NotEquals":                   ConditionOperator("NotEquals"),
-	"In":                          ConditionOperator("In"),
 	"AnyIn":                       ConditionOperator("AnyIn"),
 	"AllIn":                       ConditionOperator("AllIn"),
-	"NotIn":                       ConditionOperator("NotIn"),
 	"AnyNotIn":                    ConditionOperator("AnyNotIn"),
 	"AllNotIn":                    ConditionOperator("AllNotIn"),
 	"GreaterThanOrEquals":         ConditionOperator("GreaterThanOrEquals"),
