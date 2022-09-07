@@ -6,62 +6,53 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-type reportChangeRequestControl struct {
+type reportChangeRequest struct {
 	inner             v1alpha2.ReportChangeRequestInterface
 	clientQueryMetric utils.ClientQueryMetric
 	ns                string
 }
 
 func wrapReportChangeRequests(c v1alpha2.ReportChangeRequestInterface, m utils.ClientQueryMetric, namespace string) v1alpha2.ReportChangeRequestInterface {
-	return &reportChangeRequestControl{
+	return &reportChangeRequest{
 		inner:             c,
 		clientQueryMetric: m,
 		ns:                namespace,
 	}
 }
 
-func (c *reportChangeRequestControl) Create(ctx context.Context, reportChangeRequest *kyvernov1alpha2.ReportChangeRequest, opts metav1.CreateOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientCreate, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Create(ctx, reportChangeRequest, opts)
+func (c *reportChangeRequest) Create(ctx context.Context, o *kyvernov1alpha2.ReportChangeRequest, opts metav1.CreateOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
+	return utils.Create(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, o, opts, c.inner.Create)
 }
 
-func (c *reportChangeRequestControl) Update(ctx context.Context, reportChangeRequest *kyvernov1alpha2.ReportChangeRequest, opts metav1.UpdateOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientUpdate, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Update(ctx, reportChangeRequest, opts)
+func (c *reportChangeRequest) Update(ctx context.Context, o *kyvernov1alpha2.ReportChangeRequest, opts metav1.UpdateOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
+	return utils.Update(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, o, opts, c.inner.Update)
 }
 
-func (c *reportChangeRequestControl) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDelete, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Delete(ctx, name, opts)
+func (c *reportChangeRequest) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return utils.Delete(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, name, opts, c.inner.Delete)
 }
 
-func (c *reportChangeRequestControl) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDeleteCollection, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.DeleteCollection(ctx, opts, listOpts)
+func (c *reportChangeRequest) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return utils.DeleteCollection(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, opts, listOpts, c.inner.DeleteCollection)
 }
 
-func (c *reportChangeRequestControl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
-	c.clientQueryMetric.Record(metrics.ClientGet, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Get(ctx, name, opts)
+func (c *reportChangeRequest) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1alpha2.ReportChangeRequest, error) {
+	return utils.Get(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, name, opts, c.inner.Get)
 }
 
-func (c *reportChangeRequestControl) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1alpha2.ReportChangeRequestList, error) {
-	c.clientQueryMetric.Record(metrics.ClientList, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.List(ctx, opts)
+func (c *reportChangeRequest) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1alpha2.ReportChangeRequestList, error) {
+	return utils.List(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, opts, c.inner.List)
 }
 
-func (c *reportChangeRequestControl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	c.clientQueryMetric.Record(metrics.ClientWatch, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Watch(ctx, opts)
+func (c *reportChangeRequest) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return utils.Watch(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, opts, c.inner.Watch)
 }
 
-func (c *reportChangeRequestControl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1alpha2.ReportChangeRequest, err error) {
-	c.clientQueryMetric.Record(metrics.ClientPatch, metrics.KyvernoClient, "ReportChangeRequest", c.ns)
-	return c.inner.Patch(ctx, name, pt, data, opts, subresources...)
+func (c *reportChangeRequest) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*kyvernov1alpha2.ReportChangeRequest, error) {
+	return utils.Patch(ctx, c.clientQueryMetric, "ReportChangeRequest", c.ns, name, pt, data, opts, c.inner.Patch, subresources...)
 }
