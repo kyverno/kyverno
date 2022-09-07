@@ -259,6 +259,7 @@ PolicyStatus
 <h3 id="kyverno.io/v1.GenerateRequest">GenerateRequest
 </h3>
 <p>
+<p>GenerateRequest is a request to process generate rule.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -270,7 +271,7 @@ PolicyStatus
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code></br>
+<code>apiVersion</code><br/>
 string</td>
 <td>
 <code>
@@ -280,14 +281,14 @@ kyverno.io/v1
 </tr>
 <tr>
 <td>
-<code>kind</code></br>
+<code>kind</code><br/>
 string
 </td>
 <td><code>GenerateRequest</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code></br>
+<code>metadata</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
@@ -301,7 +302,7 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code></br>
+<code>spec</code><br/>
 <em>
 <a href="#kyverno.io/v1.GenerateRequestSpec">
 GenerateRequestSpec
@@ -315,7 +316,7 @@ GenerateRequestSpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>policy</code></br>
+<code>policy</code><br/>
 <em>
 string
 </em>
@@ -326,7 +327,7 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code></br>
+<code>resource</code><br/>
 <em>
 <a href="#kyverno.io/v1.ResourceSpec">
 ResourceSpec
@@ -339,7 +340,7 @@ ResourceSpec
 </tr>
 <tr>
 <td>
-<code>context</code></br>
+<code>context</code><br/>
 <em>
 <a href="#kyverno.io/v1.GenerateRequestContext">
 GenerateRequestContext
@@ -355,7 +356,7 @@ GenerateRequestContext
 </tr>
 <tr>
 <td>
-<code>status</code></br>
+<code>status</code><br/>
 <em>
 <a href="#kyverno.io/v1.GenerateRequestStatus">
 GenerateRequestStatus
@@ -1613,104 +1614,6 @@ Deny
 <td>
 <em>(Optional)</em>
 <p>Deny defines conditions used to pass or fail a validation rule.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
-<h3 id="kyverno.io/v1.GenerateRequest">GenerateRequest
-</h3>
-<p>
-<p>GenerateRequest is a request to process generate rule.</p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>metadata</code><br/>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-Refer to the Kubernetes API documentation for the fields of the
-<code>metadata</code> field.
-</td>
-</tr>
-<tr>
-<td>
-<code>spec</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestSpec">
-GenerateRequestSpec
-</a>
-</em>
-</td>
-<td>
-<p>Spec is the information to identify the generate request.</p>
-<br/>
-<br/>
-<table class="table table-striped">
-<tr>
-<td>
-<code>policy</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specifies the name of the policy.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>resource</code><br/>
-<em>
-<a href="#kyverno.io/v1.ResourceSpec">
-ResourceSpec
-</a>
-</em>
-</td>
-<td>
-<p>ResourceSpec is the information to identify the generate request.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>context</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestContext">
-GenerateRequestContext
-</a>
-</em>
-</td>
-<td>
-<p>Context &hellip;</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code><br/>
-<em>
-<a href="#kyverno.io/v1.GenerateRequestStatus">
-GenerateRequestStatus
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>Status contains statistics related to generate request.</p>
 </td>
 </tr>
 </tbody>

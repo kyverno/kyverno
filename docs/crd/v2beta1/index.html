@@ -45,7 +45,7 @@ Resource Types:
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code></br>
+<code>apiVersion</code><br/>
 string</td>
 <td>
 <code>
@@ -55,14 +55,14 @@ kyverno.io/v2beta1
 </tr>
 <tr>
 <td>
-<code>kind</code></br>
+<code>kind</code><br/>
 string
 </td>
 <td><code>ClusterPolicy</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code></br>
+<code>metadata</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
@@ -76,7 +76,7 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code></br>
+<code>spec</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Spec">
 Spec
@@ -90,7 +90,7 @@ Spec
 <table class="table table-striped">
 <tr>
 <td>
-<code>rules</code></br>
+<code>rules</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Rule">
 []Rule
@@ -104,7 +104,7 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>applyRules</code></br>
+<code>applyRules</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ApplyRulesType
 </em>
@@ -119,7 +119,7 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
 </tr>
 <tr>
 <td>
-<code>failurePolicy</code></br>
+<code>failurePolicy</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.FailurePolicyType
 </em>
@@ -133,7 +133,7 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code></br>
+<code>validationFailureAction</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureAction
 </em>
@@ -148,7 +148,7 @@ Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</
 </tr>
 <tr>
 <td>
-<code>validationFailureActionOverrides</code></br>
+<code>validationFailureActionOverrides</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureActionOverride
 </em>
@@ -161,7 +161,7 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
-<code>background</code></br>
+<code>background</code><br/>
 <em>
 bool
 </em>
@@ -175,7 +175,7 @@ uses variables that are only available in the admission review request (e.g. use
 </tr>
 <tr>
 <td>
-<code>schemaValidation</code></br>
+<code>schemaValidation</code><br/>
 <em>
 bool
 </em>
@@ -188,7 +188,7 @@ Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldq
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code></br>
+<code>webhookTimeoutSeconds</code><br/>
 <em>
 int32
 </em>
@@ -201,7 +201,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </tr>
 <tr>
 <td>
-<code>mutateExistingOnPolicyUpdate</code></br>
+<code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -214,7 +214,7 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code></br>
+<code>generateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -231,7 +231,7 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 </tr>
 <tr>
 <td>
-<code>status</code></br>
+<code>status</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.PolicyStatus
 </em>
@@ -260,7 +260,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/">https://kyverno.io/docs
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code></br>
+<code>apiVersion</code><br/>
 string</td>
 <td>
 <code>
@@ -270,14 +270,14 @@ kyverno.io/v2beta1
 </tr>
 <tr>
 <td>
-<code>kind</code></br>
+<code>kind</code><br/>
 string
 </td>
 <td><code>Policy</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code></br>
+<code>metadata</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
@@ -291,7 +291,7 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code></br>
+<code>spec</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Spec">
 Spec
@@ -305,7 +305,7 @@ Spec
 <table class="table table-striped">
 <tr>
 <td>
-<code>rules</code></br>
+<code>rules</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Rule">
 []Rule
@@ -319,7 +319,7 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>applyRules</code></br>
+<code>applyRules</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ApplyRulesType
 </em>
@@ -334,7 +334,7 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
 </tr>
 <tr>
 <td>
-<code>failurePolicy</code></br>
+<code>failurePolicy</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.FailurePolicyType
 </em>
@@ -348,7 +348,7 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code></br>
+<code>validationFailureAction</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureAction
 </em>
@@ -363,7 +363,7 @@ Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</
 </tr>
 <tr>
 <td>
-<code>validationFailureActionOverrides</code></br>
+<code>validationFailureActionOverrides</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureActionOverride
 </em>
@@ -376,7 +376,7 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
-<code>background</code></br>
+<code>background</code><br/>
 <em>
 bool
 </em>
@@ -390,7 +390,7 @@ uses variables that are only available in the admission review request (e.g. use
 </tr>
 <tr>
 <td>
-<code>schemaValidation</code></br>
+<code>schemaValidation</code><br/>
 <em>
 bool
 </em>
@@ -403,7 +403,7 @@ Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldq
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code></br>
+<code>webhookTimeoutSeconds</code><br/>
 <em>
 int32
 </em>
@@ -416,7 +416,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </tr>
 <tr>
 <td>
-<code>mutateExistingOnPolicyUpdate</code></br>
+<code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -429,7 +429,7 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code></br>
+<code>generateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -471,7 +471,7 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <tbody>
 <tr>
 <td>
-<code>conditions</code></br>
+<code>conditions</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
 </em>
@@ -502,7 +502,7 @@ mutated to include the SHA digest retrieved during the registration.</p>
 <tbody>
 <tr>
 <td>
-<code>imageReferences</code></br>
+<code>imageReferences</code><br/>
 <em>
 []string
 </em>
@@ -516,7 +516,7 @@ Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https
 </tr>
 <tr>
 <td>
-<code>attestors</code></br>
+<code>attestors</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.AttestorSet
 </em>
@@ -527,7 +527,7 @@ Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https
 </tr>
 <tr>
 <td>
-<code>attestations</code></br>
+<code>attestations</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.Attestation
 </em>
@@ -540,7 +540,7 @@ OCI registry and decodes them into a list of Statement declarations.</p>
 </tr>
 <tr>
 <td>
-<code>repository</code></br>
+<code>repository</code><br/>
 <em>
 string
 </em>
@@ -553,7 +553,7 @@ The repository can also be overridden per Attestor or Attestation.</p>
 </tr>
 <tr>
 <td>
-<code>mutateDigest</code></br>
+<code>mutateDigest</code><br/>
 <em>
 bool
 </em>
@@ -565,7 +565,7 @@ Defaults to true.</p>
 </tr>
 <tr>
 <td>
-<code>verifyDigest</code></br>
+<code>verifyDigest</code><br/>
 <em>
 bool
 </em>
@@ -576,7 +576,7 @@ bool
 </tr>
 <tr>
 <td>
-<code>required</code></br>
+<code>required</code><br/>
 <em>
 bool
 </em>
@@ -608,7 +608,7 @@ which a policy rule is applicable.</p>
 <tbody>
 <tr>
 <td>
-<code>any</code></br>
+<code>any</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilters
 </em>
@@ -620,7 +620,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilters
 </tr>
 <tr>
 <td>
-<code>all</code></br>
+<code>all</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilters
 </em>
@@ -633,6 +633,159 @@ github.com/kyverno/kyverno/api/kyverno/v1.ResourceFilters
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.ResourceDescription">ResourceDescription
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.ResourceFilter">ResourceFilter</a>)
+</p>
+<p>
+<p>ResourceDescription contains criteria used to match resources.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>kinds</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Kinds is a list of resource kinds.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>names</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Names are the names of the resources. Each name supports wildcard characters
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespaces</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Namespaces is a list of namespaces names. Each name supports wildcard characters
+&ldquo;*&rdquo; (matches zero or many characters) and &ldquo;?&rdquo; (at least one character).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>annotations</code><br/>
+<em>
+map[string]string
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Annotations is a  map of annotations (key-value pairs of type string). Annotation keys
+and values support the wildcard characters &ldquo;*&rdquo; (matches zero or many characters) and
+&ldquo;?&rdquo; (matches at least one character).</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>selector</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Selector is a label selector. Label keys and values in <code>matchLabels</code> support the wildcard
+characters <code>*</code> (matches zero or many characters) and <code>?</code> (matches one character).
+Wildcards allows writing label selectors like [&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that
+using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but does not match an empty label set.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>namespaceSelector</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#labelselector-v1-meta">
+Kubernetes meta/v1.LabelSelector
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>NamespaceSelector is a label selector for the resource namespace. Label keys and values
+in <code>matchLabels</code> support the wildcard characters <code>*</code> (matches zero or many characters)
+and <code>?</code> (matches one character).Wildcards allows writing label selectors like
+[&ldquo;storage.k8s.io/<em>&rdquo;: &ldquo;</em>&rdquo;]. Note that using [&rdquo;<em>&rdquo; : &ldquo;</em>&rdquo;] matches any key and value but
+does not match an empty label set.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.ResourceFilter">ResourceFilter
+</h3>
+<p>
+<p>ResourceFilter allow users to &ldquo;AND&rdquo; or &ldquo;OR&rdquo; between resources</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>UserInfo</code><br/>
+<em>
+github.com/kyverno/kyverno/api/kyverno/v1.UserInfo
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>UserInfo contains information about the user performing the operation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>resources</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.ResourceDescription">
+ResourceDescription
+</a>
+</em>
+</td>
+<td>
+<p>ResourceDescription contains information about the resource being created or modified.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.ResourceFilters">ResourceFilters
+(<code>[]./api/kyverno/v2beta1.ResourceFilter</code> alias)</p></h3>
+<p>
+<p>ResourceFilters is a slice of ResourceFilter</p>
+</p>
 <h3 id="kyverno.io/v2beta1.Rule">Rule
 </h3>
 <p>
@@ -654,7 +807,7 @@ declaration to specify which resources to exclude.</p>
 <tbody>
 <tr>
 <td>
-<code>name</code></br>
+<code>name</code><br/>
 <em>
 string
 </em>
@@ -665,7 +818,7 @@ string
 </tr>
 <tr>
 <td>
-<code>context</code></br>
+<code>context</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ContextEntry
 </em>
@@ -677,7 +830,7 @@ string
 </tr>
 <tr>
 <td>
-<code>match</code></br>
+<code>match</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
@@ -693,7 +846,7 @@ At least one kind is required.</p>
 </tr>
 <tr>
 <td>
-<code>exclude</code></br>
+<code>exclude</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.MatchResources">
 MatchResources
@@ -709,7 +862,7 @@ and admission review request information like the name or role.</p>
 </tr>
 <tr>
 <td>
-<code>imageExtractors</code></br>
+<code>imageExtractors</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ImageExtractorConfigs
 </em>
@@ -722,7 +875,7 @@ This config is only valid for verifyImages rules.</p>
 </tr>
 <tr>
 <td>
-<code>preconditions</code></br>
+<code>preconditions</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
 </em>
@@ -737,7 +890,7 @@ See: <a href="https://kyverno.io/docs/writing-policies/preconditions/">https://k
 </tr>
 <tr>
 <td>
-<code>mutate</code></br>
+<code>mutate</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.Mutation
 </em>
@@ -749,7 +902,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Mutation
 </tr>
 <tr>
 <td>
-<code>validate</code></br>
+<code>validate</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.Validation
 </em>
@@ -761,7 +914,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Validation
 </tr>
 <tr>
 <td>
-<code>generate</code></br>
+<code>generate</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.Generation
 </em>
@@ -773,7 +926,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Generation
 </tr>
 <tr>
 <td>
-<code>verifyImages</code></br>
+<code>verifyImages</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification
 </em>
@@ -806,7 +959,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Generation
 <tbody>
 <tr>
 <td>
-<code>rules</code></br>
+<code>rules</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Rule">
 []Rule
@@ -820,7 +973,7 @@ each rule can validate, mutate, or generate resources.</p>
 </tr>
 <tr>
 <td>
-<code>applyRules</code></br>
+<code>applyRules</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ApplyRulesType
 </em>
@@ -835,7 +988,7 @@ set to <code>All</code> all rules in the policy are processed. The default is <c
 </tr>
 <tr>
 <td>
-<code>failurePolicy</code></br>
+<code>failurePolicy</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.FailurePolicyType
 </em>
@@ -849,7 +1002,7 @@ Allowed values are Ignore or Fail. Defaults to Fail.</p>
 </tr>
 <tr>
 <td>
-<code>validationFailureAction</code></br>
+<code>validationFailureAction</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureAction
 </em>
@@ -864,7 +1017,7 @@ Allowed values are audit or enforce. The default value is &ldquo;audit&rdquo;.</
 </tr>
 <tr>
 <td>
-<code>validationFailureActionOverrides</code></br>
+<code>validationFailureActionOverrides</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ValidationFailureActionOverride
 </em>
@@ -877,7 +1030,7 @@ namespace-wise. It overrides ValidationFailureAction for the specified namespace
 </tr>
 <tr>
 <td>
-<code>background</code></br>
+<code>background</code><br/>
 <em>
 bool
 </em>
@@ -891,7 +1044,7 @@ uses variables that are only available in the admission review request (e.g. use
 </tr>
 <tr>
 <td>
-<code>schemaValidation</code></br>
+<code>schemaValidation</code><br/>
 <em>
 bool
 </em>
@@ -904,7 +1057,7 @@ Optional. The default value is set to &ldquo;true&rdquo;, it must be set to &ldq
 </tr>
 <tr>
 <td>
-<code>webhookTimeoutSeconds</code></br>
+<code>webhookTimeoutSeconds</code><br/>
 <em>
 int32
 </em>
@@ -917,7 +1070,7 @@ based on the failure policy. The default timeout is 10s, the value must be betwe
 </tr>
 <tr>
 <td>
-<code>mutateExistingOnPolicyUpdate</code></br>
+<code>mutateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -930,7 +1083,7 @@ Default value is &ldquo;false&rdquo;.</p>
 </tr>
 <tr>
 <td>
-<code>generateExistingOnPolicyUpdate</code></br>
+<code>generateExistingOnPolicyUpdate</code><br/>
 <em>
 bool
 </em>
@@ -960,7 +1113,7 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <tbody>
 <tr>
 <td>
-<code>message</code></br>
+<code>message</code><br/>
 <em>
 string
 </em>
@@ -972,7 +1125,7 @@ string
 </tr>
 <tr>
 <td>
-<code>manifests</code></br>
+<code>manifests</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.Manifests
 </em>
@@ -984,7 +1137,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Manifests
 </tr>
 <tr>
 <td>
-<code>foreach</code></br>
+<code>foreach</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ForEachValidation
 </em>
@@ -996,7 +1149,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.Manifests
 </tr>
 <tr>
 <td>
-<code>pattern</code></br>
+<code>pattern</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
@@ -1010,7 +1163,7 @@ Kubernetes apiextensions/v1.JSON
 </tr>
 <tr>
 <td>
-<code>anyPattern</code></br>
+<code>anyPattern</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
 Kubernetes apiextensions/v1.JSON
@@ -1025,7 +1178,7 @@ must be satisfied for the validation rule to succeed.</p>
 </tr>
 <tr>
 <td>
-<code>deny</code></br>
+<code>deny</code><br/>
 <em>
 <a href="#kyverno.io/v2beta1.Deny">
 Deny
@@ -1039,7 +1192,7 @@ Deny
 </tr>
 <tr>
 <td>
-<code>podSecurity</code></br>
+<code>podSecurity</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.PodSecurity
 </em>
