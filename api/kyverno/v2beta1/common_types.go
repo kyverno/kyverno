@@ -43,7 +43,6 @@ type Validation struct {
 type ConditionOperator string
 
 // ConditionOperators stores all the valid ConditionOperator types as key-value pairs.
-//
 // "Equals" evaluates if the key is equal to the value.
 // "NotEquals" evaluates if the key is not equal to the value.
 // "In" evaluates if the key is contained in the set of values.
@@ -61,9 +60,7 @@ type ConditionOperator string
 // "DurationLessThanOrEquals" evaluates if the key (duration) is less than or equal to the value (duration)
 // "DurationLessThan" evaluates if the key (duration) is greater than the value (duration)
 var ConditionOperators = map[string]ConditionOperator{
-	"Equal":                       ConditionOperator("Equal"),
 	"Equals":                      ConditionOperator("Equals"),
-	"NotEqual":                    ConditionOperator("NotEqual"),
 	"NotEquals":                   ConditionOperator("NotEquals"),
 	"In":                          ConditionOperator("In"),
 	"AnyIn":                       ConditionOperator("AnyIn"),
