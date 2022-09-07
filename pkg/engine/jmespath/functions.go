@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -17,6 +18,7 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	regen "github.com/zach-klippenstein/goregen"
 	"sigs.k8s.io/yaml"
 )
 
@@ -65,6 +67,7 @@ var (
 	parseYAML              = "parse_yaml"
 	items                  = "items"
 	objectFromLists        = "object_from_lists"
+	random                 = "random"
 )
 
 const (
@@ -423,6 +426,16 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpObject},
 			Note:       "converts a pair of lists containing keys and values to an object",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{Name: random,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpRandom,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "Generates a random sequence of characters",
 		},
 	}
 }
@@ -937,4 +950,17 @@ func validateArg(f string, arguments []interface{}, index int, expectedType refl
 	}
 
 	return arg, nil
+}
+
+func jpRandom(arguments []interface{}) (interface{}, error) {
+	pattern := arguments[0].(string)
+	if pattern == "" {
+		return "", errors.New("no pattern provided")
+	}
+	ans, err := regen.Generate(pattern)
+	if err != nil {
+		fmt.Println("Invalid Pattern: ", err)
+	}
+	log.Println()
+	return ans, nil
 }
