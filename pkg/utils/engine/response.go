@@ -22,10 +22,8 @@ func BlockRequest(er *response.EngineResponse, failurePolicy kyvernov1.FailurePo
 	if er.IsFailed() && er.GetValidationFailureAction() == kyvernov1.Enforce {
 		return true
 	}
-
 	if er.IsError() && failurePolicy == kyvernov1.Fail {
 		return true
 	}
-
 	return false
 }

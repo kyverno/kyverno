@@ -16,9 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -83,68 +81,6 @@ func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
 			}},
 		},
 	}
-}
-
-// returns true -> if there is even one policy that blocks resource request
-// returns false -> if all the policies are meant to report only, we dont block resource request
-func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
-	for _, er := range engineReponses {
-		if engineutils2.BlockRequest(er, failurePolicy) {
-			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
-			return true
-		}
-	}
-
-	log.V(4).Info("allowing admission request")
-	return false
-}
-
-// getBlockedMessages gets the error messages for rules with error or fail status
-func getBlockedMessages(engineResponses []*response.EngineResponse) string {
-	if len(engineResponses) == 0 {
-		return ""
-	}
-
-	failures := make(map[string]interface{})
-	hasViolations := false
-	for _, er := range engineResponses {
-		ruleToReason := make(map[string]string)
-		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != response.RuleStatusPass {
-				ruleToReason[rule.Name] = rule.Message
-				if rule.Status == response.RuleStatusFail {
-					hasViolations = true
-				}
-			}
-		}
-
-		failures[er.PolicyResponse.Policy.Name] = ruleToReason
-	}
-
-	if len(failures) == 0 {
-		return ""
-	}
-
-	r := engineResponses[0].PolicyResponse.Resource
-	resourceName := fmt.Sprintf("%s/%s/%s", r.Kind, r.Namespace, r.Name)
-	action := getAction(hasViolations, len(failures))
-
-	results, _ := yamlv2.Marshal(failures)
-	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
-	return msg
-}
-
-func getAction(hasViolations bool, i int) string {
-	action := "error"
-	if hasViolations {
-		action = "violation"
-	}
-
-	if i > 1 {
-		action = action + "s"
-	}
-
-	return action
 }
 
 func getErrorMsg(engineReponses []*response.EngineResponse) string {
