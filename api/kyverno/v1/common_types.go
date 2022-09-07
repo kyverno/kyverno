@@ -450,11 +450,9 @@ type Generation struct {
 
 type CloneList struct {
 	// Namespace specifies source resource namespace.
-	// +optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 
 	// Kinds is a list of resource kinds.
-	// +optional
 	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
 }
 
