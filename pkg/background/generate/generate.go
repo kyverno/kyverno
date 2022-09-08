@@ -15,12 +15,12 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/common"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	pkgcommon "github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -40,7 +40,7 @@ import (
 type GenerateController struct {
 	// clients
 	client        dclient.Interface
-	kyvernoClient kyvernoclient.Interface
+	kyvernoClient versioned.Interface
 	statusControl common.StatusControlInterface
 
 	// listers
@@ -51,13 +51,14 @@ type GenerateController struct {
 
 	configuration config.Configuration
 	eventGen      event.Interface
-	log           logr.Logger
+
+	log logr.Logger
 }
 
 // NewGenerateController returns an instance of the Generate-Request Controller
 func NewGenerateController(
 	client dclient.Interface,
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	statusControl common.StatusControlInterface,
 	policyLister kyvernov1listers.ClusterPolicyLister,
 	npolicyLister kyvernov1listers.PolicyLister,

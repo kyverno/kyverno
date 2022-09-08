@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kyverno/kyverno/pkg/metrics"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,8 +26,6 @@ type Interface interface {
 	NewDynamicSharedInformerFactory(time.Duration) dynamicinformer.DynamicSharedInformerFactory
 	// GetEventsInterface provides typed interface for events
 	GetEventsInterface() (corev1.EventInterface, error)
-	// GetCSRInterface provides type interface for CSR
-	GetCSRInterface() (certsv1beta1.CertificateSigningRequestInterface, error)
 	// GetDynamicInterface fetches underlying dynamic interface
 	GetDynamicInterface() dynamic.Interface
 	// Discovery return the discovery client implementation
@@ -49,6 +48,8 @@ type Interface interface {
 	UpdateResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
 	// UpdateStatusResource updates the resource "status" subresource
 	UpdateStatusResource(apiVersion string, kind string, namespace string, obj interface{}, dryRun bool) (*unstructured.Unstructured, error)
+	// RecordClientQuery publish the client query to the metric
+	RecordClientQuery(clientQueryOperation metrics.ClientQueryOperation, clientType metrics.ClientType, resourceKind string, resourceNamespace string)
 }
 
 // Client enables interaction with k8 resource
@@ -57,11 +58,12 @@ type client struct {
 	discoveryClient IDiscovery
 	clientConfig    *rest.Config
 	kclient         kubernetes.Interface
+	metricsConfig   metrics.MetricsConfigManager
 	restClient      rest.Interface
 }
 
 // NewClient creates new instance of client
-func NewClient(config *rest.Config, kclient *kubernetes.Clientset, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
+func NewClient(config *rest.Config, kclient *kubernetes.Clientset, metricsConfig metrics.MetricsConfigManager, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -72,6 +74,11 @@ func NewClient(config *rest.Config, kclient *kubernetes.Clientset, resync time.D
 		kclient:      kclient,
 		restClient:   kclient.RESTClient(),
 	}
+
+	if metricsConfig != nil {
+		client.metricsConfig = metricsConfig
+	}
+
 	// Set discovery client
 	discoveryClient := &serverPreferredResources{
 		cachedClient: memory.NewMemCacheClient(kclient.Discovery()),
@@ -130,6 +137,7 @@ func (c *client) getGroupVersionMapper(apiVersion string, kind string) schema.Gr
 
 // GetResource returns the resource in unstructured/json format
 func (c *client) GetResource(apiVersion string, kind string, namespace string, name string, subresources ...string) (*unstructured.Unstructured, error) {
+	c.RecordClientQuery(metrics.ClientGet, metrics.KubeDynamicClient, kind, namespace)
 	return c.getResourceInterface(apiVersion, kind, namespace).Get(context.TODO(), name, metav1.GetOptions{}, subresources...)
 }
 
@@ -142,6 +150,7 @@ func (c *client) RawAbsPath(path string) ([]byte, error) {
 
 // PatchResource patches the resource
 func (c *client) PatchResource(apiVersion string, kind string, namespace string, name string, patch []byte) (*unstructured.Unstructured, error) {
+	c.RecordClientQuery(metrics.ClientUpdate, metrics.KubeDynamicClient, kind, namespace)
 	return c.getResourceInterface(apiVersion, kind, namespace).Patch(context.TODO(), name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
@@ -158,6 +167,7 @@ func (c *client) ListResource(apiVersion string, kind string, namespace string, 
 		options = metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(lselector)}
 	}
 
+	c.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, kind, namespace)
 	return c.getResourceInterface(apiVersion, kind, namespace).List(context.TODO(), options)
 }
 
@@ -167,6 +177,7 @@ func (c *client) DeleteResource(apiVersion string, kind string, namespace string
 	if dryRun {
 		options = metav1.DeleteOptions{DryRun: []string{metav1.DryRunAll}}
 	}
+	c.RecordClientQuery(metrics.ClientDelete, metrics.KubeDynamicClient, kind, namespace)
 	return c.getResourceInterface(apiVersion, kind, namespace).Delete(context.TODO(), name, options)
 }
 
@@ -178,6 +189,7 @@ func (c *client) CreateResource(apiVersion string, kind string, namespace string
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+		c.RecordClientQuery(metrics.ClientCreate, metrics.KubeDynamicClient, kind, namespace)
 		return c.getResourceInterface(apiVersion, kind, namespace).Create(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to create resource ")
@@ -191,6 +203,7 @@ func (c *client) UpdateResource(apiVersion string, kind string, namespace string
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+		c.RecordClientQuery(metrics.ClientUpdate, metrics.KubeDynamicClient, kind, namespace)
 		return c.getResourceInterface(apiVersion, kind, namespace).Update(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
@@ -204,6 +217,7 @@ func (c *client) UpdateStatusResource(apiVersion string, kind string, namespace 
 	}
 	// convert typed to unstructured obj
 	if unstructuredObj, err := kubeutils.ConvertToUnstructured(obj); err == nil && unstructuredObj != nil {
+		c.RecordClientQuery(metrics.ClientUpdateStatus, metrics.KubeDynamicClient, kind, namespace)
 		return c.getResourceInterface(apiVersion, kind, namespace).UpdateStatus(context.TODO(), unstructuredObj, options)
 	}
 	return nil, fmt.Errorf("unable to update resource ")
@@ -217,4 +231,11 @@ func (c *client) Discovery() IDiscovery {
 // SetDiscovery sets the discovery client implementation
 func (c *client) SetDiscovery(discoveryClient IDiscovery) {
 	c.discoveryClient = discoveryClient
+}
+
+func (c *client) RecordClientQuery(clientQueryOperation metrics.ClientQueryOperation, clientType metrics.ClientType, resourceKind string, resourceNamespace string) {
+	if c.metricsConfig == nil {
+		return
+	}
+	c.metricsConfig.RecordClientQueries(clientQueryOperation, clientType, resourceKind, resourceNamespace)
 }

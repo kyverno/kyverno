@@ -1581,6 +1581,42 @@ func TestConditionalAnchorWithMultiplePatterns(t *testing.T) {
 			resource: []byte(`{"spec": {"containers": [{"name": "nginx","image": "nginx"}], "imagePullSecrets": [{"name": "my-registry-secret"}]}}`),
 			status:   response.RuleStatusPass,
 		},
+		{
+			name:     "test-37",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}]}}`),
+			status:   response.RuleStatusSkip,
+		},
+		{
+			name:     "test-38",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   response.RuleStatusFail,
+		},
+		{
+			name:     "test-39",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/randome/value"}}]}}`),
+			status:   response.RuleStatusSkip,
+		},
+		{
+			name:     "test-40",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx","allow-docker": "true"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   response.RuleStatusPass,
+		},
+		{
+			name:     "test-41",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx","allow-docker": "false"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   response.RuleStatusFail,
+		},
+		{
+			name:     "test-42",
+			pattern:  []byte(`{"metadata": {"labels": {"allow-docker": "true"}},"(spec)": {"(volumes)": [{"(hostPath)": {"path": "/var/run/docker.sock"}}]}}`),
+			resource: []byte(`{"metadata": {"labels": {"run": "nginx"},"name": "nginx"},"spec": {"containers": [{"image": "nginx","name": "nginx"}],"volumes": [{"hostPath": {"path": "/var/run/docker.sock"}}]}}`),
+			status:   response.RuleStatusFail,
+		},
 	}
 
 	for _, testCase := range testCases {

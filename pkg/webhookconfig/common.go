@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -52,7 +53,7 @@ func (wrc *Register) readCaData() []byte {
 
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.kubeClient); err == nil {
+	if caData, err = tls.ReadRootCASecret(wrc.kubeClient, wrc.metricsConfig); err == nil {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}
@@ -78,6 +79,7 @@ func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error)
 		},
 	}
 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "ClusterRole", "")
 	if err != nil {
 		return nil, err
 	}
