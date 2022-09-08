@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -6281,6 +6281,19 @@ spec:
                               description: Namespace specifies source resource namespace.
                               type: string
                           type: object
+                        cloneList:
+                          description: CloneList specifies the list of source resource
+                            used to populate each generated resource.
+                          properties:
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            namespace:
+                              description: Namespace specifies source resource namespace.
+                              type: string
+                          type: object
                         data:
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
@@ -8937,6 +8950,20 @@ spec:
                                     namespace.
                                   type: string
                               type: object
+                            cloneList:
+                              description: CloneList specifies the list of source
+                                resource used to populate each generated resource.
+                              properties:
+                                kinds:
+                                  description: Kinds is a list of resource kinds.
+                                  items:
+                                    type: string
+                                  type: array
+                                namespace:
+                                  description: Namespace specifies source resource
+                                    namespace.
+                                  type: string
+                              type: object
                             data:
                               description: Data provides the resource declaration
                                 used to populate each generated resource. At most
@@ -10995,7 +11022,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -11364,7 +11391,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: clusterreportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -11733,7 +11760,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -11923,7 +11950,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -18186,6 +18213,19 @@ spec:
                               description: Namespace specifies source resource namespace.
                               type: string
                           type: object
+                        cloneList:
+                          description: CloneList specifies the list of source resource
+                            used to populate each generated resource.
+                          properties:
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            namespace:
+                              description: Namespace specifies source resource namespace.
+                              type: string
+                          type: object
                         data:
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
@@ -20070,7 +20110,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -20438,7 +20478,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: reportchangerequests.kyverno.io
 spec:
   group: kyverno.io
@@ -20807,7 +20847,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -21196,7 +21236,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -21209,7 +21249,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:leaderelection
   namespace: kyverno
 rules:
@@ -21247,7 +21287,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno
 rules: []
 ---
@@ -21260,7 +21300,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-generaterequest
 rules:
@@ -21286,7 +21326,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -21313,7 +21353,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -21340,7 +21380,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reportchangerequest
 rules:
@@ -21367,7 +21407,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-updaterequest
 rules:
@@ -21393,7 +21433,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:events
 rules:
 - apiGroups:
@@ -21416,7 +21456,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:generate
 rules:
 - apiGroups:
@@ -21463,7 +21503,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:policies
 rules:
 - apiGroups:
@@ -21516,7 +21556,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -21539,7 +21579,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:view
 rules:
 - apiGroups:
@@ -21560,7 +21600,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -21586,7 +21626,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno:leaderelection
   namespace: kyverno
 roleRef:
@@ -21607,7 +21647,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -21632,7 +21672,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno
   namespace: kyverno
 ---
@@ -21648,7 +21688,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -21661,7 +21701,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -21682,7 +21722,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -21703,7 +21743,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: latest
+    app.kubernetes.io/version: v1.8.0-rc1
   name: kyverno
   namespace: kyverno
 spec:
@@ -21725,7 +21765,7 @@ spec:
         app.kubernetes.io/instance: kyverno
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: latest
+        app.kubernetes.io/version: v1.8.0-rc1
     spec:
       affinity:
         podAntiAffinity:
@@ -21760,7 +21800,7 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: ghcr.io/kyverno/kyverno:latest
+        image: ghcr.io/kyverno/kyverno:v1.8.0-rc1
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
@@ -21817,7 +21857,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/kyverno/kyvernopre:latest
+        image: ghcr.io/kyverno/kyvernopre:v1.8.0-rc1
         imagePullPolicy: Always
         name: kyverno-pre
         resources:
