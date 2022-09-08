@@ -10,7 +10,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	gencommon "github.com/kyverno/kyverno/pkg/background/common"
 	gen "github.com/kyverno/kyverno/pkg/background/generate"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -131,28 +130,9 @@ func (h *handlers) handleUpdateGenerateSourceResource(resLabels map[string]strin
 			}
 
 			for _, ur := range urList {
-				h.updateAnnotationInUR(ur, logger)
+				h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 			}
 		}
-	}
-}
-
-// updateAnnotationInUR - function used to update UR annotation
-// updating UR will trigger reprocessing of UR and recreation/updation of generated resource
-func (h *handlers) updateAnnotationInUR(ur *kyvernov1beta1.UpdateRequest, logger logr.Logger) {
-	if _, err := gencommon.Update(h.kyvernoClient, h.urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {
-		urAnnotations := ur.Annotations
-		if len(urAnnotations) == 0 {
-			urAnnotations = make(map[string]string)
-		}
-		urAnnotations["generate.kyverno.io/updation-time"] = time.Now().String()
-		ur.SetAnnotations(urAnnotations)
-	}); err != nil {
-		logger.Error(err, "failed to update update request update-time annotations for the resource", "update request", ur.Name)
-		return
-	}
-	if _, err := gencommon.UpdateStatus(h.kyvernoClient, h.urLister, ur.GetName(), kyvernov1beta1.Pending, "", nil); err != nil {
-		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", ur.Name)
 	}
 }
 
@@ -214,7 +194,7 @@ func (h *handlers) handleUpdateGenerateTargetResource(request *admissionv1.Admis
 			logger.Error(err, "failed to get update request", "name", urName)
 			return
 		}
-		h.updateAnnotationInUR(ur, logger)
+		h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 	}
 }
 

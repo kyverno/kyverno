@@ -61,6 +61,7 @@ type handlers struct {
 	auditHandler      AuditHandler
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
+	urUpdater         webhookutils.UpdateRequestUpdater
 }
 
 func NewHandlers(
@@ -95,6 +96,7 @@ func NewHandlers(
 		auditHandler:      auditHandler,
 		openAPIController: openAPIController,
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
+		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 	}
 }
 
@@ -406,6 +408,6 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 		if ur.Spec.Type == kyvernov1beta1.Mutate {
 			return
 		}
-		h.updateAnnotationInUR(ur, logger)
+		h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 	}
 }
