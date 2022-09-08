@@ -29,6 +29,7 @@ func resources(resources ...resource) []resource { return resources }
 func role(ns string, raw []byte) resource        { return namespaced(rGVR, ns, raw) }
 func roleBinding(ns string, raw []byte) resource { return namespaced(rbGVR, ns, raw) }
 func configMap(ns string, raw []byte) resource   { return namespaced(cmGVR, ns, raw) }
+func secret(ns string, raw []byte) resource      { return namespaced(secretGVR, ns, raw) }
 func clusterPolicy(raw []byte) resource          { return clustered(clPolGVR, raw) }
 func clusterRole(raw []byte) resource            { return clustered(crGVR, raw) }
 func clusterRoleBinding(raw []byte) resource     { return clustered(crbGVR, raw) }
@@ -47,6 +48,7 @@ func id(gvr schema.GroupVersionResource, ns string, name string) _id {
 func idRole(ns, name string) _id           { return id(rGVR, ns, name) }
 func idRoleBinding(ns, name string) _id    { return id(rbGVR, ns, name) }
 func idConfigMap(ns, name string) _id      { return id(cmGVR, ns, name) }
+func idSecret(ns, name string) _id         { return id(secretGVR, ns, name) }
 func idNetworkPolicy(ns, name string) _id  { return id(npGVR, ns, name) }
 func idClusterRole(name string) _id        { return id(crGVR, "", name) }
 func idClusterRoleBinding(name string) _id { return id(crbGVR, "", name) }
