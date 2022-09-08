@@ -102,7 +102,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	if request.Operation == admissionv1.Delete {
 		h.handleDelete(logger, request)
 	}
-	if excludeKyvernoResources(request.Kind.Kind) {
+	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
@@ -161,7 +161,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 }
 
 func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-	if excludeKyvernoResources(request.Kind.Kind) {
+	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
 	if request.Operation == admissionv1.Delete {
