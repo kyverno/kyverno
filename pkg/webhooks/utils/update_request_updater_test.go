@@ -105,3 +105,68 @@ func Test_updateRequestUpdater_updateAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func Test_updateRequestUpdater_setPendingStatus(t *testing.T) {
+	type data struct {
+		objects []runtime.Object
+	}
+	tests := []struct {
+		name    string
+		data    data
+		urName  string
+		updated bool
+	}{{
+		name: "success",
+		data: data{
+			[]runtime.Object{
+				&kyvernov1beta1.UpdateRequest{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "test",
+						Namespace: config.KyvernoNamespace(),
+					},
+				},
+			},
+		},
+		urName:  "test",
+		updated: true,
+	}, {
+		name: "not found",
+		data: data{
+			[]runtime.Object{
+				&kyvernov1beta1.UpdateRequest{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "dummy",
+						Namespace: config.KyvernoNamespace(),
+					},
+				},
+			},
+		},
+		urName:  "dummy",
+		updated: false,
+	}}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			done := ctx.Done()
+			t.Cleanup(cancel)
+			client := fake.NewSimpleClientset(tt.data.objects...)
+			kyvernoInformers := kyvernoinformers.NewSharedInformerFactory(client, 0)
+			lister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
+			kyvernoInformers.Start(done)
+			kyvernoInformers.WaitForCacheSync(done)
+			h := &updateRequestUpdater{
+				client: client,
+				lister: lister,
+			}
+			h.setPendingStatus(logr.Discard(), "test")
+			ur, err := client.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Get(ctx, tt.urName, v1.GetOptions{})
+			assert.NoError(t, err)
+			assert.NotNil(t, ur)
+			if tt.updated {
+				assert.Equal(t, kyvernov1beta1.Pending, ur.Status.State)
+			} else {
+				assert.NotEqual(t, kyvernov1beta1.Pending, ur.Status.State)
+			}
+		})
+	}
+}
