@@ -84,7 +84,7 @@ func (v *validationHandler) handleValidation(
 		}
 	}
 
-	blocked := blockRequest(engineResponses, failurePolicy, logger)
+	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if deletionTimeStamp == nil {
 		events := generateEvents(engineResponses, blocked, logger)
 		v.eventGen.Add(events...)
@@ -93,7 +93,7 @@ func (v *validationHandler) handleValidation(
 	if blocked {
 		logger.V(4).Info("admission request blocked")
 		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
-		return false, getBlockedMessages(engineResponses), nil
+		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
 	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
