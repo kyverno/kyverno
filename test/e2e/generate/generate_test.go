@@ -110,3 +110,7 @@ func Test_Source_Resource_Update_Replication(t *testing.T) {
 func Test_Generate_Policy_Deletion_for_Clone(t *testing.T) {
 	runTestCases(t, generatePolicyDeletionforCloneTests...)
 }
+
+func Test_Generate_Multiple_Clone(t *testing.T) {
+	runTestCases(t, generatePolicyMultipleCloneTests...)
+}

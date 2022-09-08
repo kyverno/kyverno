@@ -29,9 +29,9 @@ type Server interface {
 
 type Handlers interface {
 	// Mutate performs the mutation of policy resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
-	Validate(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 }
 
 type server struct {
@@ -124,7 +124,7 @@ func (s *server) cleanup(ctx context.Context) {
 }
 
 func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if toggle.ProtectManagedResources.Enabled() {
 			newResource, oldResource, err := utils.ExtractResources(nil, request)
 			if err != nil {
@@ -141,7 +141,7 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 				}
 			}
 		}
-		return inner(logger, request)
+		return inner(logger, request, startTime)
 	}
 }
 

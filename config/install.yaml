@@ -857,6 +857,19 @@ spec:
                               description: Namespace specifies source resource namespace.
                               type: string
                           type: object
+                        cloneList:
+                          description: CloneList specifies the list of source resource
+                            used to populate each generated resource.
+                          properties:
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            namespace:
+                              description: Namespace specifies source resource namespace.
+                              type: string
+                          type: object
                         data:
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
@@ -3578,6 +3591,20 @@ spec:
                                 name:
                                   description: Name specifies name of the resource.
                                   type: string
+                                namespace:
+                                  description: Namespace specifies source resource
+                                    namespace.
+                                  type: string
+                              type: object
+                            cloneList:
+                              description: CloneList specifies the list of source
+                                resource used to populate each generated resource.
+                              properties:
+                                kinds:
+                                  description: Kinds is a list of resource kinds.
+                                  items:
+                                    type: string
+                                  type: array
                                 namespace:
                                   description: Namespace specifies source resource
                                     namespace.
@@ -12733,6 +12760,19 @@ spec:
                               description: Namespace specifies source resource namespace.
                               type: string
                           type: object
+                        cloneList:
+                          description: CloneList specifies the list of source resource
+                            used to populate each generated resource.
+                          properties:
+                            kinds:
+                              description: Kinds is a list of resource kinds.
+                              items:
+                                type: string
+                              type: array
+                            namespace:
+                              description: Namespace specifies source resource namespace.
+                              type: string
+                          type: object
                         data:
                           description: Data provides the resource declaration used
                             to populate each generated resource. At most one of Data
@@ -15455,6 +15495,20 @@ spec:
                                 name:
                                   description: Name specifies name of the resource.
                                   type: string
+                                namespace:
+                                  description: Namespace specifies source resource
+                                    namespace.
+                                  type: string
+                              type: object
+                            cloneList:
+                              description: CloneList specifies the list of source
+                                resource used to populate each generated resource.
+                              properties:
+                                kinds:
+                                  description: Kinds is a list of resource kinds.
+                                  items:
+                                    type: string
+                                  type: array
                                 namespace:
                                   description: Namespace specifies source resource
                                     namespace.

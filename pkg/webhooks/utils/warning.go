@@ -16,6 +16,5 @@ func GetWarningMessages(engineResponses []*response.EngineResponse) []string {
 			}
 		}
 	}
-
 	return warnings
 }
