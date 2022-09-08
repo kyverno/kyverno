@@ -101,7 +101,7 @@ func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
 
 // HasValidate checks for validate rule
 func (r *Rule) HasValidate() bool {
-	return !reflect.DeepEqual(r.Validation, kyvernov1.Validation{})
+	return !reflect.DeepEqual(r.Validation, Validation{})
 }
 
 // HasGenerate checks for generate rule
