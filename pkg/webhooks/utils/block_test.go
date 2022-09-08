@@ -96,27 +96,6 @@ func TestBlockRequest(t *testing.T) {
 		},
 		want: false,
 	}, {
-		name: "failure - enforce",
-		args: args{
-			engineResponses: []*response.EngineResponse{
-				{
-					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Enforce,
-						Rules: []response.RuleResponse{
-							{
-								Name:    "rule-fail",
-								Status:  response.RuleStatusFail,
-								Message: "message fail",
-							},
-						},
-					},
-				},
-			},
-			failurePolicy: kyvernov1.Fail,
-			log:           logr.Discard(),
-		},
-		want: true,
-	}, {
 		name: "error - fail",
 		args: args{
 			engineResponses: []*response.EngineResponse{
