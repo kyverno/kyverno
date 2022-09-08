@@ -4,6 +4,8 @@ on:
     tags:
       - 'kyverno-chart-v*'
       - 'kyverno-policies-chart-v*'
+      - 'kyverno-chart-*'
+      - 'kyverno-policies-chart-*'
 
 jobs:
   helm-tests:
