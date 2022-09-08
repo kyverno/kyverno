@@ -1,42 +1,38 @@
-package v1
+package v2beta1
 
 import (
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // +genclient
-// +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
 // +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Validate Action",type="string",JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
-// +kubebuilder:storageversion
+// +kubebuilder:resource:shortName=pol
 
-// ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
-type ClusterPolicy struct {
+// Policy declares validation, mutation, and generation behaviors for matching resources.
+// See: https://kyverno.io/docs/writing-policies/ for more information.
+type Policy struct {
 	metav1.TypeMeta   `json:",inline,omitempty" yaml:",inline,omitempty"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	// Spec declares policy behaviors.
+	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
-
-	// Status contains policy runtime data.
-	// +optional
-	Status PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
-func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
+func (p *Policy) HasAutoGenAnnotation() bool {
 	annotations := p.GetAnnotations()
-	val, ok := annotations[PodControllersAnnotation]
+	val, ok := annotations[kyvernov1.PodControllersAnnotation]
 	if ok && strings.ToLower(val) != "none" {
 		return true
 	}
@@ -44,7 +40,7 @@ func (p *ClusterPolicy) HasAutoGenAnnotation() bool {
 }
 
 // HasMutateOrValidateOrGenerate checks for rule types
-func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
+func (p *Policy) HasMutateOrValidateOrGenerate() bool {
 	for _, rule := range p.Spec.Rules {
 		if rule.HasMutate() || rule.HasValidate() || rule.HasGenerate() {
 			return true
@@ -54,68 +50,59 @@ func (p *ClusterPolicy) HasMutateOrValidateOrGenerate() bool {
 }
 
 // HasMutate checks for mutate rule types
-func (p *ClusterPolicy) HasMutate() bool {
+func (p *Policy) HasMutate() bool {
 	return p.Spec.HasMutate()
 }
 
 // HasValidate checks for validate rule types
-func (p *ClusterPolicy) HasValidate() bool {
+func (p *Policy) HasValidate() bool {
 	return p.Spec.HasValidate()
 }
 
 // HasGenerate checks for generate rule types
-func (p *ClusterPolicy) HasGenerate() bool {
+func (p *Policy) HasGenerate() bool {
 	return p.Spec.HasGenerate()
 }
 
 // HasVerifyImages checks for image verification rule types
-func (p *ClusterPolicy) HasVerifyImages() bool {
+func (p *Policy) HasVerifyImages() bool {
 	return p.Spec.HasVerifyImages()
 }
 
 // BackgroundProcessingEnabled checks if background is set to true
-func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
+func (p *Policy) BackgroundProcessingEnabled() bool {
 	return p.Spec.BackgroundProcessingEnabled()
 }
 
 // GetSpec returns the policy spec
-func (p *ClusterPolicy) GetSpec() *Spec {
+func (p *Policy) GetSpec() *Spec {
 	return &p.Spec
 }
 
 // IsNamespaced indicates if the policy is namespace scoped
-func (p *ClusterPolicy) IsNamespaced() bool {
-	return p.GetNamespace() != ""
+func (p *Policy) IsNamespaced() bool {
+	return true
 }
 
-// IsReady indicates if the policy is ready to serve the admission request
-func (p *ClusterPolicy) IsReady() bool {
-	return p.Status.IsReady()
-}
-
-// Validate implements programmatic validation
+// Validate implements programmatic validation.
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
-func (p *ClusterPolicy) Validate(clusterResources sets.String) (errs field.ErrorList) {
-	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
-	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
+func (p *Policy) Validate(clusterResources sets.String) (errs field.ErrorList) {
+	errs = append(errs, kyvernov1.ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
+	errs = append(errs, kyvernov1.ValidatePolicyName(field.NewPath("name"), p.Name)...)
 	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
 	return errs
 }
 
-func (p *ClusterPolicy) GetKind() string {
+func (p *Policy) GetKind() string {
 	return p.Kind
-}
-
-func (p *ClusterPolicy) CreateDeepCopy() PolicyInterface {
-	return p.DeepCopy()
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ClusterPolicyList is a list of ClusterPolicy instances.
-type ClusterPolicyList struct {
+// PolicyList is a list of Policy instances.
+type PolicyList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata" yaml:"metadata"`
-	Items           []ClusterPolicy `json:"items" yaml:"items"`
+	Items           []Policy `json:"items" yaml:"items"`
 }

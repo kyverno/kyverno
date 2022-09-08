@@ -29,7 +29,7 @@ var (
 	policyRule   = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies/*", "policies/*"},
 		APIGroups:   []string{"kyverno.io"},
-		APIVersions: []string{"v1"},
+		APIVersions: []string{"v1", "v2beta1"},
 	}
 	verifyRule = admissionregistrationv1.Rule{
 		Resources:   []string{"leases"},
