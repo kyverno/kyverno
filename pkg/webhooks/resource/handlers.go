@@ -351,7 +351,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	}
 
 	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
-	blocked := blockRequest(engineResponses, failurePolicy, logger)
+	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
 		events := generateEvents(engineResponses, blocked, logger)
 		h.eventGen.Add(events...)
@@ -359,7 +359,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
-		return false, getBlockedMessages(engineResponses), nil, nil
+		return false, webhookutils.GetBlockedMessages(engineResponses), nil, nil
 	}
 
 	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)

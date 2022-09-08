@@ -65,7 +65,7 @@ jobs:
           echo ">>> Install Kyverno"
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
-          kubectl apply -f -
+          kubectl create -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50

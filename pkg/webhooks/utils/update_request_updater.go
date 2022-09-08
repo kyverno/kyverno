@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	gencommon "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/background/common"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 )
@@ -28,7 +28,7 @@ func NewUpdateRequestUpdater(client versioned.Interface, lister kyvernov1beta1li
 }
 
 func (h *updateRequestUpdater) updateAnnotation(logger logr.Logger, name string) {
-	if _, err := gencommon.Update(h.client, h.lister, name, func(ur *kyvernov1beta1.UpdateRequest) {
+	if _, err := common.Update(h.client, h.lister, name, func(ur *kyvernov1beta1.UpdateRequest) {
 		urAnnotations := ur.Annotations
 		if len(urAnnotations) == 0 {
 			urAnnotations = make(map[string]string)
@@ -41,7 +41,7 @@ func (h *updateRequestUpdater) updateAnnotation(logger logr.Logger, name string)
 }
 
 func (h *updateRequestUpdater) setPendingStatus(logger logr.Logger, name string) {
-	if _, err := gencommon.UpdateStatus(h.client, h.lister, name, kyvernov1beta1.Pending, "", nil); err != nil {
+	if _, err := common.UpdateStatus(h.client, h.lister, name, kyvernov1beta1.Pending, "", nil); err != nil {
 		logger.Error(err, "failed to set UpdateRequest state to Pending", "update request", name)
 	}
 }
