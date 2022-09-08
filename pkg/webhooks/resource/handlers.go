@@ -61,6 +61,7 @@ type handlers struct {
 	auditHandler      AuditHandler
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
+	urUpdater         webhookutils.UpdateRequestUpdater
 }
 
 func NewHandlers(
@@ -95,13 +96,11 @@ func NewHandlers(
 		auditHandler:      auditHandler,
 		openAPIController: openAPIController,
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
+		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
 	}
 }
 
 func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-	if request.Operation == admissionv1.Delete {
-		h.handleDelete(logger, request)
-	}
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -147,6 +146,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
 	}
+	defer func() { h.handleDelete(logger, request) }()
 
 	h.auditHandler.Add(request.DeepCopy())
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
@@ -389,23 +389,25 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 }
 
 func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.AdmissionRequest) {
-	resource, err := engineutils2.ConvertToUnstructured(request.OldObject.Raw)
-	if err != nil {
-		logger.Error(err, "failed to convert object resource to unstructured format")
-	}
-
-	resLabels := resource.GetLabels()
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && request.Operation == admissionv1.Delete {
-		urName := resLabels["policy.kyverno.io/gr-name"]
-		ur, err := h.urLister.Get(urName)
+	if request.Operation == admissionv1.Delete {
+		resource, err := engineutils2.ConvertToUnstructured(request.OldObject.Raw)
 		if err != nil {
-			logger.Error(err, "failed to get update request", "name", urName)
-			return
+			logger.Error(err, "failed to convert object resource to unstructured format")
 		}
 
-		if ur.Spec.Type == kyvernov1beta1.Mutate {
-			return
+		resLabels := resource.GetLabels()
+		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+			urName := resLabels["policy.kyverno.io/gr-name"]
+			ur, err := h.urLister.Get(urName)
+			if err != nil {
+				logger.Error(err, "failed to get update request", "name", urName)
+				return
+			}
+
+			if ur.Spec.Type == kyvernov1beta1.Mutate {
+				return
+			}
+			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 		}
-		h.updateAnnotationInUR(ur, logger)
 	}
 }
