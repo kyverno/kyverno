@@ -79,7 +79,39 @@ type Deny struct {
 	// Multiple conditions can be declared under an `any` or `all` statement. A direct list
 	// of conditions (without `any` or `all` statements) is also supported for backwards compatibility
 	// See: https://kyverno.io/docs/writing-policies/validate/#deny-rules
-	RawAnyAllConditions *kyvernov1.AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+	RawAnyAllConditions *AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
+type Condition struct {
+	// Key is the context entry (using JMESPath) for conditional rule evaluation.
+	RawKey *apiextv1.JSON `json:"key,omitempty" yaml:"key,omitempty"`
+
+	// Operator is the conditional operation to perform. Valid operators are:
+	// Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+	// GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+	// DurationLessThanOrEquals, DurationLessThan
+	Operator ConditionOperator `json:"operator,omitempty" yaml:"operator,omitempty"`
+
+	// Value is the conditional value, or set of values. The values can be fixed set
+	// or can be variables declared using JMESPath.
+	// +optional
+	RawValue *apiextv1.JSON `json:"value,omitempty" yaml:"value,omitempty"`
+}
+
+type AnyAllConditions struct {
+	// AnyConditions enable variable-based conditional rule execution. This is useful for
+	// finer control of when an rule is applied. A condition can reference object data
+	// using JMESPath notation.
+	// Here, at least one of the conditions need to pass
+	// +optional
+	AnyConditions []Condition `json:"any,omitempty" yaml:"any,omitempty"`
+
+	// AllConditions enable variable-based conditional rule execution. This is useful for
+	// finer control of when an rule is applied. A condition can reference object data
+	// using JMESPath notation.
+	// Here, all of the conditions need to pass
+	// +optional
+	AllConditions []Condition `json:"all,omitempty" yaml:"all,omitempty"`
 }
 
 // ResourceFilters is a slice of ResourceFilter

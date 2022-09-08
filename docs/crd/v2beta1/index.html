@@ -447,8 +447,129 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.AnyAllConditions">AnyAllConditions
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Deny">Deny</a>, 
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>any</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.Condition">
+[]Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AnyConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, at least one of the conditions need to pass</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>all</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.Condition">
+[]Condition
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>AllConditions enable variable-based conditional rule execution. This is useful for
+finer control of when an rule is applied. A condition can reference object data
+using JMESPath notation.
+Here, all of the conditions need to pass</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.Condition">Condition
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.AnyAllConditions">AnyAllConditions</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>key</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<p>Key is the context entry (using JMESPath) for conditional rule evaluation.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>operator</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.ConditionOperator">
+ConditionOperator
+</a>
+</em>
+</td>
+<td>
+<p>Operator is the conditional operation to perform. Valid operators are:
+Equals, NotEquals, In, AnyIn, AllIn, NotIn, AnyNotIn, AllNotIn, GreaterThanOrEquals,
+GreaterThan, LessThanOrEquals, LessThan, DurationGreaterThanOrEquals, DurationGreaterThan,
+DurationLessThanOrEquals, DurationLessThan</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>value</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#json-v1-apiextensions">
+Kubernetes apiextensions/v1.JSON
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>Value is the conditional value, or set of values. The values can be fixed set
+or can be variables declared using JMESPath.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2beta1.ConditionOperator">ConditionOperator
 (<code>string</code> alias)</p></h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Condition">Condition</a>)
+</p>
 <p>
 <p>ConditionOperator is the operation performed on condition key and value.</p>
 </p>
@@ -473,7 +594,9 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <td>
 <code>conditions</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
 </em>
 </td>
 <td>
@@ -487,6 +610,10 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 <hr />
 <h3 id="kyverno.io/v2beta1.ImageVerification">ImageVerification
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+</p>
 <p>
 <p>ImageVerification validates that images that match the specified pattern
 are signed with the supplied public key. Once the image is verified it is
@@ -877,7 +1004,9 @@ This config is only valid for verifyImages rules.</p>
 <td>
 <code>preconditions</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno/v1.AnyAllConditions
+<a href="#kyverno.io/v2beta1.AnyAllConditions">
+AnyAllConditions
+</a>
 </em>
 </td>
 <td>
@@ -904,7 +1033,9 @@ github.com/kyverno/kyverno/api/kyverno/v1.Mutation
 <td>
 <code>validate</code><br/>
 <em>
-github.com/kyverno/kyverno/api/kyverno/v1.Validation
+<a href="#kyverno.io/v2beta1.Validation">
+Validation
+</a>
 </em>
 </td>
 <td>
@@ -928,7 +1059,9 @@ github.com/kyverno/kyverno/api/kyverno/v1.Generation
 <td>
 <code>verifyImages</code><br/>
 <em>
-[]github.com/kyverno/kyverno/api/kyverno/v1.ImageVerification
+<a href="#kyverno.io/v2beta1.ImageVerification">
+[]ImageVerification
+</a>
 </em>
 </td>
 <td>
@@ -1100,6 +1233,10 @@ Defaults to &ldquo;false&rdquo; if not specified.</p>
 <hr />
 <h3 id="kyverno.io/v2beta1.Validation">Validation
 </h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.Rule">Rule</a>)
+</p>
 <p>
 <p>Validation defines checks to be performed on matching resources.</p>
 </p>
