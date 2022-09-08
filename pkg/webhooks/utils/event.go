@@ -1,13 +1,12 @@
 package utils
 
 import (
-	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 )
 
-// generateEvents generates event info for the engine responses
-func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool, log logr.Logger) []event.Info {
+// GenerateEvents generates event info for the engine responses
+func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []event.Info {
 	var events []event.Info
 
 	//   - Some/All policies fail or error
