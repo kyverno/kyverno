@@ -86,7 +86,7 @@ func (v *validationHandler) handleValidation(
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if deletionTimeStamp == nil {
-		events := generateEvents(engineResponses, blocked, logger)
+		events := webhookutils.GenerateEvents(engineResponses, blocked, logger)
 		v.eventGen.Add(events...)
 	}
 

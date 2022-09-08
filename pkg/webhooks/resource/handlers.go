@@ -278,7 +278,7 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 	}
 
 	if !isResourceDeleted(policyContext) {
-		events := generateEvents(engineResponses, false, logger)
+		events := webhookutils.GenerateEvents(engineResponses, false, logger)
 		h.eventGen.Add(events...)
 	}
 
@@ -351,7 +351,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
-		events := generateEvents(engineResponses, blocked, logger)
+		events := webhookutils.GenerateEvents(engineResponses, blocked, logger)
 		h.eventGen.Add(events...)
 	}
 

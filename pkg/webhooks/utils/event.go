@@ -1,4 +1,4 @@
-package resource
+package utils
 
 import (
 	"github.com/go-logr/logr"
@@ -7,7 +7,7 @@ import (
 )
 
 // generateEvents generates event info for the engine responses
-func generateEvents(engineResponses []*response.EngineResponse, blocked bool, log logr.Logger) []event.Info {
+func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool, log logr.Logger) []event.Info {
 	var events []event.Info
 
 	//   - Some/All policies fail or error
