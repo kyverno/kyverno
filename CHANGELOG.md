@@ -2,6 +2,8 @@
 
 ### Note
 
+- The Kyverno Helm Charts versions are changed to follow semVer pattern. To install or upgrade to v1.8.0-rc1 or higher versions via Helm, specify the version with `--version 2.6.0-rc1`.
+
 - A new flag `protectManagedResources` to enable kyverno managed resources protection (default value is `false`). When this is enabled, kyverno managed resources can only be modified or deleted by the controller.
 
 ## v1.7.2-rc2
