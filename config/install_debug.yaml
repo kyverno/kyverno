@@ -7030,8 +7030,6 @@ spec:
                             using JMESPath notation. Here, all of the conditions need
                             to pass
                           items:
-                            description: Condition defines variable-based conditional
-                              criteria for rule execution.
                             properties:
                               key:
                                 description: Key is the context entry (using JMESPath)
@@ -7046,10 +7044,8 @@ spec:
                                 enum:
                                 - Equals
                                 - NotEquals
-                                - In
                                 - AnyIn
                                 - AllIn
-                                - NotIn
                                 - AnyNotIn
                                 - AllNotIn
                                 - GreaterThanOrEquals
@@ -7075,8 +7071,6 @@ spec:
                             using JMESPath notation. Here, at least one of the conditions
                             need to pass
                           items:
-                            description: Condition defines variable-based conditional
-                              criteria for rule execution.
                             properties:
                               key:
                                 description: Key is the context entry (using JMESPath)
@@ -7091,10 +7085,8 @@ spec:
                                 enum:
                                 - Equals
                                 - NotEquals
-                                - In
                                 - AnyIn
                                 - AllIn
-                                - NotIn
                                 - AnyNotIn
                                 - AllNotIn
                                 - GreaterThanOrEquals
@@ -7130,9 +7122,95 @@ spec:
                               description: 'Multiple conditions can be declared under
                                 an `any` or `all` statement. A direct list of conditions
                                 (without `any` or `all` statements) is also supported
-                                for backwards compatibility but will be deprecated
-                                in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
-                              x-kubernetes-preserve-unknown-fields: true
+                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                              properties:
+                                all:
+                                  description: AllConditions enable variable-based
+                                    conditional rule execution. This is useful for
+                                    finer control of when an rule is applied. A condition
+                                    can reference object data using JMESPath notation.
+                                    Here, all of the conditions need to pass
+                                  items:
+                                    properties:
+                                      key:
+                                        description: Key is the context entry (using
+                                          JMESPath) for conditional rule evaluation.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      operator:
+                                        description: 'Operator is the conditional
+                                          operation to perform. Valid operators are:
+                                          Equals, NotEquals, In, AnyIn, AllIn, NotIn,
+                                          AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                          GreaterThan, LessThanOrEquals, LessThan,
+                                          DurationGreaterThanOrEquals, DurationGreaterThan,
+                                          DurationLessThanOrEquals, DurationLessThan'
+                                        enum:
+                                        - Equals
+                                        - NotEquals
+                                        - AnyIn
+                                        - AllIn
+                                        - AnyNotIn
+                                        - AllNotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
+                                        type: string
+                                      value:
+                                        description: Value is the conditional value,
+                                          or set of values. The values can be fixed
+                                          set or can be variables declared using JMESPath.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  type: array
+                                any:
+                                  description: AnyConditions enable variable-based
+                                    conditional rule execution. This is useful for
+                                    finer control of when an rule is applied. A condition
+                                    can reference object data using JMESPath notation.
+                                    Here, at least one of the conditions need to pass
+                                  items:
+                                    properties:
+                                      key:
+                                        description: Key is the context entry (using
+                                          JMESPath) for conditional rule evaluation.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      operator:
+                                        description: 'Operator is the conditional
+                                          operation to perform. Valid operators are:
+                                          Equals, NotEquals, In, AnyIn, AllIn, NotIn,
+                                          AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                          GreaterThan, LessThanOrEquals, LessThan,
+                                          DurationGreaterThanOrEquals, DurationGreaterThan,
+                                          DurationLessThanOrEquals, DurationLessThan'
+                                        enum:
+                                        - Equals
+                                        - NotEquals
+                                        - AnyIn
+                                        - AllIn
+                                        - AnyNotIn
+                                        - AllNotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
+                                        type: string
+                                      value:
+                                        description: Value is the conditional value,
+                                          or set of values. The values can be fixed
+                                          set or can be variables declared using JMESPath.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  type: array
+                              type: object
                           type: object
                         foreach:
                           description: ForEach applies validate rules to a list of
@@ -7668,21 +7746,6 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
-                          additionalExtensions:
-                            additionalProperties:
-                              type: string
-                            description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing. Deprecated.
-                            type: object
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            description: Annotations are used for image verification.
-                              Every specified key-value pair must exist and match
-                              in the verified payload. The payload may contain other
-                              key-value pairs. Deprecated. Use annotations per Attestor
-                              instead.
-                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -7972,12 +8035,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          image:
-                            description: 'Image is the image name consisting of the
-                              registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                              Deprecated. Use ImageReferences instead.'
-                            type: string
                           imageReferences:
                             description: 'ImageReferences is a list of matching image
                               reference patterns. At least one pattern in the list
@@ -7989,15 +8046,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          issuer:
-                            description: Issuer is the certificate issuer used for
-                              keyless signing. Deprecated. Use KeylessAttestor instead.
-                            type: string
-                          key:
-                            description: Key is the PEM encoded public key that the
-                              image or attestation is signed with. Deprecated. Use
-                              StaticKeyAttestor instead.
-                            type: string
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -8017,16 +8065,6 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
-                          roots:
-                            description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing Deprecated. Use KeylessAttestor
-                              instead.
-                            type: string
-                          subject:
-                            description: Subject is the identity used for keyless
-                              signing, for example an email address Deprecated. Use
-                              KeylessAttestor instead.
-                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a
@@ -18866,8 +18904,6 @@ spec:
                             using JMESPath notation. Here, all of the conditions need
                             to pass
                           items:
-                            description: Condition defines variable-based conditional
-                              criteria for rule execution.
                             properties:
                               key:
                                 description: Key is the context entry (using JMESPath)
@@ -18882,10 +18918,8 @@ spec:
                                 enum:
                                 - Equals
                                 - NotEquals
-                                - In
                                 - AnyIn
                                 - AllIn
-                                - NotIn
                                 - AnyNotIn
                                 - AllNotIn
                                 - GreaterThanOrEquals
@@ -18911,8 +18945,6 @@ spec:
                             using JMESPath notation. Here, at least one of the conditions
                             need to pass
                           items:
-                            description: Condition defines variable-based conditional
-                              criteria for rule execution.
                             properties:
                               key:
                                 description: Key is the context entry (using JMESPath)
@@ -18927,10 +18959,8 @@ spec:
                                 enum:
                                 - Equals
                                 - NotEquals
-                                - In
                                 - AnyIn
                                 - AllIn
-                                - NotIn
                                 - AnyNotIn
                                 - AllNotIn
                                 - GreaterThanOrEquals
@@ -18966,9 +18996,95 @@ spec:
                               description: 'Multiple conditions can be declared under
                                 an `any` or `all` statement. A direct list of conditions
                                 (without `any` or `all` statements) is also supported
-                                for backwards compatibility but will be deprecated
-                                in the next major release. See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
-                              x-kubernetes-preserve-unknown-fields: true
+                                for backwards compatibility See: https://kyverno.io/docs/writing-policies/validate/#deny-rules'
+                              properties:
+                                all:
+                                  description: AllConditions enable variable-based
+                                    conditional rule execution. This is useful for
+                                    finer control of when an rule is applied. A condition
+                                    can reference object data using JMESPath notation.
+                                    Here, all of the conditions need to pass
+                                  items:
+                                    properties:
+                                      key:
+                                        description: Key is the context entry (using
+                                          JMESPath) for conditional rule evaluation.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      operator:
+                                        description: 'Operator is the conditional
+                                          operation to perform. Valid operators are:
+                                          Equals, NotEquals, In, AnyIn, AllIn, NotIn,
+                                          AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                          GreaterThan, LessThanOrEquals, LessThan,
+                                          DurationGreaterThanOrEquals, DurationGreaterThan,
+                                          DurationLessThanOrEquals, DurationLessThan'
+                                        enum:
+                                        - Equals
+                                        - NotEquals
+                                        - AnyIn
+                                        - AllIn
+                                        - AnyNotIn
+                                        - AllNotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
+                                        type: string
+                                      value:
+                                        description: Value is the conditional value,
+                                          or set of values. The values can be fixed
+                                          set or can be variables declared using JMESPath.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  type: array
+                                any:
+                                  description: AnyConditions enable variable-based
+                                    conditional rule execution. This is useful for
+                                    finer control of when an rule is applied. A condition
+                                    can reference object data using JMESPath notation.
+                                    Here, at least one of the conditions need to pass
+                                  items:
+                                    properties:
+                                      key:
+                                        description: Key is the context entry (using
+                                          JMESPath) for conditional rule evaluation.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                      operator:
+                                        description: 'Operator is the conditional
+                                          operation to perform. Valid operators are:
+                                          Equals, NotEquals, In, AnyIn, AllIn, NotIn,
+                                          AnyNotIn, AllNotIn, GreaterThanOrEquals,
+                                          GreaterThan, LessThanOrEquals, LessThan,
+                                          DurationGreaterThanOrEquals, DurationGreaterThan,
+                                          DurationLessThanOrEquals, DurationLessThan'
+                                        enum:
+                                        - Equals
+                                        - NotEquals
+                                        - AnyIn
+                                        - AllIn
+                                        - AnyNotIn
+                                        - AllNotIn
+                                        - GreaterThanOrEquals
+                                        - GreaterThan
+                                        - LessThanOrEquals
+                                        - LessThan
+                                        - DurationGreaterThanOrEquals
+                                        - DurationGreaterThan
+                                        - DurationLessThanOrEquals
+                                        - DurationLessThan
+                                        type: string
+                                      value:
+                                        description: Value is the conditional value,
+                                          or set of values. The values can be fixed
+                                          set or can be variables declared using JMESPath.
+                                        x-kubernetes-preserve-unknown-fields: true
+                                    type: object
+                                  type: array
+                              type: object
                           type: object
                         foreach:
                           description: ForEach applies validate rules to a list of
@@ -19504,21 +19620,6 @@ spec:
                           public key. Once the image is verified it is mutated to
                           include the SHA digest retrieved during the registration.
                         properties:
-                          additionalExtensions:
-                            additionalProperties:
-                              type: string
-                            description: AdditionalExtensions are certificate-extensions
-                              used for keyless signing. Deprecated.
-                            type: object
-                          annotations:
-                            additionalProperties:
-                              type: string
-                            description: Annotations are used for image verification.
-                              Every specified key-value pair must exist and match
-                              in the verified payload. The payload may contain other
-                              key-value pairs. Deprecated. Use annotations per Attestor
-                              instead.
-                            type: object
                           attestations:
                             description: Attestations are optional checks for signed
                               in-toto Statements used to verify the image. See https://github.com/in-toto/attestation.
@@ -19808,12 +19909,6 @@ spec:
                                   type: array
                               type: object
                             type: array
-                          image:
-                            description: 'Image is the image name consisting of the
-                              registry address, repository, image, and tag. Wildcards
-                              (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
-                              Deprecated. Use ImageReferences instead.'
-                            type: string
                           imageReferences:
                             description: 'ImageReferences is a list of matching image
                               reference patterns. At least one pattern in the list
@@ -19825,15 +19920,6 @@ spec:
                             items:
                               type: string
                             type: array
-                          issuer:
-                            description: Issuer is the certificate issuer used for
-                              keyless signing. Deprecated. Use KeylessAttestor instead.
-                            type: string
-                          key:
-                            description: Key is the PEM encoded public key that the
-                              image or attestation is signed with. Deprecated. Use
-                              StaticKeyAttestor instead.
-                            type: string
                           mutateDigest:
                             default: true
                             description: MutateDigest enables replacement of image
@@ -19853,16 +19939,6 @@ spec:
                               i.e. have matched passed a signature or attestation
                               check.
                             type: boolean
-                          roots:
-                            description: Roots is the PEM encoded Root certificate
-                              chain used for keyless signing Deprecated. Use KeylessAttestor
-                              instead.
-                            type: string
-                          subject:
-                            description: Subject is the identity used for keyless
-                              signing, for example an email address Deprecated. Use
-                              KeylessAttestor instead.
-                            type: string
                           verifyDigest:
                             default: true
                             description: VerifyDigest validates that images have a

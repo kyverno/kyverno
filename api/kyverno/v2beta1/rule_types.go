@@ -43,7 +43,7 @@ type Rule struct {
 	// of conditions (without `any` or `all` statements is supported for backwards compatibility but
 	// See: https://kyverno.io/docs/writing-policies/preconditions/
 	// +optional
-	RawAnyAllConditions *kyvernov1.AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
+	RawAnyAllConditions *AnyAllConditions `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
 	// Mutation is used to modify matching resources.
 	// +optional
@@ -51,7 +51,7 @@ type Rule struct {
 
 	// Validation is used to validate matching resources.
 	// +optional
-	Validation kyvernov1.Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
+	Validation Validation `json:"validate,omitempty" yaml:"validate,omitempty"`
 
 	// Generation is used to create new resources.
 	// +optional
@@ -59,7 +59,7 @@ type Rule struct {
 
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
-	VerifyImages []kyvernov1.ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -69,7 +69,7 @@ func (r *Rule) HasMutate() bool {
 
 // HasVerifyImages checks for verifyImages rule
 func (r *Rule) HasVerifyImages() bool {
-	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, kyvernov1.ImageVerification{})
+	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
 // HasYAMLSignatureVerify checks for validate.manifests rule

@@ -22,7 +22,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 					},
 				}},
 			},
-			Validation: kyvernov1.Validation{
+			Validation: Validation{
 				Message: "message",
 				RawAnyPattern: &apiextv1.JSON{
 					Raw: []byte("{"),
@@ -38,7 +38,7 @@ func Test_Validate_UniqueRuleName(t *testing.T) {
 						},
 					}},
 				}},
-			Validation: kyvernov1.Validation{
+			Validation: Validation{
 				Message: "message",
 				RawAnyPattern: &apiextv1.JSON{
 					Raw: []byte("{"),
