@@ -107,6 +107,8 @@ For example:
 
 It is also possible to [switch between docker and ko](#switching-between-docker-and-ko) build systems easily.
 
+> **Note** If there are any reference tag related error while building the image, fetch all tags and associated object from upstream using `git fetch upstream --tags`.
+
 <!-- TODO: explain the way images are tagged. -->
 
 ### Building local images with docker
