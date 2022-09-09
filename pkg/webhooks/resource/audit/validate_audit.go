@@ -1,4 +1,4 @@
-package resource
+package audit
 
 import (
 	"strings"

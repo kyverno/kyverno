@@ -2,14 +2,12 @@ package resource
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -48,29 +46,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func getErrorMsg(engineReponses []*response.EngineResponse) string {
-	var str []string
-	var resourceInfo string
-	for _, er := range engineReponses {
-		if !er.IsSuccessful() {
-			// resource in engineReponses is identical as this was called per admission request
-			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy.Name))
-			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
-					str = append(str, rule.ToString())
-				}
-			}
-		}
-	}
-	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
-}
-
-func hasAnnotations(context *engine.PolicyContext) bool {
-	annotations := context.NewResource.GetAnnotations()
-	return len(annotations) != 0
 }
 
 func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
