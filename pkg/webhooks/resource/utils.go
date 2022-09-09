@@ -1,21 +1,14 @@
 package resource
 
 import (
-	"encoding/json"
-	"strings"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type updateRequestResponse struct {
@@ -46,99 +39,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
-	var apiVersion, kind, name, namespace string
-	sourceRequest := &admissionv1.AdmissionRequest{}
-	kind = resLabels["kyverno.io/generated-by-kind"]
-	name = resLabels["kyverno.io/generated-by-name"]
-	if kind != "Namespace" {
-		namespace = resLabels["kyverno.io/generated-by-namespace"]
-	}
-	obj, err := client.GetResource(apiVersion, kind, namespace, name)
-	if err != nil {
-		logger.Error(err, "source resource not found.")
-		return rule, err
-	}
-	rawObj, err := json.Marshal(obj)
-	if err != nil {
-		logger.Error(err, "failed to marshal resource")
-		return rule, err
-	}
-	sourceRequest.Object.Raw = rawObj
-	sourceRequest.Operation = "CREATE"
-	ctx := enginectx.NewContext()
-	if err := ctx.AddRequest(sourceRequest); err != nil {
-		logger.Error(err, "failed to load incoming request in context")
-		return rule, err
-	}
-	if rule, err = variables.SubstituteAllInRule(logger, ctx, rule); err != nil {
-		logger.Error(err, "variable substitution failed for rule %s", rule.Name)
-		return rule, err
-	}
-	return rule, nil
-}
-
-// stripNonPolicyFields - remove feilds which get updated with each request by kyverno and are non policy fields
-func stripNonPolicyFields(obj, newRes map[string]interface{}, logger logr.Logger) (map[string]interface{}, map[string]interface{}) {
-	if metadata, found := obj["metadata"]; found {
-		requiredMetadataInObj := make(map[string]interface{})
-		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
-			delete(annotations.(map[string]interface{}), "kubectl.kubernetes.io/last-applied-configuration")
-			requiredMetadataInObj["annotations"] = annotations
-		}
-
-		if labels, found := metadata.(map[string]interface{})["labels"]; found {
-			delete(labels.(map[string]interface{}), "generate.kyverno.io/clone-policy-name")
-			requiredMetadataInObj["labels"] = labels
-		}
-		obj["metadata"] = requiredMetadataInObj
-	}
-
-	if metadata, found := newRes["metadata"]; found {
-		requiredMetadataInNewRes := make(map[string]interface{})
-		if annotations, found := metadata.(map[string]interface{})["annotations"]; found {
-			requiredMetadataInNewRes["annotations"] = annotations
-		}
-
-		if labels, found := metadata.(map[string]interface{})["labels"]; found {
-			requiredMetadataInNewRes["labels"] = labels
-		}
-		newRes["metadata"] = requiredMetadataInNewRes
-	}
-
-	delete(obj, "status")
-
-	if _, found := obj["spec"]; found {
-		delete(obj["spec"].(map[string]interface{}), "tolerations")
-	}
-
-	if dataMap, found := obj["data"]; found {
-		keyInData := make([]string, 0)
-		switch dataMap := dataMap.(type) {
-		case map[string]interface{}:
-			for k := range dataMap {
-				keyInData = append(keyInData, k)
-			}
-		}
-
-		if len(keyInData) > 0 {
-			for _, dataKey := range keyInData {
-				originalResourceData := dataMap.(map[string]interface{})[dataKey]
-				replaceData := strings.Replace(originalResourceData.(string), "\n", "", -1)
-				dataMap.(map[string]interface{})[dataKey] = replaceData
-
-				newResourceData := newRes["data"].(map[string]interface{})[dataKey]
-				replacenewResourceData := strings.Replace(newResourceData.(string), "\n", "", -1)
-				newRes["data"].(map[string]interface{})[dataKey] = replacenewResourceData
-			}
-		} else {
-			logger.V(4).Info("data is not of type map[string]interface{}")
-		}
-	}
-
-	return obj, newRes
 }
 
 func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
