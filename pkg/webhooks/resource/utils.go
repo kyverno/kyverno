@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -49,21 +48,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
-	return policyreport.Info{
-		Namespace: oldR.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
-			{Resource: response.ResourceSpec{
-				Kind:       oldR.GetKind(),
-				APIVersion: oldR.GetAPIVersion(),
-				Namespace:  oldR.GetNamespace(),
-				Name:       oldR.GetName(),
-				UID:        string(oldR.GetUID()),
-			}},
-		},
-	}
 }
 
 func getErrorMsg(engineReponses []*response.EngineResponse) string {
