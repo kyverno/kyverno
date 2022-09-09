@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
@@ -22,8 +23,8 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 	go h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
 	go h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 
-	go h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go webhookutils.RegisterAdmissionReviewDurationMetricGenerate(logger, h.metricsConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go webhookutils.RegisterAdmissionRequestsMetricGenerate(logger, h.metricsConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
 func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
@@ -60,9 +61,9 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go h.registerPolicyResultsMetricMutation(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go h.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
 	if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
@@ -74,6 +75,6 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 	}
 
 	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), engineResponses)
+	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go webhookutils.RegisterAdmissionRequestsMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses)
 }

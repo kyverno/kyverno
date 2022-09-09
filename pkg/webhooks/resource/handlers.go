@@ -222,8 +222,8 @@ func (h *handlers) applyMutatePolicies(logger logr.Logger, request *admissionv1.
 	logger.V(6).Info("", "generated patches", string(mutatePatches))
 
 	admissionReviewLatencyDuration := int64(time.Since(ts))
-	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
-	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), mutateEngineResponses)
+	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
+	go webhookutils.RegisterAdmissionRequestsMetricMutate(logger, h.metricsConfig, string(request.Operation), mutateEngineResponses)
 
 	warnings := webhookutils.GetWarningMessages(mutateEngineResponses)
 	return mutatePatches, warnings, nil
@@ -267,9 +267,9 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 		engineResponses = append(engineResponses, engineResponse)
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go h.registerPolicyResultsMetricMutation(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go h.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
 	// generate annotations
@@ -278,7 +278,7 @@ func (h *handlers) handleMutation(logger logr.Logger, request *admissionv1.Admis
 	}
 
 	if !isResourceDeleted(policyContext) {
-		events := webhookutils.GenerateEvents(engineResponses, false, logger)
+		events := webhookutils.GenerateEvents(engineResponses, false)
 		h.eventGen.Add(events...)
 	}
 
@@ -351,7 +351,7 @@ func (h *handlers) handleVerifyImages(logger logr.Logger, request *admissionv1.A
 	failurePolicy := policyContext.Policy.GetSpec().GetFailurePolicy()
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if !isResourceDeleted(policyContext) {
-		events := webhookutils.GenerateEvents(engineResponses, blocked, logger)
+		events := webhookutils.GenerateEvents(engineResponses, blocked)
 		h.eventGen.Add(events...)
 	}
 
