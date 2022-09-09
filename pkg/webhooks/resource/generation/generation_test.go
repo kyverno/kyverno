@@ -1,4 +1,4 @@
-package resource
+package generation
 
 import (
 	"reflect"
