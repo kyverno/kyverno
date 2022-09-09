@@ -107,7 +107,14 @@ For example:
 
 It is also possible to [switch between docker and ko](#switching-between-docker-and-ko) build systems easily.
 
-<!-- TODO: explain the way images are tagged. -->
+### Image tags
+
+Building images uses repository tags. To fetch repository tags into your fork run the following commands:
+
+```sh
+git remote add upstream  https://github.com/kyverno/kyverno
+git fetch upstream --tags
+```
 
 ### Building local images with docker
 
