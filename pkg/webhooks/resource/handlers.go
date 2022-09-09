@@ -26,6 +26,7 @@ import (
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
@@ -59,7 +60,7 @@ type handlers struct {
 	prGenerator       policyreport.GeneratorInterface
 	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
-	auditHandler      AuditHandler
+	auditHandler      audit.AuditHandler
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
 	urUpdater         webhookutils.UpdateRequestUpdater
@@ -78,7 +79,7 @@ func NewHandlers(
 	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
-	auditHandler AuditHandler,
+	auditHandler audit.AuditHandler,
 	openAPIController openapi.ValidateInterface,
 ) webhooks.Handlers {
 	return &handlers{
