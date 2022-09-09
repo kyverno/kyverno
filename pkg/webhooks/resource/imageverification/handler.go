@@ -27,9 +27,11 @@ type ImageVerificationHandler interface {
 	) ([]byte, []string, error)
 }
 
-func NewImageVerificationHandler(log logr.Logger) ImageVerificationHandler {
+func NewImageVerificationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ImageVerificationHandler {
 	return &imageVerificationHandler{
-		log: log,
+		log:         log,
+		eventGen:    eventGen,
+		prGenerator: prGenerator,
 	}
 }
 

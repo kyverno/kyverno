@@ -192,7 +192,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseFailure(err.Error())
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
-	ivh := imageverification.NewImageVerificationHandler(logger)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen, h.prGenerator)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
