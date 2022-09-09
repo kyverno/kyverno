@@ -12,16 +12,15 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/background"
-	generatecleanup "github.com/kyverno/kyverno/pkg/background/generate/cleanup"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	"github.com/kyverno/kyverno/pkg/cosign"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -40,6 +39,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
@@ -108,10 +108,11 @@ func main() {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternalsFlag)
+	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
-	flag.Func(toggle.SplitPolicyReportFlagName, "Set the flag to 'true', to enable the split-up PolicyReports per policy.", toggle.SplitPolicyReportFlag)
+	flag.Func(toggle.SplitPolicyReportFlagName, toggle.SplitPolicyReportDescription, toggle.SplitPolicyReport.Parse)
+	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -130,17 +131,43 @@ func main() {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
+
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, 15*time.Minute, stopCh)
+
+	// Metrics Configuration
+	var metricsConfig *metrics.MetricsConfig
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		setupLog.Error(err, "failed to fetch metrics config")
+		os.Exit(1)
+	}
+
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		log.Log.WithName("Metrics"),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize metrics")
+		os.Exit(1)
+	}
+
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, 15*time.Minute, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
@@ -151,8 +178,6 @@ func main() {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
-
-	var metricsConfig *metrics.MetricsConfig
 
 	if profile {
 		addr := ":" + profilePort
@@ -176,6 +201,21 @@ func main() {
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	var registryOptions []registryclient.Option
+
+	if otel == "grpc" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(ctx, metricsPusher)
+		defer cancel()
+	}
+
+	if otel == "prometheus" {
+		go func() {
+			setupLog.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
+			}
+		}()
+	}
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -211,8 +251,8 @@ func main() {
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
 
 	// POLICY Report GENERATOR
-	reportReqGen := policyreport.NewReportChangeRequestGenerator(kyvernoClient,
-		dynamicClient,
+	reportReqGen := policyreport.NewReportChangeRequestGenerator(
+		kyvernoClient,
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
@@ -223,7 +263,6 @@ func main() {
 
 	prgen, err := policyreport.NewReportGenerator(
 		kyvernoClient,
-		dynamicClient,
 		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
 		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
 		kyvernoV1alpha2.ReportChangeRequests(),
@@ -247,6 +286,7 @@ func main() {
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
+		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
 		debug,
@@ -268,44 +308,6 @@ func main() {
 	}
 	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
 
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		setupLog.Error(err, "failed to fetch metrics config")
-		os.Exit(1)
-	}
-
-	// Metrics Configuration
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		log.Log.WithName("Metrics"),
-	)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize metrics")
-		os.Exit(1)
-	}
-
-	if otel == "grpc" {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(ctx, metricsPusher)
-		defer cancel()
-	}
-
-	if otel == "prometheus" {
-		go func() {
-			setupLog.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				setupLog.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
-
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.V(2).Info("Enabling tracing for Kyverno...")
@@ -324,7 +326,6 @@ func main() {
 	// - process policy on existing resources
 	// - status aggregator: receives stats when a policy is applied & updates the policy status
 	policyCtrl, err := policy.NewPolicyController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -347,7 +348,6 @@ func main() {
 	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
 
 	urc := background.NewController(
-		kubeClient,
 		kyvernoClient,
 		dynamicClient,
 		kyvernoV1.ClusterPolicies(),
@@ -359,20 +359,10 @@ func main() {
 		configuration,
 	)
 
-	grcc := generatecleanup.NewController(
-		kubeClient,
-		kyvernoClient,
-		dynamicClient,
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		kyvernoV1beta1.UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-	)
-
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
-	auditHandler := webhooksresource.NewValidateAuditHandler(
+	auditHandler := audit.NewValidateAuditHandler(
 		policyCache,
 		eventGenerator,
 		reportReqGen,
@@ -493,7 +483,6 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
 		go prgen.Run(1, stopCh)
-		go grcc.Run(1, stopCh)
 	}
 
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)

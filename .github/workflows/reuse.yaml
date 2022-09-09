@@ -52,9 +52,12 @@ jobs:
           cosign-release: 'v1.11.0'
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            /tmp/ko-cache
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -103,16 +106,16 @@ jobs:
           fi
 
       - name: ko build dev image
-        id: ko-build-dev
+        id: ko-publish-dev
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
           echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)"
 
       - name: ko build release image
-        id: ko-build
+        id: ko-publish
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: |
-          echo "::set-output name=digest::$(REGISTRY=ghcr.io/${{github.repository}} make ${{inputs.publish_command}})"
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})"
 
       - name: Sign dev image
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
@@ -124,7 +127,7 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-build-dev.outputs.digest }}
+          ${{ steps.ko-publish-dev.outputs.digest }}
 
       - name: Sign release-image
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
@@ -136,10 +139,10 @@ jobs:
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ${{ steps.ko-build.outputs.digest }}
+          ${{ steps.ko-publish.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-build.outputs.digest }}
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}

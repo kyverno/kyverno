@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"gotest.tools/assert"
 )
 
@@ -539,7 +540,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			}
 
 			failurePolicy := kyvernov1.Fail
-			blocked := blockRequest([]*response.EngineResponse{er}, failurePolicy, log.Log.WithName("WebhookServer"))
+			blocked := webhookutils.BlockRequest([]*response.EngineResponse{er}, failurePolicy, log.Log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
@@ -594,7 +595,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
 	log := log.Log.WithName("Test_RuleSelector")
-	blocked := blockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked := webhookutils.BlockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == true)
 
 	applyOne := kyvernov1.ApplyOne
@@ -604,6 +605,6 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 1)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
-	blocked = blockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
+	blocked = webhookutils.BlockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == false)
 }

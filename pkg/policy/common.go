@@ -50,7 +50,6 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
-
 	return resourceList
 }
 

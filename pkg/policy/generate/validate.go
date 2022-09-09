@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
@@ -40,18 +40,24 @@ func (g *Generate) Validate() (string, error) {
 		return "", fmt.Errorf("only one of data or clone can be specified")
 	}
 
+	if rule.Clone != (kyvernov1.CloneFrom{}) && len(rule.CloneList.Kinds) != 0 {
+		return "", fmt.Errorf("only one of clone or cloneList can be specified")
+	}
+
 	kind, name, namespace := rule.Kind, rule.Name, rule.Namespace
 
-	if name == "" {
-		return "name", fmt.Errorf("name cannot be empty")
-	}
-	if kind == "" {
-		return "kind", fmt.Errorf("kind cannot be empty")
+	if len(rule.CloneList.Kinds) == 0 {
+		if name == "" {
+			return "name", fmt.Errorf("name cannot be empty")
+		}
+		if kind == "" {
+			return "kind", fmt.Errorf("kind cannot be empty")
+		}
 	}
 	// Can I generate resource
 
 	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
-		if path, err := g.validateClone(rule.Clone, kind); err != nil {
+		if path, err := g.validateClone(rule.Clone, rule.CloneList, kind); err != nil {
 			return fmt.Sprintf("clone.%s", path), err
 		}
 	}
@@ -74,9 +80,11 @@ func (g *Generate) Validate() (string, error) {
 	return "", nil
 }
 
-func (g *Generate) validateClone(c kyvernov1.CloneFrom, kind string) (string, error) {
-	if c.Name == "" {
-		return "name", fmt.Errorf("name cannot be empty")
+func (g *Generate) validateClone(c kyvernov1.CloneFrom, cl kyvernov1.CloneList, kind string) (string, error) {
+	if len(cl.Kinds) == 0 {
+		if c.Name == "" {
+			return "name", fmt.Errorf("name cannot be empty")
+		}
 	}
 
 	namespace := c.Namespace

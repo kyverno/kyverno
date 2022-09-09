@@ -21,6 +21,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3
 
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
       # see https://michaelheap.com/ensure-github-actions-pinned-sha/
       - name: Ensure SHA pinned actions
         uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6ca5574367befbc9efdb2fa25978084159c5902d # pin@v1.3.0
@@ -60,9 +63,6 @@ jobs:
         run: |
           make unused-package-check
 
-      - name: Verify generated code is up to date
-        run: make verify-codegen
-
       - name: Go vet
         run: |
           make vet
@@ -87,9 +87,11 @@ jobs:
           go-version: 1.18
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # pin@v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-

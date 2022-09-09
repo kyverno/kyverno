@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.24.0]
+        k8s-version: [v1.24.4, v1.25.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -45,9 +45,11 @@ jobs:
         uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -63,7 +65,7 @@ jobs:
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
           sed -e 's/--autogenInternals:true$/--autogenInternals:false/g' | \
-          kubectl apply -f -
+          kubectl create -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
