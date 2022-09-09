@@ -233,17 +233,14 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 			os.Exit(1)
 		}
-
 		pathElems := strings.Split(gitURL.Path[1:], "/")
 		if len(pathElems) <= 1 {
 			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
 			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 			os.Exit(1)
 		}
-
 		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
 		repoURL := gitURL.String()
-
 		var gitPathToYamls string
 
 		if c.GitBranch == "" {
@@ -274,7 +271,6 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
 			os.Exit(1)
 		}
-
 		policyYamls, err := test.ListYAMLs(fs, gitPathToYamls)
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)

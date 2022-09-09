@@ -10,7 +10,9 @@ import (
 func Test_Apply(t *testing.T) {
 	type TestCase struct {
 		PolicyPaths           []string
+		GitBranch             string
 		ResourcePaths         []string
+		Cluster               bool
 		expectedPolicyReports []preport.PolicyReport
 		config                ApplyCommandConfig
 	}
@@ -94,12 +96,15 @@ func Test_Apply_GitURL(t *testing.T) {
 		PolicyPaths           []string
 		GitBranch             string
 		expectedPolicyReports []preport.PolicyReport
+		config                ApplyCommandConfig
 	}
 
 	testcases := TestCases{
-
-		PolicyPaths: []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-		GitBranch:   "main",
+		config: ApplyCommandConfig{
+			PolicyPaths:  []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			GitBranch:    "main",
+			PolicyReport: true,
+		},
 		expectedPolicyReports: []preport.PolicyReport{
 			{
 				Summary: preport.PolicyReportSummary{
@@ -121,7 +126,7 @@ func Test_Apply_GitURL(t *testing.T) {
 		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error))
 	}
 
-	_, _, _, info, _ := applyCommandHelper(nil, "", true, true, "", "", "", "", testcases.PolicyPaths, false, false, testcases.GitBranch)
+	_, _, _, info, _ := testcases.config.applyCommandHelper()
 	resps := buildPolicyReports(info)
 	for i, resp := range resps {
 		compareSummary(testcases.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
