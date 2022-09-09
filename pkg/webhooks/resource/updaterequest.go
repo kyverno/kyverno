@@ -10,6 +10,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -20,8 +21,9 @@ func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
 
+	gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen)
 	go h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
-	go h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go gh.Handle(h.metricsConfig, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 
 	go webhookutils.RegisterAdmissionReviewDurationMetricGenerate(logger, h.metricsConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
 	go webhookutils.RegisterAdmissionRequestsMetricGenerate(logger, h.metricsConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
