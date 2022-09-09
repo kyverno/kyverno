@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/event"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -59,9 +60,9 @@ func (h *handlers) handleGenerate(
 			}
 
 			// registering the kyverno_policy_results_total metric concurrently
-			go h.registerPolicyResultsMetricGeneration(logger, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyResultsMetricGeneration(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 			// registering the kyverno_policy_execution_duration_seconds metric concurrently
-			go h.registerPolicyExecutionDurationMetricGenerate(logger, string(request.Operation), policy, *engineResponse)
+			go webhookutils.RegisterPolicyExecutionDurationMetricGenerate(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 		}
 
 		if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Generate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {

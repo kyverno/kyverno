@@ -70,8 +70,8 @@ func (v *validationHandler) handleValidation(
 			continue
 		}
 
-		go registerPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		go registerPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -86,7 +86,7 @@ func (v *validationHandler) handleValidation(
 
 	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if deletionTimeStamp == nil {
-		events := webhookutils.GenerateEvents(engineResponses, blocked, logger)
+		events := webhookutils.GenerateEvents(engineResponses, blocked)
 		v.eventGen.Add(events...)
 	}
 
@@ -126,6 +126,6 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 
 func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
 	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
+	go webhookutils.RegisterAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go webhookutils.RegisterAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }
