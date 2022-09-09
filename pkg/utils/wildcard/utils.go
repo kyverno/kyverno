@@ -1,4 +1,4 @@
-package string
+package wildcard
 
 import "strings"
 

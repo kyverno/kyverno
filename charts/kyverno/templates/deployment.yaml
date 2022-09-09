@@ -131,6 +131,8 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.serviceAccountName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
           - name: TUF_ROOT
