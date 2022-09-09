@@ -42,11 +42,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	return resource
 }
 
-func hasAnnotations(context *engine.PolicyContext) bool {
-	annotations := context.NewResource.GetAnnotations()
-	return len(annotations) != 0
-}
-
 func applyUpdateRequest(request *admissionv1.AdmissionRequest, ruleType kyvernov1beta1.RequestType, grGenerator updaterequest.Generator, userRequestInfo kyvernov1beta1.RequestInfo,
 	action admissionv1.Operation, engineResponses ...*response.EngineResponse,
 ) (failedUpdateRequest []updateRequestResponse) {
