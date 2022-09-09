@@ -1,4 +1,4 @@
-package resource
+package validation
 
 import (
 	"reflect"
@@ -18,16 +18,28 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+type ValidationHandler interface {
+	// HandleValidation handles validating webhook admission request
+	// If there are no errors in validating rule we apply generation rules
+	// patchedResource is the (resource + patches) after applying mutation rules
+	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+}
+
+func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ValidationHandler {
+	return &validationHandler{
+		log:         log,
+		eventGen:    eventGen,
+		prGenerator: prGenerator,
+	}
+}
+
 type validationHandler struct {
 	log         logr.Logger
 	eventGen    event.Interface
 	prGenerator policyreport.GeneratorInterface
 }
 
-// handleValidation handles validating webhook admission request
-// If there are no errors in validating rule we apply generation rules
-// patchedResource is the (resource + patches) after applying mutation rules
-func (v *validationHandler) handleValidation(
+func (v *validationHandler) HandleValidation(
 	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
@@ -116,7 +128,7 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 		}
 
 		if !managed {
-			v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+			v.prGenerator.Add(webhookutils.BuildDeletionPrInfo(policyContext.OldResource))
 		}
 	} else {
 		prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)

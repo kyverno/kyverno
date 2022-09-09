@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -157,13 +158,8 @@ func (h *auditHandler) process(request *admissionv1.AdmissionRequest) error {
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := &validationHandler{
-		log:         h.log,
-		eventGen:    h.eventGen,
-		prGenerator: h.prGenerator,
-	}
-
-	vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
+	vh := validation.NewValidationHandler(h.log, h.eventGen, h.prGenerator)
+	vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, admissionRequestTimestamp)
 	return nil
 }
 
