@@ -27,6 +27,7 @@ import (
 	engineutils "github.com/kyverno/kyverno/pkg/utils/engine"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/validation"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	"github.com/pkg/errors"
@@ -135,13 +136,9 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := &validationHandler{
-		log:         logger,
-		eventGen:    h.eventGen,
-		prGenerator: h.prGenerator,
-	}
+	vh := validation.NewValidationHandler(logger, h.eventGen, h.prGenerator)
 
-	ok, msg, warnings := vh.handleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
+	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
@@ -166,7 +163,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	if request.Operation == admissionv1.Delete {
 		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
 		if err == nil {
-			h.prGenerator.Add(buildDeletionPrInfo(resource))
+			h.prGenerator.Add(webhookutils.BuildDeletionPrInfo(resource))
 		} else {
 			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
 		}
