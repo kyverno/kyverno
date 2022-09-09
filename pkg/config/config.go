@@ -72,6 +72,8 @@ const (
 var (
 	// kyvernoNamespace is the Kyverno namespace
 	kyvernoNamespace = osutils.GetEnvWithFallback("KYVERNO_NAMESPACE", "kyverno")
+	// kyvernoServiceAccountName is the Kyverno service account name
+	kyvernoServiceAccountName = osutils.GetEnvWithFallback("KYVERNO_SERVICEACCOUNT_NAME", "kyverno")
 	// kyvernoDeploymentName is the Kyverno deployment name
 	kyvernoDeploymentName = osutils.GetEnvWithFallback("KYVERNO_DEPLOYMENT", "kyverno")
 	// kyvernoServiceName is the Kyverno service name
@@ -86,6 +88,10 @@ var (
 
 func KyvernoNamespace() string {
 	return kyvernoNamespace
+}
+
+func KyvernoServiceAccountName() string {
+	return kyvernoServiceAccountName
 }
 
 func KyvernoDeploymentName() string {

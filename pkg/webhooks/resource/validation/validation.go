@@ -1,4 +1,4 @@
-package resource
+package validation
 
 import (
 	"reflect"
@@ -12,10 +12,26 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+type ValidationHandler interface {
+	// HandleValidation handles validating webhook admission request
+	// If there are no errors in validating rule we apply generation rules
+	// patchedResource is the (resource + patches) after applying mutation rules
+	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
+}
+
+func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ValidationHandler {
+	return &validationHandler{
+		log:         log,
+		eventGen:    eventGen,
+		prGenerator: prGenerator,
+	}
+}
 
 type validationHandler struct {
 	log         logr.Logger
@@ -23,10 +39,7 @@ type validationHandler struct {
 	prGenerator policyreport.GeneratorInterface
 }
 
-// handleValidation handles validating webhook admission request
-// If there are no errors in validating rule we apply generation rules
-// patchedResource is the (resource + patches) after applying mutation rules
-func (v *validationHandler) handleValidation(
+func (v *validationHandler) HandleValidation(
 	metricsConfig *metrics.MetricsConfig,
 	request *admissionv1.AdmissionRequest,
 	policies []kyvernov1.PolicyInterface,
@@ -69,8 +82,8 @@ func (v *validationHandler) handleValidation(
 			continue
 		}
 
-		go registerPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
-		go registerPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricValidation(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricValidate(logger, metricsConfig, string(request.Operation), policyContext.Policy, *engineResponse)
 
 		engineResponses = append(engineResponses, engineResponse)
 		if !engineResponse.IsSuccessful() {
@@ -83,22 +96,22 @@ func (v *validationHandler) handleValidation(
 		}
 	}
 
-	blocked := blockRequest(engineResponses, failurePolicy, logger)
+	blocked := webhookutils.BlockRequest(engineResponses, failurePolicy, logger)
 	if deletionTimeStamp == nil {
-		events := generateEvents(engineResponses, blocked, logger)
+		events := webhookutils.GenerateEvents(engineResponses, blocked)
 		v.eventGen.Add(events...)
 	}
 
 	if blocked {
 		logger.V(4).Info("admission request blocked")
 		v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
-		return false, getBlockedMessages(engineResponses), nil
+		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
 	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
 	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 
-	warnings := getWarningMessages(engineResponses)
+	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
 }
 
@@ -115,7 +128,7 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 		}
 
 		if !managed {
-			v.prGenerator.Add(buildDeletionPrInfo(policyContext.OldResource))
+			v.prGenerator.Add(webhookutils.BuildDeletionPrInfo(policyContext.OldResource))
 		}
 	} else {
 		prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
@@ -125,6 +138,6 @@ func (v *validationHandler) generateReportChangeRequests(request *admissionv1.Ad
 
 func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {
 	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go registerAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go registerAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
+	go webhookutils.RegisterAdmissionReviewDurationMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go webhookutils.RegisterAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }

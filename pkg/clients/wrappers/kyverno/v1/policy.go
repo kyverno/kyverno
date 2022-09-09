@@ -4,88 +4,59 @@ import (
 	"context"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	versionedv1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
+	v1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
-	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/rest"
 )
 
-type PoliciesGetter interface {
-	Policies(namespace string) PoliciesControlInterface
-}
-
-type PoliciesControlInterface interface {
-	Create(ctx context.Context, policy *kyvernov1.Policy, opts metav1.CreateOptions) (*kyvernov1.Policy, error)
-	Update(ctx context.Context, policy *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error)
-	UpdateStatus(ctx context.Context, policy *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error)
-	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
-	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1.Policy, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1.PolicyList, error)
-	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1.Policy, err error)
-}
-
-type policiesControl struct {
-	client            rest.Interface
-	polClient         versionedv1.PoliciesGetter
+type policies struct {
+	inner             v1.PolicyInterface
 	clientQueryMetric utils.ClientQueryMetric
 	ns                string
 }
 
-func newPolicies(c *KyvernoV1Client, namespace string) *policiesControl {
-	return &policiesControl{
-		client:            c.RESTClient(),
-		polClient:         c.kyvernov1Interface,
-		clientQueryMetric: c.clientQueryMetric,
+func wrapPolicies(c v1.PolicyInterface, m utils.ClientQueryMetric, namespace string) v1.PolicyInterface {
+	return &policies{
+		inner:             c,
+		clientQueryMetric: m,
 		ns:                namespace,
 	}
 }
 
-func (c *policiesControl) Create(ctx context.Context, policy *kyvernov1.Policy, opts metav1.CreateOptions) (*kyvernov1.Policy, error) {
-	c.clientQueryMetric.Record(metrics.ClientCreate, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Create(ctx, policy, opts)
+func (c *policies) Create(ctx context.Context, o *kyvernov1.Policy, opts metav1.CreateOptions) (*kyvernov1.Policy, error) {
+	return utils.Create(ctx, c.clientQueryMetric, "Policy", c.ns, o, opts, c.inner.Create)
 }
 
-func (c *policiesControl) Update(ctx context.Context, policy *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error) {
-	c.clientQueryMetric.Record(metrics.ClientUpdate, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Update(ctx, policy, opts)
+func (c *policies) Update(ctx context.Context, o *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error) {
+	return utils.Update(ctx, c.clientQueryMetric, "Policy", c.ns, o, opts, c.inner.Update)
 }
 
-func (c *policiesControl) UpdateStatus(ctx context.Context, policy *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error) {
-	c.clientQueryMetric.Record(metrics.ClientUpdateStatus, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).UpdateStatus(ctx, policy, opts)
+func (c *policies) UpdateStatus(ctx context.Context, o *kyvernov1.Policy, opts metav1.UpdateOptions) (*kyvernov1.Policy, error) {
+	return utils.UpdateStatus(ctx, c.clientQueryMetric, "Policy", c.ns, o, opts, c.inner.UpdateStatus)
 }
 
-func (c *policiesControl) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDelete, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Delete(ctx, name, opts)
+func (c *policies) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+	return utils.Delete(ctx, c.clientQueryMetric, "Policy", c.ns, name, opts, c.inner.Delete)
 }
 
-func (c *policiesControl) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	c.clientQueryMetric.Record(metrics.ClientDeleteCollection, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).DeleteCollection(ctx, opts, listOpts)
+func (c *policies) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+	return utils.DeleteCollection(ctx, c.clientQueryMetric, "Policy", c.ns, opts, listOpts, c.inner.DeleteCollection)
 }
 
-func (c *policiesControl) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1.Policy, error) {
-	c.clientQueryMetric.Record(metrics.ClientGet, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Get(ctx, name, opts)
+func (c *policies) Get(ctx context.Context, name string, opts metav1.GetOptions) (*kyvernov1.Policy, error) {
+	return utils.Get(ctx, c.clientQueryMetric, "Policy", c.ns, name, opts, c.inner.Get)
 }
 
-func (c *policiesControl) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1.PolicyList, error) {
-	c.clientQueryMetric.Record(metrics.ClientList, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).List(ctx, opts)
+func (c *policies) List(ctx context.Context, opts metav1.ListOptions) (*kyvernov1.PolicyList, error) {
+	return utils.List(ctx, c.clientQueryMetric, "Policy", c.ns, opts, c.inner.List)
 }
 
-func (c *policiesControl) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	c.clientQueryMetric.Record(metrics.ClientWatch, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Watch(ctx, opts)
+func (c *policies) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+	return utils.Watch(ctx, c.clientQueryMetric, "Policy", c.ns, opts, c.inner.Watch)
 }
 
-func (c *policiesControl) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *kyvernov1.Policy, err error) {
-	c.clientQueryMetric.Record(metrics.ClientPatch, metrics.KyvernoClient, "Policy", c.ns)
-	return c.polClient.Policies(c.ns).Patch(ctx, name, pt, data, opts, subresources...)
+func (c *policies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (*kyvernov1.Policy, error) {
+	return utils.Patch(ctx, c.clientQueryMetric, "Policy", c.ns, name, pt, data, opts, c.inner.Patch, subresources...)
 }

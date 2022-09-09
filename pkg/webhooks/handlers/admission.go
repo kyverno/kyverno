@@ -16,7 +16,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
 func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -57,7 +57,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(logger, admissionReview.Request)
+		adminssionResponse := inner(logger, admissionReview.Request, startTime)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -91,16 +91,16 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 }
 
 func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
-		return inner(logger, request)
+		return inner(logger, request, startTime)
 	}
 }
 
 func Verify(m *webhookconfig.Monitor) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)
 	}

@@ -14,11 +14,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	engineutils2 "github.com/kyverno/kyverno/pkg/utils/engine"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	yamlv2 "gopkg.in/yaml.v2"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -26,23 +23,6 @@ import (
 type updateRequestResponse struct {
 	ur  kyvernov1beta1.UpdateRequestSpec
 	err error
-}
-
-func excludeKyvernoResources(kind string) bool {
-	switch kind {
-	case "ClusterPolicyReport":
-		return true
-	case "PolicyReport":
-		return true
-	case "ReportChangeRequest":
-		return true
-	case "GenerateRequest":
-		return true
-	case "ClusterReportChangeRequest":
-		return true
-	default:
-		return false
-	}
 }
 
 func errorResponse(logger logr.Logger, err error, message string) *admissionv1.AdmissionResponse {
@@ -68,97 +48,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func buildDeletionPrInfo(oldR unstructured.Unstructured) policyreport.Info {
-	return policyreport.Info{
-		Namespace: oldR.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
-			{Resource: response.ResourceSpec{
-				Kind:       oldR.GetKind(),
-				APIVersion: oldR.GetAPIVersion(),
-				Namespace:  oldR.GetNamespace(),
-				Name:       oldR.GetName(),
-				UID:        string(oldR.GetUID()),
-			}},
-		},
-	}
-}
-
-// returns true -> if there is even one policy that blocks resource request
-// returns false -> if all the policies are meant to report only, we dont block resource request
-func blockRequest(engineReponses []*response.EngineResponse, failurePolicy kyvernov1.FailurePolicyType, log logr.Logger) bool {
-	for _, er := range engineReponses {
-		if engineutils2.BlockRequest(er, failurePolicy) {
-			log.V(2).Info("blocking admission request", "policy", er.PolicyResponse.Policy.Name)
-			return true
-		}
-	}
-
-	log.V(4).Info("allowing admission request")
-	return false
-}
-
-// getBlockedMessages gets the error messages for rules with error or fail status
-func getBlockedMessages(engineResponses []*response.EngineResponse) string {
-	if len(engineResponses) == 0 {
-		return ""
-	}
-
-	failures := make(map[string]interface{})
-	hasViolations := false
-	for _, er := range engineResponses {
-		ruleToReason := make(map[string]string)
-		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != response.RuleStatusPass {
-				ruleToReason[rule.Name] = rule.Message
-				if rule.Status == response.RuleStatusFail {
-					hasViolations = true
-				}
-			}
-		}
-
-		failures[er.PolicyResponse.Policy.Name] = ruleToReason
-	}
-
-	if len(failures) == 0 {
-		return ""
-	}
-
-	r := engineResponses[0].PolicyResponse.Resource
-	resourceName := fmt.Sprintf("%s/%s/%s", r.Kind, r.Namespace, r.Name)
-	action := getAction(hasViolations, len(failures))
-
-	results, _ := yamlv2.Marshal(failures)
-	msg := fmt.Sprintf("\n\npolicy %s for resource %s: \n\n%s", resourceName, action, results)
-	return msg
-}
-
-func getWarningMessages(engineResponses []*response.EngineResponse) []string {
-	var warnings []string
-	for _, er := range engineResponses {
-		for _, rule := range er.PolicyResponse.Rules {
-			if rule.Status != response.RuleStatusPass {
-				msg := fmt.Sprintf("policy %s.%s: %s", er.Policy.GetName(), rule.Name, rule.Message)
-				warnings = append(warnings, msg)
-			}
-		}
-	}
-
-	return warnings
-}
-
-func getAction(hasViolations bool, i int) string {
-	action := "error"
-	if hasViolations {
-		action = "violation"
-	}
-
-	if i > 1 {
-		action = action + "s"
-	}
-
-	return action
 }
 
 func getErrorMsg(engineReponses []*response.EngineResponse) string {
