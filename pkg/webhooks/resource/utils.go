@@ -2,7 +2,6 @@ package resource
 
 import (
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -48,24 +47,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func getErrorMsg(engineReponses []*response.EngineResponse) string {
-	var str []string
-	var resourceInfo string
-	for _, er := range engineReponses {
-		if !er.IsSuccessful() {
-			// resource in engineReponses is identical as this was called per admission request
-			resourceInfo = fmt.Sprintf("%s/%s/%s", er.PolicyResponse.Resource.Kind, er.PolicyResponse.Resource.Namespace, er.PolicyResponse.Resource.Name)
-			str = append(str, fmt.Sprintf("failed policy %s:", er.PolicyResponse.Policy.Name))
-			for _, rule := range er.PolicyResponse.Rules {
-				if rule.Status != response.RuleStatusPass {
-					str = append(str, rule.ToString())
-				}
-			}
-		}
-	}
-	return fmt.Sprintf("Resource %s %s", resourceInfo, strings.Join(str, ";"))
 }
 
 func hasAnnotations(context *engine.PolicyContext) bool {
