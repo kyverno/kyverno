@@ -8,7 +8,6 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
@@ -47,11 +46,6 @@ func processResourceWithPatches(patch []byte, resource []byte, log logr.Logger) 
 	}
 	log.V(6).Info("", "patchedResource", string(resource))
 	return resource
-}
-
-func hasAnnotations(context *engine.PolicyContext) bool {
-	annotations := context.NewResource.GetAnnotations()
-	return len(annotations) != 0
 }
 
 func getGeneratedByResource(newRes *unstructured.Unstructured, resLabels map[string]string, client dclient.Interface, rule kyvernov1.Rule, logger logr.Logger) (kyvernov1.Rule, error) {
