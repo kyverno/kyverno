@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/webhooks"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -56,7 +57,7 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	}
 }
 
-func newFakeAuditHandler() AuditHandler {
+func newFakeAuditHandler() audit.AuditHandler {
 	return &fakeAuditHandler{}
 }
 
