@@ -27,9 +27,6 @@ type changeRequestCreator struct {
 	queue          []*unstructured.Unstructured
 	tickerInterval time.Duration
 	log            logr.Logger
-
-	// splitPolicyReport enable/disable the PolicyReport split-up per policy feature
-	splitPolicyReport bool
 }
 
 func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Duration, log logr.Logger) creator {
@@ -80,7 +77,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 		case <-ticker.C:
 			var requests []*unstructured.Unstructured
 			var size int
-			if c.splitPolicyReport {
+			if toggle.SplitPolicyReport.Enabled() {
 				requests, size = c.mergeRequestsPerPolicy()
 			} else {
 				requests, size = c.mergeRequests()
