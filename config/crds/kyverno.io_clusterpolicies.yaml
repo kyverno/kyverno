@@ -2093,7 +2093,7 @@ spec:
                           properties:
                             annotationDomain:
                               description: AnnotationDomain is custom domain of annotation
-                                for message nad signature. Default is "cosign.sigstore.dev".
+                                for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors
@@ -4884,7 +4884,7 @@ spec:
                               properties:
                                 annotationDomain:
                                   description: AnnotationDomain is custom domain of
-                                    annotation for message nad signature. Default
+                                    annotation for message and signature. Default
                                     is "cosign.sigstore.dev".
                                   type: string
                                 attestors:
@@ -7487,7 +7487,7 @@ spec:
                           properties:
                             annotationDomain:
                               description: AnnotationDomain is custom domain of annotation
-                                for message nad signature. Default is "cosign.sigstore.dev".
+                                for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors
@@ -10238,7 +10238,7 @@ spec:
                               properties:
                                 annotationDomain:
                                   description: AnnotationDomain is custom domain of
-                                    annotation for message nad signature. Default
+                                    annotation for message and signature. Default
                                     is "cosign.sigstore.dev".
                                   type: string
                                 attestors:
