@@ -424,11 +424,8 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
-.PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all ## Generate all generated code except client
-
 .PHONY: codegen-all
-codegen-all: codegen-quick codegen-client-all ## Generate all generated code
+codegen-all: codegen-deepcopy-all codegen-crds-all codegen-client-all codegen-api-docs codegen-helm-all ## Generate all generated code
 
 ##################
 # VERIFY CODEGEN #
