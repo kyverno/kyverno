@@ -596,18 +596,22 @@ release-notes:
 
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
+	@echo Create kind cluster...
 	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
+	@echo Delete kind cluster...
 	@$(KIND) delete cluster --name $(KIND_NAME)
 
 .PHONY: kind-load-kyvernopre
 kind-load-kyvernopre: $(KIND) image-build-kyvernopre ## Build kyvernopre image and load it in kind cluster
+	@echo Load kyvernopre image...
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNOPRE_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-kyverno
 kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load it in kind cluster
+	@echo Load kyverno image...
 	@$(KIND) load docker-image --name $(KIND_NAME) $(LOCAL_KYVERNO_IMAGE):$(IMAGE_TAG_DEV)
 
 .PHONY: kind-load-all
@@ -615,15 +619,19 @@ kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load t
 
 .PHONY: kind-deploy-kyverno
 kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+	@echo Install kyverno chart...
 	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set extraArgs={--autogenInternals=true}
+	@echo Restart kyverno pods...
+	@kubectl rollout restart deployment -n kyverno kyverno
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
+	@echo Restart kyverno-policies chart...
 	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-all
