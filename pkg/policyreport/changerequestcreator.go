@@ -37,9 +37,6 @@ type changeRequestCreator struct {
 	mutex sync.RWMutex
 	queue []string
 
-	// splitPolicyReport enable/disable the PolicyReport split-up per policy feature
-	splitPolicyReport bool
-
 	tickerInterval time.Duration
 
 	log logr.Logger
@@ -126,7 +123,7 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 		case <-ticker.C:
 			var requests []*unstructured.Unstructured
 			var size int
-			if c.splitPolicyReport {
+			if toggle.SplitPolicyReport.Enabled() {
 				requests, size = c.mergeRequestsPerPolicy()
 			} else {
 				requests, size = c.mergeRequests()
