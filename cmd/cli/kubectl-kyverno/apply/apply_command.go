@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
-	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
@@ -222,62 +222,38 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
-	isGit := false
-	var policies []v1.PolicyInterface
-
-	// check whether provided policyPaths is git URl or not.
-	if strings.Contains(string(c.PolicyPaths[0]), "https://") {
-		isGit = true
-		gitURL, err := url.Parse(c.PolicyPaths[0])
-		if err != nil {
-			fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
-			os.Exit(1)
-		}
-		pathElems := strings.Split(gitURL.Path[1:], "/")
-		if len(pathElems) <= 1 {
-			err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
-			fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
-			os.Exit(1)
-		}
-		gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-		repoURL := gitURL.String()
-		var gitPathToYamls string
-
-		if c.GitBranch == "" {
-			gitPathToYamls = "/"
-
-			if string(c.PolicyPaths[0][len(c.PolicyPaths[0])-1]) == "/" {
-				c.GitBranch = strings.ReplaceAll(c.PolicyPaths[0], repoURL+"/", "")
-			} else {
-				c.GitBranch = strings.ReplaceAll(c.PolicyPaths[0], repoURL, "")
-			}
-
-			if c.GitBranch == "" {
-				c.GitBranch = "main"
-			} else if string(c.GitBranch[0]) == "/" {
-				c.GitBranch = c.GitBranch[1:]
-			}
-		} else {
-			if string(c.PolicyPaths[0][len(c.PolicyPaths[0])-1]) == "/" {
-				gitPathToYamls = strings.ReplaceAll(c.PolicyPaths[0], repoURL+"/", "/")
-			} else {
-				gitPathToYamls = strings.ReplaceAll(c.PolicyPaths[0], repoURL, "/")
-			}
-		}
-
-		_, cloneErr := test.Clone(repoURL, fs, c.GitBranch)
-		if cloneErr != nil {
-			fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
-			log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
-			os.Exit(1)
-		}
-		policyYamls, err := test.ListYAMLs(fs, gitPathToYamls)
-		if err != nil {
-			return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
-		}
-		c.PolicyPaths = policyYamls
-		sort.Strings(policyYamls)
+	isGit := common.IsGitPath(c.PolicyPaths)
+	var policies []kyvernov1.PolicyInterface
+	gitURL, err := url.Parse(c.PolicyPaths[0])
+	if err != nil {
+		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
+		os.Exit(1)
 	}
+
+	pathElems := strings.Split(gitURL.Path[1:], "/")
+	if len(pathElems) <= 1 {
+		err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+		fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
+		os.Exit(1)
+	}
+
+	gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+	repoURL := gitURL.String()
+	gitBranch, gitPathToYamls := common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)
+
+	_, cloneErr := test.Clone(repoURL, fs, gitBranch)
+	if cloneErr != nil {
+		fmt.Printf("Error: failed to clone repository \nCause: %s\n", cloneErr)
+		log.Log.V(3).Info(fmt.Sprintf("failed to clone repository  %v as it is not valid", repoURL), "error", cloneErr)
+		os.Exit(1)
+	}
+	policyYamls, err := test.ListYAMLs(fs, gitPathToYamls)
+	if err != nil {
+		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to list YAMLs in repository", err)
+	}
+
+	c.PolicyPaths = policyYamls
+	sort.Strings(policyYamls)
 
 	policies, err = common.GetPoliciesFromPaths(fs, c.PolicyPaths, isGit, "")
 	if err != nil {
