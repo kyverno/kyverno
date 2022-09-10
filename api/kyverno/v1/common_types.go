@@ -530,7 +530,7 @@ type Manifests struct {
 	// +kubebuilder:validation:Optional
 	Attestors []AttestorSet `json:"attestors,omitempty" yaml:"attestors,omitempty"`
 
-	// AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+	// AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
 	// +optional
 	AnnotationDomain string `json:"annotationDomain,omitempty" yaml:"annotationDomain,omitempty"`
 
