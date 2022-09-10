@@ -1328,7 +1328,7 @@ spec:
                           description: Manifest specifies conditions for manifest verification
                           properties:
                             annotationDomain:
-                              description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                              description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors (i.e. authorities)
@@ -3025,7 +3025,7 @@ spec:
                               description: Manifest specifies conditions for manifest verification
                               properties:
                                 annotationDomain:
-                                  description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                                  description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                                   type: string
                                 attestors:
                                   description: Attestors specified the required attestors (i.e. authorities)
@@ -4673,7 +4673,7 @@ spec:
                           description: Manifest specifies conditions for manifest verification
                           properties:
                             annotationDomain:
-                              description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                              description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors (i.e. authorities)
@@ -6345,7 +6345,7 @@ spec:
                               description: Manifest specifies conditions for manifest verification
                               properties:
                                 annotationDomain:
-                                  description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                                  description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                                   type: string
                                 attestors:
                                   description: Attestors specified the required attestors (i.e. authorities)
@@ -8861,7 +8861,7 @@ spec:
                           description: Manifest specifies conditions for manifest verification
                           properties:
                             annotationDomain:
-                              description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                              description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors (i.e. authorities)
@@ -10558,7 +10558,7 @@ spec:
                               description: Manifest specifies conditions for manifest verification
                               properties:
                                 annotationDomain:
-                                  description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                                  description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                                   type: string
                                 attestors:
                                   description: Attestors specified the required attestors (i.e. authorities)
@@ -12206,7 +12206,7 @@ spec:
                           description: Manifest specifies conditions for manifest verification
                           properties:
                             annotationDomain:
-                              description: AnnotationDomain is custom domain of annotation for message nad signature. Default is "cosign.sigstore.dev".
+                              description: AnnotationDomain is custom domain of annotation for message and signature. Default is "cosign.sigstore.dev".
                               type: string
                             attestors:
                               description: Attestors specified the required attestors (i.e. authorities)
