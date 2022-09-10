@@ -18,7 +18,6 @@ import (
 // merges and creates requests every tickerInterval
 type creator interface {
 	add(request *unstructured.Unstructured)
-	create(request *unstructured.Unstructured) error
 	run(stopChan <-chan struct{})
 }
 
