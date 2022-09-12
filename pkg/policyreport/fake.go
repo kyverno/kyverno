@@ -1,19 +1,19 @@
 package policyreport
 
-func NewFake() GeneratorInterface {
-	return &fakeReporter{}
-}
+// func NewFake() GeneratorInterface {
+// 	return &fakeReporter{}
+// }
 
-type fakeReporter struct{}
+// type fakeReporter struct{}
 
-func (f *fakeReporter) Add(infos ...Info) {
-}
+// func (f *fakeReporter) Add(infos ...Info) {
+// }
 
-func (f *fakeReporter) MapperReset(string) {
-}
+// func (f *fakeReporter) MapperReset(string) {
+// }
 
-func (f *fakeReporter) MapperInactive(string) {
-}
+// func (f *fakeReporter) MapperInactive(string) {
+// }
 
-func (f *fakeReporter) MapperInvalidate() {
-}
+// func (f *fakeReporter) MapperInvalidate() {
+// }

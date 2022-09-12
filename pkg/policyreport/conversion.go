@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -43,36 +42,36 @@ func convertToCRCR(request *unstructured.Unstructured) (*kyvernov1alpha2.Cluster
 	return &rcr, err
 }
 
-func convertToPolr(request *unstructured.Unstructured) (*policyreportv1alpha2.PolicyReport, error) {
-	polr := policyreportv1alpha2.PolicyReport{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
+// func convertToPolr(request *unstructured.Unstructured) (*policyreportv1alpha2.PolicyReport, error) {
+// 	polr := policyreportv1alpha2.PolicyReport{}
+// 	raw, err := request.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = json.Unmarshal(raw, &polr)
-	polr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   policyreportv1alpha2.SchemeGroupVersion.Group,
-		Version: policyreportv1alpha2.SchemeGroupVersion.Version,
-		Kind:    "PolicyReport",
-	})
+// 	err = json.Unmarshal(raw, &polr)
+// 	polr.SetGroupVersionKind(schema.GroupVersionKind{
+// 		Group:   policyreportv1alpha2.SchemeGroupVersion.Group,
+// 		Version: policyreportv1alpha2.SchemeGroupVersion.Version,
+// 		Kind:    "PolicyReport",
+// 	})
 
-	return &polr, err
-}
+// 	return &polr, err
+// }
 
-func convertToCpolr(request *unstructured.Unstructured) (*policyreportv1alpha2.ClusterPolicyReport, error) {
-	cpolr := policyreportv1alpha2.ClusterPolicyReport{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
+// func convertToCpolr(request *unstructured.Unstructured) (*policyreportv1alpha2.ClusterPolicyReport, error) {
+// 	cpolr := policyreportv1alpha2.ClusterPolicyReport{}
+// 	raw, err := request.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = json.Unmarshal(raw, &cpolr)
-	cpolr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   policyreportv1alpha2.SchemeGroupVersion.Group,
-		Version: policyreportv1alpha2.SchemeGroupVersion.Version,
-		Kind:    "ClusterPolicyReport",
-	})
+// 	err = json.Unmarshal(raw, &cpolr)
+// 	cpolr.SetGroupVersionKind(schema.GroupVersionKind{
+// 		Group:   policyreportv1alpha2.SchemeGroupVersion.Group,
+// 		Version: policyreportv1alpha2.SchemeGroupVersion.Version,
+// 		Kind:    "ClusterPolicyReport",
+// 	})
 
-	return &cpolr, err
-}
+// 	return &cpolr, err
+// }

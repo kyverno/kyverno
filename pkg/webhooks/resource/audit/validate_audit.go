@@ -45,7 +45,7 @@ type auditHandler struct {
 	queue       workqueue.RateLimitingInterface
 	pCache      policycache.Cache
 	eventGen    event.Interface
-	prGenerator policyreport.GeneratorInterface
+	prGenerator policyreport.Generator
 	pcBuilder   webhookutils.PolicyContextBuilder
 
 	rbLister  rbacv1listers.RoleBindingLister
@@ -62,7 +62,7 @@ type auditHandler struct {
 // NewValidateAuditHandler returns a new instance of audit policy handler
 func NewValidateAuditHandler(pCache policycache.Cache,
 	eventGen event.Interface,
-	prGenerator policyreport.GeneratorInterface,
+	prGenerator policyreport.Generator,
 	rbInformer rbacv1informers.RoleBindingInformer,
 	crbInformer rbacv1informers.ClusterRoleBindingInformer,
 	namespaces corev1informers.NamespaceInformer,

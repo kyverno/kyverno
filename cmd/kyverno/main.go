@@ -198,7 +198,7 @@ func main() {
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+	// kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -253,28 +253,28 @@ func main() {
 	// POLICY Report GENERATOR
 	reportReqGen := policyreport.NewReportChangeRequestGenerator(
 		kyvernoClient,
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
+		// kyvernoV1alpha2.ReportChangeRequests(),
+		// kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1.Policies(),
-		changeRequestLimit,
+		// changeRequestLimit,
 		log.Log.WithName("ReportChangeRequestGenerator"),
 	)
 
-	prgen, err := policyreport.NewReportGenerator(
-		kyvernoClient,
-		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
-		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		reportReqGen.CleanupChangeRequest,
-		log.Log.WithName("PolicyReportGenerator"),
-	)
-	if err != nil {
-		setupLog.Error(err, "Failed to create policy report controller")
-		os.Exit(1)
-	}
+	// prgen, err := policyreport.NewReportGenerator(
+	// 	kyvernoClient,
+	// 	kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
+	// 	kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
+	// 	kyvernoV1alpha2.ReportChangeRequests(),
+	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
+	// 	kubeInformer.Core().V1().Namespaces(),
+	// 	reportReqGen.CleanupChangeRequest,
+	// 	log.Log.WithName("PolicyReportGenerator"),
+	// )
+	// if err != nil {
+	// 	setupLog.Error(err, "Failed to create policy report controller")
+	// 	os.Exit(1)
+	// }
 
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
@@ -301,7 +301,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	configuration, err := config.NewConfiguration(kubeClient, prgen.ReconcileCh, webhookCfg.UpdateWebhookChan)
+	configuration, err := config.NewConfiguration(kubeClient /*prgen.ReconcileCh,*/, webhookCfg.UpdateWebhookChan)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize configuration")
 		os.Exit(1)
@@ -334,7 +334,7 @@ func main() {
 		configuration,
 		eventGenerator,
 		reportReqGen,
-		prgen,
+		// prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
@@ -481,8 +481,8 @@ func main() {
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
-		go prgen.Run(1, stopCh)
+		go policyCtrl.Run(2 /*, prgen.ReconcileCh*/ /*, reportReqGen.CleanupChangeRequest*/, stopCh)
+		// go prgen.Run(1, stopCh)
 	}
 
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
@@ -519,7 +519,7 @@ func main() {
 	go policyCacheController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
-	go reportReqGen.Run(2, stopCh)
+	// go reportReqGen.Run(2, stopCh)
 	go configurationController.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
 	go auditHandler.Run(10, stopCh)

@@ -805,12 +805,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) policyreport.Info {
 	info := policyreport.Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
-		Namespace:  er.PatchedResource.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
-			{
-				Resource: er.GetResourceSpec(),
-				Rules:    violatedRules,
+		Namespace: er.PatchedResource.GetNamespace(),
+		Resource:  er.GetResourceSpec(),
+		Results: map[string]policyreport.EngineResponseResult{
+			er.PolicyResponse.Policy.Name: {
+				Rules: violatedRules,
 			},
 		},
 	}

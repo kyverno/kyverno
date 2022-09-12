@@ -25,7 +25,7 @@ type ValidationHandler interface {
 	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
-func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ValidationHandler {
+func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.Generator) ValidationHandler {
 	return &validationHandler{
 		log:         log,
 		eventGen:    eventGen,
@@ -36,7 +36,7 @@ func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator
 type validationHandler struct {
 	log         logr.Logger
 	eventGen    event.Interface
-	prGenerator policyreport.GeneratorInterface
+	prGenerator policyreport.Generator
 }
 
 func (v *validationHandler) HandleValidation(
@@ -118,19 +118,7 @@ func (v *validationHandler) HandleValidation(
 // generateReportChangeRequests creates report change requests
 // reports are generated for non-managed pods/jobs only, no need to create rcr for managed resources
 func (v *validationHandler) generateReportChangeRequests(request *admissionv1.AdmissionRequest, engineResponses []*response.EngineResponse, policyContext *engine.PolicyContext, logger logr.Logger) {
-	if request.Operation == admissionv1.Delete {
-		managed := true
-		for _, er := range engineResponses {
-			if er.Policy != nil && !engine.ManagedPodResource(er.Policy, er.PatchedResource) {
-				managed = false
-				break
-			}
-		}
-
-		if !managed {
-			v.prGenerator.Add(webhookutils.BuildDeletionPrInfo(policyContext.OldResource))
-		}
-	} else {
+	if request.Operation != admissionv1.Delete {
 		prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
 		v.prGenerator.Add(prInfos...)
 	}

@@ -10,7 +10,6 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/toggle"
@@ -73,7 +72,8 @@ func TrimmedName(s string) string {
 }
 
 // GeneratePRsFromEngineResponse generate Violations from engine responses
-func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
+func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) []Info {
+	pvInfos := Info{Results: map[string]EngineResponseResult{}}
 	for _, er := range ers {
 		// ignore creation of PV for resources that are yet to be assigned a name
 		if er.PolicyResponse.Resource.Name == "" {
@@ -90,10 +90,17 @@ func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logg
 		}
 
 		// build policy violation info
-		pvInfos = append(pvInfos, buildPVInfo(er))
+		erInfos := buildPVInfo(er)
+		pvInfos.Namespace = erInfos.Namespace
+		pvInfos.Resource = erInfos.Resource
+		rules := pvInfos.Results
+		for k, v := range erInfos.Results {
+			r := append(rules[k].Rules, v.Rules...)
+			rules[k] = EngineResponseResult{Rules: r}
+		}
 	}
 
-	return pvInfos
+	return []Info{pvInfos}
 }
 
 // Builder builds report change request struct
@@ -115,13 +122,13 @@ func NewBuilder(cpolLister kyvernov1listers.ClusterPolicyLister, polLister kyver
 func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
 	results := []policyreportv1alpha2.PolicyReportResult{}
 	req = new(unstructured.Unstructured)
-	for _, infoResult := range info.Results {
+	for name, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
 			if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 				continue
 			}
 
-			result := builder.buildRCRResult(info.PolicyName, infoResult.Resource, rule)
+			result := builder.buildRCRResult(name, info.Resource, rule)
 			results = append(results, result)
 		}
 	}
@@ -130,6 +137,14 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		rr := &kyvernov1alpha2.ReportChangeRequest{
 			Summary: calculateSummary(results),
 			Results: results,
+			ObjectMeta: metav1.ObjectMeta{
+				OwnerReferences: []metav1.OwnerReference{{
+					APIVersion: info.Resource.APIVersion,
+					Name:       info.Resource.Name,
+					Kind:       info.Resource.Kind,
+					UID:        types.UID(info.Resource.UID),
+				}},
+			},
 		}
 
 		gv := policyreportv1alpha2.SchemeGroupVersion
@@ -168,12 +183,12 @@ func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured,
 		set(req, info)
 	}
 
-	if !setRequestDeletionLabels(req, info) {
-		if len(results) == 0 {
-			// return nil on empty result without a deletion
-			return nil, nil
-		}
-	}
+	// if !setRequestDeletionLabels(req, info) {
+	// 	if len(results) == 0 {
+	// 		// return nil on empty result without a deletion
+	// 		return nil, nil
+	// 	}
+	// }
 
 	req.SetCreationTimestamp(metav1.Now())
 	return req, nil
@@ -215,56 +230,56 @@ func set(obj *unstructured.Unstructured, info Info) {
 	obj.SetAPIVersion(kyvernov1alpha2.SchemeGroupVersion.Group + "/" + kyvernov1alpha2.SchemeGroupVersion.Version)
 
 	if info.Namespace == "" {
-		obj.SetGenerateName("crcr-")
+		obj.SetName("crcr-" + info.Resource.UID)
 		obj.SetKind("ClusterReportChangeRequest")
 	} else {
-		obj.SetGenerateName("rcr-")
+		obj.SetName("rcr-" + info.Resource.UID)
 		obj.SetKind("ReportChangeRequest")
-		obj.SetNamespace(config.KyvernoNamespace())
+		obj.SetNamespace(info.Namespace)
 	}
 
 	obj.SetLabels(map[string]string{
 		ResourceLabelNamespace: info.Namespace,
-		policyLabel:            TrimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
+		// policyLabel:            TrimmedName(info.PolicyName),
 	})
 }
 
-func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
-	switch {
-	case info.isResourceDeletion():
-		req.SetAnnotations(map[string]string{
-			deletedAnnotationResourceName: info.Results[0].Resource.Name,
-			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
-		})
+// func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
+// 	switch {
+// 	case info.isResourceDeletion():
+// 		req.SetAnnotations(map[string]string{
+// 			deletedAnnotationResourceName: info.Results[0].Resource.Name,
+// 			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
+// 		})
 
-		labels := req.GetLabels()
-		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
-		req.SetLabels(labels)
-		return true
+// 		labels := req.GetLabels()
+// 		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
+// 		req.SetLabels(labels)
+// 		return true
 
-	case info.isPolicyDeletion():
-		req.SetKind("ReportChangeRequest")
-		req.SetGenerateName("rcr-")
+// 	case info.isPolicyDeletion():
+// 		req.SetKind("ReportChangeRequest")
+// 		req.SetGenerateName("rcr-")
 
-		labels := req.GetLabels()
-		labels[deletedLabelPolicy] = info.PolicyName
-		req.SetLabels(labels)
-		return true
+// 		labels := req.GetLabels()
+// 		labels[deletedLabelPolicy] = info.PolicyName
+// 		req.SetLabels(labels)
+// 		return true
 
-	case info.isRuleDeletion():
-		req.SetKind("ReportChangeRequest")
-		req.SetGenerateName("rcr-")
+// 	case info.isRuleDeletion():
+// 		req.SetKind("ReportChangeRequest")
+// 		req.SetGenerateName("rcr-")
 
-		labels := req.GetLabels()
-		labels[deletedLabelPolicy] = info.PolicyName
-		labels[deletedLabelRule] = info.Results[0].Rules[0].Name
-		req.SetLabels(labels)
-		return true
-	}
+// 		labels := req.GetLabels()
+// 		labels[deletedLabelPolicy] = info.PolicyName
+// 		labels[deletedLabelRule] = info.Results[0].Rules[0].Name
+// 		req.SetLabels(labels)
+// 		return true
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
@@ -286,12 +301,11 @@ func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summar
 
 func buildPVInfo(er *response.EngineResponse) Info {
 	info := Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
-		Namespace:  er.PatchedResource.GetNamespace(),
-		Results: []EngineResponseResult{
-			{
-				Resource: er.GetResourceSpec(),
-				Rules:    buildViolatedRules(er),
+		Namespace: er.PatchedResource.GetNamespace(),
+		Resource:  er.GetResourceSpec(),
+		Results: map[string]EngineResponseResult{
+			er.PolicyResponse.Policy.Name: {
+				Rules: buildViolatedRules(er),
 			},
 		},
 	}

@@ -139,14 +139,12 @@ type configuration struct {
 	restrictDevelopmentUsername []string
 	webhooks                    []WebhookConfig
 	generateSuccessEvents       bool
-	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) (Configuration, error) {
+func NewConfiguration(client kubernetes.Interface, updateWebhookConfigurations chan<- bool) (Configuration, error) {
 	cd := &configuration{
-		reconcilePolicyReport:       reconcilePolicyReport,
 		updateWebhookConfigurations: updateWebhookConfigurations,
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 		excludeGroupRole:            defaultExcludeGroupRole,
@@ -229,7 +227,7 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	}
 	if reconcilePolicyReport {
 		logger.Info("resource filters changed, sending reconcile signal to the policy controller")
-		cd.reconcilePolicyReport <- true
+		// cd.reconcilePolicyReport <- true
 	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
