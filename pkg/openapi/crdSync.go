@@ -255,7 +255,6 @@ func (c *crdSync) CheckSync() {
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
-
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return
