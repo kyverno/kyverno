@@ -83,7 +83,9 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
-	openapi.NewCRDSync(client, openAPIController).CheckSync()
+	if !mock {
+		openapi.NewCRDSync(client, openAPIController).CheckSync()
+	}
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
