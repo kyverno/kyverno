@@ -19,6 +19,47 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.8.0-rc2
+    created: "2022-09-12T15:52:40.728823442Z"
+    description: Kubernetes Native Policy Management
+    digest: b41877b803ca264182f35e14a828e1ea6a546eaa262e3501ca1c926f39cd466e
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.6.0-rc2.tgz
+    version: 2.6.0-rc2
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Added possibility to define additional init and sidecar container
+        - kind: added
+          description: Added ability to remove namespaces from default resourceFilters list
+        - kind: added
+          description: Prevent installing Kyverno in namespace kube-system.
+        - kind: fixed
+          description: Docs for generatecontrollerExtraResources.
+        - kind: changed
+          description: Enable autogen internals by default.
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.8.0-rc1
     created: "2022-09-12T08:18:11.651129785Z"
     description: Kubernetes Native Policy Management
@@ -3842,4 +3883,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-09-12T15:52:34.620268054Z"
+generated: "2022-09-12T15:52:40.721744442Z"
