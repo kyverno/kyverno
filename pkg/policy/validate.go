@@ -83,6 +83,9 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	if !mock {
+		openapi.NewCRDSync(client, openAPIController).CheckSync()
+	}
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -1061,7 +1064,7 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
-				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", kinds, err)
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
 		}
 	}
