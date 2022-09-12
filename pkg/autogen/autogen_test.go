@@ -228,6 +228,11 @@ func Test_GetSupportedControllers(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","podSecurity": {"level": "baseline","version":"v1.24","exclude":[{"controlName":"SELinux","restrictedField":"spec.containers[*].securityContext.seLinuxOptions.role","images":["nginx"],"values":["baz"]}, {"controlName":"SELinux","restrictedField":"spec.initContainers[*].securityContext.seLinuxOptions.role","images":["nodejs"],"values":["init-baz"]}]}}}]}}`),
 			expectedControllers: PodControllers,
 		},
+		{
+			name:                "rule-with-validate-podsecurity",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
+			expectedControllers: PodControllers,
+		},
 	}
 
 	for _, test := range testCases {
@@ -816,4 +821,14 @@ kA==
 		rules := computeRules(policies[0])
 		assert.DeepEqual(t, test.expectedRules, rules)
 	}
+}
+
+func Test_PodSecurityWithNoExceptions(t *testing.T) {
+	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policies, err := yamlutils.GetPolicy([]byte(policy))
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(policies))
+
+	rules := computeRules(policies[0])
+	assert.Equal(t, 3, len(rules))
 }
