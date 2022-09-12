@@ -250,7 +250,6 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 }
 
 func (c *crdSync) CheckSync() {
-
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
