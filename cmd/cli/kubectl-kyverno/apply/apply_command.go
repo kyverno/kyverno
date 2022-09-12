@@ -12,7 +12,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	sanitizederror "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/sanitizedError"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policyreport"
@@ -44,11 +44,15 @@ type SkippedInvalidPolicies struct {
 }
 
 var applyHelp = `
+
 To apply on a resource:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resource1 --resource=/path/to/resource2
+
+To apply on a folder of resources:
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --resource=/path/to/resources/
 
 To apply on a cluster:
-	kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
+        kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 
 To apply policy with variables:
@@ -181,7 +185,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = dclient.NewClient(restConfig, kubeClient, 15*time.Minute, make(chan struct{}))
+		dClient, err = dclient.NewClient(restConfig, kubeClient, nil, 15*time.Minute, make(chan struct{}))
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}

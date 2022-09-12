@@ -296,7 +296,7 @@ func hasAnchor(key string) bool {
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
-	ynode := pattern.YNode() // nolint:ifshort
+	ynode := pattern.YNode() //nolint:ifshort
 	if ynode.Kind == yaml.MappingNode {
 		fields, err := pattern.Fields()
 		if err != nil {

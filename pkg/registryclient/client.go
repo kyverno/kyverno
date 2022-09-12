@@ -95,7 +95,7 @@ func WithKeychainPullSecrets(kubClient kubernetes.Interface, namespace, serviceA
 // WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
 func WithAllowInsecureRegistry() Option {
 	return func(c *client) error {
-		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 		return nil
 	}
 }

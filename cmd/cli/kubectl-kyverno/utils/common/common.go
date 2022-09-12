@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -30,7 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -164,7 +164,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 				}
 			}
 
-			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
+			policiesFromFile, errFromFile := yamlutils.GetPolicy(fileBytes)
 			if errFromFile != nil {
 				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
 				errors = append(errors, err)
@@ -297,7 +297,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
 			log.Log.V(3).Info("Defaulting request.operation to CREATE")
-
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {
@@ -632,7 +631,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("failed to convert to JSON: %v", err)
 				continue
 			}
-			policiesFromFile, errFromFile := utils.GetPolicy(policyBytes)
+			policiesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
 			if errFromFile != nil {
 				fmt.Printf("failed to process : %v", errFromFile.Error())
 				continue
@@ -648,7 +647,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 					policyStr = policyStr + scanner.Text() + "\n"
 				}
 				yamlBytes := []byte(policyStr)
-				policies, err = utils.GetPolicy(yamlBytes)
+				policies, err = yamlutils.GetPolicy(yamlBytes)
 				if err != nil {
 					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
@@ -1003,7 +1002,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-//GetResourceFromPath - get patchedResource and generatedResource from given path
+// GetResourceFromPath - get patchedResource and generatedResource from given path
 func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	var resource unstructured.Unstructured
@@ -1035,7 +1034,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 
 // initializeMockController initializes a basic Generate Controller with a fake dynamic client.
 func initializeMockController(objects []runtime.Object) (*generate.GenerateController, error) {
-	client, err := dclient.NewMockClient(runtime.NewScheme(), nil, objects...)
+	client, err := dclient.NewFakeClient(runtime.NewScheme(), nil, objects...)
 	if err != nil {
 		fmt.Printf("Failed to mock dynamic client")
 		return nil, err
@@ -1049,7 +1048,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	objects := []runtime.Object{&policyContext.NewResource}
-	var resources = []*unstructured.Unstructured{}
+	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
 			resourceBytes, err := getFileBytes(path)

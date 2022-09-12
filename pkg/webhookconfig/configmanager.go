@@ -2,7 +2,6 @@ package webhookconfig
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
@@ -11,11 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -42,7 +42,7 @@ type webhookConfigManager struct {
 	// clients
 	discoveryClient dclient.IDiscovery
 	kubeClient      kubernetes.Interface
-	kyvernoClient   kyvernoclient.Interface
+	kyvernoClient   versioned.Interface
 
 	// informers
 	pInformer        kyvernov1informers.ClusterPolicyInformer
@@ -58,6 +58,8 @@ type webhookConfigManager struct {
 
 	// queue
 	queue workqueue.RateLimitingInterface
+
+	metricsConfig metrics.MetricsConfigManager
 
 	// serverIP used to get the name of debug webhooks
 	serverIP           string
@@ -80,11 +82,12 @@ type manage interface {
 func newWebhookConfigManager(
 	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
+	metricsConfig metrics.MetricsConfigManager,
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
@@ -103,6 +106,7 @@ func newWebhookConfigManager(
 		npLister:             npInformer.Lister(),
 		mutateLister:         mwcInformer.Lister(),
 		validateLister:       vwcInformer.Lister(),
+		metricsConfig:        metricsConfig,
 		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "configmanager"),
 		wildcardPolicy:       0,
 		serverIP:             serverIP,
@@ -153,19 +157,11 @@ func (m *webhookConfigManager) updateClusterPolicy(old, cur interface{}) {
 }
 
 func (m *webhookConfigManager) deleteClusterPolicy(obj interface{}) {
-	p, ok := obj.(*kyvernov1.ClusterPolicy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.ClusterPolicy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.ClusterPolicy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted ClusterPolicy '%s' from tombstone", "name", p.GetName())
+		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if hasWildcard(&p.Spec) {
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
@@ -195,19 +191,11 @@ func (m *webhookConfigManager) updatePolicy(old, cur interface{}) {
 }
 
 func (m *webhookConfigManager) deletePolicy(obj interface{}) {
-	p, ok := obj.(*kyvernov1.Policy)
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object, invalid type"))
-			return
-		}
-		p, ok = tombstone.Obj.(*kyvernov1.Policy)
-		if !ok {
-			utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
-			return
-		}
-		m.log.V(4).Info("Recovered deleted Policy '%s/%s' from tombstone", "name", p.GetNamespace(), p.GetName())
+		// utilruntime.HandleError(fmt.Errorf("error decoding object tombstone, invalid type"))
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if hasWildcard(&p.Spec) {
 		atomic.AddInt64(&m.wildcardPolicy, ^int64(0))
@@ -217,18 +205,10 @@ func (m *webhookConfigManager) deletePolicy(obj interface{}) {
 
 func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
+	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.MutatingWebhookConfiguration)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			m.log.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		webhook, ok = tombstone.Obj.(*admissionregistrationv1.MutatingWebhookConfiguration)
-		if !ok {
-			m.log.Info("tombstone contained object that is not a MutatingWebhookConfiguration", "obj", obj)
-			return
-		}
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if webhook.GetName() == config.MutatingWebhookConfigurationName {
 		m.enqueueAllPolicies()
@@ -237,18 +217,10 @@ func (m *webhookConfigManager) deleteMutatingWebhook(obj interface{}) {
 
 func (m *webhookConfigManager) deleteValidatingWebhook(obj interface{}) {
 	m.log.WithName("deleteMutatingWebhook").Info("resource webhook configuration was deleted, recreating...")
-	webhook, ok := obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
+	webhook, ok := kubeutils.GetObjectWithTombstone(obj).(*admissionregistrationv1.ValidatingWebhookConfiguration)
 	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			m.log.Info("Couldn't get object from tombstone", "obj", obj)
-			return
-		}
-		webhook, ok = tombstone.Obj.(*admissionregistrationv1.ValidatingWebhookConfiguration)
-		if !ok {
-			m.log.Info("tombstone contained object that is not a ValidatingWebhookConfiguration", "obj", obj)
-			return
-		}
+		m.log.V(2).Info("Failed to get deleted object", "obj", obj)
+		return
 	}
 	if webhook.GetName() == config.ValidatingWebhookConfigurationName {
 		m.enqueueAllPolicies()
@@ -282,8 +254,8 @@ func (m *webhookConfigManager) start() {
 	defer utilruntime.HandleCrash()
 	defer m.queue.ShutDown()
 
-	m.log.Info("starting")
-	defer m.log.Info("shutting down")
+	m.log.V(2).Info("starting")
+	defer m.log.V(2).Info("shutting down")
 
 	m.pInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    m.addClusterPolicy,
@@ -423,7 +395,7 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 
 	for _, p := range policies {
 		spec := p.GetSpec()
-		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() {
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
 			if spec.GetFailurePolicy() == kyvernov1.Ignore {
 				m.mergeWebhook(validateIgnore, p, true)
 			} else {
@@ -491,6 +463,7 @@ func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName st
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")
@@ -518,6 +491,7 @@ func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName 
 		}
 	}
 	if _, err := m.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
 	}
 	logger.V(4).Info("successfully updated the webhook configuration")
@@ -528,7 +502,7 @@ func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) 
 	update := func(meta *metav1.ObjectMeta, p kyvernov1.PolicyInterface, status *kyvernov1.PolicyStatus) bool {
 		copy := status.DeepCopy()
 		status.SetReady(ready)
-		if toggle.AutogenInternals() {
+		if toggle.AutogenInternals.Enabled() {
 			var rules []kyvernov1.Rule
 			for _, rule := range autogen.ComputeRules(p) {
 				if strings.HasPrefix(rule.Name, "autogen-") {
@@ -605,7 +579,7 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
 			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
 			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
-			(!updateValidate && rule.HasVerifyImages()) {
+			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasYAMLSignatureVerify()) {
 			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
 		}
 	}
@@ -651,7 +625,12 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 
 	for _, gvr := range gvrList {
 		dst.groups.Insert(gvr.Group)
-		dst.versions.Insert(gvr.Version)
+		if gvr.Version == "*" {
+			dst.versions = sets.NewString()
+			dst.versions.Insert(gvr.Version)
+		} else if !dst.versions.Has("*") {
+			dst.versions.Insert(gvr.Version)
+		}
 		dst.resources.Insert(gvr.Resource)
 	}
 

@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewNotInHandler returns handler to manage NotIn operations
+// NewNotInHandler returns handler to manage NotIn operations
 //
 // Deprecated: Use `NewAllNotInHandler` or `NewAnyNotInHandler` instead
 func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
@@ -37,7 +37,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return nin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		nin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		nin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -45,7 +45,7 @@ func (nin NotInHandler) Evaluate(key, value interface{}) bool {
 func (nin NotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	invalidType, keyExists := keyExistsInArray(key, value, nin.log)
 	if invalidType {
-		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		nin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -55,7 +55,7 @@ func (nin NotInHandler) validateValueWithStringPattern(key string, value interfa
 func (nin NotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
 	invalidType, isNotIn := setExistsInArray(key, value, nin.log, true)
 	if invalidType {
-		nin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		nin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

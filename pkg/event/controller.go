@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,7 +46,7 @@ type Interface interface {
 	Add(infoList ...Info)
 }
 
-//NewEventGenerator to generate a new event controller
+// NewEventGenerator to generate a new event controller
 func NewEventGenerator(client dclient.Interface, cpInformer kyvernov1informers.ClusterPolicyInformer, pInformer kyvernov1informers.PolicyInformer, maxQueuedEvents int, log logr.Logger) *Generator {
 	gen := Generator{
 		client:                 client,
@@ -165,7 +165,7 @@ func (gen *Generator) processNextWorkItem() bool {
 	var ok bool
 	if key, ok = obj.(Info); !ok {
 		gen.queue.Forget(obj)
-		gen.log.Info("Incorrect type; expected type 'info'", "obj", obj)
+		gen.log.V(2).Info("Incorrect type; expected type 'info'", "obj", obj)
 		return true
 	}
 	err := gen.syncHandler(key)

@@ -12,9 +12,24 @@ podSecurityPolicies: []
 includeOtherPolicies: []
 # - require-non-root-groups
 
+# -- Additional policies to include from `restricted`.
+includeRestrictedPolicies: []
+# - require-run-as-non-root-user
+
+# -- API server behavior if the webhook fails to respond ('Ignore', 'Fail')
+# For more info: https://kyverno.io/docs/writing-policies/policy-settings/
+failurePolicy: Fail
+
 # -- Validation failure action (`audit`, `enforce`).
 # For more info https://kyverno.io/docs/writing-policies/validate.
 validationFailureAction: audit
+
+# -- Define validationFailureActionByPolicy for specific policies.
+# Override the defined `validationFailureAction` with a individual validationFailureAction for individual Policies.
+validationFailureActionByPolicy: {}
+#  disallow-capabilities-strict: enforce
+#  disallow-host-path: enforce
+#  disallow-host-ports: enforce
 
 # -- Define validationFailureActionOverrides for specific policies.
 # The overrides for `all` will apply to all policies.
@@ -77,3 +92,7 @@ customLabels: {}
 
 # -- Policies background mode
 background: true
+
+# -- Kyverno version
+# The default of "autodetect" will try to determine the currently installed version from the deployment
+kyvernoVersion: autodetect

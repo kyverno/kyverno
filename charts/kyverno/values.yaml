@@ -24,7 +24,7 @@ rbac:
 
 image:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyverno
+  repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
   # -- Image tag
   # Defaults to appVersion in Chart.yaml if omitted
   tag:  # replaced in e2e tests
@@ -36,7 +36,7 @@ image:
 
 initImage:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyvernopre
+  repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
   # -- Image tag
   # If initImage.tag is missing, defaults to image.tag
   tag:  # replaced in e2e tests
@@ -141,7 +141,21 @@ envVars: {}
 
 # -- Extra arguments to give to the binary.
 extraArgs:
-  - --autogenInternals=false
+  - --autogenInternals=true
+
+# -- Array of extra init containers
+extraInitContainers: []
+# Example:
+# - name: init-container
+#   image: busybox
+#   command: ['sh', '-c', 'echo Hello']
+
+# -- Array of extra containers to run alongside kyverno
+extraContainers: []
+# Example:
+# - name: myapp-container
+#   image: busybox
+#   command: ['sh', '-c', 'echo Hello && sleep 3600']
 
 # -- Image pull secrets for image verify and imageData policies.
 # This will define the `--imagePullSecrets` Kyverno argument.
@@ -206,15 +220,18 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-# TODO(mbarrien): Should we just list all resources for the
-# generatecontroller in here rather than having defaults hard-coded?
-generatecontrollerExtraResources:
+# -- Additional resources to be added to controller RBAC permissions.
+generatecontrollerExtraResources: []
 # - ResourceA
 # - ResourceB
 
 # -- Exclude Kyverno namespace
 # Determines if default Kyverno namespace exclusion is enabled for webhooks and resourceFilters
 excludeKyvernoNamespace: true
+
+# -- resourceFilter namespace exclude
+# Namespaces to exclude from the default resourceFilters
+resourceFiltersExcludeNamespaces: []
 
 config:
   # -- Resource types to be skipped by the Kyverno policy engine.

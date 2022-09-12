@@ -4,10 +4,9 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/test/e2e"
+	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
-
-	. "github.com/onsi/gomega"
 )
 
 var (
@@ -31,6 +30,9 @@ var (
 
 	// ConfigMap GVR
 	cmGVR = e2e.GetGVR("", "v1", "configmaps")
+
+	// Secret GVR
+	secretGVR = e2e.GetGVR("", "v1", "secrets")
 
 	// NetworkPolicy GVR
 	npGVR = e2e.GetGVR("networking.k8s.io", "v1", "networkpolicies")
@@ -276,6 +278,40 @@ var generatePolicyDeletionforCloneTests = []testCase{
 			stepBy("deleted source -> generated resource not deleted"),
 			stepDeleteResource(cmGVR, "default", "game-demo"),
 			stepExpectResource(cmGVR, "test", "game-demo"),
+		},
+	},
+}
+
+var generatePolicyMultipleCloneTests = []testCase{
+	{
+		TestName:      "test-multiple-clone-resources",
+		ClusterPolicy: clusterPolicy(genMultipleClonePolicyYaml),
+		SourceResources: resources(
+			configMap("default", cloneSourceResource),
+			secret("default", cloneSecretSourceResource),
+		),
+		TriggerResource: namespace(namespaceYaml),
+		ExpectedResources: expectations(
+			expectation(idConfigMap("test", "game-demo")),
+			expectation(idSecret("test", "secret-basic-auth")),
+		),
+		Steps: []testCaseStep{
+			stepExpectResource(cmGVR, "test", "game-demo"),
+			stepBy("verify generated resource data in configMap"),
+			stepExpectResource(cmGVR, "test", "game-demo", func(resource *unstructured.Unstructured) {
+				element, _, err := unstructured.NestedMap(resource.UnstructuredContent(), "data")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(element["initial_lives"]).To(Equal("2"))
+			}),
+
+			stepBy("verify generated resource data in secret"),
+			stepExpectResource(secretGVR, "test", "secret-basic-auth"),
+
+			stepBy("deleted source -> generated resource not deleted"),
+			stepDeleteResource(cmGVR, "default", "game-demo"),
+			stepDeleteResource(secretGVR, "default", "secret-basic-auth"),
+			stepExpectResource(cmGVR, "test", "game-demo"),
+			stepExpectResource(secretGVR, "test", "secret-basic-auth"),
 		},
 	},
 }

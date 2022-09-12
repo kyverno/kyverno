@@ -21,11 +21,16 @@ metadata:
       This policy ensures that only those "safe" subsets can be specified in
       a Pod.
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: check-sysctls
       match:

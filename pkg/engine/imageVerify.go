@@ -3,12 +3,12 @@ package engine
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"reflect"
 	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -18,7 +18,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -195,7 +197,6 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 					ruleResp.Patches = append(ruleResp.Patches, patch)
 					imageInfo.Digest = retrievedDigest
 					image = imageInfo.String()
-					digest = retrievedDigest
 				}
 			}
 
@@ -283,8 +284,15 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		path := fmt.Sprintf(".attestors[%d]", i)
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify image")
-			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
+			iv.logger.Error(err, "failed to verify signature")
+			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+
+			// handle registry network errors as a rule error (instead of a policy failure)
+			var netErr *net.OpError
+			if errors.As(err, &netErr) {
+				return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusError, nil), ""
+			}
+
 			return ruleResponse(*iv.rule, response.ImageVerify, msg, response.RuleStatusFail, nil), ""
 		}
 	}
@@ -298,8 +306,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, path string) (*cosign.Response, error) {
-
+	imageInfo apiutils.ImageInfo, path string,
+) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -322,12 +330,12 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 		} else {
 			opts, subPath := iv.buildOptionsAndPath(a, imageVerify, image)
 			cosignResp, entryError = cosign.Verify(*opts)
-			if opts.FetchAttestations && entryError == nil {
+			if entryError == nil && opts.FetchAttestations {
 				entryError = iv.verifyAttestations(cosignResp.Statements, imageVerify, imageInfo)
 			}
 
 			if entryError != nil {
-				entryError = fmt.Errorf("%s: %s", attestorPath+subPath, entryError.Error())
+				entryError = errors.Wrapf(entryError, attestorPath+subPath)
 			}
 		}
 
@@ -343,7 +351,7 @@ func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, im
 	}
 
 	iv.logger.Info("image verification failed", "verifiedCount", verifiedCount, "requiredCount", requiredCount, "errors", errorList)
-	err := engineUtils.CombineErrors(errorList)
+	err := multierr.Combine(errorList...)
 	return nil, err
 }
 
@@ -467,7 +475,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 	for _, ac := range imageVerify.Attestations {
 		statements := statementsByPredicate[ac.PredicateType]
 		if statements == nil {
-			iv.logger.Info("attestation predicate type %s not found", "predicates", types, "image", imageInfo.String())
+			iv.logger.Info("attestation predicate type not found", "type", ac.PredicateType, "predicates", types, "image", imageInfo.String())
 			return fmt.Errorf("predicate type %s not found", ac.PredicateType)
 		}
 
@@ -485,7 +493,7 @@ func (iv *imageVerifier) verifyAttestations(statements []map[string]interface{},
 		}
 	}
 
-	iv.logger.V(3).Info("attestation checks passed for %s", imageInfo.String())
+	iv.logger.V(3).Info("attestation checks passed", "image", imageInfo.String())
 	return nil
 }
 
@@ -521,8 +529,8 @@ func evaluateConditions(
 	conditions []kyvernov1.AnyAllConditions,
 	ctx context.Interface,
 	s map[string]interface{},
-	log logr.Logger) (bool, error) {
-
+	log logr.Logger,
+) (bool, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)

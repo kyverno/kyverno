@@ -12,9 +12,11 @@ import (
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -293,9 +295,9 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
 			lastElement := kind[strings.LastIndex(kind, "/")+1:]
-			resourceTypesMap[strings.Title(lastElement)] = true
+			resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 		}
-		resourceTypesMap[strings.Title(kind)] = true
+		resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(kind)] = true
 	}
 
 	if rule.MatchResources.Any != nil {
@@ -303,7 +305,7 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 				}
 				resourceTypesMap[kind] = true
 			}
@@ -315,9 +317,9 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 				}
-				resourceTypesMap[strings.Title(kind)] = true
+				resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(kind)] = true
 			}
 		}
 	}

@@ -10,13 +10,12 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/kyverno/kyverno/pkg/version"
@@ -55,8 +54,7 @@ var LabelSelector = &metav1.LabelSelector{
 
 // ReportGenerator creates policy report
 type ReportGenerator struct {
-	pclient kyvernoclient.Interface
-	client  dclient.Interface
+	pclient versioned.Interface
 
 	clusterReportInformer    policyreportv1alpha2informers.ClusterPolicyReportInformer
 	reportInformer           policyreportv1alpha2informers.PolicyReportInformer
@@ -84,8 +82,7 @@ type ReportGenerator struct {
 
 // NewReportGenerator returns a new instance of policy report generator
 func NewReportGenerator(
-	pclient kyvernoclient.Interface,
-	dclient dclient.Interface,
+	pclient versioned.Interface,
 	clusterReportInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
 	reportInformer policyreportv1alpha2informers.PolicyReportInformer,
 	reportReqInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
@@ -96,7 +93,6 @@ func NewReportGenerator(
 ) (*ReportGenerator, error) {
 	gen := &ReportGenerator{
 		pclient:                  pclient,
-		client:                   dclient,
 		clusterReportInformer:    clusterReportInformer,
 		reportInformer:           reportInformer,
 		reportReqInformer:        reportReqInformer,
@@ -134,7 +130,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if ns == "" {
 			ns = "default"
 		}
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			policy = label[policyLabel]
 			return strings.Join([]string{ns, policy}, "/")
 		} else {
@@ -147,7 +143,7 @@ func (g *ReportGenerator) generateCacheKey(changeRequest interface{}) string {
 		if rule != "" || policy != "" {
 			return strings.Join([]string{deletedPolicyKey, policy, rule}, "/")
 		}
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			policy = label[policyLabel]
 			return strings.Join([]string{"", policy}, "/")
 		} else {
@@ -232,7 +228,7 @@ func (g *ReportGenerator) deletePolicyReport(obj interface{}) {
 	if ok {
 		g.log.V(2).Info("PolicyReport deleted", "name", report.GetName())
 	} else {
-		g.log.Info("Failed to get deleted object", "obj", obj)
+		g.log.V(2).Info("Failed to get deleted object", "obj", obj)
 	}
 	g.ReconcileCh <- false
 }
@@ -299,7 +295,7 @@ func (g *ReportGenerator) processNextWorkItem() bool {
 	keyStr, ok := key.(string)
 	if !ok {
 		g.queue.Forget(key)
-		g.log.Info("incorrect type; expecting type 'string'", "obj", key)
+		g.log.V(2).Info("incorrect type; expecting type 'string'", "obj", key)
 		return true
 	}
 
@@ -341,7 +337,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return g.removePolicyEntryFromReport(policy, rule)
 	}
 	var namespace, policyName string
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		namespace = strings.Split(key, "/")[0]
 		policyName = strings.Split(key, "/")[1]
 	} else {
@@ -352,7 +348,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 		return aggregatedRequests, fmt.Errorf("failed to aggregate reportChangeRequest results %v", err)
 	}
 
-	if toggle.SplitPolicyReport() {
+	if toggle.SplitPolicyReport.Enabled() {
 		deleteResources := getDeletedResources(aggregatedRequests)
 		if len(deleteResources) != 0 {
 			for _, dr := range deleteResources {
@@ -367,7 +363,7 @@ func (g *ReportGenerator) syncHandler(key string) (aggregatedRequests interface{
 	report, err = g.reportLister.PolicyReports(namespace).Get(GeneratePolicyReportName(namespace, policyName))
 	if err == nil {
 		if val, ok := report.GetLabels()[inactiveLabelKey]; ok && val == inactiveLabelVal {
-			g.log.Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
+			g.log.V(2).Info("got resourceExhausted error, please opt-in via \"splitPolicyReport\" to generate report per policy")
 			return aggregatedRequests, nil
 		}
 	}
@@ -498,7 +494,7 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if toggle.SplitPolicyReport() {
+				if toggle.SplitPolicyReport.Enabled() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), cpolr.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -524,25 +520,17 @@ func (g *ReportGenerator) removeFromClusterPolicyReport(policyName, ruleName str
 }
 
 func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) error {
-
-	namespaces, err := g.client.ListResource("", "Namespace", "", nil)
-	if err != nil {
-		return fmt.Errorf("unable to list namespace %v", err)
-	}
-
 	selector, err := metav1.LabelSelectorAsSelector(LabelSelector)
 	if err != nil {
 		g.log.Error(err, "failed to build labelSelector")
 	}
 
 	policyReports := []*policyreportv1alpha2.PolicyReport{}
-	for _, ns := range namespaces.Items {
-		reports, err := g.reportLister.PolicyReports(ns.GetName()).List(selector)
-		if err != nil {
-			return fmt.Errorf("unable to list policyReport for namespace %s %v", ns.GetName(), err)
-		}
-		policyReports = append(policyReports, reports...)
+	reports, err := g.reportLister.PolicyReports(metav1.NamespaceAll).List(selector)
+	if err != nil {
+		return fmt.Errorf("unable to list policyReport %v", err)
 	}
+	policyReports = append(policyReports, reports...)
 
 	for _, r := range policyReports {
 		newRes := []policyreportv1alpha2.PolicyReportResult{}
@@ -550,7 +538,7 @@ func (g *ReportGenerator) removeFromPolicyReport(policyName, ruleName string) er
 			if ruleName != "" && result.Rule == ruleName && result.Policy == policyName {
 				continue
 			} else if ruleName == "" && result.Policy == policyName {
-				if toggle.SplitPolicyReport() {
+				if toggle.SplitPolicyReport.Enabled() {
 					if err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(r.GetNamespace()).Delete(context.TODO(), r.GetName(), metav1.DeleteOptions{}); err != nil {
 						if apierrors.IsNotFound(err) {
 							return nil
@@ -589,9 +577,9 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 		g.log.Error(err, "failed to get Kyverno namespace, policy reports will not be garbage collected upon termination")
 	}
 
-	selector := labels.NewSelector()
+	var selector labels.Selector
 	if namespace == "" {
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion}))
@@ -617,7 +605,7 @@ func (g *ReportGenerator) aggregateReports(namespace, policyName string) (
 			ns.SetDeletionTimestamp(&now)
 		}
 
-		if toggle.SplitPolicyReport() {
+		if toggle.SplitPolicyReport.Enabled() {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace, policyLabel: TrimmedName(policyName)}))
 		} else {
 			selector = labels.SelectorFromSet(labels.Set(map[string]string{appVersion: version.BuildVersion, ResourceLabelNamespace: namespace}))

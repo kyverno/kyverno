@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -97,10 +97,26 @@ func (r *Rule) HasVerifyImages() bool {
 	return r.VerifyImages != nil && !reflect.DeepEqual(r.VerifyImages, ImageVerification{})
 }
 
+// HasYAMLSignatureVerify checks for validate.manifests rule
+func (r Rule) HasYAMLSignatureVerify() bool {
+	return r.Validation.Manifests != nil && len(r.Validation.Manifests.Attestors) != 0
+}
+
 // HasImagesValidationChecks checks whether the verifyImages rule has validation checks
 func (r *Rule) HasImagesValidationChecks() bool {
 	for _, v := range r.VerifyImages {
 		if v.VerifyDigest || v.Required {
+			return true
+		}
+	}
+
+	return false
+}
+
+// HasYAMLSignatureVerify checks for validate rule
+func (p *ClusterPolicy) HasYAMLSignatureVerify() bool {
+	for _, rule := range p.Spec.Rules {
+		if rule.HasYAMLSignatureVerify() {
 			return true
 		}
 	}
