@@ -3,19 +3,16 @@ package policyreport
 import (
 	"fmt"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/engine/response"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -122,40 +119,6 @@ func (ds *dataStore) delete(keyHash string) {
 	ds.mu.Lock()
 	defer ds.mu.Unlock()
 	delete(ds.data, keyHash)
-}
-
-// Info stores the policy application results for all matched resources
-// Namespace is set to empty "" if resource is cluster wide resource
-type Info struct {
-	PolicyName string
-	Namespace  string
-	Results    []EngineResponseResult
-}
-
-type EngineResponseResult struct {
-	Resource response.ResourceSpec
-	Rules    []kyvernov1.ViolatedRule
-}
-
-func (i Info) ToKey() string {
-	keys := []string{
-		i.PolicyName,
-		i.Namespace,
-		strconv.Itoa(len(i.Results)),
-	}
-
-	for _, result := range i.Results {
-		keys = append(keys, result.Resource.GetKey())
-	}
-	return strings.Join(keys, "/")
-}
-
-func (i Info) GetRuleLength() int {
-	l := 0
-	for _, res := range i.Results {
-		l += len(res.Rules)
-	}
-	return l
 }
 
 func parseKeyHash(keyHash string) (policyName, ns string) {

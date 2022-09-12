@@ -3,7 +3,6 @@ package policyreport
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -233,7 +232,7 @@ func set(obj *unstructured.Unstructured, info Info) {
 
 func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 	switch {
-	case isResourceDeletion(info):
+	case info.isResourceDeletion():
 		req.SetAnnotations(map[string]string{
 			deletedAnnotationResourceName: info.Results[0].Resource.Name,
 			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
@@ -244,7 +243,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 		req.SetLabels(labels)
 		return true
 
-	case isPolicyDeletion(info):
+	case info.isPolicyDeletion():
 		req.SetKind("ReportChangeRequest")
 		req.SetGenerateName("rcr-")
 
@@ -253,7 +252,7 @@ func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
 		req.SetLabels(labels)
 		return true
 
-	case isRuleDeletion(info):
+	case info.isRuleDeletion():
 		req.SetKind("ReportChangeRequest")
 		req.SetGenerateName("rcr-")
 
@@ -394,22 +393,4 @@ func (builder *requestBuilder) fetchAnnotations(policy, ns string) map[string]st
 	}
 
 	return make(map[string]string)
-}
-
-func isResourceDeletion(info Info) bool {
-	return info.PolicyName == "" && len(info.Results) == 1 && info.GetRuleLength() == 0
-}
-
-func isPolicyDeletion(info Info) bool {
-	return info.PolicyName != "" && len(info.Results) == 0
-}
-
-func isRuleDeletion(info Info) bool {
-	if info.PolicyName != "" && len(info.Results) == 1 {
-		result := info.Results[0]
-		if len(result.Rules) == 1 && reflect.DeepEqual(result.Resource, response.ResourceSpec{}) {
-			return true
-		}
-	}
-	return false
 }
