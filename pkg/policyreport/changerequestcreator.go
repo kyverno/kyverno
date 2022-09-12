@@ -29,9 +29,9 @@ type changeRequestCreator struct {
 	client versioned.Interface
 
 	// addCache preserves requests that are to be added to report
-	RCRCache *cache.Cache
+	rcr_cache *cache.Cache
 
-	CRCRCache *cache.Cache
+	crcr_cache *cache.Cache
 	// removeCache preserves requests that are to be removed from report
 	// removeCache *cache.Cache
 	mutex sync.RWMutex
@@ -45,8 +45,8 @@ type changeRequestCreator struct {
 func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Duration, log logr.Logger) creator {
 	return &changeRequestCreator{
 		client:         client,
-		RCRCache:       cache.New(0, 24*time.Hour),
-		CRCRCache:      cache.New(0, 24*time.Hour),
+		rcr_cache:      cache.New(0, 24*time.Hour),
+		crcr_cache:     cache.New(0, 24*time.Hour),
 		queue:          []string{},
 		tickerInterval: tickerInterval,
 		log:            log,
@@ -59,19 +59,19 @@ func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
 
 	switch request.GetKind() {
 	case "ClusterReportChangeRequest":
-		err = c.CRCRCache.Add(uid.String(), request, cache.NoExpiration)
+		err = c.crcr_cache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
-			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.CRCRCache.ItemCount())
-			if err = c.CRCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.crcr_cache.ItemCount())
+			if err = c.crcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
 				c.log.Error(err, "failed to replace CRCR")
 				return
 			}
 		}
 	case "ReportChangeRequest":
-		err = c.RCRCache.Add(uid.String(), request, cache.NoExpiration)
+		err = c.rcr_cache.Add(uid.String(), request, cache.NoExpiration)
 		if err != nil {
-			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.RCRCache.ItemCount())
-			if err = c.RCRCache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.rcr_cache.ItemCount())
+			if err = c.rcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
 				c.log.Error(err, "failed to replace RCR")
 				return
 			}
@@ -147,8 +147,8 @@ func (c *changeRequestCreator) cleanupQueue(size int) {
 
 	for i := 0; i < size; i++ {
 		uid := c.queue[i]
-		c.CRCRCache.Delete(uid)
-		c.RCRCache.Delete(uid)
+		c.crcr_cache.Delete(uid)
+		c.rcr_cache.Delete(uid)
 	}
 
 	c.queue = c.queue[size:]
@@ -165,7 +165,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 	size = len(c.queue)
 
 	for _, uid := range c.queue {
-		if unstr, ok := c.CRCRCache.Get(uid); ok {
+		if unstr, ok := c.crcr_cache.Get(uid); ok {
 			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
 				if isDeleteRequest(crcr) {
 					if !reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
@@ -189,7 +189,7 @@ func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstruct
 			continue
 		}
 
-		if unstr, ok := c.RCRCache.Get(uid); ok {
+		if unstr, ok := c.rcr_cache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
 				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
 				mergedNamespacedRCR, ok := mergedRCR[resourceNS]
@@ -244,7 +244,7 @@ func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured
 	size = len(c.queue)
 
 	for _, uid := range c.queue {
-		if unstr, ok := c.CRCRCache.Get(uid); ok {
+		if unstr, ok := c.crcr_cache.Get(uid); ok {
 			if crcr, ok := unstr.(*unstructured.Unstructured); ok {
 				policyName := crcr.GetLabels()[policyLabel]
 				mergedPolicyCRCR, ok := mergedCRCR[policyName]
@@ -276,7 +276,7 @@ func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured
 			continue
 		}
 
-		if unstr, ok := c.RCRCache.Get(uid); ok {
+		if unstr, ok := c.rcr_cache.Get(uid); ok {
 			if rcr, ok := unstr.(*unstructured.Unstructured); ok {
 				policyName := rcr.GetLabels()[policyLabel]
 				resourceNS := rcr.GetLabels()[ResourceLabelNamespace]
