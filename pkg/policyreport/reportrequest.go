@@ -16,7 +16,6 @@ import (
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	cmap "github.com/orcaman/concurrent-map"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -36,6 +35,7 @@ type Generator struct {
 
 	// changeRequestMapper stores the change requests' count per namespace
 	changeRequestMapper concurrentMap
+	mutex               *sync.RWMutex
 
 	// cpolLister can list/get policy from the shared informer's store
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -71,7 +71,8 @@ func NewReportChangeRequestGenerator(client versioned.Interface,
 	gen := Generator{
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
 		reportChangeRequestLister:        reportReqInformer.Lister(),
-		changeRequestMapper:              newChangeRequestMapper(),
+		changeRequestMapper:              newConcurrentMap(),
+		mutex:                            &sync.RWMutex{},
 		cpolLister:                       cpolInformer.Lister(),
 		polLister:                        polInformer.Lister(),
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
@@ -178,6 +179,8 @@ func (gen *Generator) enqueue(info Info) {
 
 // Add queues a policy violation create request
 func (gen *Generator) Add(infos ...Info) {
+	gen.mutex.Lock()
+	defer gen.mutex.Unlock()
 	for _, info := range infos {
 		count, ok := gen.changeRequestMapper.ConcurrentMap.Get(info.Namespace)
 		if ok && count == -1 {
@@ -192,17 +195,23 @@ func (gen *Generator) Add(infos ...Info) {
 
 // MapperReset resets the change request mapper for the given namespace
 func (gen Generator) MapperReset(ns string) {
+	gen.mutex.Lock()
+	defer gen.mutex.Unlock()
 	gen.changeRequestMapper.ConcurrentMap.Set(ns, 0)
 }
 
 // MapperInactive sets the change request mapper for the given namespace to -1
 // which indicates the report is inactive
 func (gen Generator) MapperInactive(ns string) {
+	gen.mutex.Lock()
+	defer gen.mutex.Unlock()
 	gen.changeRequestMapper.ConcurrentMap.Set(ns, -1)
 }
 
 // MapperInvalidate reset map entries
 func (gen Generator) MapperInvalidate() {
+	gen.mutex.Lock()
+	defer gen.mutex.Unlock()
 	for ns := range gen.changeRequestMapper.ConcurrentMap.Items() {
 		gen.changeRequestMapper.ConcurrentMap.Remove(ns)
 	}
@@ -261,6 +270,8 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 }
 
 func (gen *Generator) processNextWorkItem() bool {
+	gen.mutex.Lock()
+	defer gen.mutex.Unlock()
 	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
@@ -332,8 +343,4 @@ func hasResultsChanged(old, new map[string]interface{}) bool {
 	}
 
 	return !reflect.DeepEqual(oldRes, newRes)
-}
-
-func newChangeRequestMapper() concurrentMap {
-	return concurrentMap{cmap.New()}
 }
