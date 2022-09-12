@@ -53,6 +53,12 @@ jobs:
           if [[ "$RELEASE_VERSION" = "kyverno-chart-v"* ]]; then
             cp -a charts/kyverno charts-tmp/kyverno
           fi
+          if [[ "$RELEASE_VERSION" = "kyverno-policies-chart-"* ]]; then
+            cp -a charts/kyverno-policies charts-tmp/kyverno-policies
+          fi
+          if [[ "$RELEASE_VERSION" = "kyverno-chart-"* ]]; then
+            cp -a charts/kyverno charts-tmp/kyverno
+          fi
 
       - name: Run chart-releaser
         uses: stefanprodan/helm-gh-pages@b43a8719cc63fdb3aa943cc57359ab19118eab3f #v1.5.0
