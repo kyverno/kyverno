@@ -12,6 +12,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
+	"go.uber.org/multierr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -206,7 +207,7 @@ func mapToStruct(in, out interface{}) error {
 }
 
 func CleanupPolicyReport(client versioned.Interface) error {
-	var errors []string
+	var errs []error
 	var gracePeriod int64 = 0
 
 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
@@ -214,31 +215,31 @@ func CleanupPolicyReport(client versioned.Interface) error {
 
 	err := client.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err)
 	}
 
 	err = client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 	if err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err)
 	}
 
 	err = client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err)
 	}
 
 	reports, err := client.Wgpolicyk8sV1alpha2().PolicyReports(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		errors = append(errors, err.Error())
+		errs = append(errs, err)
 	}
 	for _, report := range reports.Items {
 		err = client.Wgpolicyk8sV1alpha2().PolicyReports(report.Namespace).Delete(context.TODO(), report.Name, metav1.DeleteOptions{})
 		if err != nil {
-			errors = append(errors, err.Error())
+			errs = append(errs, err)
 		}
 	}
-	if len(errors) == 0 {
+	if len(errs) == 0 {
 		return nil
 	}
-	return fmt.Errorf("%v", strings.Join(errors, ";"))
+	return multierr.Combine(errs...)
 }

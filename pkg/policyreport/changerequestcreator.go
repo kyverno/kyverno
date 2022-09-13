@@ -2,29 +2,34 @@ package policyreport
 
 import (
 	"context"
-	"reflect"
 	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+type item struct {
+	crcr *kyvernov1alpha2.ClusterReportChangeRequest
+	rcr  *kyvernov1alpha2.ReportChangeRequest
+}
 
 // creator is an interface that buffers report change requests
 // merges and creates requests every tickerInterval
 type creator interface {
-	add(request *unstructured.Unstructured)
+	add(*kyvernov1alpha2.ClusterReportChangeRequest, *kyvernov1alpha2.ReportChangeRequest)
 	run(stopChan <-chan struct{})
 }
 
 type changeRequestCreator struct {
 	client         versioned.Interface
 	mutex          *sync.RWMutex
-	queue          []*unstructured.Unstructured
+	queue          []item
 	tickerInterval time.Duration
 	log            logr.Logger
 }
@@ -33,34 +38,28 @@ func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Dur
 	return &changeRequestCreator{
 		client:         client,
 		mutex:          &sync.RWMutex{},
-		queue:          []*unstructured.Unstructured{},
+		queue:          []item{},
 		tickerInterval: tickerInterval,
 		log:            log,
 	}
 }
 
-func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
+func (c *changeRequestCreator) add(crcr *kyvernov1alpha2.ClusterReportChangeRequest, rcr *kyvernov1alpha2.ReportChangeRequest) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.queue = append(c.queue, request)
+	c.queue = append(c.queue, item{crcr, rcr})
 }
 
-func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	if request.GetKind() == "ReportChangeRequest" {
-		ns := config.KyvernoNamespace()
-		rcr, err := convertToRCR(request)
-		if err != nil {
-			return err
-		}
-		_, err = c.client.KyvernoV1alpha2().ReportChangeRequests(ns).Create(context.TODO(), rcr, metav1.CreateOptions{})
+func (c *changeRequestCreator) create(crcr *kyvernov1alpha2.ClusterReportChangeRequest, rcr *kyvernov1alpha2.ReportChangeRequest) error {
+	if rcr != nil {
+		_, err := c.client.KyvernoV1alpha2().ReportChangeRequests(config.KyvernoNamespace()).Create(context.TODO(), rcr, metav1.CreateOptions{})
 		return err
 	}
-	crcr, err := convertToCRCR(request)
-	if err != nil {
+	if crcr != nil {
+		_, err := c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
 		return err
 	}
-	_, err = c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
-	return err
+	return nil
 }
 
 func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
@@ -75,16 +74,22 @@ func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 	for {
 		select {
 		case <-ticker.C:
-			var requests []*unstructured.Unstructured
+			var crcrs []*kyvernov1alpha2.ClusterReportChangeRequest
+			var rcrs []*kyvernov1alpha2.ReportChangeRequest
 			var size int
 			if toggle.SplitPolicyReport.Enabled() {
-				requests, size = c.mergeRequestsPerPolicy()
+				crcrs, rcrs, size = c.mergeRequestsPerPolicy()
 			} else {
-				requests, size = c.mergeRequests()
+				crcrs, rcrs, size = c.mergeRequests()
 			}
-			for _, request := range requests {
-				if err := c.create(request); err != nil {
-					c.log.Error(err, "failed to create report change request", "req", request.Object)
+			for _, request := range crcrs {
+				if err := c.create(request, nil); err != nil {
+					c.log.Error(err, "failed to create report change request", "req", request)
+				}
+			}
+			for _, request := range rcrs {
+				if err := c.create(nil, request); err != nil {
+					c.log.Error(err, "failed to create report change request", "req", request)
 				}
 			}
 			c.cleanupQueue(size)
@@ -102,184 +107,191 @@ func (c *changeRequestCreator) cleanupQueue(size int) {
 
 // mergeRequests merges all current cached requests
 // it blocks writing to the cache
-func (c *changeRequestCreator) mergeRequests() (results []*unstructured.Unstructured, size int) {
+func (c *changeRequestCreator) mergeRequests() ([]*kyvernov1alpha2.ClusterReportChangeRequest, []*kyvernov1alpha2.ReportChangeRequest, int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	mergedCRCR := &unstructured.Unstructured{}
-	mergedRCR := make(map[string]*unstructured.Unstructured)
-	size = len(c.queue)
+	var crcrs []*kyvernov1alpha2.ClusterReportChangeRequest
+	var rcrs []*kyvernov1alpha2.ReportChangeRequest
+	var mergedCRCR *kyvernov1alpha2.ClusterReportChangeRequest
+	mergedRCRs := map[string]*kyvernov1alpha2.ReportChangeRequest{}
+	size := len(c.queue)
 
 	for _, item := range c.queue {
-		switch item.GetKind() {
-		case "ClusterReportChangeRequest":
-			if isDeleteRequest(item) {
-				if !reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-					results = append(results, mergedCRCR)
-					mergedCRCR = &unstructured.Unstructured{}
+		if item.crcr != nil {
+			// if it is a delete request
+			if isDeleteRequest(item.crcr) {
+				// if we accumulated something in the merged resource, add it and reset
+				if mergedCRCR != nil {
+					crcrs = append(crcrs, mergedCRCR)
+					mergedCRCR = nil
 				}
-				results = append(results, item)
+				// add the delete request
+				crcrs = append(crcrs, item.crcr)
 			} else {
-				if reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-					mergedCRCR = item
-					continue
-				}
-				if ok := merge(mergedCRCR, item); !ok {
-					results = append(results, mergedCRCR)
-					mergedCRCR = item
-				}
-			}
-		case "ReportChangeRequest":
-			resourceNS := item.GetLabels()[ResourceLabelNamespace]
-			mergedNamespacedRCR, ok := mergedRCR[resourceNS]
-			if !ok {
-				mergedNamespacedRCR = &unstructured.Unstructured{}
-			}
-			if isDeleteRequest(item) {
-				if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-					results = append(results, mergedNamespacedRCR)
-					mergedRCR[resourceNS] = &unstructured.Unstructured{}
-				}
-				results = append(results, item)
-			} else {
-				if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-					mergedRCR[resourceNS] = item
-					continue
-				}
-				if ok := merge(mergedNamespacedRCR, item); !ok {
-					results = append(results, mergedNamespacedRCR)
-					mergedRCR[resourceNS] = item
+				// if there is no accumulator yet, set it to the new item
+				if mergedCRCR == nil {
+					mergedCRCR = item.crcr
 				} else {
-					mergedRCR[resourceNS] = mergedNamespacedRCR
+					// try to merge the new item item with the accumulator, if it fails add the accumulator and reset it to the current item
+					if ok := mergeCRCR(mergedCRCR, item.crcr); !ok {
+						crcrs = append(crcrs, mergedCRCR)
+						mergedCRCR = item.crcr
+					}
 				}
 			}
 		}
-	}
-	if !reflect.DeepEqual(mergedCRCR, &unstructured.Unstructured{}) {
-		results = append(results, mergedCRCR)
-	}
-	for _, mergedNamespacedRCR := range mergedRCR {
-		if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-			results = append(results, mergedNamespacedRCR)
+		if item.rcr != nil {
+			resourceNS := item.rcr.GetLabels()[ResourceLabelNamespace]
+			rcr := mergedRCRs[resourceNS]
+			// if it is a delete request
+			if isDeleteRequest(item.rcr) {
+				// if we accumulated something in the merged resource, add it and reset
+				if rcr != nil {
+					rcrs = append(rcrs, rcr)
+					rcr = nil
+				}
+				// add the delete request
+				rcrs = append(rcrs, item.rcr)
+			} else {
+				// if there is no accumulator yet, set it to the new item
+				if rcr == nil {
+					rcr = item.rcr
+				} else {
+					// try to merge the new item item with the accumulator, if it fails add the accumulator and reset it to the current item
+					if ok := mergeRCR(rcr, item.rcr); !ok {
+						rcrs = append(rcrs, rcr)
+						rcr = item.rcr
+					}
+				}
+			}
+			mergedRCRs[resourceNS] = rcr
 		}
 	}
-	return
+	// last accumulators pass
+	if mergedCRCR != nil {
+		crcrs = append(crcrs, mergedCRCR)
+	}
+	for _, mergedNamespacedRCR := range mergedRCRs {
+		if mergedNamespacedRCR != nil {
+			rcrs = append(rcrs, mergedNamespacedRCR)
+		}
+	}
+	return crcrs, rcrs, size
 }
 
-// mergeRequests merges all current cached requests per policy
-// it blocks writing to the cache
-func (c *changeRequestCreator) mergeRequestsPerPolicy() (results []*unstructured.Unstructured, size int) {
+func (c *changeRequestCreator) mergeRequestsPerPolicy() ([]*kyvernov1alpha2.ClusterReportChangeRequest, []*kyvernov1alpha2.ReportChangeRequest, int) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	mergedCRCR := make(map[string]*unstructured.Unstructured)
-	mergedRCR := make(map[string]*unstructured.Unstructured)
-	size = len(c.queue)
+	var crcrs []*kyvernov1alpha2.ClusterReportChangeRequest
+	var rcrs []*kyvernov1alpha2.ReportChangeRequest
+	mergedCRCRs := map[string]*kyvernov1alpha2.ClusterReportChangeRequest{}
+	mergedRCRs := map[string]*kyvernov1alpha2.ReportChangeRequest{}
+	size := len(c.queue)
 
 	for _, item := range c.queue {
-		switch item.GetKind() {
-		case "ClusterReportChangeRequest":
-			policyName := item.GetLabels()[policyLabel]
-			mergedPolicyCRCR, ok := mergedCRCR[policyName]
-			if !ok {
-				mergedPolicyCRCR = &unstructured.Unstructured{}
-			}
-			if isDeleteRequest(item) {
-				if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
-					results = append(results, mergedPolicyCRCR)
-					mergedCRCR[policyName] = &unstructured.Unstructured{}
+		if item.crcr != nil {
+			policy := item.crcr.GetLabels()[policyLabel]
+			crcr := mergedCRCRs[policy]
+			// if it is a delete request
+			if isDeleteRequest(item.crcr) {
+				// if we accumulated something in the merged resource, add it and reset
+				if crcr != nil {
+					crcrs = append(crcrs, crcr)
+					crcr = nil
 				}
-				results = append(results, item)
+				// add the delete request
+				crcrs = append(crcrs, item.crcr)
 			} else {
-				if reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
-					mergedCRCR[policyName] = item
-					continue
-				}
-				if ok := merge(mergedPolicyCRCR, item); !ok {
-					results = append(results, mergedPolicyCRCR)
-					mergedCRCR[policyName] = item
+				// if there is no accumulator yet, set it to the new item
+				if crcr == nil {
+					crcr = item.crcr
 				} else {
-					mergedCRCR[policyName] = mergedPolicyCRCR
+					// try to merge the new item item with the accumulator, if it fails add the accumulator and reset it to the current item
+					if ok := mergeCRCR(crcr, item.crcr); !ok {
+						crcrs = append(crcrs, crcr)
+						crcr = item.crcr
+					}
 				}
 			}
-		case "ReportChangeRequest":
-			policyName := item.GetLabels()[policyLabel]
-			resourceNS := item.GetLabels()[ResourceLabelNamespace]
-			mergedNamespacedRCR, ok := mergedRCR[policyName+resourceNS]
-			if !ok {
-				mergedNamespacedRCR = &unstructured.Unstructured{}
-			}
-			if isDeleteRequest(item) {
-				if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-					results = append(results, mergedNamespacedRCR)
-					mergedRCR[policyName+resourceNS] = &unstructured.Unstructured{}
+			mergedCRCRs[policy] = crcr
+		}
+		if item.rcr != nil {
+			policy := item.rcr.GetLabels()[policyLabel]
+			resourceNS := item.rcr.GetLabels()[ResourceLabelNamespace]
+			key := resourceNS + "/" + policy
+			rcr := mergedRCRs[key]
+			// if it is a delete request
+			if isDeleteRequest(item.rcr) {
+				// if we accumulated something in the merged resource, add it and reset
+				if rcr != nil {
+					rcrs = append(rcrs, rcr)
+					rcr = nil
 				}
-				results = append(results, item)
+				// add the delete request
+				rcrs = append(rcrs, item.rcr)
 			} else {
-				if reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-					mergedRCR[policyName+resourceNS] = item
-					continue
-				}
-				if ok := merge(mergedNamespacedRCR, item); !ok {
-					results = append(results, mergedNamespacedRCR)
-					mergedRCR[policyName+resourceNS] = item
+				// if there is no accumulator yet, set it to the new item
+				if rcr == nil {
+					rcr = item.rcr
 				} else {
-					mergedRCR[policyName+resourceNS] = mergedNamespacedRCR
+					// try to merge the new item item with the accumulator, if it fails add the accumulator and reset it to the current item
+					if ok := mergeRCR(rcr, item.rcr); !ok {
+						rcrs = append(rcrs, rcr)
+						rcr = item.rcr
+					}
 				}
 			}
+			mergedRCRs[key] = rcr
 		}
 	}
-	for _, mergedPolicyCRCR := range mergedCRCR {
-		if !reflect.DeepEqual(mergedPolicyCRCR, &unstructured.Unstructured{}) {
-			results = append(results, mergedPolicyCRCR)
+	for _, mergedPolicyCRCR := range mergedCRCRs {
+		if mergedPolicyCRCR != nil {
+			crcrs = append(crcrs, mergedPolicyCRCR)
 		}
 	}
-	for _, mergedNamespacedRCR := range mergedRCR {
-		if !reflect.DeepEqual(mergedNamespacedRCR, &unstructured.Unstructured{}) {
-			results = append(results, mergedNamespacedRCR)
+	for _, mergedNamespacedRCR := range mergedRCRs {
+		if mergedNamespacedRCR != nil {
+			rcrs = append(rcrs, mergedNamespacedRCR)
 		}
 	}
-	return
+	return crcrs, rcrs, size
 }
 
-// merge merges elements from a source object into a
-// destination object if they share the same namespace label
-func merge(dst, src *unstructured.Unstructured) bool {
+func mergeRCR(dst, src *kyvernov1alpha2.ReportChangeRequest) bool {
 	dstNS := dst.GetLabels()[ResourceLabelNamespace]
 	srcNS := src.GetLabels()[ResourceLabelNamespace]
 	if dstNS != srcNS {
 		return false
 	}
-	if dstResults, ok, _ := unstructured.NestedSlice(dst.UnstructuredContent(), "results"); ok {
-		if srcResults, ok, _ := unstructured.NestedSlice(src.UnstructuredContent(), "results"); ok {
-			dstResults = append(dstResults, srcResults...)
-
-			if err := unstructured.SetNestedSlice(dst.UnstructuredContent(), dstResults, "results"); err == nil {
-				err = addSummary(dst, src)
-				return err == nil
-			}
-		}
-	}
-	return false
+	dst.Results = append(dst.Results, src.Results...)
+	dst.Summary = addSummary(dst.Summary, src.Summary)
+	return true
 }
 
-func addSummary(dst, src *unstructured.Unstructured) error {
-	if dstSum, ok, _ := unstructured.NestedMap(dst.UnstructuredContent(), "summary"); ok {
-		if srcSum, ok, _ := unstructured.NestedMap(src.UnstructuredContent(), "summary"); ok {
-			for key, dstVal := range dstSum {
-				if dstValInt, ok := dstVal.(int64); ok {
-					if srcVal, ok := srcSum[key].(int64); ok {
-						dstSum[key] = dstValInt + srcVal
-					}
-				}
-			}
-		}
-		return unstructured.SetNestedMap(dst.UnstructuredContent(), dstSum, "summary")
+func mergeCRCR(dst, src *kyvernov1alpha2.ClusterReportChangeRequest) bool {
+	dstNS := dst.GetLabels()[ResourceLabelNamespace]
+	srcNS := src.GetLabels()[ResourceLabelNamespace]
+	if dstNS != srcNS {
+		return false
 	}
-	return nil
+	dst.Results = append(dst.Results, src.Results...)
+	dst.Summary = addSummary(dst.Summary, src.Summary)
+	return true
 }
 
-func isDeleteRequest(request *unstructured.Unstructured) bool {
+func addSummary(dst, src policyreportv1alpha2.PolicyReportSummary) policyreportv1alpha2.PolicyReportSummary {
+	return policyreportv1alpha2.PolicyReportSummary{
+		Pass:  src.Pass + dst.Pass,
+		Fail:  src.Fail + dst.Fail,
+		Warn:  src.Warn + dst.Warn,
+		Error: src.Error + dst.Error,
+		Skip:  src.Skip + dst.Skip,
+	}
+}
+
+func isDeleteRequest(request metav1.Object) bool {
 	deleteLabels := []string{deletedLabelPolicy, deletedLabelRule}
 	labels := request.GetLabels()
 	for _, l := range deleteLabels {

@@ -28,7 +28,6 @@ func (i Info) ToKey() string {
 		i.Namespace,
 		strconv.Itoa(len(i.Results)),
 	}
-
 	for _, result := range i.Results {
 		keys = append(keys, result.Resource.GetKey())
 	}

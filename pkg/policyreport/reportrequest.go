@@ -1,9 +1,7 @@
 package policyreport
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +11,8 @@ import (
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -24,15 +24,11 @@ const (
 	workQueueRetryLimit = 10
 )
 
-// Generator creates report request
-type Generator struct {
+// generator creates report request
+type generator struct {
 	reportChangeRequestLister kyvernov1alpha2listers.ReportChangeRequestLister
 
 	clusterReportChangeRequestLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
-
-	// changeRequestMapper stores the change requests' count per namespace
-	changeRequestMapper concurrentMap
-	mutex               *sync.RWMutex
 
 	// cpolLister can list/get policy from the shared informer's store
 	cpolLister kyvernov1listers.ClusterPolicyLister
@@ -50,8 +46,9 @@ type Generator struct {
 	// changeRequestLimit defines the max count for change requests (per namespace for RCR / cluster-wide for CRCR)
 	changeRequestLimit int
 
-	// CleanupChangeRequest signals the policy report controller to cleanup change requests
-	CleanupChangeRequest chan ReconcileInfo
+	// cleanupChangeRequest signals the policy report controller to cleanup change requests
+	// takes namespace in input
+	cleanupChangeRequest chan string
 
 	log logr.Logger
 }
@@ -64,29 +61,22 @@ func NewReportChangeRequestGenerator(client versioned.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	changeRequestLimit int,
 	log logr.Logger,
-) *Generator {
-	gen := Generator{
+) Generator {
+	gen := generator{
 		clusterReportChangeRequestLister: clusterReportReqInformer.Lister(),
 		reportChangeRequestLister:        reportReqInformer.Lister(),
-		changeRequestMapper:              newConcurrentMap(),
-		mutex:                            &sync.RWMutex{},
 		cpolLister:                       cpolInformer.Lister(),
 		polLister:                        polInformer.Lister(),
 		queue:                            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), workQueueName),
 		dataStore:                        newDataStore(),
 		changeRequestLimit:               changeRequestLimit,
-		CleanupChangeRequest:             make(chan ReconcileInfo, 10),
+		cleanupChangeRequest:             make(chan string, 10),
 		requestCreator:                   newChangeRequestCreator(client, 3*time.Second, log.WithName("requestCreator")),
 		log:                              log,
 	}
 
 	gen.informersSynced = []cache.InformerSynced{clusterReportReqInformer.Informer().HasSynced, reportReqInformer.Informer().HasSynced, cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced}
 	return &gen
-}
-
-type ReconcileInfo struct {
-	Namespace      *string
-	MapperInactive bool
 }
 
 // NewDataStore returns an instance of data store
@@ -121,67 +111,32 @@ func (ds *dataStore) delete(keyHash string) {
 	delete(ds.data, keyHash)
 }
 
-func parseKeyHash(keyHash string) (policyName, ns string) {
-	keys := strings.Split(keyHash, "/")
-	return keys[0], keys[1]
+// Generator provides API to create PVs
+type Generator interface {
+	Cleanup() chan string
+	Run(int, <-chan struct{})
+	Add(...Info)
 }
 
-// GeneratorInterface provides API to create PVs
-type GeneratorInterface interface {
-	Add(infos ...Info)
-	MapperReset(string)
-	MapperInactive(string)
-	MapperInvalidate()
-}
-
-func (gen *Generator) enqueue(info Info) {
+func (gen *generator) enqueue(info Info) {
 	keyHash := info.ToKey()
 	gen.dataStore.add(keyHash, info)
 	gen.queue.Add(keyHash)
 }
 
 // Add queues a policy violation create request
-func (gen *Generator) Add(infos ...Info) {
-	gen.mutex.Lock()
-	defer gen.mutex.Unlock()
+func (gen *generator) Add(infos ...Info) {
 	for _, info := range infos {
-		count, ok := gen.changeRequestMapper.ConcurrentMap.Get(info.Namespace)
-		if ok && count == -1 {
-			gen.log.V(6).Info("inactive policy report, skip creating report change request", "namespace", info.Namespace)
-			continue
-		}
-
-		gen.changeRequestMapper.increase(info.Namespace)
 		gen.enqueue(info)
 	}
 }
 
-// MapperReset resets the change request mapper for the given namespace
-func (gen Generator) MapperReset(ns string) {
-	gen.mutex.Lock()
-	defer gen.mutex.Unlock()
-	gen.changeRequestMapper.ConcurrentMap.Set(ns, 0)
-}
-
-// MapperInactive sets the change request mapper for the given namespace to -1
-// which indicates the report is inactive
-func (gen Generator) MapperInactive(ns string) {
-	gen.mutex.Lock()
-	defer gen.mutex.Unlock()
-	gen.changeRequestMapper.ConcurrentMap.Set(ns, -1)
-}
-
-// MapperInvalidate reset map entries
-func (gen Generator) MapperInvalidate() {
-	gen.mutex.Lock()
-	defer gen.mutex.Unlock()
-	for ns := range gen.changeRequestMapper.ConcurrentMap.Items() {
-		gen.changeRequestMapper.ConcurrentMap.Remove(ns)
-	}
+func (gen *generator) Cleanup() chan string {
+	return gen.cleanupChangeRequest
 }
 
 // Run starts the workers
-func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
+func (gen *generator) Run(workers int, stopCh <-chan struct{}) {
 	logger := gen.log
 	defer utilruntime.HandleCrash()
 	logger.Info("start")
@@ -200,12 +155,12 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	<-stopCh
 }
 
-func (gen *Generator) runWorker() {
+func (gen *generator) runWorker() {
 	for gen.processNextWorkItem() {
 	}
 }
 
-func (gen *Generator) handleErr(err error, key interface{}) {
+func (gen *generator) handleErr(err error, key interface{}) {
 	logger := gen.log
 	keyHash, ok := key.(string)
 	if !ok {
@@ -215,7 +170,6 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	if err == nil {
 		gen.queue.Forget(key)
 		gen.dataStore.delete(keyHash)
-		gen.changeRequestMapper.decrease(keyHash)
 		return
 	}
 
@@ -229,10 +183,20 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 	logger.Error(err, "failed to process report request", "key", key)
 	gen.queue.Forget(key)
 	gen.dataStore.delete(keyHash)
-	gen.changeRequestMapper.decrease(keyHash)
 }
 
-func (gen *Generator) processNextWorkItem() bool {
+func (gen *generator) getReportChangeRequestCount(ns string) int {
+	if ns == "" {
+		items, _ := gen.clusterReportChangeRequestLister.List(labels.Everything())
+		return len(items)
+	} else {
+		selector := labels.SelectorFromSet(labels.Set(map[string]string{ResourceLabelNamespace: ns}))
+		items, _ := gen.reportChangeRequestLister.List(selector)
+		return len(items)
+	}
+}
+
+func (gen *generator) processNextWorkItem() bool {
 	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
@@ -257,15 +221,13 @@ func (gen *Generator) processNextWorkItem() bool {
 		return true
 	}
 
-	count, ok := gen.changeRequestMapper.Get(info.Namespace)
-	if ok {
-		if count.(int) > gen.changeRequestLimit {
-			logger.Info("throttling report change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count.(int))
-			gen.CleanupChangeRequest <- ReconcileInfo{Namespace: &(info.Namespace), MapperInactive: false}
-			gen.queue.Forget(obj)
-			gen.dataStore.delete(keyHash)
-			return true
-		}
+	count := gen.getReportChangeRequestCount(info.Namespace)
+	if count > gen.changeRequestLimit {
+		logger.Info("throttling report change requests", "namespace", info.Namespace, "threshold", gen.changeRequestLimit, "count", count)
+		gen.cleanupChangeRequest <- info.Namespace
+		gen.queue.Forget(obj)
+		gen.dataStore.delete(keyHash)
+		return true
 	}
 
 	err := gen.syncHandler(info)
@@ -274,18 +236,18 @@ func (gen *Generator) processNextWorkItem() bool {
 	return true
 }
 
-func (gen *Generator) syncHandler(info Info) error {
+func (gen *generator) syncHandler(info Info) error {
 	builder := NewBuilder(gen.cpolLister, gen.polLister)
-	reportReq, err := builder.build(info)
+	crcr, rcr, err := builder.build(info)
 	if err != nil {
-		return fmt.Errorf("unable to build reportChangeRequest: %v", err)
+		return errors.Wrapf(err, "unable to build reportChangeRequest: %v", err)
 	}
 
-	if reportReq == nil {
+	if crcr == nil && rcr == nil {
 		return nil
 	}
 
-	gen.requestCreator.add(reportReq)
+	gen.requestCreator.add(crcr, rcr)
 	return nil
 }
 

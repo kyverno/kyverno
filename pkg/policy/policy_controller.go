@@ -87,7 +87,7 @@ type PolicyController struct {
 	configHandler config.Configuration
 
 	// policy report generator
-	prGenerator policyreport.GeneratorInterface
+	prGenerator policyreport.Generator
 
 	policyReportEraser policyreport.PolicyReportEraser
 
@@ -107,7 +107,7 @@ func NewPolicyController(
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
-	prGenerator policyreport.GeneratorInterface,
+	prGenerator policyreport.Generator,
 	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
@@ -390,7 +390,8 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
+// cleanupChangeRequest send namespace to be cleaned up
+func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupChangeRequest <-chan string, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()

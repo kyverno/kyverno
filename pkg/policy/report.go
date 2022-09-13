@@ -32,69 +32,45 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
+// cleanupChangeRequest send namespace to be cleaned up
+func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanupChangeRequest <-chan string, stopCh <-chan struct{}) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
-	// changeRequestMapperNamespace := make(map[string]bool)
 	for {
 		select {
 		case <-ticker.C:
 			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(nil); err != nil {
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(""); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
 			if err := pc.policyReportEraser.EraseResultEntries(nil); err != nil {
 				logger.Error(err, "continue reconciling policy reports")
 			}
 			pc.requeuePolicies()
-			// TODO: shall we move this somewhere else ?
-			pc.prGenerator.MapperInvalidate()
 
 		case erase := <-reconcileCh:
 			logger.Info("received the reconcile signal, reconciling policy report")
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(nil); err != nil {
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(""); err != nil {
 				logger.Error(err, "failed to cleanup report change requests")
 			}
-
 			if erase {
 				if err := pc.policyReportEraser.EraseResultEntries(nil); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
 				}
 			}
 			pc.requeuePolicies()
-			// TODO: nothing to do with the mapper here ?
 
-		case info := <-cleanupChangeRequest:
-			if info.Namespace == nil {
-				continue
-			}
-
-			ns := *info.Namespace
-			// if exist := changeRequestMapperNamespace[ns]; exist {
-			// 	continue
-			// }
-
-			// changeRequestMapperNamespace[ns] = true
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(map[string]string{policyreport.ResourceLabelNamespace: ns}); err != nil {
+		case ns := <-cleanupChangeRequest:
+			if err := pc.policyReportEraser.CleanupReportChangeRequests(ns); err != nil {
 				logger.Error(err, "failed to cleanup report change requests for the given namespace", "namespace", ns)
 			} else {
 				logger.V(3).Info("cleaned up report change requests for the given namespace", "namespace", ns)
 			}
-
-			// changeRequestMapperNamespace[ns] = false
-
-			if err := pc.policyReportEraser.EraseResultEntries(info.Namespace); err != nil {
+			if err := pc.policyReportEraser.EraseResultEntries(&ns); err != nil {
 				logger.Error(err, "failed to erase result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			} else {
 				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
-			}
-
-			// TODO: shall we move this somewhere else ?
-			if info.MapperInactive {
-				pc.prGenerator.MapperInactive(ns)
-			} else {
-				pc.prGenerator.MapperReset(ns)
 			}
 			pc.requeuePolicies()
 

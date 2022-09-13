@@ -53,7 +53,7 @@ type handlers struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
-	prGenerator       policyreport.GeneratorInterface
+	prGenerator       policyreport.Generator
 	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
 	auditHandler      audit.AuditHandler
@@ -72,7 +72,7 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
-	prGenerator policyreport.GeneratorInterface,
+	prGenerator policyreport.Generator,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	auditHandler audit.AuditHandler,

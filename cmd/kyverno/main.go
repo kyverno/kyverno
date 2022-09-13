@@ -268,7 +268,7 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-		reportReqGen.CleanupChangeRequest,
+		reportReqGen.Cleanup(),
 		log.Log.WithName("PolicyReportGenerator"),
 	)
 	if err != nil {
@@ -487,7 +487,7 @@ func main() {
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.CleanupChangeRequest, stopCh)
+		go policyCtrl.Run(2, prgen.ReconcileCh, reportReqGen.Cleanup(), stopCh)
 		go prgen.Run(1, stopCh)
 	}
 

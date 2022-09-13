@@ -25,7 +25,7 @@ type ValidationHandler interface {
 	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
-func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ValidationHandler {
+func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.Generator) ValidationHandler {
 	return &validationHandler{
 		log:         log,
 		eventGen:    eventGen,
@@ -36,7 +36,7 @@ func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator
 type validationHandler struct {
 	log         logr.Logger
 	eventGen    event.Interface
-	prGenerator policyreport.GeneratorInterface
+	prGenerator policyreport.Generator
 }
 
 func (v *validationHandler) HandleValidation(

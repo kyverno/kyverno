@@ -1,24 +1,17 @@
 package policyreport
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/version"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -44,62 +37,10 @@ const (
 	SourceValue = "Kyverno"
 )
 
-func GeneratePolicyReportName(ns, policyName string) string {
-	if ns == "" {
-		if toggle.SplitPolicyReport.Enabled() {
-			return TrimmedName(clusterpolicyreport + "-" + policyName)
-		}
-		return clusterpolicyreport
-	}
-
-	var name string
-	if toggle.SplitPolicyReport.Enabled() {
-		name = fmt.Sprintf("polr-ns-%s-%s", ns, policyName)
-	} else {
-		name = fmt.Sprintf("polr-ns-%s", ns)
-	}
-	if len(name) > 63 {
-		return name[:63]
-	}
-
-	return name
-}
-
-func TrimmedName(s string) string {
-	if len(s) > 63 {
-		return s[:63]
-	}
-	return s
-}
-
-// GeneratePRsFromEngineResponse generate Violations from engine responses
-func GeneratePRsFromEngineResponse(ers []*response.EngineResponse, log logr.Logger) (pvInfos []Info) {
-	for _, er := range ers {
-		// ignore creation of PV for resources that are yet to be assigned a name
-		if er.PolicyResponse.Resource.Name == "" {
-			log.V(4).Info("skipping resource with no name", "resource", er.PolicyResponse.Resource)
-			continue
-		}
-
-		if len(er.PolicyResponse.Rules) == 0 {
-			continue
-		}
-
-		if er.Policy != nil && engine.ManagedPodResource(er.Policy, er.PatchedResource) {
-			continue
-		}
-
-		// build policy violation info
-		pvInfos = append(pvInfos, buildPVInfo(er))
-	}
-
-	return pvInfos
-}
-
 // Builder builds report change request struct
 // this is base type of namespaced and cluster policy report
 type Builder interface {
-	build(info Info) (*unstructured.Unstructured, error)
+	build(info Info) (*kyvernov1alpha2.ClusterReportChangeRequest, *kyvernov1alpha2.ReportChangeRequest, error)
 }
 
 type requestBuilder struct {
@@ -112,71 +53,52 @@ func NewBuilder(cpolLister kyvernov1listers.ClusterPolicyLister, polLister kyver
 	return &requestBuilder{cpolLister: cpolLister, polLister: polLister}
 }
 
-func (builder *requestBuilder) build(info Info) (req *unstructured.Unstructured, err error) {
-	results := []policyreportv1alpha2.PolicyReportResult{}
-	req = new(unstructured.Unstructured)
+func (builder *requestBuilder) build(info Info) (*kyvernov1alpha2.ClusterReportChangeRequest, *kyvernov1alpha2.ReportChangeRequest, error) {
+	results := builder.buildResults(info)
+	summary := calculateSummary(results)
+
+	if info.Namespace != "" {
+		rr := &kyvernov1alpha2.ReportChangeRequest{
+			Results: results,
+			Summary: summary,
+		}
+		set(rr, info)
+		rr.SetCreationTimestamp(metav1.Now())
+		if !setRequestDeletionLabels(rr, info) {
+			if len(results) == 0 {
+				// return nil on empty result without a deletion
+				return nil, nil, nil
+			}
+		}
+		return nil, rr, nil
+	} else {
+		rr := &kyvernov1alpha2.ClusterReportChangeRequest{
+			Results: results,
+			Summary: summary,
+		}
+		set(rr, info)
+		rr.SetCreationTimestamp(metav1.Now())
+		if !setRequestDeletionLabels(rr, info) {
+			if len(results) == 0 {
+				// return nil on empty result without a deletion
+				return nil, nil, nil
+			}
+		}
+		return rr, nil, nil
+	}
+}
+
+func (builder *requestBuilder) buildResults(info Info) []policyreportv1alpha2.PolicyReportResult {
+	var results []policyreportv1alpha2.PolicyReportResult
 	for _, infoResult := range info.Results {
 		for _, rule := range infoResult.Rules {
 			if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
 				continue
 			}
-
-			result := builder.buildRCRResult(info.PolicyName, infoResult.Resource, rule)
-			results = append(results, result)
+			results = append(results, builder.buildRCRResult(info.PolicyName, infoResult.Resource, rule))
 		}
 	}
-
-	if info.Namespace != "" {
-		rr := &kyvernov1alpha2.ReportChangeRequest{
-			Summary: calculateSummary(results),
-			Results: results,
-		}
-
-		gv := policyreportv1alpha2.SchemeGroupVersion
-		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ReportChangeRequest"})
-
-		rawRcr, err := json.Marshal(rr)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(rawRcr, req)
-		if err != nil {
-			return nil, err
-		}
-
-		set(req, info)
-	} else {
-		rr := &kyvernov1alpha2.ClusterReportChangeRequest{
-			Summary: calculateSummary(results),
-			Results: results,
-		}
-
-		gv := policyreportv1alpha2.SchemeGroupVersion
-		rr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "ClusterReportChangeRequest"})
-
-		rawRcr, err := json.Marshal(rr)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.Unmarshal(rawRcr, req)
-		if err != nil {
-			return nil, err
-		}
-
-		set(req, info)
-	}
-
-	if !setRequestDeletionLabels(req, info) {
-		if len(results) == 0 {
-			// return nil on empty result without a deletion
-			return nil, nil
-		}
-	}
-
-	req.SetCreationTimestamp(metav1.Now())
-	return req, nil
+	return results
 }
 
 func (builder *requestBuilder) buildRCRResult(policy string, resource response.ResourceSpec, rule kyvernov1.ViolatedRule) policyreportv1alpha2.PolicyReportResult {
@@ -211,124 +133,47 @@ func (builder *requestBuilder) buildRCRResult(policy string, resource response.R
 	return result
 }
 
-func set(obj *unstructured.Unstructured, info Info) {
-	obj.SetAPIVersion(kyvernov1alpha2.SchemeGroupVersion.Group + "/" + kyvernov1alpha2.SchemeGroupVersion.Version)
-
+func set(obj metav1.Object, info Info) {
 	if info.Namespace == "" {
 		obj.SetGenerateName("crcr-")
-		obj.SetKind("ClusterReportChangeRequest")
 	} else {
 		obj.SetGenerateName("rcr-")
-		obj.SetKind("ReportChangeRequest")
 		obj.SetNamespace(config.KyvernoNamespace())
 	}
-
 	obj.SetLabels(map[string]string{
 		ResourceLabelNamespace: info.Namespace,
-		policyLabel:            TrimmedName(info.PolicyName),
+		policyLabel:            trimmedName(info.PolicyName),
 		appVersion:             version.BuildVersion,
 	})
 }
 
-func setRequestDeletionLabels(req *unstructured.Unstructured, info Info) bool {
+func setRequestDeletionLabels(obj metav1.Object, info Info) bool {
 	switch {
 	case info.isResourceDeletion():
-		req.SetAnnotations(map[string]string{
+		obj.SetAnnotations(map[string]string{
 			deletedAnnotationResourceName: info.Results[0].Resource.Name,
 			deletedAnnotationResourceKind: info.Results[0].Resource.Kind,
 		})
-
-		labels := req.GetLabels()
+		labels := obj.GetLabels()
 		labels[ResourceLabelNamespace] = info.Results[0].Resource.Namespace
-		req.SetLabels(labels)
+		obj.SetLabels(labels)
 		return true
 
 	case info.isPolicyDeletion():
-		req.SetKind("ReportChangeRequest")
-		req.SetGenerateName("rcr-")
-
-		labels := req.GetLabels()
+		labels := obj.GetLabels()
 		labels[deletedLabelPolicy] = info.PolicyName
-		req.SetLabels(labels)
+		obj.SetLabels(labels)
 		return true
 
 	case info.isRuleDeletion():
-		req.SetKind("ReportChangeRequest")
-		req.SetGenerateName("rcr-")
-
-		labels := req.GetLabels()
+		labels := obj.GetLabels()
 		labels[deletedLabelPolicy] = info.PolicyName
 		labels[deletedLabelRule] = info.Results[0].Rules[0].Name
-		req.SetLabels(labels)
+		obj.SetLabels(labels)
 		return true
 	}
 
 	return false
-}
-
-func calculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
-	for _, res := range results {
-		switch string(res.Result) {
-		case policyreportv1alpha2.StatusPass:
-			summary.Pass++
-		case policyreportv1alpha2.StatusFail:
-			summary.Fail++
-		case policyreportv1alpha2.StatusWarn:
-			summary.Warn++
-		case policyreportv1alpha2.StatusError:
-			summary.Error++
-		case policyreportv1alpha2.StatusSkip:
-			summary.Skip++
-		}
-	}
-	return
-}
-
-func buildPVInfo(er *response.EngineResponse) Info {
-	info := Info{
-		PolicyName: er.PolicyResponse.Policy.Name,
-		Namespace:  er.PatchedResource.GetNamespace(),
-		Results: []EngineResponseResult{
-			{
-				Resource: er.GetResourceSpec(),
-				Rules:    buildViolatedRules(er),
-			},
-		},
-	}
-	return info
-}
-
-func buildViolatedRules(er *response.EngineResponse) []kyvernov1.ViolatedRule {
-	var violatedRules []kyvernov1.ViolatedRule
-	for _, rule := range er.PolicyResponse.Rules {
-		vrule := kyvernov1.ViolatedRule{
-			Name:    rule.Name,
-			Type:    string(rule.Type),
-			Message: rule.Message,
-		}
-
-		vrule.Status = toPolicyResult(rule.Status)
-		violatedRules = append(violatedRules, vrule)
-	}
-
-	return violatedRules
-}
-
-func toPolicyResult(status response.RuleStatus) string {
-	switch status {
-	case response.RuleStatusPass:
-		return policyreportv1alpha2.StatusPass
-	case response.RuleStatusFail:
-		return policyreportv1alpha2.StatusFail
-	case response.RuleStatusError:
-		return policyreportv1alpha2.StatusError
-	case response.RuleStatusWarn:
-		return policyreportv1alpha2.StatusWarn
-	case response.RuleStatusSkip:
-		return policyreportv1alpha2.StatusSkip
-	}
-
-	return ""
 }
 
 const (
@@ -384,13 +229,11 @@ func (builder *requestBuilder) fetchAnnotations(policy, ns string) map[string]st
 			return ann
 		}
 	}
-
 	pol, err := builder.polLister.Policies(ns).Get(policy)
 	if err == nil {
 		if ann := pol.GetAnnotations(); ann != nil {
 			return ann
 		}
 	}
-
 	return make(map[string]string)
 }
