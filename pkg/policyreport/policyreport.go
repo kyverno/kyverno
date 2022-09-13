@@ -17,24 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-// type PolicyReportEraser interface {
-// 	CleanupReportChangeRequests(labels map[string]string) error
-// 	EraseResultEntries(ns *string) error
-// }
-
-// type (
-// 	CleanupReportChangeRequests = func(pclient versioned.Interface, rcrLister kyvernov1alpha2listers.ReportChangeRequestLister, crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister, labels map[string]string) error
-// 	EraseResultEntries          = func(pclient versioned.Interface, reportLister policyreportv1alpha2listers.PolicyReportLister, clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister, ns *string) error
-// )
-
-// func (g *ReportGenerator) CleanupReportChangeRequests(cleanup CleanupReportChangeRequests, labels map[string]string) error {
-// 	return cleanup(g.pclient, g.reportChangeRequestLister, g.clusterReportChangeRequestLister, labels)
-// }
-
-// func (g *ReportGenerator) EraseResultEntries(erase EraseResultEntries, ns *string) error {
-// 	return erase(g.pclient, g.reportLister, g.clusterReportLister, ns)
-// }
-
 type deletedResource struct {
 	kind, ns, name string
 }
