@@ -1032,6 +1032,7 @@ func Test_Validate_ApiCall(t *testing.T) {
 		}
 	}
 }
+
 func Test_Wildcards_Kind(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -1440,5 +1441,39 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)
 	}
+	assert.NilError(t, err)
+}
+
+func Test_ValidateJSON6902Kind(t *testing.T) {
+	var patch string = `- path: "/metadata/labels/img"
+  op: addition
+  value: "nginx"`
+	err := validateJSONPatchKind(patch)
+	assert.Error(t, err, "addition")
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatchKind(patch)
+	assert.NilError(t, err)
+}
+
+func Test_ValidateJSON6902Value(t *testing.T) {
+	var patch string = `- path: "/metadata/labels/img"
+  op: add
+  value: nginx"`
+	err := validateJSONPatchValue(patch)
+	assert.Error(t, err, `nginx"`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: {"node.kubernetes.io/role": test"}`
+	err = validateJSONPatchValue(patch)
+	assert.Error(t, err, `map[node.kubernetes.io/role:test"]`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatchValue(patch)
 	assert.NilError(t, err)
 }
