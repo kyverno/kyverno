@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -28,6 +29,7 @@ func NewPolicyReportEraser(
 		pclient:             pclient,
 		reportLister:        reportLister,
 		clusterReportLister: clusterReportLister,
+		mutex:               &sync.RWMutex{},
 	}
 }
 
@@ -35,13 +37,19 @@ type eraser struct {
 	pclient             versioned.Interface
 	reportLister        policyreportv1alpha2listers.PolicyReportLister
 	clusterReportLister policyreportv1alpha2listers.ClusterPolicyReportLister
+	mutex               *sync.RWMutex
 }
 
+// TODO: make sure both functions below can be synced separately
 func (e *eraser) CleanupReportChangeRequests(labels map[string]string) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	return e.cleanupReportChangeRequests(labels)
 }
 
 func (e *eraser) EraseResultEntries(ns *string) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	return e.eraseResultEntries(ns)
 }
 
