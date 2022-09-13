@@ -321,6 +321,12 @@ func main() {
 		defer cancel()
 	}
 
+	reportEraser := policyreport.NewPolicyReportEraser(
+		kyvernoClient,
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports().Lister(),
+		kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports().Lister(),
+	)
+
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
 	// - process policy on existing resources
@@ -334,7 +340,7 @@ func main() {
 		configuration,
 		eventGenerator,
 		reportReqGen,
-		prgen,
+		reportEraser,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
