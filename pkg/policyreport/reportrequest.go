@@ -233,8 +233,6 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 }
 
 func (gen *Generator) processNextWorkItem() bool {
-	gen.mutex.Lock()
-	defer gen.mutex.Unlock()
 	logger := gen.log
 	obj, shutdown := gen.queue.Get()
 	if shutdown {
