@@ -34,33 +34,40 @@ func worker(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetrie
 }
 
 func processNextWorkItem(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) bool {
-	if key, quit := queue.Get(); !quit {
-		defer queue.Done(key)
-		handleErr(logger, queue, maxRetries, reconcile(key.(string), r), key)
+	if obj, quit := queue.Get(); !quit {
+		defer queue.Done(obj)
+		handleErr(logger, queue, maxRetries, reconcile(obj, r), obj)
 		return true
 	}
 	return false
 }
 
-func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, err error, key interface{}) {
+func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, err error, obj interface{}) {
 	if err == nil {
-		queue.Forget(key)
+		queue.Forget(obj)
 	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping request from the queue", "key", key, "error", err.Error())
-		queue.Forget(key)
-	} else if queue.NumRequeues(key) < maxRetries {
-		logger.V(3).Info("Retrying request", "key", key, "error", err.Error())
-		queue.AddRateLimited(key)
+		logger.V(4).Info("Dropping request from the queue", "obj", obj, "error", err.Error())
+		queue.Forget(obj)
+	} else if queue.NumRequeues(obj) < maxRetries {
+		logger.V(3).Info("Retrying request", "obj", obj, "error", err.Error())
+		queue.AddRateLimited(obj)
 	} else {
-		logger.Error(err, "Failed to process request", "key", key)
-		queue.Forget(key)
+		logger.Error(err, "Failed to process request", "obj", obj)
+		queue.Forget(obj)
 	}
 }
 
-func reconcile(key string, r reconcileFunc) error {
-	if namespace, name, err := cache.SplitMetaNamespaceKey(key); err != nil {
-		return err
+func reconcile(obj interface{}, r reconcileFunc) error {
+	var k, ns, n string
+	if key, ok := obj.(cache.ExplicitKey); ok {
+		k = string(key)
 	} else {
-		return r(key, namespace, name)
+		k = obj.(string)
+		if namespace, name, err := cache.SplitMetaNamespaceKey(obj.(string)); err != nil {
+			return err
+		} else {
+			ns, n = namespace, name
+		}
 	}
+	return r(k, ns, n)
 }

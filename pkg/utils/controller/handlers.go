@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+
 	"github.com/go-logr/logr"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/client-go/tools/cache"
@@ -11,6 +13,7 @@ type (
 	addFunc    func(interface{})
 	updateFunc func(interface{}, interface{})
 	deleteFunc func(interface{})
+	keyFunc    func(interface{}) (interface{}, error)
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
@@ -21,32 +24,53 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 	})
 }
 
-func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
-	AddEventHandlers(informer, Add(logger, queue), Update(logger, queue), Delete(logger, queue))
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, keyFunc keyFunc) {
+	AddEventHandlers(informer, AddFunc(logger, queue, keyFunc), UpdateFunc(logger, queue, keyFunc), DeleteFunc(logger, queue, keyFunc))
 }
 
-func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}) {
-	if key, err := cache.MetaNamespaceKeyFunc(obj); err != nil {
-		logger.Error(err, "failed to compute key name")
+func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
+	AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
+}
+
+func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) {
+	if key, err := keyFunc(obj); err != nil {
+		logger.Error(err, "failed to compute key name", "obj", obj)
 	} else {
 		queue.Add(key)
 	}
 }
 
-func Add(logger logr.Logger, queue workqueue.RateLimitingInterface) addFunc {
-	return func(obj interface{}) {
-		Enqueue(logger, queue, obj)
+func MetaNamespaceKey(obj interface{}) (interface{}, error) {
+	return cache.MetaNamespaceKeyFunc(obj)
+}
+
+func Explicit[K any](keyFunc func(K) cache.ExplicitKey) keyFunc {
+	return func(obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return nil, errors.New("obj is nil")
+		}
+		if key, ok := obj.(K); !ok {
+			return nil, errors.New("obj cannot be converted")
+		} else {
+			return keyFunc(key), nil
+		}
 	}
 }
 
-func Update(logger logr.Logger, queue workqueue.RateLimitingInterface) updateFunc {
+func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) addFunc {
+	return func(obj interface{}) {
+		Enqueue(logger, queue, obj, keyFunc)
+	}
+}
+
+func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) updateFunc {
 	return func(_, obj interface{}) {
-		Enqueue(logger, queue, obj)
+		Enqueue(logger, queue, obj, keyFunc)
 	}
 }
 
-func Delete(logger logr.Logger, queue workqueue.RateLimitingInterface) deleteFunc {
+func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) deleteFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj))
+		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj), keyFunc)
 	}
 }
