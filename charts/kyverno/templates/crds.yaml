@@ -28,7 +28,7 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.background
       name: Background
-      type: string
+      type: boolean
     - jsonPath: .spec.validationFailureAction
       name: Validate Action
       type: string
@@ -38,7 +38,7 @@ spec:
       type: string
     - jsonPath: .status.ready
       name: Ready
-      type: string
+      type: boolean
     name: v1
     schema:
       openAPIV3Schema:
@@ -62,6 +62,7 @@ spec:
                 - One
                 type: string
               background:
+                default: true
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
@@ -7561,7 +7562,7 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.background
       name: Background
-      type: string
+      type: boolean
     - jsonPath: .spec.validationFailureAction
       name: Validate Action
       type: string
@@ -7571,7 +7572,7 @@ spec:
       type: string
     - jsonPath: .status.ready
       name: Ready
-      type: string
+      type: boolean
     name: v1
     schema:
       openAPIV3Schema:
@@ -7595,6 +7596,7 @@ spec:
                 - One
                 type: string
               background:
+                default: true
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
