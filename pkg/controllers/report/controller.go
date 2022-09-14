@@ -37,16 +37,8 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func (c *controller) add(obj interface{}) {
-	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
-}
-
-func (c *controller) update(obj, _ interface{}) {
-	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
-}
-
-func (c *controller) delete(obj interface{}) {
-	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
+func keyFunc(obj metav1.Object) cache.ExplicitKey {
+	return cache.ExplicitKey(obj.GetNamespace())
 }
 
 func NewController(
@@ -64,10 +56,8 @@ func NewController(
 		crcrLister:  crcrInformer.Lister(),
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
-	controllerutils.AddEventHandlers(rcrInformer.Informer(), c.add, c.update, c.delete)
-	controllerutils.AddEventHandlers(crcrInformer.Informer(), c.add, c.update, c.delete)
-	// controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
-	// controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
+	controllerutils.AddKeyedEventHandlers(logger, rcrInformer.Informer(), c.queue, controllerutils.Explicit(keyFunc))
+	controllerutils.AddKeyedEventHandlers(logger, crcrInformer.Informer(), c.queue, controllerutils.Explicit(keyFunc))
 	return &c
 }
 

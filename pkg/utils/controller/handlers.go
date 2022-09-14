@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+
 	"github.com/go-logr/logr"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/client-go/tools/cache"
@@ -23,11 +25,11 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 }
 
 func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
-	AddEventHandlers(informer, AddFunc(logger, queue, cache.MetaNamespaceKeyFunc), UpdateFunc(logger, queue, cache.MetaNamespaceKeyFunc), DeleteFunc(logger, queue, cache.MetaNamespaceKeyFunc))
+	AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
 }
 
-func AddExplicitEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, explicit explicitFunc) {
-	AddEventHandlers(informer, Add(logger, queue), Update(logger, queue), Delete(logger, queue))
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, keyFunc keyFunc) {
+	AddEventHandlers(informer, AddFunc(logger, queue, keyFunc), UpdateFunc(logger, queue, keyFunc), DeleteFunc(logger, queue, keyFunc))
 }
 
 func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) {
@@ -38,7 +40,23 @@ func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj inte
 	}
 }
 
-MetaNamespaceKey
+func MetaNamespaceKey(obj interface{}) (interface{}, error) {
+	return cache.MetaNamespaceKeyFunc(obj)
+}
+
+func Explicit[K any](keyFunc func(K) cache.ExplicitKey) keyFunc {
+	return func(obj interface{}) (interface{}, error) {
+		if obj == nil {
+			return nil, errors.New("obj is nil")
+		}
+		if key, ok := obj.(K); !ok {
+			return nil, errors.New("obj cannot be converted")
+		} else {
+			return keyFunc(key), nil
+		}
+	}
+}
+
 func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) addFunc {
 	return func(obj interface{}) {
 		Enqueue(logger, queue, obj, keyFunc)
