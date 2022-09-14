@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"math/rand"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -958,10 +958,10 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	if pattern == "" {
 		return "", errors.New("no pattern provided")
 	}
+	rand.Seed(time.Now().UnixNano())
 	ans, err := regen.Generate(pattern)
 	if err != nil {
 		fmt.Println("Invalid Pattern: ", err)
 	}
-	log.Println()
 	return ans, nil
 }
