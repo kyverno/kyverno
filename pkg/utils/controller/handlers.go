@@ -11,6 +11,7 @@ type (
 	addFunc    func(interface{})
 	updateFunc func(interface{}, interface{})
 	deleteFunc func(interface{})
+	keyFunc    func(interface{}) (interface{}, error)
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
@@ -22,31 +23,36 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 }
 
 func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
+	AddEventHandlers(informer, AddFunc(logger, queue, cache.MetaNamespaceKeyFunc), UpdateFunc(logger, queue, cache.MetaNamespaceKeyFunc), DeleteFunc(logger, queue, cache.MetaNamespaceKeyFunc))
+}
+
+func AddExplicitEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, explicit explicitFunc) {
 	AddEventHandlers(informer, Add(logger, queue), Update(logger, queue), Delete(logger, queue))
 }
 
-func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}) {
-	if key, err := cache.MetaNamespaceKeyFunc(obj); err != nil {
-		logger.Error(err, "failed to compute key name")
+func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) {
+	if key, err := keyFunc(obj); err != nil {
+		logger.Error(err, "failed to compute key name", "obj", obj)
 	} else {
 		queue.Add(key)
 	}
 }
 
-func Add(logger logr.Logger, queue workqueue.RateLimitingInterface) addFunc {
+MetaNamespaceKey
+func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) addFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, obj)
+		Enqueue(logger, queue, obj, keyFunc)
 	}
 }
 
-func Update(logger logr.Logger, queue workqueue.RateLimitingInterface) updateFunc {
+func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) updateFunc {
 	return func(_, obj interface{}) {
-		Enqueue(logger, queue, obj)
+		Enqueue(logger, queue, obj, keyFunc)
 	}
 }
 
-func Delete(logger logr.Logger, queue workqueue.RateLimitingInterface) deleteFunc {
+func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) deleteFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj))
+		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj), keyFunc)
 	}
 }

@@ -200,6 +200,7 @@ func main() {
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -362,7 +363,13 @@ func main() {
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
-	reportController := reportcontroller.NewController(kyvernoClient, kyvernoV1alpha2.ReportChangeRequests(), kyvernoV1alpha2.ClusterReportChangeRequests())
+	reportController := reportcontroller.NewController(
+		kyvernoClient,
+		reportV1alpha2.PolicyReports(),
+		reportV1alpha2.ClusterPolicyReports(),
+		kyvernoV1alpha2.ReportChangeRequests(),
+		kyvernoV1alpha2.ClusterReportChangeRequests(),
+	)
 
 	auditHandler := audit.NewValidateAuditHandler(
 		policyCache,

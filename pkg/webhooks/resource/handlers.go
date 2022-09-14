@@ -141,7 +141,9 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	}
 
 	defer h.handleDelete(logger, request)
-	defer h.auditHandler.Add(request.DeepCopy())
+	if request.Operation != admissionv1.Delete {
+		defer h.auditHandler.Add(request.DeepCopy())
+	}
 
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 

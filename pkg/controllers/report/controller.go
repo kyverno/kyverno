@@ -2,14 +2,19 @@ package report
 
 import (
 	"context"
+	"time"
 
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
+	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
+	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -23,22 +28,46 @@ type controller struct {
 	client versioned.Interface
 
 	// listers
-	rcrInformer  kyvernov1alpha2informers.ReportChangeRequestInformer
-	crcrInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer
+	polrLister  policyreportv1alpha2listers.PolicyReportLister
+	cpolrLister policyreportv1alpha2listers.ClusterPolicyReportLister
+	rcrLister   kyvernov1alpha2listers.ReportChangeRequestLister
+	crcrLister  kyvernov1alpha2listers.ClusterReportChangeRequestLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(client versioned.Interface, rcrInformer kyvernov1alpha2informers.ReportChangeRequestInformer, crcrInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer) *controller {
+func (c *controller) add(obj interface{}) {
+	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
+}
+
+func (c *controller) update(obj, _ interface{}) {
+	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
+}
+
+func (c *controller) delete(obj interface{}) {
+	c.queue.Add(cache.ExplicitKey(obj.(metav1.Object).GetNamespace()))
+}
+
+func NewController(
+	client versioned.Interface,
+	polrInformer policyreportv1alpha2informers.PolicyReportInformer,
+	cpolrInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
+	rcrInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
+	crcrInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
+) *controller {
 	c := controller{
-		client:       client,
-		rcrInformer:  rcrInformer,
-		crcrInformer: crcrInformer,
-		queue:        workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		client:      client,
+		polrLister:  polrInformer.Lister(),
+		cpolrLister: cpolrInformer.Lister(),
+		rcrLister:   rcrInformer.Lister(),
+		crcrLister:  crcrInformer.Lister(),
+		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
-	controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
+	controllerutils.AddEventHandlers(rcrInformer.Informer(), c.add, c.update, c.delete)
+	controllerutils.AddEventHandlers(crcrInformer.Informer(), c.add, c.update, c.delete)
+	// controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
+	// controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
 	return &c
 }
 
@@ -46,16 +75,15 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
+func (c *controller) reconcile(key, _, _ string) error {
+	logger := logger.WithValues("key", key)
 	logger.Info("reconciling ...")
-
-	return c.rebuildReport(namespace)
+	time.Sleep(2 * time.Second)
+	return c.rebuildReport(key)
 }
 
 func (c *controller) rebuildReport(namespace string) error {
-	// TODO: use a lister
-	report, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Get(context.TODO(), namespace, metav1.GetOptions{})
+	report, err := c.polrLister.PolicyReports(namespace).Get(namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			report = &policyreportv1alpha2.PolicyReport{}
@@ -65,7 +93,7 @@ func (c *controller) rebuildReport(namespace string) error {
 			return err
 		}
 	}
-	if rcrs, err := c.rcrInformer.Lister().ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
+	if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
 		return err
 	} else {
 		report.Summary = policyreportv1alpha2.PolicyReportSummary{}
