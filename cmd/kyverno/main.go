@@ -20,6 +20,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
+	reportcontroller "github.com/kyverno/kyverno/pkg/controllers/report"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -198,7 +199,7 @@ func main() {
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-	// kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -361,6 +362,7 @@ func main() {
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	reportController := reportcontroller.NewController(kyvernoClient, kyvernoV1alpha2.ReportChangeRequests(), kyvernoV1alpha2.ClusterReportChangeRequests())
 
 	auditHandler := audit.NewValidateAuditHandler(
 		policyCache,
@@ -517,6 +519,7 @@ func main() {
 	// init events handlers
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
+	go reportController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	// go reportReqGen.Run(2, stopCh)
