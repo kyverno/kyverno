@@ -372,6 +372,7 @@ func main() {
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 	)
 	auditController := auditcontroller.NewController(
+		dynamicClient,
 		kyvernoClient,
 		kyvernoV1.Policies(),
 		kyvernoV1.ClusterPolicies(),

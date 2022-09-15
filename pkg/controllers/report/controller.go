@@ -1,7 +1,6 @@
 package report
 
 import (
-	"context"
 	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -12,7 +11,6 @@ import (
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -45,11 +43,12 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 
 // TODO: split reports
 // TODO: aggregate results
-// TODO: controllerutils.CreateOrUpdate
 
 // DONE: cpol aggregation
 // DONE: managed by kyverno label
 // DONE: deep copy if coming from cache
+// DONE: controllerutils.CreateOrUpdate
+// DONE: controllerutils.GetOrNew
 
 func NewController(
 	client versioned.Interface,
@@ -89,60 +88,44 @@ func (c *controller) reconcile(key, _, _ string) error {
 }
 
 func (c *controller) rebuildClusterReport() error {
-	report, err := c.cpolrLister.Get(cpolrName)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			report = &policyreportv1alpha2.ClusterPolicyReport{}
-			report.SetName(cpolrName)
-		} else {
-			return err
-		}
-	} else {
-		report = report.DeepCopy()
-	}
-	controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-	if rcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
-		return err
-	} else {
-		report.Summary = policyreportv1alpha2.PolicyReportSummary{}
-		for _, rcr := range rcrs {
-			report.Summary = report.Summary.Add(rcr.Summary)
-		}
-	}
-	if report.GetResourceVersion() == "" {
-		_, err = c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), report, metav1.CreateOptions{})
-	} else {
-		_, err = c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), report, metav1.UpdateOptions{})
-	}
+	_, err := controllerutils.CreateOrUpdate(
+		cpolrName,
+		c.cpolrLister,
+		c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports(),
+		func(obj *policyreportv1alpha2.ClusterPolicyReport) error {
+			controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+			if rcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
+				return err
+			} else {
+				obj.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				for _, rcr := range rcrs {
+					obj.Summary = obj.Summary.Add(rcr.Summary)
+				}
+			}
+			return nil
+		},
+	)
 	return err
 }
 
 func (c *controller) rebuildReport(namespace string) error {
-	report, err := c.polrLister.PolicyReports(namespace).Get(namespace)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			report = &policyreportv1alpha2.PolicyReport{}
-			report.SetName(namespace)
-			report.SetNamespace(namespace)
-		} else {
-			return err
-		}
-	} else {
-		report = report.DeepCopy()
-	}
-	controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-	if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
-		return err
-	} else {
-		report.Summary = policyreportv1alpha2.PolicyReportSummary{}
-		for _, rcr := range rcrs {
-			report.Summary = report.Summary.Add(rcr.Summary)
-		}
-	}
-	if report.GetResourceVersion() == "" {
-		_, err = c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Create(context.TODO(), report, metav1.CreateOptions{})
-	} else {
-		_, err = c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Update(context.TODO(), report, metav1.UpdateOptions{})
-	}
+	_, err := controllerutils.CreateOrUpdate(
+		namespace,
+		c.polrLister.PolicyReports(namespace),
+		c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace),
+		func(obj *policyreportv1alpha2.PolicyReport) error {
+			obj.SetNamespace(namespace)
+			controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+			if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
+				return err
+			} else {
+				obj.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				for _, rcr := range rcrs {
+					obj.Summary = obj.Summary.Add(rcr.Summary)
+				}
+			}
+			return nil
+		},
+	)
 	return err
 }

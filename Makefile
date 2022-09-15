@@ -631,7 +631,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
-	@echo Restart kyverno-policies chart...
+	@echo Install kyverno-policies chart...
 	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-all
