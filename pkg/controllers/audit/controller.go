@@ -148,8 +148,8 @@ func (c *controller) runScan(logger logr.Logger) error {
 				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
 				controllerutils.SetOwner(obj, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 				var ruleResults []policyreportv1alpha2.PolicyReportResult
-				for policy, result := range scanResult {
-					controllerutils.SetLabel(obj, "scan.kyverno.io/"+policy, result.Policy.GetResourceVersion())
+				for _, result := range scanResult {
+					controllerutils.SetLabel(obj, policyLabelPrefix(result.Policy)+"/"+result.Policy.GetName(), result.Policy.GetResourceVersion())
 					ruleResults = append(ruleResults, toReportResults(result)...)
 				}
 				obj.Results = ruleResults

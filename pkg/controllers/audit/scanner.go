@@ -8,7 +8,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/cache"
 )
 
 type scanner struct {
@@ -22,7 +21,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	Scan(unstructured.Unstructured, ...kyvernov1.PolicyInterface) map[string]ScanResult
+	Scan(unstructured.Unstructured, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
 func NewScanner(logger logr.Logger, client dclient.Interface) Scanner {
@@ -32,15 +31,14 @@ func NewScanner(logger logr.Logger, client dclient.Interface) Scanner {
 	}
 }
 
-func (s *scanner) Scan(resource unstructured.Unstructured, policies ...kyvernov1.PolicyInterface) map[string]ScanResult {
-	results := map[string]ScanResult{}
+func (s *scanner) Scan(resource unstructured.Unstructured, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
+	results := map[kyvernov1.PolicyInterface]ScanResult{}
 	for _, policy := range policies {
-		key, _ := cache.MetaNamespaceKeyFunc(policy)
 		response, err := s.scan(resource, policy)
 		if err != nil {
 			s.logger.Error(err, "failed to scan resource")
 		}
-		results[key] = ScanResult{response, err}
+		results[policy] = ScanResult{response, err}
 	}
 	return results
 }

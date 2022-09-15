@@ -20,8 +20,7 @@ import (
 
 const (
 	maxRetries = 10
-	workers    = 3
-	cpolrName  = "cluster"
+	workers    = 5
 )
 
 type controller struct {
@@ -41,10 +40,6 @@ type controller struct {
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
 	return cache.ExplicitKey(obj.GetNamespace())
 }
-
-// TODO: split reports
-
-// DONE: aggregate results
 
 func NewController(
 	client versioned.Interface,
@@ -84,48 +79,70 @@ func (c *controller) reconcile(key, _, _ string) error {
 }
 
 func (c *controller) rebuildClusterReport() error {
-	_, err := controllerutils.CreateOrUpdate(
-		cpolrName,
-		c.cpolrLister,
-		c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports(),
-		func(obj *policyreportv1alpha2.ClusterPolicyReport) error {
-			controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-			if crcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
-				return err
-			} else {
-				var results []policyreportv1alpha2.PolicyReportResult
-				for _, crcr := range crcrs {
-					results = append(results, crcr.Results...)
-				}
-				obj.Results = results
-				obj.Summary = auditcontroller.CalculateSummary(results)
-			}
-			return nil
-		},
-	)
-	return err
+	lister := c.cpolrLister
+	client := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports()
+	crcrs, err := c.crcrLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	var results []policyreportv1alpha2.PolicyReportResult
+	for _, crcr := range crcrs {
+		results = append(results, crcr.Results...)
+	}
+	splitResults := auditcontroller.SplitResultsByPolicy(results)
+	var expected []*policyreportv1alpha2.ClusterPolicyReport
+	for name := range splitResults {
+		obj, err := controllerutils.CreateOrUpdate(name, lister, client,
+			func(obj *policyreportv1alpha2.ClusterPolicyReport) error {
+				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+				obj.Results = splitResults[name]
+				obj.Summary = auditcontroller.CalculateSummary(splitResults[name])
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+		expected = append(expected, obj)
+	}
+	actual, err := lister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	return controllerutils.Cleanup(actual, expected, client)
 }
 
 func (c *controller) rebuildReport(namespace string) error {
-	_, err := controllerutils.CreateOrUpdate(
-		namespace,
-		c.polrLister.PolicyReports(namespace),
-		c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace),
-		func(obj *policyreportv1alpha2.PolicyReport) error {
-			obj.SetNamespace(namespace)
-			controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-			if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
-				return err
-			} else {
-				var results []policyreportv1alpha2.PolicyReportResult
-				for _, rcr := range rcrs {
-					results = append(results, rcr.Results...)
-				}
-				obj.Results = results
-				obj.Summary = auditcontroller.CalculateSummary(results)
-			}
-			return nil
-		},
-	)
-	return err
+	lister := c.polrLister.PolicyReports(namespace)
+	client := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace)
+	rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	var results []policyreportv1alpha2.PolicyReportResult
+	for _, rcr := range rcrs {
+		results = append(results, rcr.Results...)
+	}
+	splitResults := auditcontroller.SplitResultsByPolicy(results)
+	var expected []*policyreportv1alpha2.PolicyReport
+	for name := range splitResults {
+		obj, err := controllerutils.CreateOrUpdate(name, lister, client,
+			func(obj *policyreportv1alpha2.PolicyReport) error {
+				obj.SetNamespace(namespace)
+				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+				obj.Results = splitResults[name]
+				obj.Summary = auditcontroller.CalculateSummary(splitResults[name])
+				return nil
+			},
+		)
+		if err != nil {
+			return err
+		}
+		expected = append(expected, obj)
+	}
+	actual, err := lister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	return controllerutils.Cleanup(actual, expected, client)
 }

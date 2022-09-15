@@ -61,6 +61,27 @@ func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summar
 	return
 }
 
+func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
+	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
+	keysMap := map[string]string{}
+	for _, result := range results {
+		if keysMap[result.Policy] == "" {
+			// TODO error checking
+			ns, n, _ := cache.SplitMetaNamespaceKey(result.Policy)
+			if ns == "" {
+				keysMap[result.Policy] = "cpol-" + n
+			} else {
+				keysMap[result.Policy] = "pol-" + n
+			}
+		}
+	}
+	for _, result := range results {
+		key := keysMap[result.Policy]
+		resultsMap[key] = append(resultsMap[key], result)
+	}
+	return resultsMap
+}
+
 func toPolicyResult(status response.RuleStatus) policyreportv1alpha2.PolicyResult {
 	switch status {
 	case response.RuleStatusPass:
@@ -126,4 +147,11 @@ func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportR
 		results = append(results, result)
 	}
 	return results
+}
+
+func policyLabelPrefix(policy kyvernov1.PolicyInterface) string {
+	if policy.IsNamespaced() {
+		return "pol.kyverno.io"
+	}
+	return "cpol.kyverno.io"
 }

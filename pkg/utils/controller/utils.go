@@ -6,21 +6,26 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type object[K any] interface {
-	*K
+type object[T any] interface {
+	*T
 	metav1.Object
-	DeepCopy() *K
+	DeepCopy() *T
 }
 
-type getter[K any] interface {
-	Get(string) (K, error)
+type getter[T any] interface {
+	Get(string) (T, error)
 }
 
-type setter[K any] interface {
-	Create(context.Context, K, metav1.CreateOptions) (K, error)
-	Update(context.Context, K, metav1.UpdateOptions) (K, error)
+type setter[T any] interface {
+	Create(context.Context, T, metav1.CreateOptions) (T, error)
+	Update(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type deleter interface {
+	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 
 func GetOrNew[T any, R object[T], G getter[R]](name string, getter G) (R, error) {
@@ -55,4 +60,19 @@ func CreateOrUpdate[T any, R object[T], G getter[R], S setter[R]](name string, g
 			}
 		}
 	}
+}
+
+func Cleanup[T any, R object[T]](actual []R, expected []R, deleter deleter) error {
+	keep := sets.NewString()
+	for _, obj := range expected {
+		keep.Insert(obj.GetName())
+	}
+	for _, obj := range actual {
+		if !keep.Has(obj.GetName()) {
+			if err := deleter.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
 }
