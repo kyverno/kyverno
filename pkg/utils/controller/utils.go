@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"reflect"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +23,7 @@ type setter[K any] interface {
 	Update(context.Context, K, metav1.UpdateOptions) (K, error)
 }
 
-func GetOrNew[T any, R object[T], G getter[R]](name string, getter G, build func(R) error) (R, error) {
+func GetOrNew[T any, R object[T], G getter[R]](name string, getter G) (R, error) {
 	obj, err := getter.Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -31,30 +32,27 @@ func GetOrNew[T any, R object[T], G getter[R]](name string, getter G, build func
 		} else {
 			return nil, err
 		}
-	} else {
-		obj = obj.DeepCopy()
 	}
-	if err := build(obj); err != nil {
-		return nil, err
-	} else {
-		return obj, nil
-	}
-}
-
-func CreateOrUpdateFunc[T any, R object[T], G getter[R], S setter[R]](getter G, setter S) func(string, func(R) error) (R, error) {
-	return func(name string, build func(R) error) (R, error) {
-		return CreateOrUpdate(name, getter, setter, build)
-	}
+	return obj, nil
 }
 
 func CreateOrUpdate[T any, R object[T], G getter[R], S setter[R]](name string, getter G, setter S, build func(R) error) (R, error) {
-	if obj, err := GetOrNew(name, getter, build); err != nil {
+	if obj, err := GetOrNew[T, R](name, getter); err != nil {
 		return nil, err
 	} else {
-		if obj.GetResourceVersion() == "" {
-			return setter.Create(context.TODO(), obj, metav1.CreateOptions{})
+		mutated := obj.DeepCopy()
+		if err := build(mutated); err != nil {
+			return nil, err
 		} else {
-			return setter.Update(context.TODO(), obj, metav1.UpdateOptions{})
+			if obj.GetResourceVersion() == "" {
+				return setter.Create(context.TODO(), mutated, metav1.CreateOptions{})
+			} else {
+				if reflect.DeepEqual(obj, mutated) {
+					return mutated, nil
+				} else {
+					return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+				}
+			}
 		}
 	}
 }

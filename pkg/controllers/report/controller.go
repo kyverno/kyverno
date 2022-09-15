@@ -10,6 +10,7 @@ import (
 	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
+	auditcontroller "github.com/kyverno/kyverno/pkg/controllers/audit"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -42,13 +43,8 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 }
 
 // TODO: split reports
-// TODO: aggregate results
 
-// DONE: cpol aggregation
-// DONE: managed by kyverno label
-// DONE: deep copy if coming from cache
-// DONE: controllerutils.CreateOrUpdate
-// DONE: controllerutils.GetOrNew
+// DONE: aggregate results
 
 func NewController(
 	client versioned.Interface,
@@ -94,13 +90,15 @@ func (c *controller) rebuildClusterReport() error {
 		c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports(),
 		func(obj *policyreportv1alpha2.ClusterPolicyReport) error {
 			controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-			if rcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
+			if crcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
 				return err
 			} else {
-				obj.Summary = policyreportv1alpha2.PolicyReportSummary{}
-				for _, rcr := range rcrs {
-					obj.Summary = obj.Summary.Add(rcr.Summary)
+				var results []policyreportv1alpha2.PolicyReportResult
+				for _, crcr := range crcrs {
+					results = append(results, crcr.Results...)
 				}
+				obj.Results = results
+				obj.Summary = auditcontroller.CalculateSummary(results)
 			}
 			return nil
 		},
@@ -119,10 +117,12 @@ func (c *controller) rebuildReport(namespace string) error {
 			if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
 				return err
 			} else {
-				obj.Summary = policyreportv1alpha2.PolicyReportSummary{}
+				var results []policyreportv1alpha2.PolicyReportResult
 				for _, rcr := range rcrs {
-					obj.Summary = obj.Summary.Add(rcr.Summary)
+					results = append(results, rcr.Results...)
 				}
+				obj.Results = results
+				obj.Summary = auditcontroller.CalculateSummary(results)
 			}
 			return nil
 		},

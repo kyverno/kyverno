@@ -17,11 +17,9 @@ func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimiting
 	defer runtime.HandleCrash()
 	logger.Info("starting ...")
 	defer logger.Info("shutting down")
-
 	if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
 		return
 	}
-
 	for i := 0; i < n; i++ {
 		go wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, stopCh)
 	}
