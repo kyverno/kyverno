@@ -382,7 +382,6 @@ require (
 replace (
 	github.com/apache/thrift => github.com/apache/thrift v0.14.0
 	github.com/buger/jsonparser => github.com/buger/jsonparser v1.1.1
-	github.com/containerd/containerd => github.com/containerd/containerd v1.5.9
 	github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt/v4 v4.4.1
 	github.com/docker/cli => github.com/docker/cli v20.10.9+incompatible
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
