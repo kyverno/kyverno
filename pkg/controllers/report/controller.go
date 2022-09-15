@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
@@ -21,6 +22,7 @@ import (
 const (
 	maxRetries = 10
 	workers    = 3
+	cpolrName  = "cluster"
 )
 
 type controller struct {
@@ -40,6 +42,14 @@ type controller struct {
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
 	return cache.ExplicitKey(obj.GetNamespace())
 }
+
+// TODO: split reports
+// TODO: aggregate results
+// TODO: controllerutils.CreateOrUpdate
+
+// DONE: cpol aggregation
+// DONE: managed by kyverno label
+// DONE: deep copy if coming from cache
 
 func NewController(
 	client versioned.Interface,
@@ -68,8 +78,43 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 func (c *controller) reconcile(key, _, _ string) error {
 	logger := logger.WithValues("key", key)
 	logger.Info("reconciling ...")
+	// delay processing to reduce reconciliation iterations
+	// in case things are changing fast in the cluster
 	time.Sleep(2 * time.Second)
-	return c.rebuildReport(key)
+	if key == "" {
+		return c.rebuildClusterReport()
+	} else {
+		return c.rebuildReport(key)
+	}
+}
+
+func (c *controller) rebuildClusterReport() error {
+	report, err := c.cpolrLister.Get(cpolrName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			report = &policyreportv1alpha2.ClusterPolicyReport{}
+			report.SetName(cpolrName)
+		} else {
+			return err
+		}
+	} else {
+		report = report.DeepCopy()
+	}
+	controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+	if rcrs, err := c.crcrLister.List(labels.Everything()); err != nil {
+		return err
+	} else {
+		report.Summary = policyreportv1alpha2.PolicyReportSummary{}
+		for _, rcr := range rcrs {
+			report.Summary = report.Summary.Add(rcr.Summary)
+		}
+	}
+	if report.GetResourceVersion() == "" {
+		_, err = c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), report, metav1.CreateOptions{})
+	} else {
+		_, err = c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Update(context.TODO(), report, metav1.UpdateOptions{})
+	}
+	return err
 }
 
 func (c *controller) rebuildReport(namespace string) error {
@@ -82,7 +127,10 @@ func (c *controller) rebuildReport(namespace string) error {
 		} else {
 			return err
 		}
+	} else {
+		report = report.DeepCopy()
 	}
+	controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
 	if rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything()); err != nil {
 		return err
 	} else {
@@ -90,7 +138,6 @@ func (c *controller) rebuildReport(namespace string) error {
 		for _, rcr := range rcrs {
 			report.Summary = report.Summary.Add(rcr.Summary)
 		}
-		// TODO: aggregate results
 	}
 	if report.GetResourceVersion() == "" {
 		_, err = c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Create(context.TODO(), report, metav1.CreateOptions{})

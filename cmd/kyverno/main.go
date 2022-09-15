@@ -17,6 +17,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	auditcontroller "github.com/kyverno/kyverno/pkg/controllers/audit"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -370,6 +371,13 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 	)
+	auditController := auditcontroller.NewController(
+		kyvernoClient,
+		kyvernoV1.Policies(),
+		kyvernoV1.ClusterPolicies(),
+		kyvernoV1alpha2.ReportChangeRequests(),
+		kyvernoV1alpha2.ClusterReportChangeRequests(),
+	)
 
 	auditHandler := audit.NewValidateAuditHandler(
 		policyCache,
@@ -527,6 +535,7 @@ func main() {
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
 	go reportController.Run(stopCh)
+	go auditController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	// go reportReqGen.Run(2, stopCh)
