@@ -5,13 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func SetLabel(obj metav1.Object, key, value string) {
+func SetLabel(obj metav1.Object, key, value string) map[string]string {
 	labels := obj.GetLabels()
 	if labels == nil {
 		labels = map[string]string{}
 	}
 	labels[key] = value
 	obj.SetLabels(labels)
+	return labels
 }
 
 func SetAnnotation(obj metav1.Object, key, value string) {

@@ -72,13 +72,13 @@ func (c *controller) reconcile(key, _, _ string) error {
 	// in case things are changing fast in the cluster
 	time.Sleep(2 * time.Second)
 	if key == "" {
-		return c.rebuildClusterReport()
+		return c.reconcileClusterReport()
 	} else {
-		return c.rebuildReport(key)
+		return c.reconcileReport(key)
 	}
 }
 
-func (c *controller) rebuildClusterReport() error {
+func (c *controller) reconcileClusterReport() error {
 	lister := c.cpolrLister
 	client := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports()
 	crcrs, err := c.crcrLister.List(labels.Everything())
@@ -112,7 +112,7 @@ func (c *controller) rebuildClusterReport() error {
 	return controllerutils.Cleanup(actual, expected, client)
 }
 
-func (c *controller) rebuildReport(namespace string) error {
+func (c *controller) reconcileReport(namespace string) error {
 	lister := c.polrLister.PolicyReports(namespace)
 	client := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace)
 	rcrs, err := c.rcrLister.ReportChangeRequests(namespace).List(labels.Everything())

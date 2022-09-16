@@ -1,6 +1,9 @@
 package audit
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -9,6 +12,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 )
@@ -170,9 +175,41 @@ func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportR
 	return results
 }
 
+func isPolicyLabel(label string) bool {
+	return strings.HasPrefix(label, "pol.kyverno.io/") || strings.HasPrefix(label, "cpol.kyverno.io/")
+}
+
+func policyNameFromLabel(namespace, label string) (string, error) {
+	names := strings.Split(label, "/")
+	if len(names) == 2 {
+		if names[0] == "cpol.kyverno.io" {
+			return names[1], nil
+		} else if names[0] == "pol.kyverno.io" {
+			return namespace + "/" + names[1], nil
+		}
+	}
+	return "", fmt.Errorf("cannot get policy name from label, incorrect format: %s", label)
+}
+
 func policyLabelPrefix(policy kyvernov1.PolicyInterface) string {
 	if policy.IsNamespaced() {
 		return "pol.kyverno.io"
 	}
 	return "cpol.kyverno.io"
+}
+
+func policyLabel(policy kyvernov1.PolicyInterface) string {
+	return policyLabelPrefix(policy) + "/" + policy.GetName()
+}
+
+func policyLabelRequirementNotEquals(policy kyvernov1.PolicyInterface) (*labels.Requirement, error) {
+	return labels.NewRequirement(policyLabel(policy), selection.NotEquals, []string{policy.GetResourceVersion()})
+}
+
+func policyLabelRequirementExists(policy kyvernov1.PolicyInterface) (*labels.Requirement, error) {
+	return labels.NewRequirement(policyLabel(policy), selection.Exists, nil)
+}
+
+func policyLabelRequirementDoesNotExist(policy kyvernov1.PolicyInterface) (*labels.Requirement, error) {
+	return labels.NewRequirement(policyLabel(policy), selection.DoesNotExist, nil)
 }

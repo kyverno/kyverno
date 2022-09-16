@@ -32,11 +32,13 @@ func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, qu
 	AddEventHandlers(informer, AddFunc(logger, queue, keyFunc), UpdateFunc(logger, queue, keyFunc), DeleteFunc(logger, queue, keyFunc))
 }
 
-func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) {
+func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) error {
 	if key, err := keyFunc(obj); err != nil {
 		logger.Error(err, "failed to compute key name", "obj", obj)
+		return err
 	} else {
 		queue.Add(key)
+		return nil
 	}
 }
 
