@@ -62,6 +62,18 @@ type ReportChangeRequest struct {
 	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
 }
 
+func (r *ReportChangeRequest) GetResults() []policyreportv1alpha2.PolicyReportResult {
+	return r.Results
+}
+
+func (r *ReportChangeRequest) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+	r.Results = results
+}
+
+func (r *ReportChangeRequest) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+	r.Summary = summary
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

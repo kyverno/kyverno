@@ -46,6 +46,16 @@ func buildKindSet(logger logr.Logger, policies ...kyvernov1.PolicyInterface) set
 	return kinds
 }
 
+func removeNonBackgroundPolicies(logger logr.Logger, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+	var backgroundPolicies []kyvernov1.PolicyInterface
+	for _, pol := range policies {
+		if canBackgroundProcess(logger, pol) {
+			backgroundPolicies = append(backgroundPolicies, pol)
+		}
+	}
+	return backgroundPolicies
+}
+
 func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summary policyreportv1alpha2.PolicyReportSummary) {
 	for _, res := range results {
 		switch string(res.Result) {

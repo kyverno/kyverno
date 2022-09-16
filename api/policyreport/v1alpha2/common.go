@@ -68,15 +68,6 @@ func (prs PolicyReportSummary) ToMap() map[string]interface{} {
 	return m
 }
 
-func (prs PolicyReportSummary) Add(other PolicyReportSummary) PolicyReportSummary {
-	prs.Pass += other.Pass
-	prs.Fail += other.Fail
-	prs.Warn += other.Warn
-	prs.Error += other.Error
-	prs.Skip += other.Skip
-	return prs
-}
-
 // PolicyResult has one of the following values:
 //   - pass: indicates that the policy requirements are met
 //   - fail: indicates that the policy requirements are not met

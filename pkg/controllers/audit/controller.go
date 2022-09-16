@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
@@ -15,30 +14,22 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 )
 
 // TODO: skip resources to be filtered
-// TODO: get discovery schema
-// TODO: clean up dangling reports
-
-// DONE: cache background policies
-// DONE: validate variables
-// DONE: transmit logger
-// DONE: build kinds
-// DONE: filter out unnecessary rules
-// DONE: managed by kyverno label
-// DONE: deep copy if coming from cache
-// DONE: compare in createorupdate before calling
-// DONE: convert scan results
-// DONE: sort results
-// DONE: policiy removal
+// TODO: leader election
+// TODO: namespace labels thing ?
+// TODO: exclude roles thing ?
+// TODO: admission
 
 const (
 	maxRetries = 10
-	workers    = 3
+	workers    = 10
 )
 
 type controller struct {
@@ -73,76 +64,77 @@ func NewController(
 		crcrLister:    crcrInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
-	add := func(obj interface{}) {
-		selector := labels.Everything()
-		requirement, err := policyLabelRequirementDoesNotExist(obj.(kyvernov1.PolicyInterface))
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		} else {
-			selector = selector.Add(*requirement)
-		}
-		c.enqueue(selector)
-	}
-	update := func(_, obj interface{}) {
-		selector := labels.Everything()
-		requirement, err := policyLabelRequirementNotEquals(obj.(kyvernov1.PolicyInterface))
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		} else {
-			selector = selector.Add(*requirement)
-		}
-		c.enqueue(selector)
-	}
-	delete := func(obj interface{}) {
-		selector := labels.Everything()
-		requirement, err := policyLabelRequirementExists(obj.(kyvernov1.PolicyInterface))
-		if err != nil {
-			logger.Error(err, "failed to create label selector")
-		} else {
-			selector = selector.Add(*requirement)
-		}
-		c.enqueue(selector)
-	}
-	controllerutils.AddEventHandlers(polInformer.Informer(), add, update, delete)
-	controllerutils.AddEventHandlers(cpolInformer.Informer(), add, update, delete)
+	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
+	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
 	return &c
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	go c.ticker(stopCh)
+	go c.background(stopCh)
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) enqueue(selector labels.Selector) {
-	rcrs, err := c.rcrLister.List(selector)
+func (c *controller) addPolicy(obj interface{}) {
+	selector := labels.Everything()
+	requirement, err := policyLabelRequirementDoesNotExist(obj.(kyvernov1.PolicyInterface))
 	if err != nil {
-		logger.Error(err, "failed to list rcrs")
+		logger.Error(err, "failed to create label selector")
 	} else {
-		for _, rcr := range rcrs {
-			controllerutils.Enqueue(logger, c.queue, rcr, controllerutils.MetaNamespaceKey)
-		}
+		selector = selector.Add(*requirement)
 	}
-	crcrs, err := c.crcrLister.List(selector)
-	if err != nil {
-		logger.Error(err, "failed to list crcrs")
-	} else {
-		for _, crcr := range crcrs {
-			controllerutils.Enqueue(logger, c.queue, crcr, controllerutils.MetaNamespaceKey)
-		}
+	if err := c.enqueue(selector); err != nil {
+		logger.Error(err, "failed to enqueue")
 	}
 }
 
-func (c *controller) fetchPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
-	var policies []kyvernov1.PolicyInterface
-	if pols, err := c.polLister.List(labels.Everything()); err != nil {
-		return nil, err
+func (c *controller) updatePolicy(_, obj interface{}) {
+	selector := labels.Everything()
+	requirement, err := policyLabelRequirementNotEquals(obj.(kyvernov1.PolicyInterface))
+	if err != nil {
+		logger.Error(err, "failed to create label selector")
 	} else {
-		for _, pol := range pols {
-			policies = append(policies, pol)
-		}
+		selector = selector.Add(*requirement)
 	}
+	if err := c.enqueue(selector); err != nil {
+		logger.Error(err, "failed to enqueue")
+	}
+}
+
+func (c *controller) deletePolicy(obj interface{}) {
+	selector := labels.Everything()
+	requirement, err := policyLabelRequirementExists(obj.(kyvernov1.PolicyInterface))
+	if err != nil {
+		logger.Error(err, "failed to create label selector")
+	} else {
+		selector = selector.Add(*requirement)
+	}
+	if err := c.enqueue(selector); err != nil {
+		logger.Error(err, "failed to enqueue")
+	}
+}
+
+func (c *controller) enqueue(selector labels.Selector) error {
+	rcrs, err := c.rcrLister.List(selector)
+	if err != nil {
+		return err
+	}
+	for _, rcr := range rcrs {
+		controllerutils.Enqueue(logger, c.queue, rcr, controllerutils.MetaNamespaceKey)
+	}
+	crcrs, err := c.crcrLister.List(selector)
+	if err != nil {
+		return err
+	}
+	for _, crcr := range crcrs {
+		controllerutils.Enqueue(logger, c.queue, crcr, controllerutils.MetaNamespaceKey)
+	}
+	return nil
+}
+
+func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
 	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
 		return nil, err
 	} else {
@@ -153,14 +145,16 @@ func (c *controller) fetchPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterf
 	return policies, nil
 }
 
-func removeNonBackgroundPolicies(logger logr.Logger, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
-	var backgroundPolicies []kyvernov1.PolicyInterface
-	for _, pol := range policies {
-		if canBackgroundProcess(logger, pol) {
-			backgroundPolicies = append(backgroundPolicies, pol)
+func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if pols, err := c.polLister.Policies(namespace).List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, pol)
 		}
 	}
-	return backgroundPolicies
+	return policies, nil
 }
 
 func (c *controller) fetchResources(logger logr.Logger, policies ...kyvernov1.PolicyInterface) ([]unstructured.Unstructured, error) {
@@ -178,112 +172,26 @@ func (c *controller) fetchResources(logger logr.Logger, policies ...kyvernov1.Po
 }
 
 func (c *controller) reconcileReport(namespace, name string) error {
-	// fetch report, if not found is not an error
-	rcr, err := c.rcrLister.ReportChangeRequests(namespace).Get(name)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		} else {
-			return err
-		}
-	}
-	// load all policies
-	policies, err := c.fetchPolicies(logger)
-	if err != nil {
-		return err
-	}
-	// load background policies
-	backgroundPolicies := removeNonBackgroundPolicies(logger, policies...)
-	// build label/policy maps
-	labelPolicyMap := map[string]kyvernov1.PolicyInterface{}
-	for _, policy := range policies {
-		labelPolicyMap[policyLabel(policy)] = policy
-	}
-	labelBackgroundPolicyMap := map[string]kyvernov1.PolicyInterface{}
-	for _, policy := range backgroundPolicies {
-		labelBackgroundPolicyMap[policyLabel(policy)] = policy
-	}
-	// update report
-	_, err = controllerutils.Update(c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(namespace), rcr,
-		func(rcr *kyvernov1alpha2.ReportChangeRequest) error {
-			rcr.SetNamespace(namespace)
-			labels := controllerutils.SetLabel(rcr, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
-			// check report policies versions against policies version
-			toDelete := map[string]string{}
-			var toCreate []kyvernov1.PolicyInterface
-			for label := range labels {
-				if isPolicyLabel(label) {
-					// if the policy doesn't exist anymore
-					if labelPolicyMap[label] == nil {
-						if name, err := policyNameFromLabel(namespace, label); err != nil {
-							return err
-						} else {
-							toDelete[name] = label
-						}
-					}
-				}
-			}
-			for label, policy := range labelBackgroundPolicyMap {
-				// if the background policy changed, we need to recreate entries
-				if labels[label] != policy.GetResourceVersion() {
-					if name, err := policyNameFromLabel(namespace, label); err != nil {
-						return err
-					} else {
-						toDelete[name] = label
-					}
-					toCreate = append(toCreate, policy)
-				}
-			}
-			// deletions
-			for _, label := range toDelete {
-				delete(labels, label)
-			}
-			var ruleResults []policyreportv1alpha2.PolicyReportResult
-			for _, result := range rcr.Results {
-				if _, ok := toDelete[result.Policy]; !ok {
-					ruleResults = append(ruleResults, result)
-				}
-			}
-			// creations
-			if len(toCreate) > 0 {
-				scanner := NewScanner(logger, c.client)
-				owner := rcr.OwnerReferences[0]
-				resource, err := c.client.GetResource(owner.APIVersion, owner.Kind, rcr.GetNamespace(), owner.Name)
-				if err != nil {
-					return err
-				}
-				for _, result := range scanner.Scan(*resource, toCreate...) {
-					controllerutils.SetLabel(rcr, policyLabel(result.Policy), result.Policy.GetResourceVersion())
-					ruleResults = append(ruleResults, toReportResults(result)...)
-				}
-			}
-			// update results and summary
-			rcr.Results = ruleResults
-			rcr.Summary = CalculateSummary(ruleResults)
-			return nil
-		},
+	return reconcileReport[kyvernov1alpha2.ReportChangeRequest](
+		c,
+		name,
+		c.rcrLister.ReportChangeRequests(namespace),
+		c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(namespace),
 	)
-	if err != nil {
-		logger.Error(err, "failed to create or update rcr")
-	}
-	return nil
 }
 
 func (c *controller) reconcileClusterReport(name string) error {
-	_, err := c.crcrLister.Get(name)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		} else {
-			return err
-		}
-	}
-	return nil
+	return reconcileReport[kyvernov1alpha2.ClusterReportChangeRequest](
+		c,
+		name,
+		c.crcrLister,
+		c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests(),
+	)
 }
 
 func (c *controller) reconcile(key, namespace, name string) error {
 	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
-	logger.Info("reconciling ...")
+	logger.V(2).Info("reconciling ...")
 	if namespace == "" {
 		return c.reconcileClusterReport(name)
 	} else {
@@ -292,23 +200,29 @@ func (c *controller) reconcile(key, namespace, name string) error {
 }
 
 func (c *controller) sync() error {
-	logger.Info("start sync ...")
-	defer logger.Info("stop sync ...")
-	policies, err := c.fetchPolicies(logger)
+	logger.V(2).Info("start sync ...")
+	defer logger.V(2).Info("stop sync ...")
+	clusterPolicies, err := c.fetchClusterPolicies(logger)
 	if err != nil {
 		return err
 	}
-	backgroundPolicies := removeNonBackgroundPolicies(logger, policies...)
+	policies, err := c.fetchPolicies(logger, metav1.NamespaceAll)
+	if err != nil {
+		return err
+	}
+	backgroundPolicies := removeNonBackgroundPolicies(logger, append(clusterPolicies, policies...)...)
 	resources, err := c.fetchResources(logger, backgroundPolicies...)
 	if err != nil {
 		return err
 	}
+	var expectedRcrs []*kyvernov1alpha2.ReportChangeRequest
+	var expectedCrcrs []*kyvernov1alpha2.ClusterReportChangeRequest
 	for _, resource := range resources {
 		if resource.GetNamespace() == "" {
 			name := "crcr-" + string(resource.GetUID())
-			if _, err := c.crcrLister.Get(name); err != nil {
+			if crcr, err := c.crcrLister.Get(name); err != nil {
 				if apierrors.IsNotFound(err) {
-					_, err = controllerutils.CreateOrUpdate(
+					crcr, err := controllerutils.CreateOrUpdate(
 						name,
 						c.crcrLister,
 						c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests(),
@@ -321,15 +235,18 @@ func (c *controller) sync() error {
 					if err != nil {
 						return err
 					}
+					expectedCrcrs = append(expectedCrcrs, crcr)
 				} else {
 					return err
 				}
+			} else {
+				expectedCrcrs = append(expectedCrcrs, crcr)
 			}
 		} else {
 			name := "rcr-" + string(resource.GetUID())
-			if _, err := c.rcrLister.ReportChangeRequests(resource.GetNamespace()).Get(name); err != nil {
+			if rcr, err := c.rcrLister.ReportChangeRequests(resource.GetNamespace()).Get(name); err != nil {
 				if apierrors.IsNotFound(err) {
-					_, err = controllerutils.CreateOrUpdate(
+					rcr, err := controllerutils.CreateOrUpdate(
 						name,
 						c.rcrLister.ReportChangeRequests(resource.GetNamespace()),
 						c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(resource.GetNamespace()),
@@ -342,25 +259,66 @@ func (c *controller) sync() error {
 					if err != nil {
 						return err
 					}
+					expectedRcrs = append(expectedRcrs, rcr)
 				} else {
 					return err
 				}
+			} else {
+				expectedRcrs = append(expectedRcrs, rcr)
 			}
+		}
+	}
+	actualRcrs, err := c.rcrLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	actualCrcrs, err := c.crcrLister.List(labels.Everything())
+	if err != nil {
+		return err
+	}
+	if err := controllerutils.Cleanup(actualCrcrs, expectedCrcrs, c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests()); err != nil {
+		return err
+	}
+	namespaces := sets.NewString()
+	for _, rcr := range actualRcrs {
+		namespaces.Insert(rcr.GetNamespace())
+	}
+	for _, rcr := range expectedRcrs {
+		namespaces.Insert(rcr.GetNamespace())
+	}
+	for _, namespace := range namespaces.List() {
+		var actual []*kyvernov1alpha2.ReportChangeRequest
+		for _, rcr := range actualRcrs {
+			if rcr.GetNamespace() == namespace {
+				actual = append(actual, rcr)
+			}
+		}
+		var expected []*kyvernov1alpha2.ReportChangeRequest
+		for _, rcr := range expectedRcrs {
+			if rcr.GetNamespace() == namespace {
+				expected = append(expected, rcr)
+			}
+		}
+		if err := controllerutils.Cleanup(actual, expected, c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(namespace)); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func (c *controller) ticker(stopChan <-chan struct{}) {
-	ticker := time.NewTicker(1 * time.Minute)
-	defer ticker.Stop()
+func (c *controller) background(stopChan <-chan struct{}) {
+	sync := time.NewTicker(1 * time.Minute)
+	requeue := time.NewTicker(1 * time.Minute)
+	defer sync.Stop()
+	defer requeue.Stop()
 	for {
 		select {
-		case <-ticker.C:
+		case <-sync.C:
 			err := c.sync()
 			if err != nil {
 				logger.Error(err, "sync failed")
 			}
+		case <-requeue.C:
 			c.enqueue(labels.Everything())
 		case <-stopChan:
 			return
