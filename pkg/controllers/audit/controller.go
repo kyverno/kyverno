@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -14,6 +14,7 @@ import (
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/workqueue"
@@ -32,6 +33,8 @@ import (
 // DONE: deep copy if coming from cache
 // DONE: compare in createorupdate before calling
 // DONE: convert scan results
+// DONE: sort results
+// DONE: policiy removal
 
 const (
 	maxRetries = 10
@@ -143,7 +146,7 @@ func (c *controller) runScan(logger logr.Logger) error {
 			name,
 			c.rcrLister.ReportChangeRequests(resource.GetNamespace()),
 			c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(resource.GetNamespace()),
-			func(obj *v1alpha2.ReportChangeRequest) error {
+			func(obj *kyvernov1alpha2.ReportChangeRequest) error {
 				obj.SetNamespace(resource.GetNamespace())
 				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
 				controllerutils.SetOwner(obj, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
@@ -152,6 +155,7 @@ func (c *controller) runScan(logger logr.Logger) error {
 					controllerutils.SetLabel(obj, policyLabelPrefix(result.Policy)+"/"+result.Policy.GetName(), result.Policy.GetResourceVersion())
 					ruleResults = append(ruleResults, toReportResults(result)...)
 				}
+				SortReportResults(ruleResults)
 				obj.Results = ruleResults
 				obj.Summary = CalculateSummary(ruleResults)
 				return nil
@@ -164,9 +168,48 @@ func (c *controller) runScan(logger logr.Logger) error {
 	return nil
 }
 
+func (c *controller) getPolicy(namespace, name string) (kyvernov1.PolicyInterface, error) {
+	if namespace == "" {
+		return c.cpolLister.Get(name)
+	} else {
+		return c.polLister.Policies(namespace).Get(name)
+	}
+}
+
 func (c *controller) reconcile(key, namespace, name string) error {
 	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
 	logger.Info("reconciling ...")
+	_, err := c.getPolicy(namespace, name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			rcrs, err := c.rcrLister.List(labels.Everything())
+			if err != nil {
+				return nil
+			}
+			for _, rcr := range rcrs {
+				_, err = controllerutils.Update(
+					c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(rcr.GetNamespace()),
+					rcr,
+					func(rcr *kyvernov1alpha2.ReportChangeRequest) error {
+						var ruleResults []policyreportv1alpha2.PolicyReportResult
+						for _, result := range rcr.Results {
+							if result.Policy != key {
+								ruleResults = append(ruleResults, result)
+							}
+						}
+						rcr.Results = ruleResults
+						rcr.Summary = CalculateSummary(ruleResults)
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -62,6 +62,19 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, g
 	}
 }
 
+func Update[T any, R Object[T], S Setter[R]](setter S, obj R, build func(R) error) (R, error) {
+	mutated := obj.DeepCopy()
+	if err := build(mutated); err != nil {
+		return nil, err
+	} else {
+		if reflect.DeepEqual(obj, mutated) {
+			return mutated, nil
+		} else {
+			return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+		}
+	}
+}
+
 func Cleanup[T any, R Object[T]](actual []R, expected []R, deleter Deleter) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
