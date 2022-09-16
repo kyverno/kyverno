@@ -1,16 +1,14 @@
 package audit
 
 import (
-	"time"
-
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policy"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 )
@@ -61,6 +59,26 @@ func CalculateSummary(results []policyreportv1alpha2.PolicyReportResult) (summar
 	return
 }
 
+func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
+	slices.SortFunc(results, func(a policyreportv1alpha2.PolicyReportResult, b policyreportv1alpha2.PolicyReportResult) bool {
+		if a.Policy != b.Policy {
+			return a.Policy < b.Policy
+		}
+		if a.Rule != b.Rule {
+			return a.Rule < b.Rule
+		}
+		if len(a.Resources) != len(b.Resources) {
+			return len(a.Resources) < len(b.Resources)
+		}
+		for i := range a.Resources {
+			if a.Resources[i].UID != b.Resources[i].UID {
+				return a.Resources[i].UID < b.Resources[i].UID
+			}
+		}
+		return false
+	})
+}
+
 func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
 	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
 	keysMap := map[string]string{}
@@ -78,6 +96,9 @@ func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map
 	for _, result := range results {
 		key := keysMap[result.Policy]
 		resultsMap[key] = append(resultsMap[key], result)
+	}
+	for _, result := range resultsMap {
+		SortReportResults(result)
 	}
 	return resultsMap
 }
@@ -135,9 +156,9 @@ func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportR
 			Result:  toPolicyResult(ruleResult.Status),
 			Scored:  annotations[categoryLabel] != "false",
 			// TODO this is going to tigger updates
-			Timestamp: metav1.Timestamp{
-				Seconds: time.Now().Unix(),
-			},
+			// Timestamp: metav1.Timestamp{
+			// 	Seconds: time.Now().Unix(),
+			// },
 			Category: annotations[categoryLabel],
 			Severity: severityFromString(annotations[categoryLabel]),
 		}

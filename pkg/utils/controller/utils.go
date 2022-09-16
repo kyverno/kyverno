@@ -9,26 +9,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type object[T any] interface {
+type Object[T any] interface {
 	*T
 	metav1.Object
 	DeepCopy() *T
 }
 
-type getter[T any] interface {
+type Getter[T any] interface {
 	Get(string) (T, error)
 }
 
-type setter[T any] interface {
+type Setter[T any] interface {
 	Create(context.Context, T, metav1.CreateOptions) (T, error)
 	Update(context.Context, T, metav1.UpdateOptions) (T, error)
 }
 
-type deleter interface {
+type Deleter interface {
 	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 
-func GetOrNew[T any, R object[T], G getter[R]](name string, getter G) (R, error) {
+func GetOrNew[T any, R Object[T], G Getter[R]](name string, getter G) (R, error) {
 	obj, err := getter.Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -41,7 +41,7 @@ func GetOrNew[T any, R object[T], G getter[R]](name string, getter G) (R, error)
 	return obj, nil
 }
 
-func CreateOrUpdate[T any, R object[T], G getter[R], S setter[R]](name string, getter G, setter S, build func(R) error) (R, error) {
+func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, getter G, setter S, build func(R) error) (R, error) {
 	if obj, err := GetOrNew[T, R](name, getter); err != nil {
 		return nil, err
 	} else {
@@ -62,7 +62,7 @@ func CreateOrUpdate[T any, R object[T], G getter[R], S setter[R]](name string, g
 	}
 }
 
-func Cleanup[T any, R object[T]](actual []R, expected []R, deleter deleter) error {
+func Cleanup[T any, R Object[T]](actual []R, expected []R, deleter Deleter) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())

@@ -8,8 +8,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
-	github.com/cornelk/hashmap v1.0.1
-	github.com/dchest/siphash v1.2.1 // indirect
 	github.com/distribution/distribution v2.7.1+incompatible
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
@@ -32,7 +30,6 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.13.0 // indirect
 	github.com/sigstore/cosign v1.11.1
@@ -80,6 +77,7 @@ require (
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
+	golang.org/x/exp v0.0.0-20220915210609-840b3808d824
 )
 
 require (
@@ -345,7 +343,7 @@ require (
 	golang.org/x/sys v0.0.0-20220829200755-d48e67d00261 // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
-	golang.org/x/tools v0.1.11 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/api v0.93.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220805133916-01dd62135a58 // indirect
