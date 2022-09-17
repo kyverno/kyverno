@@ -21,6 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// +kubebuilder:object:generate=false
+
+// ReportChangeRequestInterface abstracts the concrete report change request type (ReportChangeRequest vs ClusterReportChangeRequest)
 type ReportChangeRequestInterface interface {
 	metav1.Object
 	GetResults() []policyreportv1alpha2.PolicyReportResult
