@@ -634,8 +634,24 @@ kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart...
 	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
+.PHONY: kind-deploy-metrics-server
+kind-deploy-metrics-server: ## Deploy metrics-server helm chart
+	@echo Install metrics-server chart...
+	@helm upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
+		--set extraArgs={--kubelet-insecure-tls=true} \
+		--set apiService.create=true
+
 .PHONY: kind-deploy-all
-kind-deploy-all: | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
+
+.PHONY: kind-deploy-reporter
+kind-deploy-reporter: ## Deploy policy-reporter helm chart
+	@echo Install policy-reporter chart...
+	@helm upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
+		--set ui.enabled=true \
+		--set kyvernoPlugin.enabled=true \
+		--create-namespace
+	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
 
 ########
 # HELP #

@@ -61,23 +61,19 @@ func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Dur
 // }
 
 func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	var ns string
 	if request.GetKind() == "ReportChangeRequest" {
-		ns = request.GetNamespace()
+		ns := request.GetNamespace()
 		rcr, err := convertToRCR(request)
 		if err != nil {
 			return err
 		}
-
 		_, err = c.client.KyvernoV1alpha2().ReportChangeRequests(ns).Create(context.TODO(), rcr, metav1.CreateOptions{})
 		return err
 	}
-
 	crcr, err := convertToCRCR(request)
 	if err != nil {
 		return err
 	}
-
 	_, err = c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
 	return err
 }
@@ -306,7 +302,6 @@ func (c *changeRequestCreator) create(request *unstructured.Unstructured) error 
 // 	if dstNS != srcNS {
 // 		return false
 // 	}
-
 // 	if dstResults, ok, _ := unstructured.NestedSlice(dst.UnstructuredContent(), "results"); ok {
 // 		if srcResults, ok, _ := unstructured.NestedSlice(src.UnstructuredContent(), "results"); ok {
 // 			dstResults = append(dstResults, srcResults...)
