@@ -219,7 +219,7 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 		}
 
 		resLabels := resource.GetLabels()
-		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+		if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 			urName := resLabels["policy.kyverno.io/gr-name"]
 			ur, err := h.urLister.Get(urName)
 			if err != nil {
