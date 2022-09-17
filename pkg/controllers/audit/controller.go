@@ -166,7 +166,7 @@ func (c *controller) fetchResources(logger logr.Logger, policies ...kyvernov1.Po
 	var resources []unstructured.Unstructured
 	kinds := buildKindSet(logger, policies...)
 	for kind := range kinds {
-		list, err := c.client.ListResource("", kind, "" /*labelSelector*/, nil)
+		list, err := c.client.ListResource("", kind, metav1.NamespaceAll, nil)
 		if err != nil {
 			logger.Error(err, "failed to list resources", "kind", kind)
 			return nil, err

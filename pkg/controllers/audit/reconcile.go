@@ -21,7 +21,7 @@ type pointer[T any] interface {
 
 func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S controllerutils.Setter[R]](c *controller, name string, getter G, setter S) error {
 	// fetch report, if not found is not an error
-	rcr, err := getter.Get(name)
+	report, err := getter.Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -29,7 +29,7 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 			return err
 		}
 	}
-	namespace := rcr.GetNamespace()
+	namespace := report.GetNamespace()
 	// load all policies
 	policies, err := c.fetchClusterPolicies(logger)
 	if err != nil {
@@ -54,9 +54,9 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 		labelBackgroundPolicyMap[policyLabel(policy)] = policy
 	}
 	// update report
-	_, err = controllerutils.Update(setter, rcr,
-		func(rcr R) error {
-			labels := controllerutils.SetLabel(rcr, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+	_, err = controllerutils.Update(setter, report,
+		func(report R) error {
+			labels := controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
 			// check report policies versions against policies version
 			toDelete := map[string]string{}
 			var toCreate []kyvernov1.PolicyInterface
@@ -88,7 +88,7 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 				delete(labels, label)
 			}
 			var ruleResults []policyreportv1alpha2.PolicyReportResult
-			for _, result := range rcr.GetResults() {
+			for _, result := range report.GetResults() {
 				if _, ok := toDelete[result.Policy]; !ok {
 					ruleResults = append(ruleResults, result)
 				}
@@ -96,8 +96,8 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 			// creations
 			if len(toCreate) > 0 {
 				scanner := NewScanner(logger, c.client)
-				owner := rcr.GetOwnerReferences()[0]
-				resource, err := c.client.GetResource(owner.APIVersion, owner.Kind, rcr.GetNamespace(), owner.Name)
+				owner := report.GetOwnerReferences()[0]
+				resource, err := c.client.GetResource(owner.APIVersion, owner.Kind, report.GetNamespace(), owner.Name)
 				if err != nil {
 					return err
 				}
@@ -113,14 +113,14 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 					if result.Error != nil {
 						return err
 					} else {
-						controllerutils.SetLabel(rcr, policyLabel(result.EngineResponse.Policy), result.EngineResponse.Policy.GetResourceVersion())
+						controllerutils.SetLabel(report, policyLabel(result.EngineResponse.Policy), result.EngineResponse.Policy.GetResourceVersion())
 						ruleResults = append(ruleResults, toReportResults(result)...)
 					}
 				}
 			}
 			// update results and summary
-			rcr.SetResults(ruleResults)
-			rcr.SetSummary(CalculateSummary(ruleResults))
+			report.SetResults(ruleResults)
+			report.SetSummary(CalculateSummary(ruleResults))
 			return nil
 		},
 	)

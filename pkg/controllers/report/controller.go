@@ -56,8 +56,8 @@ func NewController(
 		crcrLister:  crcrInformer.Lister(),
 		queue:       workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
-	controllerutils.AddKeyedEventHandlers(logger, rcrInformer.Informer(), c.queue, controllerutils.Explicit(keyFunc))
-	controllerutils.AddKeyedEventHandlers(logger, crcrInformer.Informer(), c.queue, controllerutils.Explicit(keyFunc))
+	controllerutils.AddExplicitEventHandlers(logger, rcrInformer.Informer(), c.queue, keyFunc)
+	controllerutils.AddExplicitEventHandlers(logger, crcrInformer.Informer(), c.queue, keyFunc)
 	return &c
 }
 
