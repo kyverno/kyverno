@@ -378,6 +378,7 @@ func main() {
 		kyvernoV1.ClusterPolicies(),
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
+		kubeInformer.Core().V1().Namespaces(),
 	)
 
 	auditHandler := audit.NewValidateAuditHandler(

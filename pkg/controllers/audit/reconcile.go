@@ -101,7 +101,15 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 				if err != nil {
 					return err
 				}
-				for _, result := range scanner.Scan(*resource, toCreate...) {
+				var nsLabels map[string]string
+				if namespace != "" {
+					ns, err := c.nsLister.Get(namespace)
+					if err != nil {
+						return err
+					}
+					nsLabels = ns.GetLabels()
+				}
+				for _, result := range scanner.Scan(*resource, nsLabels, toCreate...) {
 					controllerutils.SetLabel(rcr, policyLabel(result.Policy), result.Policy.GetResourceVersion())
 					ruleResults = append(ruleResults, toReportResults(result)...)
 				}

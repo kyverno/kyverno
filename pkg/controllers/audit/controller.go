@@ -18,14 +18,16 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	corev1informers "k8s.io/client-go/informers/core/v1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/util/workqueue"
 )
 
 // TODO: skip resources to be filtered
 // TODO: leader election
-// TODO: namespace labels thing ?
 // TODO: exclude roles thing ?
-// TODO: admission
+// TODO: admission scan refactor
+// TODO: namespace hash
 
 const (
 	maxRetries = 10
@@ -42,6 +44,7 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	rcrLister  kyvernov1alpha2listers.ReportChangeRequestLister
 	crcrLister kyvernov1alpha2listers.ClusterReportChangeRequestLister
+	nsLister   corev1listers.NamespaceLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -54,6 +57,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	rcrInformer kyvernov1alpha2informers.ReportChangeRequestInformer,
 	crcrInformer kyvernov1alpha2informers.ClusterReportChangeRequestInformer,
+	nsInformer corev1informers.NamespaceInformer,
 ) *controller {
 	c := controller{
 		client:        client,
@@ -62,12 +66,14 @@ func NewController(
 		cpolLister:    cpolInformer.Lister(),
 		rcrLister:     rcrInformer.Lister(),
 		crcrLister:    crcrInformer.Lister(),
+		nsLister:      nsInformer.Lister(),
 		queue:         workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
+	// TODO we should also watch namespaces, if labels change
 	return &c
 }
 
