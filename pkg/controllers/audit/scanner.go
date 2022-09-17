@@ -11,23 +11,25 @@ import (
 )
 
 type scanner struct {
-	logger logr.Logger
-	client dclient.Interface
+	logger           logr.Logger
+	client           dclient.Interface
+	excludeGroupRole []string
 }
 
 type ScanResult struct {
-	*response.EngineResponse
-	error
+	EngineResponse *response.EngineResponse
+	Error          error
 }
 
 type Scanner interface {
 	Scan(unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
-func NewScanner(logger logr.Logger, client dclient.Interface) Scanner {
+func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole ...string) Scanner {
 	return &scanner{
-		logger: logger,
-		client: client,
+		logger:           logger,
+		client:           client,
+		excludeGroupRole: excludeGroupRole,
 	}
 }
 
@@ -57,13 +59,12 @@ func (s *scanner) scan(resource unstructured.Unstructured, nsLabels map[string]s
 		return nil, err
 	}
 	policyCtx := &engine.PolicyContext{
-		Policy:          policy,
-		NewResource:     resource,
-		JSONContext:     ctx,
-		Client:          s.client,
-		NamespaceLabels: nsLabels,
-		// TODO
-		// ExcludeGroupRole: excludeGroupRole,
+		Policy:           policy,
+		NewResource:      resource,
+		JSONContext:      ctx,
+		Client:           s.client,
+		NamespaceLabels:  nsLabels,
+		ExcludeGroupRole: s.excludeGroupRole,
 	}
 	return engine.Validate(policyCtx), nil
 }

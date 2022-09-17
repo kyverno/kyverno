@@ -110,8 +110,12 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 					nsLabels = ns.GetLabels()
 				}
 				for _, result := range scanner.Scan(*resource, nsLabels, toCreate...) {
-					controllerutils.SetLabel(rcr, policyLabel(result.Policy), result.Policy.GetResourceVersion())
-					ruleResults = append(ruleResults, toReportResults(result)...)
+					if result.Error != nil {
+						return err
+					} else {
+						controllerutils.SetLabel(rcr, policyLabel(result.EngineResponse.Policy), result.EngineResponse.Policy.GetResourceVersion())
+						ruleResults = append(ruleResults, toReportResults(result)...)
+					}
 				}
 			}
 			// update results and summary

@@ -25,7 +25,6 @@ import (
 
 // TODO: skip resources to be filtered
 // TODO: leader election
-// TODO: exclude roles thing ?
 // TODO: admission scan refactor
 // TODO: namespace hash
 

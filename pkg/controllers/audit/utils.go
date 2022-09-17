@@ -147,24 +147,24 @@ func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 }
 
 func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportResult {
-	if scanResult.error != nil {
+	if scanResult.Error != nil {
 		return nil
 	}
-	key, _ := cache.MetaNamespaceKeyFunc(scanResult.Policy)
+	key, _ := cache.MetaNamespaceKeyFunc(scanResult.EngineResponse.Policy)
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, ruleResult := range scanResult.EngineResponse.PolicyResponse.Rules {
-		annotations := scanResult.Policy.GetAnnotations()
+		annotations := scanResult.EngineResponse.Policy.GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source: kyvernov1.KyvernoAppValue,
 			Policy: key,
 			Rule:   ruleResult.Name,
 			Resources: []corev1.ObjectReference{
 				{
-					Kind:       scanResult.PatchedResource.GetKind(),
-					Namespace:  scanResult.PatchedResource.GetNamespace(),
-					APIVersion: scanResult.PatchedResource.GetAPIVersion(),
-					Name:       scanResult.PatchedResource.GetName(),
-					UID:        scanResult.PatchedResource.GetUID(),
+					Kind:       scanResult.EngineResponse.PatchedResource.GetKind(),
+					Namespace:  scanResult.EngineResponse.PatchedResource.GetNamespace(),
+					APIVersion: scanResult.EngineResponse.PatchedResource.GetAPIVersion(),
+					Name:       scanResult.EngineResponse.PatchedResource.GetName(),
+					UID:        scanResult.EngineResponse.PatchedResource.GetUID(),
 				},
 			},
 			Message: ruleResult.Message,
