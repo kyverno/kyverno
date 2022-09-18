@@ -22,7 +22,7 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 }
 
 func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
-	AddEventHandlers(informer, Add(logger, queue), Update(logger, queue), Delete(logger, queue))
+	AddEventHandlers(informer, AddFunc(logger, queue), UpdateFunc(logger, queue), DeleteFunc(logger, queue))
 }
 
 func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}) {
@@ -33,19 +33,19 @@ func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj inte
 	}
 }
 
-func Add(logger logr.Logger, queue workqueue.RateLimitingInterface) addFunc {
+func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface) addFunc {
 	return func(obj interface{}) {
 		Enqueue(logger, queue, obj)
 	}
 }
 
-func Update(logger logr.Logger, queue workqueue.RateLimitingInterface) updateFunc {
+func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface) updateFunc {
 	return func(_, obj interface{}) {
 		Enqueue(logger, queue, obj)
 	}
 }
 
-func Delete(logger logr.Logger, queue workqueue.RateLimitingInterface) deleteFunc {
+func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface) deleteFunc {
 	return func(obj interface{}) {
 		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj))
 	}
