@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -42,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
+	"go.uber.org/zap"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -78,6 +80,7 @@ var (
 	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
 	setupLog                     = log.Log.WithName("setup")
+	logFormat                    string
 )
 
 func main() {
@@ -87,7 +90,7 @@ func main() {
 	}
 
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	flag.StringVar(&logFormat, "logging-format", "text", "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -119,6 +122,18 @@ func main() {
 		os.Exit(1)
 	}
 	flag.Parse()
+
+	if logFormat == "json" {
+		zapLog, err := zap.NewProduction()
+		if err != nil {
+			log.SetLogger(klogr.New())
+			setupLog.Error(err, "Failed to initialize JSON logger")
+			os.Exit(1)
+		}
+		log.SetLogger(zapr.NewLogger(zapLog))
+	} else {
+		log.SetLogger(klogr.New())
+	}
 
 	version.PrintVersionInfo(log.Log)
 
