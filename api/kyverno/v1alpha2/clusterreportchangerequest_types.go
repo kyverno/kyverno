@@ -60,6 +60,18 @@ type ClusterReportChangeRequest struct {
 	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
 }
 
+func (r *ClusterReportChangeRequest) GetResults() []policyreportv1alpha2.PolicyReportResult {
+	return r.Results
+}
+
+func (r *ClusterReportChangeRequest) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+	r.Results = results
+}
+
+func (r *ClusterReportChangeRequest) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+	r.Summary = summary
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

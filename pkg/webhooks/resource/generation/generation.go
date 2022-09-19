@@ -156,7 +156,7 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(request *admissionv1.A
 		h.handleUpdateGenerateSourceResource(resLabels)
 	}
 
-	if resLabels["app.kubernetes.io/managed-by"] == "kyverno" && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
+	if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp && resLabels["policy.kyverno.io/synchronize"] == "enable" && request.Operation == admissionv1.Update {
 		h.handleUpdateGenerateTargetResource(request, policies, resLabels)
 	}
 }
