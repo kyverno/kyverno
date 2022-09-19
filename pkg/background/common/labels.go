@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
@@ -70,8 +71,8 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 
 func managedBy(labels map[string]string) {
 	// ManagedBy label
-	key := "app.kubernetes.io/managed-by"
-	value := "kyverno"
+	key := kyvernov1.LabelAppManagedBy
+	value := kyvernov1.ValueKyvernoApp
 	val, ok := labels[key]
 	if ok {
 		if val != value {
