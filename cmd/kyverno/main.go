@@ -90,6 +90,7 @@ func main() {
 	}
 
 	klog.InitFlags(nil)
+	log.SetLogger(klogr.NewWithOptions(klogr.WithFormat(klogr.FormatKlog)))
 	flag.StringVar(&logFormat, "logging-format", "text", "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
@@ -126,13 +127,10 @@ func main() {
 	if logFormat == "json" {
 		zapLog, err := zap.NewProduction()
 		if err != nil {
-			log.SetLogger(klogr.New())
 			setupLog.Error(err, "Failed to initialize JSON logger")
 			os.Exit(1)
 		}
-		log.SetLogger(zapr.NewLogger(zapLog))
-	} else {
-		log.SetLogger(klogr.New())
+		klog.SetLogger(zapr.NewLogger(zapLog))
 	}
 
 	version.PrintVersionInfo(log.Log)
