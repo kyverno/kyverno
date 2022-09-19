@@ -1,3 +1,9 @@
+## v1.8.0-rc3
+
+### Note
+
+- A new flag `disableBackgroundScan` to disable kyverno background scans (default value is `false`). When this is enabled, kyverno will not perform background scans and won't trigger continuous evaluation of policies.
+
 ## v1.8.0-rc1
 
 ### Note
