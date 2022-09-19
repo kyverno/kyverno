@@ -24,16 +24,20 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 	})
 }
 
-func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, keyFunc keyFunc) {
-	AddEventHandlers(informer, AddFunc(logger, queue, keyFunc), UpdateFunc(logger, queue, keyFunc), DeleteFunc(logger, queue, keyFunc))
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) {
+	AddEventHandlers(informer, AddFunc(logger, queue, parseKey), UpdateFunc(logger, queue, parseKey), DeleteFunc(logger, queue, parseKey))
 }
 
 func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
 	AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
 }
 
-func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, keyFunc keyFunc) {
-	if key, err := keyFunc(obj); err != nil {
+func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) {
+	AddKeyedEventHandlers(logger, informer, queue, ExplicitKey(parseKey))
+}
+
+func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, parseKey keyFunc) {
+	if key, err := parseKey(obj); err != nil {
 		logger.Error(err, "failed to compute key name", "obj", obj)
 	} else {
 		queue.Add(key)
@@ -44,7 +48,7 @@ func MetaNamespaceKey(obj interface{}) (interface{}, error) {
 	return cache.MetaNamespaceKeyFunc(obj)
 }
 
-func Explicit[K any](keyFunc func(K) cache.ExplicitKey) keyFunc {
+func ExplicitKey[K any](parseKey func(K) cache.ExplicitKey) keyFunc {
 	return func(obj interface{}) (interface{}, error) {
 		if obj == nil {
 			return nil, errors.New("obj is nil")
@@ -52,25 +56,25 @@ func Explicit[K any](keyFunc func(K) cache.ExplicitKey) keyFunc {
 		if key, ok := obj.(K); !ok {
 			return nil, errors.New("obj cannot be converted")
 		} else {
-			return keyFunc(key), nil
+			return parseKey(key), nil
 		}
 	}
 }
 
-func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) addFunc {
+func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) addFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, obj, keyFunc)
+		Enqueue(logger, queue, obj, parseKey)
 	}
 }
 
-func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) updateFunc {
+func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) updateFunc {
 	return func(_, obj interface{}) {
-		Enqueue(logger, queue, obj, keyFunc)
+		Enqueue(logger, queue, obj, parseKey)
 	}
 }
 
-func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, keyFunc keyFunc) deleteFunc {
+func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) deleteFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj), keyFunc)
+		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj), parseKey)
 	}
 }
