@@ -21,12 +21,18 @@ const (
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
 	protectManagedResourcesEnvVar      = "FLAG_PROTECT_MANAGED_RESOURCES"
 	defaultProtectManagedResources     = false
+	// disable background scan
+	DisableBackgroundScanFlagName    = "disableBackgroundScan"
+	DisableBackgroundScanDescription = "Set the flag to 'true' to disable background scan."
+	disableBackgroundScanEnvVar      = "FLAG_DISABLE_BG_SCAN"
+	defaultDisableBackgroundScan     = false
 )
 
 var (
 	AutogenInternals        = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
 	SplitPolicyReport       = newToggle(defaultSplitPolicyReport, splitPolicyReportEnvVar)
 	ProtectManagedResources = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
+	DisableBackgroundScan   = newToggle(defaultDisableBackgroundScan, disableBackgroundScanEnvVar)
 )
 
 type Toggle interface {
