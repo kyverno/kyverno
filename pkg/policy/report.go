@@ -49,31 +49,39 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 	for {
 		select {
 		case <-ticker.C:
-			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
-				logger.Error(err, "failed to cleanup report change requests")
-			}
+			if !toggle.DisableBackgroundScan.Enabled() {
+				logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
+				if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
+					logger.Error(err, "failed to cleanup report change requests")
+				}
 
-			if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, nil); err != nil {
-				logger.Error(err, "continue reconciling policy reports")
-			}
-
-			pc.requeuePolicies()
-			pc.prGenerator.MapperInvalidate()
-
-		case erase := <-reconcileCh:
-			logger.Info("received the reconcile signal, reconciling policy report")
-			if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
-				logger.Error(err, "failed to cleanup report change requests")
-			}
-
-			if erase {
 				if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, nil); err != nil {
 					logger.Error(err, "continue reconciling policy reports")
 				}
+
+				pc.requeuePolicies()
+				pc.prGenerator.MapperInvalidate()
+			} else {
+				logger.Info("background scan is disabled")
 			}
 
-			pc.requeuePolicies()
+		case erase := <-reconcileCh:
+			if !toggle.DisableBackgroundScan.Enabled() {
+				logger.Info("received the reconcile signal, reconciling policy report")
+				if err := pc.policyReportEraser.CleanupReportChangeRequests(cleanupReportChangeRequests, nil); err != nil {
+					logger.Error(err, "failed to cleanup report change requests")
+				}
+
+				if erase {
+					if err := pc.policyReportEraser.EraseResultEntries(eraseResultEntries, nil); err != nil {
+						logger.Error(err, "continue reconciling policy reports")
+					}
+				}
+
+				pc.requeuePolicies()
+			} else {
+				logger.Info("background scan is disabled")
+			}
 
 		case info := <-cleanupChangeRequest:
 			if info.Namespace == nil {
@@ -101,12 +109,16 @@ func (pc *PolicyController) forceReconciliation(reconcileCh <-chan bool, cleanup
 				logger.V(3).Info("wiped out result entries for the report", "report", policyreport.GeneratePolicyReportName(ns, ""))
 			}
 
-			if info.MapperInactive {
-				pc.prGenerator.MapperInactive(ns)
+			if !toggle.DisableBackgroundScan.Enabled() {
+				if info.MapperInactive {
+					pc.prGenerator.MapperInactive(ns)
+				} else {
+					pc.prGenerator.MapperReset(ns)
+				}
+				pc.requeuePolicies()
 			} else {
-				pc.prGenerator.MapperReset(ns)
+				logger.Info("background scan is disabled")
 			}
-			pc.requeuePolicies()
 
 		case <-stopCh:
 			return

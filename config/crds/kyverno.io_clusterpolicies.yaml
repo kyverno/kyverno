@@ -5643,9 +5643,9 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .spec.background
       name: Background
-      type: string
+      type: boolean
     - jsonPath: .spec.validationFailureAction
-      name: Action
+      name: Validate Action
       type: string
     - jsonPath: .spec.failurePolicy
       name: Failure Policy
@@ -5653,7 +5653,7 @@ spec:
       type: string
     - jsonPath: .status.ready
       name: Ready
-      type: string
+      type: boolean
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -5686,6 +5686,7 @@ spec:
                 - One
                 type: string
               background:
+                default: true
                 description: Background controls if rules are applied to existing
                   resources during a background scan. Optional. Default value is "true".
                   The value must be set to "false" if the policy rule uses variables
