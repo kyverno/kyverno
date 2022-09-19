@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -133,7 +134,7 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 			}
 			for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 				resLabels := resource.GetLabels()
-				if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+				if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 					if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 						logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 						return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
