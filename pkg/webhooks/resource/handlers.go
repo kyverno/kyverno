@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -19,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
@@ -159,12 +157,6 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseSuccess()
 	}
 	if request.Operation == admissionv1.Delete {
-		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-		if err == nil {
-			h.prGenerator.Add(webhookutils.BuildDeletionPrInfo(resource))
-		} else {
-			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
-		}
 		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
