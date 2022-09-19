@@ -96,7 +96,7 @@ func NewHandlers(
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -105,10 +105,10 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
-	policies := h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
-	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	generatePolicies := h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
-	imageVerifyValidatePolicies := h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)
+	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)...)
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)...)
+	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)...)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
@@ -152,7 +152,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	return admissionutils.ResponseSuccess()
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -162,8 +162,8 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")
-	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)...)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess()
@@ -225,4 +225,22 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 		}
 	}
+}
+
+func filterPolicies(failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+	var results []kyvernov1.PolicyInterface
+	for _, policy := range policies {
+		if failurePolicy == "fail" {
+			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				results = append(results, policy)
+			}
+		} else if failurePolicy == "ignore" {
+			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
+				results = append(results, policy)
+			}
+		} else {
+			results = append(results, policy)
+		}
+	}
+	return results
 }

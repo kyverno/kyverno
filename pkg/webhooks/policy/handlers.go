@@ -28,7 +28,7 @@ func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ string, _ time.Time) *admissionv1.AdmissionResponse {
 	if request.SubResource != "" {
 		logger.V(4).Info("skip policy validation on status update")
 		return admissionutils.Response(true)
@@ -49,7 +49,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	return admissionutils.Response(true)
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, _ string, _ time.Time) *admissionv1.AdmissionResponse {
 	if toggle.AutogenInternals.Enabled() {
 		return admissionutils.Response(true)
 	}
