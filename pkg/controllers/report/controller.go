@@ -94,7 +94,7 @@ func (c *controller) reconcileClusterReport() error {
 	for name := range splitResults {
 		obj, err := controllerutils.CreateOrUpdate(name, lister, client,
 			func(obj *policyreportv1alpha2.ClusterPolicyReport) error {
-				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+				controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 				obj.Results = splitResults[name]
 				obj.Summary = auditcontroller.CalculateSummary(splitResults[name])
 				return nil
@@ -129,7 +129,7 @@ func (c *controller) reconcileReport(namespace string) error {
 		obj, err := controllerutils.CreateOrUpdate(name, lister, client,
 			func(obj *policyreportv1alpha2.PolicyReport) error {
 				obj.SetNamespace(namespace)
-				controllerutils.SetLabel(obj, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+				controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 				obj.Results = splitResults[name]
 				obj.Summary = auditcontroller.CalculateSummary(splitResults[name])
 				return nil

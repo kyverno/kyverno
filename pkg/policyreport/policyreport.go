@@ -8,6 +8,7 @@ package policyreport
 // 	"strings"
 
 // 	"github.com/cornelk/hashmap"
+// 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 // 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 // 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 // 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -230,7 +231,7 @@ package policyreport
 // 	var gracePeriod int64 = 0
 
 // 	deleteOptions := metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod}
-// 	selector := labels.SelectorFromSet(labels.Set(map[string]string{LabelSelectorKey: LabelSelectorValue}))
+// 	selector := labels.SelectorFromSet(labels.Set(map[string]string{LabelSelectorKey: kyvernov1.ValueKyvernoApp}))
 
 // 	err := client.KyvernoV1alpha2().ClusterReportChangeRequests().DeleteCollection(context.TODO(), deleteOptions, metav1.ListOptions{})
 // 	if err != nil {

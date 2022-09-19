@@ -155,7 +155,7 @@ func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportR
 	for _, ruleResult := range scanResult.EngineResponse.PolicyResponse.Rules {
 		annotations := scanResult.EngineResponse.Policy.GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
-			Source: kyvernov1.KyvernoAppValue,
+			Source: kyvernov1.ValueKyvernoApp,
 			Policy: key,
 			Rule:   ruleResult.Name,
 			Resources: []corev1.ObjectReference{

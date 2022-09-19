@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -223,7 +224,7 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 func (wrc *Register) UpdateWebhooksCaBundle() error {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			managedByLabel: kyvernoValue,
+			managedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 	}
 	caData := wrc.readCaData()
@@ -419,7 +420,7 @@ func (wrc *Register) checkEndpoint() error {
 	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": "kyverno",
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})

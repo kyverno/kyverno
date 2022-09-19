@@ -232,7 +232,7 @@ func (c *controller) sync() error {
 						c.crcrLister,
 						c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests(),
 						func(rcr *kyvernov1alpha2.ClusterReportChangeRequest) error {
-							controllerutils.SetLabel(rcr, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+							controllerutils.SetLabel(rcr, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 							controllerutils.SetOwner(rcr, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 							return nil
 						},
@@ -256,7 +256,7 @@ func (c *controller) sync() error {
 						c.rcrLister.ReportChangeRequests(resource.GetNamespace()),
 						c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(resource.GetNamespace()),
 						func(rcr *kyvernov1alpha2.ReportChangeRequest) error {
-							controllerutils.SetLabel(rcr, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+							controllerutils.SetLabel(rcr, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 							controllerutils.SetOwner(rcr, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
 							return nil
 						},

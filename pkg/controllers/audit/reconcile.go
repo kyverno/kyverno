@@ -56,7 +56,7 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 	// update report
 	_, err = controllerutils.Update(setter, report,
 		func(report R) error {
-			labels := controllerutils.SetLabel(report, kyvernov1.ManagedByLabel, kyvernov1.KyvernoAppValue)
+			labels := controllerutils.SetLabel(report, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 			// check report policies versions against policies version
 			toDelete := map[string]string{}
 			var toCreate []kyvernov1.PolicyInterface

@@ -1,6 +1,7 @@
 package policyreport
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -8,8 +9,7 @@ const (
 	prWorkQueueName     = "policy-report-controller"
 	clusterpolicyreport = "clusterpolicyreport"
 
-	LabelSelectorKey   = "managed-by"
-	LabelSelectorValue = "kyverno"
+	LabelSelectorKey = "managed-by"
 
 	deletedPolicyKey = "deletedpolicy"
 
@@ -18,61 +18,9 @@ const (
 
 var LabelSelector = &metav1.LabelSelector{
 	MatchLabels: map[string]string{
-		LabelSelectorKey: LabelSelectorValue,
+		LabelSelectorKey: kyvernov1.ValueKyvernoApp,
 	},
 }
-
-// import (
-// 	"context"
-// 	"fmt"
-// 	"reflect"
-// 	"strings"
-// 	"time"
-
-// 	"github.com/go-logr/logr"
-// 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-// 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
-// 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-// 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-// 	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
-// 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-// 	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
-// 	"github.com/kyverno/kyverno/pkg/config"
-// 	"github.com/kyverno/kyverno/pkg/toggle"
-// 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
-// 	"github.com/kyverno/kyverno/pkg/version"
-// 	corev1 "k8s.io/api/core/v1"
-// 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-// 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-// 	"k8s.io/apimachinery/pkg/labels"
-// 	"k8s.io/apimachinery/pkg/runtime"
-// 	"k8s.io/apimachinery/pkg/runtime/schema"
-// 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-// 	"k8s.io/apimachinery/pkg/util/wait"
-// 	corev1informers "k8s.io/client-go/informers/core/v1"
-// 	corev1listers "k8s.io/client-go/listers/core/v1"
-// 	"k8s.io/client-go/tools/cache"
-// 	"k8s.io/client-go/util/workqueue"
-// )
-
-// const (
-// 	prWorkQueueName     = "policy-report-controller"
-// 	clusterpolicyreport = "clusterpolicyreport"
-
-// 	LabelSelectorKey   = "managed-by"
-// 	LabelSelectorValue = "kyverno"
-
-// 	deletedPolicyKey = "deletedpolicy"
-
-// 	resourceExhaustedErr = "ResourceExhausted"
-// )
-
-// var LabelSelector = &metav1.LabelSelector{
-// 	MatchLabels: map[string]string{
-// 		LabelSelectorKey: LabelSelectorValue,
-// 	},
-// }
 
 // // ReportGenerator creates policy report
 // type ReportGenerator struct {
@@ -467,7 +415,7 @@ var LabelSelector = &metav1.LabelSelector{
 // 						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
 // 					}
 
-// 					log.V(2).Info("successfully created ClusterPolicyReport")
+// 					log.V(2).Info("successfully created ClusterPolicyReport", "name", new.GetName())
 // 					g.cleanupReportRequests(aggregatedRequests)
 // 					return nil, nil
 // 				}
@@ -810,7 +758,7 @@ var LabelSelector = &metav1.LabelSelector{
 // 				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 // 				return nil
 // 			}
-// 			return fmt.Errorf("failed to update PolicyReport: %v", err)
+// 			return fmt.Errorf("UpdateReport: failed to update PolicyReport: %v", err)
 // 		}
 // 	}
 
@@ -843,7 +791,7 @@ var LabelSelector = &metav1.LabelSelector{
 // 				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 // 				return nil
 // 			}
-// 			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
+// 			return fmt.Errorf("UpdateReport: failed to update ClusterPolicyReport: %v", err)
 // 		}
 // 	}
 
@@ -879,7 +827,7 @@ var LabelSelector = &metav1.LabelSelector{
 // 	} else {
 // 		polrs, err := g.reportLister.List(labels.Everything())
 // 		if err != nil {
-// 			return fmt.Errorf("failed to list clusterPolicyReport %v", err)
+// 			return fmt.Errorf("failed to list policyReport %v", err)
 // 		}
 // 		for _, polr := range polrs {
 // 			newRes1 := []policyreportv1alpha2.PolicyReportResult{}
@@ -897,9 +845,8 @@ var LabelSelector = &metav1.LabelSelector{
 // 			gv := policyreportv1alpha2.SchemeGroupVersion
 
 // 			polr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"})
-
-// 			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
-// 				return fmt.Errorf("failed to update clusterPolicyReport %s %v", polr.Name, err)
+// 			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.Namespace).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+// 				return fmt.Errorf("failed to update policyReport %s/%s %v", polr.Namespace, polr.Name, err)
 // 			}
 // 		}
 // 	}

@@ -61,7 +61,7 @@ func reconcile(obj interface{}, r reconcileFunc) error {
 		k = string(key)
 	} else {
 		k = obj.(string)
-		if namespace, name, err := cache.SplitMetaNamespaceKey(obj.(string)); err != nil {
+		if namespace, name, err := cache.SplitMetaNamespaceKey(k); err != nil {
 			return err
 		} else {
 			ns, n = namespace, name
