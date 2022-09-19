@@ -13,10 +13,10 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Background",type="string",JSONPath=".spec.background"
-// +kubebuilder:printcolumn:name="Action",type="string",JSONPath=".spec.validationFailureAction"
-// +kubebuilder:printcolumn:name="Failure Policy",type="string",JSONPath=".spec.failurePolicy",priority=1
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
+// +kubebuilder:printcolumn:name="Background",type=boolean,JSONPath=".spec.background"
+// +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
+// +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
+// +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
 // +kubebuilder:resource:shortName=pol
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
@@ -27,6 +27,10 @@ type Policy struct {
 
 	// Spec defines policy behaviors and contains one or more rules.
 	Spec Spec `json:"spec" yaml:"spec"`
+
+	// Status contains policy runtime data.
+	// +optional
+	Status kyvernov1.PolicyStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 // HasAutoGenAnnotation checks if a policy has auto-gen annotation
@@ -82,6 +86,11 @@ func (p *Policy) GetSpec() *Spec {
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *Policy) IsNamespaced() bool {
 	return true
+}
+
+// IsReady indicates if the policy is ready to serve the admission request
+func (p *Policy) IsReady() bool {
+	return p.Status.IsReady()
 }
 
 // Validate implements programmatic validation.
