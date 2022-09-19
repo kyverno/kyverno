@@ -445,7 +445,7 @@ func (g *ReportGenerator) createReportIfNotPresent(namespace, policyName string,
 						return nil, fmt.Errorf("failed to create ClusterPolicyReport: %v", err)
 					}
 
-					log.V(2).Info("successfully created ClusterPolicyReport")
+					log.V(2).Info("successfully created ClusterPolicyReport", "name", new.GetName())
 					g.cleanupReportRequests(aggregatedRequests)
 					return nil, nil
 				}
@@ -788,7 +788,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 				return nil
 			}
-			return fmt.Errorf("failed to update PolicyReport: %v", err)
+			return fmt.Errorf("UpdateReport: failed to update PolicyReport: %v", err)
 		}
 	}
 
@@ -821,7 +821,7 @@ func (g *ReportGenerator) updateReport(old interface{}, new *unstructured.Unstru
 				g.cleanupChangeRequest <- ReconcileInfo{Namespace: &ns, MapperInactive: true}
 				return nil
 			}
-			return fmt.Errorf("failed to update ClusterPolicyReport: %v", err)
+			return fmt.Errorf("UpdateReport: failed to update ClusterPolicyReport: %v", err)
 		}
 	}
 
@@ -857,7 +857,7 @@ func (g *ReportGenerator) updateReportsForDeletedResource(resName string, new *u
 	} else {
 		polrs, err := g.reportLister.List(labels.Everything())
 		if err != nil {
-			return fmt.Errorf("failed to list clusterPolicyReport %v", err)
+			return fmt.Errorf("failed to list policyReport %v", err)
 		}
 		for _, polr := range polrs {
 			newRes1 := []policyreportv1alpha2.PolicyReportResult{}
@@ -875,9 +875,8 @@ func (g *ReportGenerator) updateReportsForDeletedResource(resName string, new *u
 			gv := policyreportv1alpha2.SchemeGroupVersion
 
 			polr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"})
-
 			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.Namespace).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
-				return fmt.Errorf("failed to update clusterPolicyReport %s %v", polr.Name, err)
+				return fmt.Errorf("failed to update policyReport %s/%s %v", polr.Namespace, polr.Name, err)
 			}
 		}
 	}
