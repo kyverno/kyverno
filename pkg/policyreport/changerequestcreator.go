@@ -1,82 +1,82 @@
 package policyreport
 
-import (
-	"context"
-	"time"
+// import (
+// 	"context"
+// 	"time"
 
-	"github.com/go-logr/logr"
-	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-)
+// 	"github.com/go-logr/logr"
+// 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+// )
 
-// creator is an interface that buffers report change requests
-// merges and creates requests every tickerInterval
-type creator interface {
-	create(request *unstructured.Unstructured) error
-}
-
-type changeRequestCreator struct {
-	client versioned.Interface
-	log    logr.Logger
-}
-
-func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Duration, log logr.Logger) creator {
-	return &changeRequestCreator{
-		client: client,
-		log:    log,
-	}
-}
-
-// func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
-// 	uid, _ := rand.Int(rand.Reader, big.NewInt(100000))
-// 	var err error
-
-// 	switch request.GetKind() {
-// 	case "ClusterReportChangeRequest":
-// 		err = c.crcr_cache.Add(uid.String(), request, cache.NoExpiration)
-// 		if err != nil {
-// 			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.crcr_cache.ItemCount())
-// 			if err = c.crcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
-// 				c.log.Error(err, "failed to replace CRCR")
-// 				return
-// 			}
-// 		}
-// 	case "ReportChangeRequest":
-// 		err = c.rcr_cache.Add(uid.String(), request, cache.NoExpiration)
-// 		if err != nil {
-// 			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.rcr_cache.ItemCount())
-// 			if err = c.rcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
-// 				c.log.Error(err, "failed to replace RCR")
-// 				return
-// 			}
-// 		}
-// 	default:
-// 		return
-// 	}
-
-// 	c.mutex.Lock()
-// 	c.queue = append(c.queue, uid.String())
-// 	c.mutex.Unlock()
+// // creator is an interface that buffers report change requests
+// // merges and creates requests every tickerInterval
+// type creator interface {
+// 	create(request *unstructured.Unstructured) error
 // }
 
-func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
-	if request.GetKind() == "ReportChangeRequest" {
-		ns := request.GetNamespace()
-		rcr, err := convertToRCR(request)
-		if err != nil {
-			return err
-		}
-		_, err = c.client.KyvernoV1alpha2().ReportChangeRequests(ns).Create(context.TODO(), rcr, metav1.CreateOptions{})
-		return err
-	}
-	crcr, err := convertToCRCR(request)
-	if err != nil {
-		return err
-	}
-	_, err = c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
-	return err
-}
+// type changeRequestCreator struct {
+// 	client versioned.Interface
+// 	log    logr.Logger
+// }
+
+// func newChangeRequestCreator(client versioned.Interface, tickerInterval time.Duration, log logr.Logger) creator {
+// 	return &changeRequestCreator{
+// 		client: client,
+// 		log:    log,
+// 	}
+// }
+
+// // func (c *changeRequestCreator) add(request *unstructured.Unstructured) {
+// // 	uid, _ := rand.Int(rand.Reader, big.NewInt(100000))
+// // 	var err error
+
+// // 	switch request.GetKind() {
+// // 	case "ClusterReportChangeRequest":
+// // 		err = c.crcr_cache.Add(uid.String(), request, cache.NoExpiration)
+// // 		if err != nil {
+// // 			c.log.Error(err, "failed to add ClusterReportChangeRequest to cache, replacing", "cache length", c.crcr_cache.ItemCount())
+// // 			if err = c.crcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+// // 				c.log.Error(err, "failed to replace CRCR")
+// // 				return
+// // 			}
+// // 		}
+// // 	case "ReportChangeRequest":
+// // 		err = c.rcr_cache.Add(uid.String(), request, cache.NoExpiration)
+// // 		if err != nil {
+// // 			c.log.Error(err, "failed to add ReportChangeRequest to cache, replacing", "cache length", c.rcr_cache.ItemCount())
+// // 			if err = c.rcr_cache.Replace(uid.String(), request, cache.NoExpiration); err != nil {
+// // 				c.log.Error(err, "failed to replace RCR")
+// // 				return
+// // 			}
+// // 		}
+// // 	default:
+// // 		return
+// // 	}
+
+// // 	c.mutex.Lock()
+// // 	c.queue = append(c.queue, uid.String())
+// // 	c.mutex.Unlock()
+// // }
+
+// func (c *changeRequestCreator) create(request *unstructured.Unstructured) error {
+// 	if request.GetKind() == "ReportChangeRequest" {
+// 		ns := request.GetNamespace()
+// 		rcr, err := convertToRCR(request)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		_, err = c.client.KyvernoV1alpha2().ReportChangeRequests(ns).Create(context.TODO(), rcr, metav1.CreateOptions{})
+// 		return err
+// 	}
+// 	crcr, err := convertToCRCR(request)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	_, err = c.client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), crcr, metav1.CreateOptions{})
+// 	return err
+// }
 
 // func (c *changeRequestCreator) run(stopChan <-chan struct{}) {
 // 	ticker := time.NewTicker(c.tickerInterval)

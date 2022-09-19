@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -41,7 +40,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
@@ -253,32 +251,6 @@ func main() {
 	// - generate event with retry mechanism
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
 
-	// POLICY Report GENERATOR
-	reportReqGen := policyreport.NewReportChangeRequestGenerator(
-		kyvernoClient,
-		// kyvernoV1alpha2.ReportChangeRequests(),
-		// kyvernoV1alpha2.ClusterReportChangeRequests(),
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		// changeRequestLimit,
-		log.Log.WithName("ReportChangeRequestGenerator"),
-	)
-
-	// prgen, err := policyreport.NewReportGenerator(
-	// 	kyvernoClient,
-	// 	kyvernoInformer.Wgpolicyk8s().V1alpha2().ClusterPolicyReports(),
-	// 	kyvernoInformer.Wgpolicyk8s().V1alpha2().PolicyReports(),
-	// 	kyvernoV1alpha2.ReportChangeRequests(),
-	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
-	// 	kubeInformer.Core().V1().Namespaces(),
-	// 	reportReqGen.CleanupChangeRequest,
-	// 	log.Log.WithName("PolicyReportGenerator"),
-	// )
-	// if err != nil {
-	// 	setupLog.Error(err, "Failed to create policy report controller")
-	// 	os.Exit(1)
-	// }
-
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
 		dynamicClient,
@@ -336,8 +308,6 @@ func main() {
 		kyvernoV1beta1.UpdateRequests(),
 		configuration,
 		eventGenerator,
-		reportReqGen,
-		// prgen,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
 		policyControllerResyncPeriod,
@@ -379,19 +349,6 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 		kubeInformer.Core().V1().Namespaces(),
-	)
-
-	auditHandler := audit.NewValidateAuditHandler(
-		policyCache,
-		eventGenerator,
-		reportReqGen,
-		kubeInformer.Rbac().V1().RoleBindings(),
-		kubeInformer.Rbac().V1().ClusterRoleBindings(),
-		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("ValidateAuditHandler"),
-		configuration,
-		dynamicClient,
-		metricsConfig,
 	)
 
 	certRenewer, err := tls.NewCertRenewer(
@@ -479,10 +436,8 @@ func main() {
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
 		kyvernoV1beta1.UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
-		reportReqGen,
 		urgen,
 		eventGenerator,
-		auditHandler,
 		openAPIController,
 	)
 
@@ -501,7 +456,6 @@ func main() {
 	run := func() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2 /*, prgen.ReconcileCh*/ /*, reportReqGen.CleanupChangeRequest*/, stopCh)
-		// go prgen.Run(1, stopCh)
 	}
 
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
@@ -540,10 +494,8 @@ func main() {
 	go auditController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
-	// go reportReqGen.Run(2, stopCh)
 	go configurationController.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
-	go auditHandler.Run(10, stopCh)
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
 	}

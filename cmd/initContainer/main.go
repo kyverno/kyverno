@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -25,7 +24,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
@@ -37,16 +35,6 @@ var (
 	setupLog             = log.Log.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
-
-	updateLabelSelector = &metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      policyreport.LabelSelectorKey,
-				Operator: metav1.LabelSelectorOpDoesNotExist,
-				Values:   []string{},
-			},
-		},
-	}
 )
 
 const (
@@ -124,9 +112,6 @@ func main() {
 		<-stopCh
 		cancel()
 	}()
-
-	addPolicyReportSelectorLabel(client)
-	addClusterPolicyReportSelectorLabel(client)
 
 	done := make(chan struct{})
 	defer close(done)
@@ -208,10 +193,6 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 
 func executeRequest(client dclient.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
-	case policyReportKind:
-		return removePolicyReport(client, req.kind)
-	case clusterPolicyReportKind:
-		return removeClusterPolicyReport(client, req.kind)
 	case reportChangeRequestKind:
 		return removeReportChangeRequest(client, req.kind)
 	case clusterReportChangeRequestKind:
@@ -310,73 +291,6 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 	return out
 }
 
-func removeClusterPolicyReport(client dclient.Interface, kind string) error {
-	logger := log.Log.WithName("removeClusterPolicyReport")
-
-	cpolrs, err := client.ListResource("", kind, "", policyreport.LabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list clusterPolicyReport")
-		return nil
-	}
-
-	for _, cpolr := range cpolrs.Items {
-		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
-	}
-	return nil
-}
-
-func removePolicyReport(client dclient.Interface, kind string) error {
-	logger := log.Log.WithName("removePolicyReport")
-
-	polrs, err := client.ListResource("", kind, metav1.NamespaceAll, policyreport.LabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list policyReport")
-		return nil
-	}
-
-	for _, polr := range polrs.Items {
-		deleteResource(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
-	}
-
-	return nil
-}
-
-// Deprecated: New ClusterPolicyReports already has required labels, will be removed in
-// 1.8.0 version
-func addClusterPolicyReportSelectorLabel(client dclient.Interface) {
-	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
-
-	cpolrs, err := client.ListResource("", clusterPolicyReportKind, "", updateLabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list clusterPolicyReport")
-		return
-	}
-
-	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("", "") {
-			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
-		}
-	}
-}
-
-// Deprecated: New PolicyReports already has required labels, will be removed in
-// 1.8.0 version
-func addPolicyReportSelectorLabel(client dclient.Interface) {
-	logger := log.Log.WithName("addPolicyReportSelectorLabel")
-
-	polrs, err := client.ListResource("", policyReportKind, metav1.NamespaceAll, updateLabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list policyReport")
-		return
-	}
-
-	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace(), "") {
-			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
-		}
-	}
-}
-
 func removeReportChangeRequest(client dclient.Interface, kind string) error {
 	logger := log.Log.WithName("removeReportChangeRequest")
 
@@ -415,30 +329,6 @@ func deleteResource(client dclient.Interface, apiversion, kind, ns, name string)
 	}
 
 	log.Log.V(2).Info("successfully cleaned up resource", "kind", kind, "name", name)
-}
-
-func addSelectorLabel(client dclient.Interface, apiversion, kind, ns, name string) {
-	res, err := client.GetResource(apiversion, kind, ns, name)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
-		return
-	}
-
-	l, err := metav1.LabelSelectorAsMap(policyreport.LabelSelector)
-	if err != nil {
-		log.Log.Error(err, "failed to convert labels", "labels", policyreport.LabelSelector)
-		return
-	}
-
-	res.SetLabels(labels.Merge(res.GetLabels(), l))
-
-	_, err = client.UpdateResource(apiversion, kind, ns, res, false)
-	if err != nil {
-		log.Log.Error(err, "failed to update resource", "kind", kind, "name", name)
-		return
-	}
-
-	log.Log.V(2).Info("successfully updated resource labels", "kind", kind, "name", name)
 }
 
 func convertGR(pclient kyvernoclient.Interface) error {

@@ -6,7 +6,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -18,16 +17,6 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 	if pc.configHandler.GetGenerateSuccessEvents() {
 		successEventInfos := generateSuccessEvents(logger, engineResponses)
 		pc.eventGen.Add(successEventInfos...)
-	}
-
-	pvInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-
-	// as engineResponses holds the results for all matched resources in one namespace
-	// we can merge pvInfos into a single object to reduce update frequency (throttling request) on RCR
-	infos := mergePvInfos(pvInfos)
-	for _, info := range infos {
-		pc.prGenerator.Add(info)
-		logger.V(4).Info("added a request to RCR generator")
 	}
 }
 
@@ -118,26 +107,4 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	}
 
 	return eventInfos
-}
-
-func mergePvInfos(infos []policyreport.Info) []policyreport.Info {
-	aggregatedInfo := []policyreport.Info{}
-	if len(infos) == 0 {
-		return nil
-	}
-
-	aggregatedInfoPerNamespace := make(map[string]policyreport.Info)
-	// for _, info := range infos {
-	// 	if tmpInfo, ok := aggregatedInfoPerNamespace[info.Namespace]; !ok {
-	// 		aggregatedInfoPerNamespace[info.Namespace] = info
-	// 	} else {
-	// 		tmpInfo.Results = append(tmpInfo.Results, info.Results...)
-	// 		aggregatedInfoPerNamespace[info.Namespace] = tmpInfo
-	// 	}
-	// }
-
-	for _, i := range aggregatedInfoPerNamespace {
-		aggregatedInfo = append(aggregatedInfo, i)
-	}
-	return aggregatedInfo
 }

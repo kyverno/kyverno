@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -86,9 +85,6 @@ type PolicyController struct {
 	// helpers to validate against current loaded configuration
 	configHandler config.Configuration
 
-	// policy report generator
-	prGenerator policyreport.Generator
-
 	reconcilePeriod time.Duration
 
 	log logr.Logger
@@ -105,7 +101,6 @@ func NewPolicyController(
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
-	prGenerator policyreport.Generator,
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
@@ -129,7 +124,6 @@ func NewPolicyController(
 		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
 		configHandler:   configHandler,
-		prGenerator:     prGenerator,
 		reconcilePeriod: reconcilePeriod,
 		metricsConfig:   metricsConfig,
 		log:             log,

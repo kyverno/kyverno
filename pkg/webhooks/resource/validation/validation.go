@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -25,18 +24,16 @@ type ValidationHandler interface {
 	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
-func NewValidationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.Generator) ValidationHandler {
+func NewValidationHandler(log logr.Logger, eventGen event.Interface) ValidationHandler {
 	return &validationHandler{
-		log:         log,
-		eventGen:    eventGen,
-		prGenerator: prGenerator,
+		log:      log,
+		eventGen: eventGen,
 	}
 }
 
 type validationHandler struct {
-	log         logr.Logger
-	eventGen    event.Interface
-	prGenerator policyreport.Generator
+	log      logr.Logger
+	eventGen event.Interface
 }
 
 func (v *validationHandler) HandleValidation(
@@ -108,20 +105,10 @@ func (v *validationHandler) HandleValidation(
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil
 	}
 
-	v.generateReportChangeRequests(request, engineResponses, policyContext, logger)
 	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
-}
-
-// generateReportChangeRequests creates report change requests
-// reports are generated for non-managed pods/jobs only, no need to create rcr for managed resources
-func (v *validationHandler) generateReportChangeRequests(request *admissionv1.AdmissionRequest, engineResponses []*response.EngineResponse, policyContext *engine.PolicyContext, logger logr.Logger) {
-	if request.Operation != admissionv1.Delete {
-		prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-		v.prGenerator.Add(prInfos...)
-	}
 }
 
 func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionRequest, admissionRequestTimestamp time.Time, engineResponses []*response.EngineResponse, metricsConfig *metrics.MetricsConfig, logger logr.Logger) {

@@ -1,46 +1,46 @@
 package policyreport
 
-import (
-	"encoding/json"
+// import (
+// 	"encoding/json"
 
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-)
+// 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+// 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+// 	"k8s.io/apimachinery/pkg/runtime/schema"
+// )
 
-func convertToRCR(request *unstructured.Unstructured) (*kyvernov1alpha2.ReportChangeRequest, error) {
-	rcr := kyvernov1alpha2.ReportChangeRequest{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
+// func convertToRCR(request *unstructured.Unstructured) (*kyvernov1alpha2.ReportChangeRequest, error) {
+// 	rcr := kyvernov1alpha2.ReportChangeRequest{}
+// 	raw, err := request.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = json.Unmarshal(raw, &rcr)
-	rcr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   kyvernov1alpha2.SchemeGroupVersion.Group,
-		Version: kyvernov1alpha2.SchemeGroupVersion.Version,
-		Kind:    "ReportChangeRequest",
-	})
+// 	err = json.Unmarshal(raw, &rcr)
+// 	rcr.SetGroupVersionKind(schema.GroupVersionKind{
+// 		Group:   kyvernov1alpha2.SchemeGroupVersion.Group,
+// 		Version: kyvernov1alpha2.SchemeGroupVersion.Version,
+// 		Kind:    "ReportChangeRequest",
+// 	})
 
-	return &rcr, err
-}
+// 	return &rcr, err
+// }
 
-func convertToCRCR(request *unstructured.Unstructured) (*kyvernov1alpha2.ClusterReportChangeRequest, error) {
-	rcr := kyvernov1alpha2.ClusterReportChangeRequest{}
-	raw, err := request.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
+// func convertToCRCR(request *unstructured.Unstructured) (*kyvernov1alpha2.ClusterReportChangeRequest, error) {
+// 	rcr := kyvernov1alpha2.ClusterReportChangeRequest{}
+// 	raw, err := request.MarshalJSON()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	err = json.Unmarshal(raw, &rcr)
-	rcr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   kyvernov1alpha2.SchemeGroupVersion.Group,
-		Version: kyvernov1alpha2.SchemeGroupVersion.Version,
-		Kind:    "ClusterReportChangeRequest",
-	})
+// 	err = json.Unmarshal(raw, &rcr)
+// 	rcr.SetGroupVersionKind(schema.GroupVersionKind{
+// 		Group:   kyvernov1alpha2.SchemeGroupVersion.Group,
+// 		Version: kyvernov1alpha2.SchemeGroupVersion.Version,
+// 		Kind:    "ClusterReportChangeRequest",
+// 	})
 
-	return &rcr, err
-}
+// 	return &rcr, err
+// }
 
 // func convertToPolr(request *unstructured.Unstructured) (*policyreportv1alpha2.PolicyReport, error) {
 // 	polr := policyreportv1alpha2.PolicyReport{}

@@ -1,26 +1,26 @@
 package policyreport
 
-import (
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+// import (
+// 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// )
 
-const (
-	prWorkQueueName     = "policy-report-controller"
-	clusterpolicyreport = "clusterpolicyreport"
+// const (
+// 	prWorkQueueName     = "policy-report-controller"
+// 	clusterpolicyreport = "clusterpolicyreport"
 
-	LabelSelectorKey = "managed-by"
+// 	LabelSelectorKey = "managed-by"
 
-	deletedPolicyKey = "deletedpolicy"
+// 	deletedPolicyKey = "deletedpolicy"
 
-	resourceExhaustedErr = "ResourceExhausted"
-)
+// 	resourceExhaustedErr = "ResourceExhausted"
+// )
 
-var LabelSelector = &metav1.LabelSelector{
-	MatchLabels: map[string]string{
-		LabelSelectorKey: kyvernov1.ValueKyvernoApp,
-	},
-}
+// var LabelSelector = &metav1.LabelSelector{
+// 	MatchLabels: map[string]string{
+// 		LabelSelectorKey: kyvernov1.ValueKyvernoApp,
+// 	},
+// }
 
 // // ReportGenerator creates policy report
 // type ReportGenerator struct {
