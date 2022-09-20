@@ -22,9 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -60,6 +57,18 @@ type ReportChangeRequest struct {
 	// PolicyReportResult provides result details
 	// +optional
 	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+}
+
+func (r *ReportChangeRequest) GetResults() []policyreportv1alpha2.PolicyReportResult {
+	return r.Results
+}
+
+func (r *ReportChangeRequest) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
+	r.Results = results
+}
+
+func (r *ReportChangeRequest) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
+	r.Summary = summary
 }
 
 // +kubebuilder:object:root=true
