@@ -56,3 +56,8 @@ func SetResourceGvkLabels(report kyvernov1alpha2.ReportChangeRequestInterface, g
 	controllerutils.SetLabel(report, LabelResourceGvkKind, kind)
 	controllerutils.SetLabel(report, LabelResourceGvkVersion, version)
 }
+
+func SetOwner(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string, resource metav1.Object) {
+	gv := metav1.GroupVersion{Group: group, Version: version}
+	controllerutils.SetOwner(report, gv.String(), kind, resource.GetName(), resource.GetUID())
+}

@@ -15,7 +15,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -57,9 +56,7 @@ func (v *validationHandler) HandleValidation(
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {
 	if len(policies) == 0 {
-		if request.Operation != admissionv1.Delete && request.SubResource == "" {
-			go v.handleAudit(policyContext.NewResource, request, namespaceLabels)
-		}
+		go v.handleAudit(policyContext.NewResource, request, namespaceLabels)
 		return true, "", nil
 	}
 
@@ -120,9 +117,7 @@ func (v *validationHandler) HandleValidation(
 	}
 
 	v.generateMetrics(request, admissionRequestTimestamp, engineResponses, metricsConfig, logger)
-	if request.Operation != admissionv1.Delete && request.SubResource == "" {
-		go v.handleAudit(policyContext.NewResource, request, namespaceLabels, engineResponses...)
-	}
+	go v.handleAudit(policyContext.NewResource, request, namespaceLabels, engineResponses...)
 
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", warnings
@@ -160,9 +155,9 @@ func (v *validationHandler) buildReport(
 	reportutils.SetAdmissionLabels(report, request)
 	reportutils.SetResourceLabels(report, &resource)
 	reportutils.SetResourceGvkLabels(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind)
+	//	if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
-		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
-		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
 	}
 	return nil
 }
@@ -173,6 +168,10 @@ func (v *validationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...*response.EngineResponse,
 ) {
+	//	we don't need reports for deletions and when it's about sub resources
+	if request.Operation != admissionv1.Delete && request.SubResource == "" {
+		return
+	}
 	report := reportutils.NewReport(resource.GetNamespace(), string(request.UID))
 	err := v.buildReport(report, resource, request, namespaceLabels, engineResponses...)
 	if err != nil {
