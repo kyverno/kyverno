@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -35,11 +37,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
-
-// TODO: skip resources to be filtered
-// TODO: leader election
-// TODO: admission scan refactor
-// TODO: namespace hash
 
 const (
 	maxRetries = 10
@@ -69,7 +66,7 @@ type controller struct {
 type informer struct {
 	informer informers.GenericInformer
 	gvk      schema.GroupVersionKind
-	stop     <-chan struct{}
+	stop     chan struct{}
 }
 
 func NewController(
@@ -98,7 +95,6 @@ func NewController(
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddDefaultEventHandlers(logger, rcrInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, crcrInformer.Informer(), c.queue)
-	// TODO we should also watch namespaces, if labels change
 	return &c
 }
 
@@ -129,18 +125,31 @@ func (c *controller) updateMetadataInformers() {
 			logger.Error(err, "failed to get gvr from kind", "kind", kind)
 		}
 	}
+	metadataInformers := map[schema.GroupVersionResource]*informer{}
 	for kind, gvr := range gvrs {
-		i := c.metadataInformers[gvr]
-		if i == nil {
+		// if we already have one, transfer it to the new map
+		if c.metadataInformers[gvr] != nil {
+			metadataInformers[gvr] = c.metadataInformers[gvr]
+			delete(c.metadataInformers, gvr)
+		} else {
 			logger.Info("start metadata informer ...", "gvr", gvr)
-			i = &informer{
+			i := &informer{
 				gvk: gvr.GroupVersion().WithKind(kind),
 				informer: metadatainformers.NewFilteredMetadataInformer(
 					c.metadataClient,
 					gvr,
 					"",
 					time.Minute*10,
-					nil,
+					cache.Indexers{
+						cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+						"uid": func(obj interface{}) ([]string, error) {
+							meta, err := meta.Accessor(obj)
+							if err != nil {
+								return []string{""}, fmt.Errorf("object has no meta: %v", err)
+							}
+							return []string{string(meta.GetUID())}, nil
+						},
+					},
 					nil,
 				),
 				stop: make(chan struct{}),
@@ -151,10 +160,16 @@ func (c *controller) updateMetadataInformers() {
 				DeleteFunc: c.deleteResource,
 			})
 			go i.informer.Informer().Run(i.stop)
-			c.metadataInformers[gvr] = i
+			metadataInformers[gvr] = i
 		}
 	}
-	// TODO: cleanup
+	// shutdown remaining informers
+	for gvr, informer := range c.metadataInformers {
+		logger.Info("stop metadata informer ...", "gvr", gvr)
+		close(informer.stop)
+		delete(c.metadataInformers, gvr)
+	}
+	c.metadataInformers = metadataInformers
 }
 
 func (c *controller) addResource(obj interface{}) {
@@ -349,13 +364,14 @@ func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportCh
 
 func (c *controller) getResource(uid types.UID) (metav1.Object, schema.GroupVersionKind, error) {
 	for _, i := range c.metadataInformers {
-		list, err := i.informer.Lister().List(labels.Everything())
-		if err != nil {
-			return nil, schema.GroupVersionKind{}, err
-		}
-		for _, o := range list {
-			if o.(metav1.Object).GetUID() == uid {
-				return o.(metav1.Object), i.gvk, nil
+		objs, err := i.informer.Informer().GetIndexer().ByIndex("uid", string(uid))
+		if err == nil && len(objs) == 1 {
+			return objs[0].(metav1.Object), i.gvk, nil
+		} else if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, schema.GroupVersionKind{}, err
+			} else {
+				logger.Error(err, "failed to query indexer")
 			}
 		}
 	}
@@ -443,11 +459,8 @@ func (c *controller) computeReport(before kyvernov1alpha2.ReportChangeRequestInt
 	if err != nil {
 		return err
 	}
-	if resource == nil {
-		return nil
-	}
 	//	if the resource changed, we need to rebuild the report
-	if resource.GetResourceVersion() != labels["audit.kyverno.io/resource.version"] {
+	if resource != nil && resource.GetResourceVersion() != labels["audit.kyverno.io/resource.version"] {
 		scanner := NewScanner(logger, c.client)
 		resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, report.GetNamespace(), resource.GetName())
 		if err != nil {
@@ -512,7 +525,7 @@ func (c *controller) computeReport(before kyvernov1alpha2.ReportChangeRequestInt
 			}
 		}
 		// creations
-		if len(toCreate) > 0 {
+		if resource != nil && len(toCreate) > 0 {
 			scanner := NewScanner(logger, c.client)
 			resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, report.GetNamespace(), resource.GetName())
 			if err != nil {
