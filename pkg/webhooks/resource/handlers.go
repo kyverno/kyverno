@@ -124,7 +124,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.eventGen)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen)
 
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
@@ -133,7 +133,6 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	}
 
 	defer h.handleDelete(logger, request)
-
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	if warnings != nil {

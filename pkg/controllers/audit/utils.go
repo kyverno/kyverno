@@ -12,6 +12,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -146,25 +147,22 @@ func severityFromString(severity string) policyreportv1alpha2.PolicySeverity {
 	return ""
 }
 
-func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportResult {
-	if scanResult.Error != nil {
-		return nil
-	}
-	key, _ := cache.MetaNamespaceKeyFunc(scanResult.EngineResponse.Policy)
+func engineResponseToReportResults(response *response.EngineResponse) []policyreportv1alpha2.PolicyReportResult {
+	key, _ := cache.MetaNamespaceKeyFunc(response.Policy)
 	var results []policyreportv1alpha2.PolicyReportResult
-	for _, ruleResult := range scanResult.EngineResponse.PolicyResponse.Rules {
-		annotations := scanResult.EngineResponse.Policy.GetAnnotations()
+	for _, ruleResult := range response.PolicyResponse.Rules {
+		annotations := response.Policy.GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
 			Source: kyvernov1.ValueKyvernoApp,
 			Policy: key,
 			Rule:   ruleResult.Name,
 			Resources: []corev1.ObjectReference{
 				{
-					Kind:       scanResult.EngineResponse.PatchedResource.GetKind(),
-					Namespace:  scanResult.EngineResponse.PatchedResource.GetNamespace(),
-					APIVersion: scanResult.EngineResponse.PatchedResource.GetAPIVersion(),
-					Name:       scanResult.EngineResponse.PatchedResource.GetName(),
-					UID:        scanResult.EngineResponse.PatchedResource.GetUID(),
+					Kind:       response.PatchedResource.GetKind(),
+					Namespace:  response.PatchedResource.GetNamespace(),
+					APIVersion: response.PatchedResource.GetAPIVersion(),
+					Name:       response.PatchedResource.GetName(),
+					UID:        response.PatchedResource.GetUID(),
 				},
 			},
 			Message: ruleResult.Message,
@@ -183,6 +181,13 @@ func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportR
 		results = append(results, result)
 	}
 	return results
+}
+
+func toReportResults(scanResult ScanResult) []policyreportv1alpha2.PolicyReportResult {
+	if scanResult.Error != nil {
+		return nil
+	}
+	return engineResponseToReportResults(scanResult.EngineResponse)
 }
 
 func isPolicyLabel(label string) bool {
@@ -222,4 +227,8 @@ func policyLabelRequirementExists(policy kyvernov1.PolicyInterface) (*labels.Req
 
 func policyLabelRequirementDoesNotExist(policy kyvernov1.PolicyInterface) (*labels.Requirement, error) {
 	return labels.NewRequirement(policyLabel(policy), selection.DoesNotExist, nil)
+}
+
+func resourceLabelRequirementUidEquals(resource metav1.Object) (*labels.Requirement, error) {
+	return labels.NewRequirement("audit.kyverno.io/resource.uid", selection.Equals, []string{string(resource.GetUID())})
 }

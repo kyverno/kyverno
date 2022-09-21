@@ -1,11 +1,15 @@
 package audit
 
 import (
+	"strconv"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type object interface {
@@ -19,7 +23,36 @@ type pointer[T any] interface {
 	SetSummary(policyreportv1alpha2.PolicyReportSummary)
 }
 
-func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S controllerutils.Setter[R]](c *controller, name string, getter G, setter S) error {
+func BuildReport(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string, resource metav1.Object, engineResponses ...*response.EngineResponse) error {
+	controllerutils.SetLabel(report, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.uid", string(resource.GetUID()))
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.namespace", resource.GetNamespace())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.name", resource.GetName())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.group", group)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.version", version)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.kind", kind)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.version", resource.GetResourceVersion())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.generation", strconv.FormatInt(resource.GetGeneration(), 10))
+	labels := report.GetLabels()
+	for label := range labels {
+		if isPolicyLabel(label) {
+			delete(labels, label)
+		}
+	}
+	report.SetLabels(labels)
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	for _, result := range engineResponses {
+		controllerutils.SetLabel(report, policyLabel(result.Policy), result.Policy.GetResourceVersion())
+		ruleResults = append(ruleResults, engineResponseToReportResults(result)...)
+	}
+	// update results and summary
+	SortReportResults(ruleResults)
+	report.SetResults(ruleResults)
+	report.SetSummary(CalculateSummary(ruleResults))
+	return nil
+}
+
+func ReconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S controllerutils.Setter[R]](c *controller, name string, getter G, setter S) error {
 	// fetch report, if not found is not an error
 	report, err := getter.Get(name)
 	if err != nil {
@@ -98,6 +131,10 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 				scanner := NewScanner(logger, c.client)
 				owner := report.GetOwnerReferences()[0]
 				resource, err := c.client.GetResource(owner.APIVersion, owner.Kind, report.GetNamespace(), owner.Name)
+				controllerutils.SetLabel(report, "audit.kyverno.io/resource.uid", string(resource.GetUID()))
+				controllerutils.SetLabel(report, "audit.kyverno.io/resource.namespace", namespace)
+				controllerutils.SetLabel(report, "audit.kyverno.io/resource.version", resource.GetResourceVersion())
+				controllerutils.SetLabel(report, "audit.kyverno.io/resource.generation", strconv.FormatInt(resource.GetGeneration(), 10))
 				if err != nil {
 					return err
 				}
@@ -109,9 +146,9 @@ func reconcileReport[T object, R pointer[T], G controllerutils.Getter[R], S cont
 					}
 					nsLabels = ns.GetLabels()
 				}
-				for _, result := range scanner.Scan(*resource, nsLabels, toCreate...) {
+				for _, result := range scanner.ScanResource(*resource, nsLabels, toCreate...) {
 					if result.Error != nil {
-						return err
+						return result.Error
 					} else {
 						controllerutils.SetLabel(report, policyLabel(result.EngineResponse.Policy), result.EngineResponse.Policy.GetResourceVersion())
 						ruleResults = append(ruleResults, toReportResults(result)...)

@@ -44,6 +44,7 @@ import (
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
@@ -172,7 +173,7 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-
+	metadataClient, err := metadataclient.NewForConfig(clientConfig)
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -343,6 +344,7 @@ func main() {
 	)
 	auditController := auditcontroller.NewController(
 		dynamicClient,
+		metadataClient,
 		kyvernoClient,
 		kyvernoV1.Policies(),
 		kyvernoV1.ClusterPolicies(),

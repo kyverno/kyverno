@@ -22,7 +22,7 @@ type ScanResult struct {
 }
 
 type Scanner interface {
-	Scan(unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
+	ScanResource(unstructured.Unstructured, map[string]string, ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult
 }
 
 func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole ...string) Scanner {
@@ -33,7 +33,7 @@ func NewScanner(logger logr.Logger, client dclient.Interface, excludeGroupRole .
 	}
 }
 
-func (s *scanner) Scan(resource unstructured.Unstructured, nsLabels map[string]string, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
+func (s *scanner) ScanResource(resource unstructured.Unstructured, nsLabels map[string]string, policies ...kyvernov1.PolicyInterface) map[kyvernov1.PolicyInterface]ScanResult {
 	results := map[kyvernov1.PolicyInterface]ScanResult{}
 	for _, policy := range policies {
 		response, err := s.scan(resource, nsLabels, policy)
