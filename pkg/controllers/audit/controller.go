@@ -24,11 +24,9 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/informers"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -191,9 +189,13 @@ func (c *controller) addResource(obj interface{}) {
 	}
 }
 
-func (c *controller) updateResource(_, obj interface{}) {
-	selector := labels.Everything()
+func (c *controller) updateResource(old, obj interface{}) {
+	oldResource := old.(metav1.Object)
 	resource := obj.(metav1.Object)
+	if oldResource.GetResourceVersion() == resource.GetResourceVersion() {
+		return
+	}
+	selector := labels.Everything()
 	requirement, err := resourceLabelRequirementUidEquals(obj.(metav1.Object))
 	if err != nil {
 		logger.Error(err, "failed to create label selector")
@@ -312,38 +314,6 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 		}
 	}
 	return policies, nil
-}
-
-func (c *controller) fetchResources(logger logr.Logger, policies ...kyvernov1.PolicyInterface) ([]unstructured.Unstructured, error) {
-	var resources []unstructured.Unstructured
-	kinds := buildKindSet(logger, policies...)
-	for kind := range kinds {
-		list, err := c.client.ListResource("", kind, metav1.NamespaceAll, nil)
-		if err != nil {
-			logger.Error(err, "failed to list resources", "kind", kind)
-			return nil, err
-		}
-		resources = append(resources, list.Items...)
-	}
-	return resources, nil
-}
-
-func (c *controller) reconcileReport(namespace, name string) error {
-	return ReconcileReport[kyvernov1alpha2.ReportChangeRequest](
-		c,
-		name,
-		c.rcrLister.ReportChangeRequests(namespace),
-		c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(namespace),
-	)
-}
-
-func (c *controller) reconcileClusterReport(name string) error {
-	return ReconcileReport[kyvernov1alpha2.ClusterReportChangeRequest](
-		c,
-		name,
-		c.crcrLister,
-		c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests(),
-	)
 }
 
 func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
@@ -582,139 +552,4 @@ func (c *controller) reconcile(key, namespace, name string) error {
 		return nil
 	}
 	return c.computeReport(report)
-}
-
-func (c *controller) sync() error {
-	logger.V(2).Info("start sync ...")
-	defer logger.V(2).Info("stop sync ...")
-	clusterPolicies, err := c.fetchClusterPolicies(logger)
-	if err != nil {
-		return err
-	}
-	policies, err := c.fetchPolicies(logger, metav1.NamespaceAll)
-	if err != nil {
-		return err
-	}
-	backgroundPolicies := removeNonBackgroundPolicies(logger, append(clusterPolicies, policies...)...)
-	resources, err := c.fetchResources(logger, backgroundPolicies...)
-	if err != nil {
-		return err
-	}
-	var expectedRcrs []*kyvernov1alpha2.ReportChangeRequest
-	var expectedCrcrs []*kyvernov1alpha2.ClusterReportChangeRequest
-	for _, resource := range resources {
-		if resource.GetNamespace() == "" {
-			name := string(resource.GetUID())
-			if crcr, err := c.crcrLister.Get(name); err != nil {
-				if apierrors.IsNotFound(err) {
-					crcr, err := controllerutils.CreateOrUpdate(
-						name,
-						c.crcrLister,
-						c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests(),
-						func(rcr *kyvernov1alpha2.ClusterReportChangeRequest) error {
-							controllerutils.SetLabel(rcr, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.uid", string(resource.GetUID()))
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.namespace", resource.GetNamespace())
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.version", resource.GetResourceVersion())
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.generation", strconv.FormatInt(resource.GetGeneration(), 10))
-							controllerutils.SetOwner(rcr, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
-							return nil
-						},
-					)
-					if err != nil {
-						return err
-					}
-					expectedCrcrs = append(expectedCrcrs, crcr)
-				} else {
-					return err
-				}
-			} else {
-				expectedCrcrs = append(expectedCrcrs, crcr)
-			}
-		} else {
-			name := string(resource.GetUID())
-			if rcr, err := c.rcrLister.ReportChangeRequests(resource.GetNamespace()).Get(name); err != nil {
-				if apierrors.IsNotFound(err) {
-					rcr, err := controllerutils.CreateOrUpdate(
-						name,
-						c.rcrLister.ReportChangeRequests(resource.GetNamespace()),
-						c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(resource.GetNamespace()),
-						func(rcr *kyvernov1alpha2.ReportChangeRequest) error {
-							controllerutils.SetLabel(rcr, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.uid", string(resource.GetUID()))
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.namespace", resource.GetNamespace())
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.version", resource.GetResourceVersion())
-							controllerutils.SetLabel(rcr, "audit.kyverno.io/resource.generation", strconv.FormatInt(resource.GetGeneration(), 10))
-							controllerutils.SetOwner(rcr, resource.GetAPIVersion(), resource.GetKind(), resource.GetName(), resource.GetUID())
-							return nil
-						},
-					)
-					if err != nil {
-						return err
-					}
-					expectedRcrs = append(expectedRcrs, rcr)
-				} else {
-					return err
-				}
-			} else {
-				expectedRcrs = append(expectedRcrs, rcr)
-			}
-		}
-	}
-	actualRcrs, err := c.rcrLister.List(labels.Everything())
-	if err != nil {
-		return err
-	}
-	actualCrcrs, err := c.crcrLister.List(labels.Everything())
-	if err != nil {
-		return err
-	}
-	if err := controllerutils.Cleanup(actualCrcrs, expectedCrcrs, c.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests()); err != nil {
-		return err
-	}
-	namespaces := sets.NewString()
-	for _, rcr := range actualRcrs {
-		namespaces.Insert(rcr.GetNamespace())
-	}
-	for _, rcr := range expectedRcrs {
-		namespaces.Insert(rcr.GetNamespace())
-	}
-	for _, namespace := range namespaces.List() {
-		var actual []*kyvernov1alpha2.ReportChangeRequest
-		for _, rcr := range actualRcrs {
-			if rcr.GetNamespace() == namespace {
-				actual = append(actual, rcr)
-			}
-		}
-		var expected []*kyvernov1alpha2.ReportChangeRequest
-		for _, rcr := range expectedRcrs {
-			if rcr.GetNamespace() == namespace {
-				expected = append(expected, rcr)
-			}
-		}
-		if err := controllerutils.Cleanup(actual, expected, c.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(namespace)); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *controller) background(stopChan <-chan struct{}) {
-	sync := time.NewTicker(1 * time.Minute)
-	requeue := time.NewTicker(1 * time.Minute)
-	defer sync.Stop()
-	defer requeue.Stop()
-	for {
-		select {
-		case <-sync.C:
-			err := c.sync()
-			if err != nil {
-				logger.Error(err, "sync failed")
-			}
-		case <-requeue.C:
-			c.enqueue(labels.Everything())
-		case <-stopChan:
-			return
-		}
-	}
 }

@@ -2,14 +2,17 @@ package audit
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/policy"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,6 +120,35 @@ func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map
 		SortReportResults(result)
 	}
 	return resultsMap
+}
+
+func BuildReport(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string, resource metav1.Object, engineResponses ...*response.EngineResponse) error {
+	controllerutils.SetLabel(report, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.uid", string(resource.GetUID()))
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.namespace", resource.GetNamespace())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.name", resource.GetName())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.group", group)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.version", version)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.gvk.kind", kind)
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.version", resource.GetResourceVersion())
+	controllerutils.SetLabel(report, "audit.kyverno.io/resource.generation", strconv.FormatInt(resource.GetGeneration(), 10))
+	labels := report.GetLabels()
+	for label := range labels {
+		if isPolicyLabel(label) {
+			delete(labels, label)
+		}
+	}
+	report.SetLabels(labels)
+	var ruleResults []policyreportv1alpha2.PolicyReportResult
+	for _, result := range engineResponses {
+		controllerutils.SetLabel(report, policyLabel(result.Policy), result.Policy.GetResourceVersion())
+		ruleResults = append(ruleResults, engineResponseToReportResults(result)...)
+	}
+	// update results and summary
+	SortReportResults(ruleResults)
+	report.SetResults(ruleResults)
+	report.SetSummary(CalculateSummary(ruleResults))
+	return nil
 }
 
 func toPolicyResult(status response.RuleStatus) policyreportv1alpha2.PolicyResult {

@@ -1,7 +1,6 @@
 package validation
 
 import (
-	"context"
 	"reflect"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -141,7 +141,6 @@ func (v *validationHandler) buildReport(
 	namespaceLabels map[string]string,
 	engineResponses ...*response.EngineResponse,
 ) error {
-	v.log.Info("in buildReport...", "gvk", request.Kind, "ns", request.Namespace)
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request, policies...)
 	if err != nil {
@@ -150,7 +149,6 @@ func (v *validationHandler) buildReport(
 	var responses []*response.EngineResponse
 	responses = append(responses, engineResponses...)
 	for _, policy := range policies {
-		v.log.Info("admission report...", "policy", policy.GetName())
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
 		responses = append(responses, engine.Validate(policyContext))
@@ -159,12 +157,9 @@ func (v *validationHandler) buildReport(
 	if err != nil {
 		return err
 	}
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.group", request.Kind.Group)
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.version", request.Kind.Version)
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.kind", request.Kind.Kind)
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.namespace", request.Namespace)
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.name", request.Name)
-	controllerutils.SetLabel(report, "audit.kyverno.io/request.uid", string(request.UID))
+	reportutils.SetAdmissionLabels(report, request)
+	reportutils.SetResourceLabels(report, &resource)
+	reportutils.SetResourceGvkLabels(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind)
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
 		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
@@ -178,37 +173,13 @@ func (v *validationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...*response.EngineResponse,
 ) {
-	namespace := resource.GetNamespace()
-	if namespace == "" {
-		report := &kyvernov1alpha2.ClusterReportChangeRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: string(request.UID),
-			},
-		}
-		err := v.buildReport(report, resource, request, namespaceLabels, engineResponses...)
-		if err == nil {
-			_, err = v.kyvernoClient.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), report, metav1.CreateOptions{})
-			if err != nil {
-				v.log.Error(err, "failed to create report")
-			}
-		} else {
-			v.log.Error(err, "failed to build report")
-		}
-	} else {
-		report := &kyvernov1alpha2.ReportChangeRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      string(request.UID),
-				Namespace: request.Namespace,
-			},
-		}
-		err := v.buildReport(report, resource, request, namespaceLabels, engineResponses...)
-		if err == nil {
-			_, err = v.kyvernoClient.KyvernoV1alpha2().ReportChangeRequests(report.Namespace).Create(context.TODO(), report, metav1.CreateOptions{})
-			if err != nil {
-				v.log.Error(err, "failed to create report")
-			}
-		} else {
-			v.log.Error(err, "failed to build report")
-		}
+	report := reportutils.NewReport(resource.GetNamespace(), string(request.UID))
+	err := v.buildReport(report, resource, request, namespaceLabels, engineResponses...)
+	if err != nil {
+		v.log.Error(err, "failed to build report")
+	}
+	_, err = reportutils.CreateReport(report, v.kyvernoClient)
+	if err != nil {
+		v.log.Error(err, "failed to create report")
 	}
 }
