@@ -982,15 +982,16 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 }
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
+	res := make(map[string]interface{})
 	p, _ := pem.Decode([]byte(arguments[0].(string)))
 	if p == nil {
-		return "", errors.New("invalid certificate")
+		return res, errors.New("invalid certificate")
 	}
 
 	var v interface{}
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return res, errors.WithStack(err)
 	}
 	v = struct{ *x509.Certificate }{cert}
 
@@ -998,8 +999,12 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	enc := json.NewEncoder(buf)
 	err = enc.Encode(v)
 	if err != nil {
-		return "", errors.WithStack(err)
+		return res, errors.WithStack(err)
 	}
 
-	return strings.TrimSuffix(buf.String(), "\n"), nil
+	json.Unmarshal(buf.Bytes(), &res)
+
+	fmt.Printf("%+v\n", res)
+
+	return res, nil
 }
