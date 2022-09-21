@@ -33,6 +33,10 @@ rules:
   - reportchangerequests/status
   - clusterreportchangerequests
   - clusterreportchangerequests/status
+  - admissionreports
+  - clusteradmissionreports
+  - backgroundscanreports
+  - clusterbackgroundscanreports
   verbs:
   - create
   - delete
