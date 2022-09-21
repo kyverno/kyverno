@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1437,7 +1438,11 @@ UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
 	resExpected := make([]map[string]interface{}, 2)
 
 	for i, v := range resList {
-		json.Unmarshal([]byte(v), &resExpected[i])
+		d := json.NewDecoder(strings.NewReader(v))
+		d.UseNumber()
+
+		err := d.Decode(&resExpected[i])
+		assert.NilError(t, err)
 	}
 
 	testCases := []struct {

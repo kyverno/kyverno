@@ -1002,9 +1002,11 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 		return res, errors.WithStack(err)
 	}
 
-	json.Unmarshal(buf.Bytes(), &res)
-
-	fmt.Printf("%+v\n", res)
+	d := json.NewDecoder(strings.NewReader(buf.String()))
+	d.UseNumber()
+	if err := d.Decode(&res); err != nil {
+		return res, errors.WithStack(err)
+	}
 
 	return res, nil
 }

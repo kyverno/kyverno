@@ -83,11 +83,6 @@ require (
 )
 
 require (
-	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
-)
-
-require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
 	cloud.google.com/go v0.103.0 // indirect
 	cloud.google.com/go/compute v1.7.0 // indirect
