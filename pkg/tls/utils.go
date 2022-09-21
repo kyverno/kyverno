@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"time"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -103,7 +104,7 @@ func IsSecretManagedByKyverno(secret *corev1.Secret) bool {
 		if labels == nil {
 			return false
 		}
-		if labels[ManagedByLabel] != "kyverno" {
+		if labels[ManagedByLabel] != kyvernov1.ValueKyvernoApp {
 			return false
 		}
 	}

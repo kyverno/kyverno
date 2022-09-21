@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/pkg/errors"
@@ -106,7 +107,7 @@ func (vc statusControl) UpdateLastRequestTimestmap(new time.Time) error {
 	label := lease.GetLabels()
 	if len(label) == 0 {
 		label = make(map[string]string)
-		label["app.kubernetes.io/name"] = "kyverno"
+		label["app.kubernetes.io/name"] = kyvernov1.ValueKyvernoApp
 	}
 	lease.SetLabels(label)
 

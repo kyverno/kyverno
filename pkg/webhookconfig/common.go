@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -19,7 +20,6 @@ import (
 
 const (
 	managedByLabel string = "webhook.kyverno.io/managed-by"
-	kyvernoValue   string = "kyverno"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 	}
 	vertifyObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernoValue,
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	update       = []admissionregistrationv1.OperationType{admissionregistrationv1.Update}
@@ -75,7 +75,7 @@ func getHealthyPodsIP(pods []corev1.Pod) []string {
 func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernoValue,
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
@@ -199,7 +199,7 @@ func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.Obje
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			managedByLabel: kyvernoValue,
+			managedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 		OwnerReferences: owner,
 	}

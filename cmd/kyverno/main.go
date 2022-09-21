@@ -113,6 +113,7 @@ func main() {
 	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
 	flag.Func(toggle.SplitPolicyReportFlagName, toggle.SplitPolicyReportDescription, toggle.SplitPolicyReport.Parse)
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flag.Func(toggle.DisableBackgroundScanFlagName, toggle.DisableBackgroundScanDescription, toggle.DisableBackgroundScan.Parse)
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
