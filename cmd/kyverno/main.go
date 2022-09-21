@@ -342,7 +342,7 @@ func main() {
 		kyvernoV1alpha2.ReportChangeRequests(),
 		kyvernoV1alpha2.ClusterReportChangeRequests(),
 	)
-	auditController := auditcontroller.NewController(
+	/*auditController := */ auditcontroller.NewController(
 		dynamicClient,
 		metadataClient,
 		kyvernoClient,
@@ -493,7 +493,7 @@ func main() {
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
 	go reportController.Run(stopCh)
-	go auditController.Run(stopCh)
+	// go auditController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go configurationController.Run(stopCh)

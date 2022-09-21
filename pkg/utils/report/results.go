@@ -6,7 +6,6 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"golang.org/x/exp/slices"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -91,15 +90,15 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 			Source: kyvernov1.ValueKyvernoApp,
 			Policy: key,
 			Rule:   ruleResult.Name,
-			Resources: []corev1.ObjectReference{
-				{
-					Kind:       response.PatchedResource.GetKind(),
-					Namespace:  response.PatchedResource.GetNamespace(),
-					APIVersion: response.PatchedResource.GetAPIVersion(),
-					Name:       response.PatchedResource.GetName(),
-					UID:        response.PatchedResource.GetUID(),
-				},
-			},
+			// Resources: []corev1.ObjectReference{
+			// 	{
+			// 		Kind:       response.PatchedResource.GetKind(),
+			// 		Namespace:  response.PatchedResource.GetNamespace(),
+			// 		APIVersion: response.PatchedResource.GetAPIVersion(),
+			// 		Name:       response.PatchedResource.GetName(),
+			// 		UID:        response.PatchedResource.GetUID(),
+			// 	},
+			// },
 			Message: ruleResult.Message,
 			Result:  toPolicyResult(ruleResult.Status),
 			Scored:  annotations[categoryLabel] != "false",

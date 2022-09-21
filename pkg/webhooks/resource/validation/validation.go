@@ -149,7 +149,7 @@ func (v *validationHandler) handleAudit(
 	engineResponses ...*response.EngineResponse,
 ) {
 	//	we don't need reports for deletions and when it's about sub resources
-	if request.Operation != admissionv1.Delete && request.SubResource == "" {
+	if request.Operation == admissionv1.Delete || request.SubResource != "" {
 		return
 	}
 	responses, err := v.buildAuditResponses(resource, request, namespaceLabels)
@@ -157,11 +157,7 @@ func (v *validationHandler) handleAudit(
 		v.log.Error(err, "failed to build audit responses")
 	}
 	responses = append(responses, engineResponses...)
-	report := reportutils.NewReport(resource.GetNamespace(), string(request.UID))
-	reportutils.SetAdmissionLabels(report, request)
-	reportutils.SetResourceLabels(report, &resource)
-	reportutils.SetResourceGvkLabels(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind)
-	reportutils.SetResults(report, responses...)
+	report := reportutils.NewAdmissionReport(&resource, request, request.Kind, responses...)
 	//	if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
