@@ -11,6 +11,18 @@ import (
 
 func UpdateReport(report kyvernov1alpha2.ReportChangeRequestInterface, client versioned.Interface) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
 	switch v := report.(type) {
+	case *kyvernov1alpha2.AdmissionReport:
+		report, err := client.KyvernoV1alpha2().AdmissionReports(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
+		return report, err
+	case *kyvernov1alpha2.ClusterAdmissionReport:
+		report, err := client.KyvernoV1alpha2().ClusterAdmissionReports().Update(context.TODO(), v, metav1.UpdateOptions{})
+		return report, err
+	case *kyvernov1alpha2.BackgroundScanReport:
+		report, err := client.KyvernoV1alpha2().BackgroundScanReports(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
+		return report, err
+	case *kyvernov1alpha2.ClusterBackgroundScanReport:
+		report, err := client.KyvernoV1alpha2().ClusterBackgroundScanReports().Update(context.TODO(), v, metav1.UpdateOptions{})
+		return report, err
 	case *kyvernov1alpha2.ReportChangeRequest:
 		report, err := client.KyvernoV1alpha2().ReportChangeRequests(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
 		return report, err

@@ -23,6 +23,8 @@ const (
 	workers    = 5
 )
 
+// TODO: improve merging
+
 type controller struct {
 	// clients
 	client versioned.Interface

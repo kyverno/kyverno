@@ -9,13 +9,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateReport(report kyvernov1alpha2.ReportChangeRequestInterface, client versioned.Interface) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func CreateReport(client versioned.Interface, report kyvernov1alpha2.ReportChangeRequestInterface) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
 		report, err := client.KyvernoV1alpha2().AdmissionReports(report.GetNamespace()).Create(context.TODO(), v, metav1.CreateOptions{})
 		return report, err
 	case *kyvernov1alpha2.ClusterAdmissionReport:
 		report, err := client.KyvernoV1alpha2().ClusterAdmissionReports().Create(context.TODO(), v, metav1.CreateOptions{})
+		return report, err
+	case *kyvernov1alpha2.BackgroundScanReport:
+		report, err := client.KyvernoV1alpha2().BackgroundScanReports(report.GetNamespace()).Create(context.TODO(), v, metav1.CreateOptions{})
+		return report, err
+	case *kyvernov1alpha2.ClusterBackgroundScanReport:
+		report, err := client.KyvernoV1alpha2().ClusterBackgroundScanReports().Create(context.TODO(), v, metav1.CreateOptions{})
 		return report, err
 	case *kyvernov1alpha2.ReportChangeRequest:
 		report, err := client.KyvernoV1alpha2().ReportChangeRequests(report.GetNamespace()).Create(context.TODO(), v, metav1.CreateOptions{})

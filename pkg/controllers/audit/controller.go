@@ -41,6 +41,9 @@ const (
 	workers    = 10
 )
 
+// TODO: leader election
+// TODO: admr cleanup
+
 type controller struct {
 	// clients
 	client         dclient.Interface

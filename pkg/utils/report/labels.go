@@ -10,6 +10,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -85,11 +86,21 @@ func SetAdmissionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, req
 }
 
 func SetResourceLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) {
-	controllerutils.SetLabel(report, LabelResourceGeneration, strconv.FormatInt(resource.GetGeneration(), 10))
 	controllerutils.SetLabel(report, LabelResourceName, resource.GetName())
 	controllerutils.SetLabel(report, LabelResourceNamespace, resource.GetNamespace())
 	controllerutils.SetLabel(report, LabelResourceUid, string(resource.GetUID()))
 	controllerutils.SetLabel(report, LabelResourceVersion, resource.GetResourceVersion())
+	SetResourceVersionLabels(report, resource)
+}
+
+func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) {
+	if resource != nil {
+		controllerutils.SetLabel(report, LabelResourceGeneration, strconv.FormatInt(resource.GetGeneration(), 10))
+		controllerutils.SetLabel(report, LabelResourceVersion, resource.GetResourceVersion())
+	} else {
+		controllerutils.SetLabel(report, LabelResourceGeneration, "")
+		controllerutils.SetLabel(report, LabelResourceVersion, "")
+	}
 }
 
 func SetResourceGvkLabels(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string) {
@@ -100,4 +111,12 @@ func SetResourceGvkLabels(report kyvernov1alpha2.ReportChangeRequestInterface, g
 
 func SetPolicyLabel(report kyvernov1alpha2.ReportChangeRequestInterface, policy kyvernov1.PolicyInterface) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
+}
+
+func GetResourceUid(report kyvernov1alpha2.ReportChangeRequestInterface) types.UID {
+	return types.UID(report.GetLabels()[LabelResourceUid])
+}
+
+func GetResourceVersion(report kyvernov1alpha2.ReportChangeRequestInterface) string {
+	return report.GetLabels()[LabelResourceVersion]
 }

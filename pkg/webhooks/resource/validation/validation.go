@@ -162,7 +162,7 @@ func (v *validationHandler) handleAudit(
 	if request.Operation != admissionv1.Create {
 		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
 	}
-	_, err = reportutils.CreateReport(report, v.kyvernoClient)
+	_, err = reportutils.CreateReport(v.kyvernoClient, report)
 	if err != nil {
 		v.log.Error(err, "failed to create report")
 	}

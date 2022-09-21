@@ -17,11 +17,13 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	auditcontroller "github.com/kyverno/kyverno/pkg/controllers/audit"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
-	reportcontroller "github.com/kyverno/kyverno/pkg/controllers/report"
+	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
+	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
+	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/cosign"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
@@ -200,7 +202,7 @@ func main() {
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
-	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
+	// reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -335,23 +337,59 @@ func main() {
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
-	reportController := reportcontroller.NewController(
-		kyvernoClient,
-		reportV1alpha2.PolicyReports(),
-		reportV1alpha2.ClusterPolicyReports(),
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
-	)
-	/*auditController := */ auditcontroller.NewController(
-		dynamicClient,
-		metadataClient,
-		kyvernoClient,
-		kyvernoV1.Policies(),
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1alpha2.ReportChangeRequests(),
-		kyvernoV1alpha2.ClusterReportChangeRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-	)
+
+	backgroundScan := true
+	admissionReports := true
+
+	var resourceReportController resourcereportcontroller.Controller
+	var admissionReportController controllers.Controller
+	var backgroundScanController controllers.Controller
+
+	if backgroundScan || admissionReports {
+		resourceReportController = resourcereportcontroller.NewController(
+			dynamicClient,
+			metadataClient,
+			kyvernoV1.Policies(),
+			kyvernoV1.ClusterPolicies(),
+		)
+		if admissionReports {
+			admissionReportController = admissionreportcontroller.NewController(
+				kyvernoClient,
+				kyvernoV1alpha2.AdmissionReports(),
+				kyvernoV1alpha2.ClusterAdmissionReports(),
+				resourceReportController,
+			)
+		}
+		if backgroundScan {
+			backgroundScanController = backgroundscancontroller.NewController(
+				dynamicClient,
+				kyvernoClient,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
+				kyvernoV1alpha2.BackgroundScanReports(),
+				kyvernoV1alpha2.ClusterBackgroundScanReports(),
+				kubeInformer.Core().V1().Namespaces(),
+				resourceReportController,
+			)
+		}
+	}
+	// reportController := reportcontroller.NewController(
+	// 	kyvernoClient,
+	// 	reportV1alpha2.PolicyReports(),
+	// 	reportV1alpha2.ClusterPolicyReports(),
+	// 	kyvernoV1alpha2.ReportChangeRequests(),
+	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
+	// )
+	// /*auditController := */ auditcontroller.NewController(
+	// 	dynamicClient,
+	// 	metadataClient,
+	// 	kyvernoClient,
+	// 	kyvernoV1.Policies(),
+	// 	kyvernoV1.ClusterPolicies(),
+	// 	kyvernoV1alpha2.ReportChangeRequests(),
+	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
+	// 	kubeInformer.Core().V1().Namespaces(),
+	// )
 
 	certRenewer, err := tls.NewCertRenewer(
 		kubeClient,
@@ -492,8 +530,17 @@ func main() {
 	// init events handlers
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
-	go reportController.Run(stopCh)
+	// go reportController.Run(stopCh)
 	// go auditController.Run(stopCh)
+	if resourceReportController != nil {
+		go resourceReportController.Run(stopCh)
+	}
+	if admissionReportController != nil {
+		go admissionReportController.Run(stopCh)
+	}
+	if backgroundScanController != nil {
+		go backgroundScanController.Run(stopCh)
+	}
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go configurationController.Run(stopCh)
