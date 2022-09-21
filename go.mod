@@ -79,13 +79,11 @@ require (
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
-	github.com/smallstep/zcrypto v0.0.0-20210924233136-66c2600f6e71
 )
 
 require (
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
-	github.com/weppos/publicsuffix-go v0.15.1-0.20220413065649-906f534b73a4 // indirect
 )
 
 require (

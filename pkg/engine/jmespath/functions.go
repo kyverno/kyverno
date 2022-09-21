@@ -2,6 +2,7 @@ package jmespath
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -20,7 +21,6 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
-	zx509 "github.com/smallstep/zcrypto/x509"
 	regen "github.com/zach-klippenstein/goregen"
 	"sigs.k8s.io/yaml"
 )
@@ -983,19 +983,22 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
 	p, _ := pem.Decode([]byte(arguments[0].(string)))
+	if p == nil {
+		return "", errors.New("invalid certificate")
+	}
 
 	var v interface{}
-	cert, err := zx509.ParseCertificate(p.Bytes)
+	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
-		return false, errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
-	v = struct{ *zx509.Certificate }{cert}
+	v = struct{ *x509.Certificate }{cert}
 
 	buf := new(bytes.Buffer)
 	enc := json.NewEncoder(buf)
 	err = enc.Encode(v)
 	if err != nil {
-		return false, errors.WithStack(err)
+		return "", errors.WithStack(err)
 	}
 
 	return strings.TrimSuffix(buf.String(), "\n"), nil
