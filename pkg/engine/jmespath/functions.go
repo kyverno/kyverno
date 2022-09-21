@@ -1,9 +1,10 @@
 package jmespath
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
+	"encoding/pem"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -18,6 +19,8 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/pkg/errors"
+	zx509 "github.com/smallstep/zcrypto/x509"
 	regen "github.com/zach-klippenstein/goregen"
 	"sigs.k8s.io/yaml"
 )
@@ -68,6 +71,7 @@ var (
 	items                  = "items"
 	objectFromLists        = "object_from_lists"
 	random                 = "random"
+	x509_decode            = "x509_decode"
 )
 
 const (
@@ -437,6 +441,17 @@ func GetFunctions() []*FunctionEntry {
 			},
 			ReturnType: []JpType{JpString},
 			Note:       "Generates a random sequence of characters",
+		},
+		{
+			Entry: &gojmespath.FunctionEntry{
+				Name: x509_decode,
+				Arguments: []ArgSpec{
+					{Types: []JpType{JpString}},
+				},
+				Handler: jpX509Decode,
+			},
+			ReturnType: []JpType{JpString},
+			Note:       "decodes an x.509 certificate to json. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
 		},
 	}
 }
@@ -964,4 +979,24 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 		fmt.Println("Invalid Pattern: ", err)
 	}
 	return ans, nil
+}
+
+func jpX509Decode(arguments []interface{}) (interface{}, error) {
+	p, _ := pem.Decode([]byte(arguments[0].(string)))
+
+	var v interface{}
+	cert, err := zx509.ParseCertificate(p.Bytes)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+	v = struct{ *zx509.Certificate }{cert}
+
+	buf := new(bytes.Buffer)
+	enc := json.NewEncoder(buf)
+	err = enc.Encode(v)
+	if err != nil {
+		return false, errors.WithStack(err)
+	}
+
+	return strings.TrimSuffix(buf.String(), "\n"), nil
 }
