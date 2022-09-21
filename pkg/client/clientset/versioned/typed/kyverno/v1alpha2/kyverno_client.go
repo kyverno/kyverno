@@ -26,6 +26,10 @@ import (
 
 type KyvernoV1alpha2Interface interface {
 	RESTClient() rest.Interface
+	AdmissionReportsGetter
+	BackgroundScanReportsGetter
+	ClusterAdmissionReportsGetter
+	ClusterBackgroundScanReportsGetter
 	ClusterReportChangeRequestsGetter
 	ReportChangeRequestsGetter
 }
@@ -33,6 +37,22 @@ type KyvernoV1alpha2Interface interface {
 // KyvernoV1alpha2Client is used to interact with features provided by the kyverno.io group.
 type KyvernoV1alpha2Client struct {
 	restClient rest.Interface
+}
+
+func (c *KyvernoV1alpha2Client) AdmissionReports(namespace string) AdmissionReportInterface {
+	return newAdmissionReports(c, namespace)
+}
+
+func (c *KyvernoV1alpha2Client) BackgroundScanReports(namespace string) BackgroundScanReportInterface {
+	return newBackgroundScanReports(c, namespace)
+}
+
+func (c *KyvernoV1alpha2Client) ClusterAdmissionReports() ClusterAdmissionReportInterface {
+	return newClusterAdmissionReports(c)
+}
+
+func (c *KyvernoV1alpha2Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
+	return newClusterBackgroundScanReports(c)
 }
 
 func (c *KyvernoV1alpha2Client) ClusterReportChangeRequests() ClusterReportChangeRequestInterface {

@@ -16,3 +16,16 @@ func NewReport(namespace, name string) kyvernov1alpha2.ReportChangeRequestInterf
 	SetManagedByKyvernoLabel(report)
 	return report
 }
+
+func NewAdmissionReport(namespace, name string) kyvernov1alpha2.ReportChangeRequestInterface {
+	var report kyvernov1alpha2.ReportChangeRequestInterface
+	if namespace == "" {
+		report = &kyvernov1alpha2.ClusterAdmissionReport{}
+	} else {
+		report = &kyvernov1alpha2.AdmissionReport{}
+	}
+	report.SetName(name)
+	report.SetNamespace(name)
+	SetManagedByKyvernoLabel(report)
+	return report
+}
