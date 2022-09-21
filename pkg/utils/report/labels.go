@@ -1,7 +1,9 @@
 package report
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
@@ -28,7 +30,46 @@ const (
 	LabelResourceGvkGroup   = "audit.kyverno.io/resource.gvk.group"
 	LabelResourceGvkKind    = "audit.kyverno.io/resource.gvk.kind"
 	LabelResourceGvkVersion = "audit.kyverno.io/resource.gvk.version"
+	//	policy labels
+	LabelDomainClusterPolicy = "pol.kyverno.io"
+	LabelDomainPolicy        = "cpol.kyverno.io"
+	LabelPrefixClusterPolicy = LabelDomainClusterPolicy + "/"
+	LabelPrefixPolicy        = LabelDomainPolicy + "/"
 )
+
+func IsPolicyLabel(label string) bool {
+	return strings.HasPrefix(label, LabelPrefixPolicy) || strings.HasPrefix(label, LabelPrefixClusterPolicy)
+}
+
+func PolicyNameFromLabel(namespace, label string) (string, error) {
+	names := strings.Split(label, "/")
+	if len(names) == 2 {
+		if names[0] == LabelDomainClusterPolicy {
+			return names[1], nil
+		} else if names[0] == LabelDomainPolicy {
+			return namespace + "/" + names[1], nil
+		}
+	}
+	return "", fmt.Errorf("cannot get policy name from label, incorrect format: %s", label)
+}
+
+func PolicyLabelPrefix(policy kyvernov1.PolicyInterface) string {
+	if policy.IsNamespaced() {
+		return LabelPrefixPolicy
+	}
+	return LabelPrefixClusterPolicy
+}
+
+func PolicyLabelDomain(policy kyvernov1.PolicyInterface) string {
+	if policy.IsNamespaced() {
+		return LabelDomainPolicy
+	}
+	return LabelDomainClusterPolicy
+}
+
+func PolicyLabel(policy kyvernov1.PolicyInterface) string {
+	return PolicyLabelPrefix(policy) + policy.GetName()
+}
 
 func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
@@ -57,7 +98,6 @@ func SetResourceGvkLabels(report kyvernov1alpha2.ReportChangeRequestInterface, g
 	controllerutils.SetLabel(report, LabelResourceGvkVersion, version)
 }
 
-func SetOwner(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string, resource metav1.Object) {
-	gv := metav1.GroupVersion{Group: group, Version: version}
-	controllerutils.SetOwner(report, gv.String(), kind, resource.GetName(), resource.GetUID())
+func SetPolicyLabel(report kyvernov1alpha2.ReportChangeRequestInterface, policy kyvernov1.PolicyInterface) {
+	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }

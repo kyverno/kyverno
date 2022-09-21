@@ -6,9 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	auditcontroller "github.com/kyverno/kyverno/pkg/controllers/audit"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -129,37 +127,19 @@ func (v *validationHandler) generateMetrics(request *admissionv1.AdmissionReques
 	go webhookutils.RegisterAdmissionRequestsMetricValidate(logger, metricsConfig, string(request.Operation), engineResponses)
 }
 
-func (v *validationHandler) buildReport(
-	report kyvernov1alpha2.ReportChangeRequestInterface,
-	resource unstructured.Unstructured,
-	request *admissionv1.AdmissionRequest,
-	namespaceLabels map[string]string,
-	engineResponses ...*response.EngineResponse,
-) error {
+func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, namespaceLabels map[string]string) ([]*response.EngineResponse, error) {
 	policies := v.pCache.GetPolicies(policycache.ValidateAudit, request.Kind.Kind, request.Namespace)
 	policyContext, err := v.pcBuilder.Build(request, policies...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	var responses []*response.EngineResponse
-	responses = append(responses, engineResponses...)
 	for _, policy := range policies {
 		policyContext.Policy = policy
 		policyContext.NamespaceLabels = namespaceLabels
 		responses = append(responses, engine.Validate(policyContext))
 	}
-	err = auditcontroller.BuildReport(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource, responses...)
-	if err != nil {
-		return err
-	}
-	reportutils.SetAdmissionLabels(report, request)
-	reportutils.SetResourceLabels(report, &resource)
-	reportutils.SetResourceGvkLabels(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind)
-	//	if it's not a creation, the resource already exists, we can set the owner
-	if request.Operation != admissionv1.Create {
-		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
-	}
-	return nil
+	return responses, nil
 }
 
 func (v *validationHandler) handleAudit(
@@ -172,10 +152,19 @@ func (v *validationHandler) handleAudit(
 	if request.Operation != admissionv1.Delete && request.SubResource == "" {
 		return
 	}
-	report := reportutils.NewReport(resource.GetNamespace(), string(request.UID))
-	err := v.buildReport(report, resource, request, namespaceLabels, engineResponses...)
+	responses, err := v.buildAuditResponses(resource, request, namespaceLabels)
 	if err != nil {
-		v.log.Error(err, "failed to build report")
+		v.log.Error(err, "failed to build audit responses")
+	}
+	responses = append(responses, engineResponses...)
+	report := reportutils.NewReport(resource.GetNamespace(), string(request.UID))
+	reportutils.SetAdmissionLabels(report, request)
+	reportutils.SetResourceLabels(report, &resource)
+	reportutils.SetResourceGvkLabels(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind)
+	reportutils.SetResults(report, responses...)
+	//	if it's not a creation, the resource already exists, we can set the owner
+	if request.Operation != admissionv1.Create {
+		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
 	}
 	_, err = reportutils.CreateReport(report, v.kyvernoClient)
 	if err != nil {
