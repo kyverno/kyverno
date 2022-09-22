@@ -195,7 +195,7 @@ func (c *controller) updateReport(before kyvernov1alpha2.ReportChangeRequestInte
 		return err
 	}
 	//	if the resource changed, we need to rebuild the report
-	if resource != nil && resource.GetResourceVersion() != reportutils.GetResourceVersion(report) {
+	if resource != nil && !reportutils.CompareHash(report, resource) {
 		scanner := utils.NewScanner(logger, c.client)
 		resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, report.GetNamespace(), resource.GetName())
 		if err != nil {

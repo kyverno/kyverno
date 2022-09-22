@@ -70,8 +70,8 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cbgscanr
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
-// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.owner.kind`,priority=1
+// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.owner.name`,priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=`.summary.pass`
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=`.summary.fail`
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=`.summary.warn`

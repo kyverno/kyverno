@@ -1,18 +1,15 @@
 package report
 
 import (
+	"time"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"golang.org/x/exp/slices"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
-)
-
-const (
-	categoryLabel string = "policies.kyverno.io/category"
-	severityLabel string = "policies.kyverno.io/severity"
-	ScoredLabel   string = "policies.kyverno.io/scored"
 )
 
 func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
@@ -101,13 +98,13 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 			// },
 			Message: ruleResult.Message,
 			Result:  toPolicyResult(ruleResult.Status),
-			Scored:  annotations[categoryLabel] != "false",
+			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
 			// TODO this is going to tigger updates
-			// Timestamp: metav1.Timestamp{
-			// 	Seconds: time.Now().Unix(),
-			// },
-			Category: annotations[categoryLabel],
-			Severity: severityFromString(annotations[categoryLabel]),
+			Timestamp: metav1.Timestamp{
+				Seconds: time.Now().Unix(),
+			},
+			Category: annotations[kyvernov1.AnnotationPolicyCategory],
+			Severity: severityFromString(annotations[kyvernov1.AnnotationPolicySeverity]),
 		}
 		if result.Result == "fail" && !result.Scored {
 			result.Result = "warn"

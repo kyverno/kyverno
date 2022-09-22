@@ -753,7 +753,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 				case response.RuleStatusFail:
 					ann := policy.GetAnnotations()
-					if scored, ok := ann[policyreport.ScoredLabel]; ok && scored == "false" {
+					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
 						rc.Warn++
 						vrule.Status = policyreportv1alpha2.StatusWarn
 						break

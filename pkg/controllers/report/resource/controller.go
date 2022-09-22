@@ -188,25 +188,24 @@ func (c *controller) updateMetadataInformers() error {
 	return nil
 }
 
-func (c *controller) notify(obj interface{}) {
+func (c *controller) notify(obj metav1.Object) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	resource := obj.(metav1.Object)
 	for _, handler := range c.eventHandlers {
-		handler(resource.GetNamespace(), resource.GetUID())
+		handler(obj.GetNamespace(), obj.GetUID())
 	}
 }
 
 func (c *controller) addResource(obj interface{}) {
-	c.notify(obj)
+	c.notify(obj.(metav1.Object))
 }
 
 func (c *controller) updateResource(_, obj interface{}) {
-	c.notify(obj)
+	c.notify(obj.(metav1.Object))
 }
 
 func (c *controller) deleteResource(obj interface{}) {
-	c.notify(obj)
+	c.notify(obj.(metav1.Object))
 }
 
 func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {

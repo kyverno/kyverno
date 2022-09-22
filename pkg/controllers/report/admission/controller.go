@@ -110,7 +110,7 @@ func (c *controller) reconcile(key, namespace, name string) error {
 	// cleanup old reports
 	// if they are not the same version as the current resource version
 	// and were created more than five minutes ago
-	if resource == nil || resource.GetResourceVersion() != reportutils.GetResourceVersion(report) {
+	if resource == nil || !reportutils.CompareHash(report, resource) {
 		if report.GetCreationTimestamp().Add(time.Minute * 5).Before(time.Now()) {
 			return reportutils.DeleteReport(report, c.client)
 		}

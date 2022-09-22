@@ -1,6 +1,9 @@
 package report
 
 import (
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -23,6 +26,7 @@ const (
 	LabelRequestVersion   = "audit.kyverno.io/request.version"
 	//	resource labels
 	LabelResourceGeneration = "audit.kyverno.io/resource.generation"
+	LabelResourceHash       = "audit.kyverno.io/resource.hash"
 	LabelResourceName       = "audit.kyverno.io/resource.name"
 	LabelResourceNamespace  = "audit.kyverno.io/resource.namespace"
 	LabelResourceUid        = "audit.kyverno.io/resource.uid"
@@ -93,11 +97,28 @@ func SetResourceLabels(report kyvernov1alpha2.ReportChangeRequestInterface, reso
 	SetResourceVersionLabels(report, resource)
 }
 
+func CalculateResourceHash(resource metav1.Object) string {
+	var input []interface{}
+	for _, entry := range resource.GetManagedFields() {
+		if entry.Subresource == "" {
+			input = append(input, entry)
+		}
+	}
+	data, err := json.Marshal(input)
+	if err != nil {
+		return ""
+	}
+	hash := md5.Sum(data)
+	return hex.EncodeToString(hash[:])
+}
+
 func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) {
 	if resource != nil {
+		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(resource))
 		controllerutils.SetLabel(report, LabelResourceGeneration, strconv.FormatInt(resource.GetGeneration(), 10))
 		controllerutils.SetLabel(report, LabelResourceVersion, resource.GetResourceVersion())
 	} else {
+		controllerutils.SetLabel(report, LabelResourceHash, "")
 		controllerutils.SetLabel(report, LabelResourceGeneration, "")
 		controllerutils.SetLabel(report, LabelResourceVersion, "")
 	}
@@ -119,4 +140,12 @@ func GetResourceUid(report kyvernov1alpha2.ReportChangeRequestInterface) types.U
 
 func GetResourceVersion(report kyvernov1alpha2.ReportChangeRequestInterface) string {
 	return report.GetLabels()[LabelResourceVersion]
+}
+
+func GetResourceHash(report kyvernov1alpha2.ReportChangeRequestInterface) string {
+	return report.GetLabels()[LabelResourceHash]
+}
+
+func CompareHash(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) bool {
+	return GetResourceHash(report) == CalculateResourceHash(resource)
 }

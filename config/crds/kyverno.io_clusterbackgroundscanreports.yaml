@@ -18,11 +18,11 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .scope.kind
+    - jsonPath: .owner.kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .scope.name
+    - jsonPath: .owner.name
       name: Name
       priority: 1
       type: string
