@@ -158,14 +158,25 @@ var ValidateTests = []struct {
 		MustSucceed:       true,
 	},
 	{
-		// Case for X.509 certificate decoding validation
+		// Case for failing X.509 certificate decoding validation
 		TestDescription:   "checks if the public key modulus of base64 encoded x.509 certificate is same as the pem x.509 certificate",
 		PolicyName:        "check-x509-decode",
 		PolicyRaw:         kyverno_decode_x509_certificate_policy,
 		ResourceName:      "test-configmap",
 		ResourceNamespace: "test-validate",
 		ResourceGVR:       configmapGVR,
-		ResourceRaw:       kyverno_decode_x509_certificate_resource,
+		ResourceRaw:       kyverno_decode_x509_certificate_resource_fail,
 		MustSucceed:       false,
+	},
+	{
+		// Case for passing X.509 certificate decoding validation
+		TestDescription:   "checks if the public key modulus of base64 encoded x.509 certificate is same as the pem x.509 certificate",
+		PolicyName:        "check-x509-decode",
+		PolicyRaw:         kyverno_decode_x509_certificate_policy,
+		ResourceName:      "test-configmap",
+		ResourceNamespace: "test-validate",
+		ResourceGVR:       configmapGVR,
+		ResourceRaw:       kyverno_decode_x509_certificate_resource_pass,
+		MustSucceed:       true,
 	},
 }

@@ -82,6 +82,8 @@ require (
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
 )
 
+require github.com/weppos/publicsuffix-go v0.15.1-0.20220413065649-906f534b73a4 // indirect
+
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
 	cloud.google.com/go v0.103.0 // indirect
@@ -305,6 +307,7 @@ require (
 	github.com/sigstore/rekor v0.11.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
+	github.com/smallstep/zcrypto v0.0.0-20210924233136-66c2600f6e71
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect

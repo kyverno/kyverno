@@ -2,7 +2,6 @@ package jmespath
 
 import (
 	"bytes"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -21,6 +20,7 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
+	"github.com/smallstep/zcrypto/x509"
 	regen "github.com/zach-klippenstein/goregen"
 	"sigs.k8s.io/yaml"
 )
@@ -1006,11 +1006,11 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 		return res, errors.WithStack(err)
 	}
 
-	d := json.NewDecoder(strings.NewReader(buf.String()))
-	d.UseNumber()
-	if err := d.Decode(&res); err != nil {
+	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
 		return res, errors.WithStack(err)
 	}
+
+	fmt.Printf("JSON: %s\n", buf.String())
 
 	return res, nil
 }
