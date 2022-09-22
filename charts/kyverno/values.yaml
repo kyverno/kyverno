@@ -55,6 +55,9 @@ testImage:
   # Defaults to image.pullPolicy if omitted
   pullPolicy:
 
+test:
+  create: true
+
 # -- (int) Desired number of pods
 replicaCount: ~
 

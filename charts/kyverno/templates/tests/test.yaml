@@ -1,3 +1,4 @@
+{{- if .Values.test.create }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -25,3 +26,4 @@ spec:
         - -c
         - |
           sleep 20 ; wget -O- -S --no-check-certificate http://{{ template "kyverno.serviceName" . }}-metrics:{{ .Values.metricsService.port }}/metrics
+{{- end }}
