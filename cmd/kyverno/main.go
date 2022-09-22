@@ -12,12 +12,13 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/background"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers"
+	controllers "github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -47,6 +48,7 @@ import (
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/metadata"
 	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -81,6 +83,8 @@ var (
 	clientRateLimitBurst         int
 	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
+	backgroundScan               bool
+	admissionReports             bool
 	setupLog                     = log.Log.WithName("setup")
 )
 
@@ -117,6 +121,8 @@ func main() {
 	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
 	flag.Func(toggle.SplitPolicyReportFlagName, toggle.SplitPolicyReportDescription, toggle.SplitPolicyReport.Parse)
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
+	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
+	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
@@ -202,8 +208,6 @@ func main() {
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
-	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -338,70 +342,6 @@ func main() {
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
-
-	backgroundScan := true
-	admissionReports := true
-
-	var resourceReportController resourcereportcontroller.Controller
-	var admissionReportController controllers.Controller
-	var backgroundScanController controllers.Controller
-	var aggregateReportController controllers.Controller
-
-	if backgroundScan || admissionReports {
-		resourceReportController = resourcereportcontroller.NewController(
-			dynamicClient,
-			metadataClient,
-			kyvernoV1.Policies(),
-			kyvernoV1.ClusterPolicies(),
-		)
-		aggregateReportController = aggregatereportcontroller.NewController(
-			kyvernoClient,
-			reportV1alpha2.PolicyReports(),
-			reportV1alpha2.ClusterPolicyReports(),
-			kyvernoV1alpha2.AdmissionReports(),
-			kyvernoV1alpha2.ClusterAdmissionReports(),
-			kyvernoV1alpha2.BackgroundScanReports(),
-			kyvernoV1alpha2.ClusterBackgroundScanReports(),
-			resourceReportController,
-		)
-		if admissionReports {
-			admissionReportController = admissionreportcontroller.NewController(
-				kyvernoClient,
-				kyvernoV1alpha2.AdmissionReports(),
-				kyvernoV1alpha2.ClusterAdmissionReports(),
-				resourceReportController,
-			)
-		}
-		if backgroundScan {
-			backgroundScanController = backgroundscancontroller.NewController(
-				dynamicClient,
-				kyvernoClient,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				kyvernoV1alpha2.BackgroundScanReports(),
-				kyvernoV1alpha2.ClusterBackgroundScanReports(),
-				kubeInformer.Core().V1().Namespaces(),
-				resourceReportController,
-			)
-		}
-	}
-	// reportController := reportcontroller.NewController(
-	// 	kyvernoClient,
-	// 	reportV1alpha2.PolicyReports(),
-	// 	reportV1alpha2.ClusterPolicyReports(),
-	// 	kyvernoV1alpha2.ReportChangeRequests(),
-	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
-	// )
-	// /*auditController := */ auditcontroller.NewController(
-	// 	dynamicClient,
-	// 	metadataClient,
-	// 	kyvernoClient,
-	// 	kyvernoV1.Policies(),
-	// 	kyvernoV1.ClusterPolicies(),
-	// 	kyvernoV1alpha2.ReportChangeRequests(),
-	// 	kyvernoV1alpha2.ClusterReportChangeRequests(),
-	// 	kubeInformer.Core().V1().Namespaces(),
-	// )
 
 	certRenewer, err := tls.NewCertRenewer(
 		kubeClient,
@@ -539,21 +479,23 @@ func main() {
 		os.Exit(1)
 	}
 
+	reportControllers := setupReportControllers(
+		backgroundScan,
+		admissionReports,
+		dynamicClient,
+		metadataClient,
+		kyvernoClient,
+		kubeInformer,
+		kyvernoInformer,
+	)
+
+	for _, controller := range reportControllers {
+		go controller.Run(stopCh)
+	}
+
 	// init events handlers
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
-	if resourceReportController != nil {
-		go resourceReportController.Run(stopCh)
-	}
-	if admissionReportController != nil {
-		go admissionReportController.Run(stopCh)
-	}
-	if backgroundScanController != nil {
-		go backgroundScanController.Run(stopCh)
-	}
-	if aggregateReportController != nil {
-		go aggregateReportController.Run(stopCh)
-	}
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)
 	go configurationController.Run(stopCh)
@@ -585,4 +527,58 @@ func startOpenAPIController(client dclient.Interface, stopCh <-chan struct{}) *o
 	// thus is required in each instance
 	openAPISync.Run(1, stopCh)
 	return openAPIController
+}
+
+func setupReportControllers(
+	backgroundScan bool,
+	admissionReports bool,
+	client dclient.Interface,
+	metadataClient metadata.Interface,
+	kyvernoClient versioned.Interface,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+) []controllers.Controller {
+	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
+	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
+	resourceReportController := resourcereportcontroller.NewController(
+		client,
+		metadataClient,
+		kyvernoV1.Policies(),
+		kyvernoV1.ClusterPolicies(),
+	)
+	ctrls := []controllers.Controller{resourceReportController}
+	if backgroundScan || admissionReports {
+		ctrls = append(ctrls, aggregatereportcontroller.NewController(
+			kyvernoClient,
+			reportV1alpha2.PolicyReports(),
+			reportV1alpha2.ClusterPolicyReports(),
+			kyvernoV1alpha2.AdmissionReports(),
+			kyvernoV1alpha2.ClusterAdmissionReports(),
+			kyvernoV1alpha2.BackgroundScanReports(),
+			kyvernoV1alpha2.ClusterBackgroundScanReports(),
+			resourceReportController,
+		))
+		if admissionReports {
+			ctrls = append(ctrls, admissionreportcontroller.NewController(
+				kyvernoClient,
+				kyvernoV1alpha2.AdmissionReports(),
+				kyvernoV1alpha2.ClusterAdmissionReports(),
+				resourceReportController,
+			))
+		}
+		if backgroundScan {
+			ctrls = append(ctrls, backgroundscancontroller.NewController(
+				client,
+				kyvernoClient,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
+				kyvernoV1alpha2.BackgroundScanReports(),
+				kyvernoV1alpha2.ClusterBackgroundScanReports(),
+				kubeInformer.Core().V1().Namespaces(),
+				resourceReportController,
+			))
+		}
+	}
+	return ctrls
 }
