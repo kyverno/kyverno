@@ -1,6 +1,10 @@
 package v1
 
 import (
+	"bytes"
+	"encoding/json"
+	"strings"
+
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -9,9 +13,21 @@ import (
 
 func FromJSON(in *apiextv1.JSON) apiextensions.JSON {
 	var out apiextensions.JSON
-	if err := apiextv1.Convert_v1_JSON_To_apiextensions_JSON(in, &out, nil); err != nil {
-		log.Log.Error(err, "failed to convert JSON to interface")
+
+	if in != nil {
+		var i interface{}
+		if len(in.Raw) > 0 && !bytes.Equal(in.Raw, []byte(`null`)) {
+			d := json.NewDecoder(strings.NewReader(string(in.Raw)))
+			d.UseNumber()
+			if err := d.Decode(&out); err != nil {
+				log.Log.Error(err, "failed to convert JSON to interface")
+			}
+		}
+		out = i
+	} else {
+		out = nil
 	}
+
 	return out
 }
 

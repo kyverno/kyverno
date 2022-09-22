@@ -450,7 +450,7 @@ func GetFunctions() []*FunctionEntry {
 				},
 				Handler: jpX509Decode,
 			},
-			ReturnType: []JpType{JpString},
+			ReturnType: []JpType{JpObject},
 			Note:       "decodes an x.509 certificate to json. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
 		},
 	}
@@ -982,8 +982,12 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 }
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
+	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
+	if err != nil {
+		return nil, err
+	}
 	res := make(map[string]interface{})
-	p, _ := pem.Decode([]byte(arguments[0].(string)))
+	p, _ := pem.Decode([]byte(input.String()))
 	if p == nil {
 		return res, errors.New("invalid certificate")
 	}
