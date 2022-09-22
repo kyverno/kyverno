@@ -27,22 +27,31 @@ type ValidationHandler interface {
 	HandleValidation(*metrics.MetricsConfig, *admissionv1.AdmissionRequest, []kyvernov1.PolicyInterface, *engine.PolicyContext, map[string]string, time.Time) (bool, string, []string)
 }
 
-func NewValidationHandler(log logr.Logger, kyvernoClient versioned.Interface, pCache policycache.Cache, pcBuilder webhookutils.PolicyContextBuilder, eventGen event.Interface) ValidationHandler {
+func NewValidationHandler(
+	log logr.Logger,
+	kyvernoClient versioned.Interface,
+	pCache policycache.Cache,
+	pcBuilder webhookutils.PolicyContextBuilder,
+	eventGen event.Interface,
+	admissionReports bool,
+) ValidationHandler {
 	return &validationHandler{
-		log:           log,
-		kyvernoClient: kyvernoClient,
-		pCache:        pCache,
-		pcBuilder:     pcBuilder,
-		eventGen:      eventGen,
+		log:              log,
+		kyvernoClient:    kyvernoClient,
+		pCache:           pCache,
+		pcBuilder:        pcBuilder,
+		eventGen:         eventGen,
+		admissionReports: admissionReports,
 	}
 }
 
 type validationHandler struct {
-	log           logr.Logger
-	kyvernoClient versioned.Interface
-	pCache        policycache.Cache
-	pcBuilder     webhookutils.PolicyContextBuilder
-	eventGen      event.Interface
+	log              logr.Logger
+	kyvernoClient    versioned.Interface
+	pCache           policycache.Cache
+	pcBuilder        webhookutils.PolicyContextBuilder
+	eventGen         event.Interface
+	admissionReports bool
 }
 
 func (v *validationHandler) HandleValidation(
@@ -148,6 +157,9 @@ func (v *validationHandler) handleAudit(
 	namespaceLabels map[string]string,
 	engineResponses ...*response.EngineResponse,
 ) {
+	if !v.admissionReports {
+		return
+	}
 	//	we don't need reports for deletions and when it's about sub resources
 	if request.Operation == admissionv1.Delete || request.SubResource != "" {
 		return

@@ -54,6 +54,8 @@ type handlers struct {
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
 	urUpdater         webhookutils.UpdateRequestUpdater
+
+	admissionReports bool
 }
 
 func NewHandlers(
@@ -69,6 +71,7 @@ func NewHandlers(
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
 	openAPIController openapi.ValidateInterface,
+	admissionReports bool,
 ) webhooks.Handlers {
 	return &handlers{
 		client:            client,
@@ -85,6 +88,7 @@ func NewHandlers(
 		openAPIController: openAPIController,
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
 		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
+		admissionReports:  admissionReports,
 	}
 }
 
@@ -124,7 +128,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports)
 
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {

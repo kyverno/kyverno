@@ -48,7 +48,6 @@ import (
 	_ "go.uber.org/automaxprocs" // #nosec
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/metadata"
 	metadataclient "k8s.io/client-go/metadata"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
@@ -431,6 +430,7 @@ func main() {
 		urgen,
 		eventGenerator,
 		openAPIController,
+		admissionReports,
 	)
 
 	server := webhooks.NewServer(
@@ -533,7 +533,7 @@ func setupReportControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	client dclient.Interface,
-	metadataClient metadata.Interface,
+	metadataClient metadataclient.Interface,
 	kyvernoClient versioned.Interface,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
