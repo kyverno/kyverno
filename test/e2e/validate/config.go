@@ -37,6 +37,7 @@ var FluxValidateTests = []struct {
 var (
 	podGVR        = e2e.GetGVR("", "v1", "pods")
 	deploymentGVR = e2e.GetGVR("apps", "v1", "deployments")
+	configmapGVR  = e2e.GetGVR("", "v1", "configmaps")
 )
 
 var ValidateTests = []struct {
@@ -155,5 +156,16 @@ var ValidateTests = []struct {
 		ResourceGVR:       deploymentGVR,
 		ResourceRaw:       kyverno_yaml_signing_validate_resource_2,
 		MustSucceed:       true,
+	},
+	{
+		// Case for X.509 certificate decoding validation
+		TestDescription:   "checks if the public key modulus of base64 encoded x.509 certificate is same as the pem x.509 certificate",
+		PolicyName:        "check-x509-decode",
+		PolicyRaw:         kyverno_decode_x509_certificate_policy,
+		ResourceName:      "test-configmap",
+		ResourceNamespace: "test-validate",
+		ResourceGVR:       configmapGVR,
+		ResourceRaw:       kyverno_decode_x509_certificate_resource,
+		MustSucceed:       false,
 	},
 }

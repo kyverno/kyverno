@@ -895,3 +895,58 @@ spec:
         ports:
         - containerPort: 80
 `)
+
+var kyverno_decode_x509_certificate_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-x509-decode
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: test-x509-decode
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    validate:
+      message: "PublicKey.N mismatch: \"{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}\""
+      deny:
+        conditions:
+          any:
+            - key: "{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}"
+              operator: NotEquals
+              value: "{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}"
+`)
+
+var kyverno_decode_x509_certificate_resource = []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configmap
+  namespace: test-validate
+data:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQEL
+    BQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNV
+    BAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAw
+    WjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UE
+    ChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+    ANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUop
+    iYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3
+    RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5y
+    n9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRr
+    txqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweq
+    kbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1Ud
+    EwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqG
+    SIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1d
+    huukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi
+    85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIo
+    Q226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAm
+    jwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1F
+    UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
+    -----END CERTIFICATE-----
+  certB64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM3VENDQWRXZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFZTVJZd0ZBWURWUVFEREEwcUxtdDUKZG1WeWJtOHVjM1pqTUI0WERUSXlNREV4TVRFek1qWTBNMW9YRFRJek1ERXhNVEUwTWpZME0xb3dHREVXTUJRRwpBMVVFQXd3TktpNXJlWFpsY201dkxuTjJZekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DCmdnRUJBTXNBejg1K3lpbm8rTW1kS3NWdEh3Tmkzb0FWanVtelhIaUxmVUpLN3hpNUtVOEI3Z29QSEYvVkNlL1YKN1kyYzRhZnlmZ1kyZVB3NEx4U0RrQ1lOZ1l3cWpTd0dJYmNzcXY1WlJhekJkRHhSMDlyaTZQa25OeUJWR0xpNQpSbFBYSXJHUTNwc051ZjU1cXd4SnhMTzMxcUNadXZrdEtZNVl2dUlSNEpQbUJodVNGWE9ubjBaaVF3OHV4TWNRCjBRQTJseitQeFdDVk5rOXErMzFINURIMW9ZWkRMZlUzbWlqSU9BK0FKR1piQmIrWndCbXBWTDArMlRYTHhFNzQKV293ZEtFVitXVHNLb2pOVGQwVndjdVJLUktSLzZ5blhBQWlzMjF5MVg3VWk5RkpFNm1ESXlsVUQ0MFdYT0tHSgoxbFlZNDFrUm5ZaFZodlhZTjlKdE5ZZFkzSHNDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnS2tNQThHCkExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRk9ubEFTVkQ5ZnUzVEFqcHRsVy9nQVhBNHFsK01BMEcKQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNJcHlSaUNoeHA5N2NyS2ZRMjRKdDd6OFArQUdwTGYzc1g0ZUw4N0VTYQo3UVJvVkp0WExtYXV0MXBVRW9ZTFFydUttaC8wWUZ0Wkc5V3hWZ1k2aXVLYldudTdiT2VNQi9JcitWL3lyWDNSCitYdlpPc3VYaUpuRWJKaUJXNmxKekxsZG9XNGYvNzFIK2oxV0Q0dEhwcW1kTXhxL3NMcVhmUEl1YzAvbTB5RkMKbitBREJXR0dCOE5uNjZ2eHR2K2NUNnArUklWb3RYUFFXYk1pbFdwNnBkNXdTdUI2OEZxckR3dFlMTkp0UHdGcwo5TVBWa3VhSmRZWjBlV2Qvck1jS0Q5NEhnZjg5Z3ZBMCtxek1WRmYrM0JlbVhza2pRUll5NkNLc3FveUM2alg0Cm5oWWp1bUFQLzdwc2J6SVRzbnBIdGZDRUVVKzJKWndnTTQwNmFpTWNzZ0xiCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+`)
