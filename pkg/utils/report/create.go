@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -28,6 +29,12 @@ func CreateReport(client versioned.Interface, report kyvernov1alpha2.ReportChang
 		return report, err
 	case *kyvernov1alpha2.ClusterReportChangeRequest:
 		report, err := client.KyvernoV1alpha2().ClusterReportChangeRequests().Create(context.TODO(), v, metav1.CreateOptions{})
+		return report, err
+	case *policyreportv1alpha2.PolicyReport:
+		report, err := client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Create(context.TODO(), v, metav1.CreateOptions{})
+		return report, err
+	case *policyreportv1alpha2.ClusterPolicyReport:
+		report, err := client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Create(context.TODO(), v, metav1.CreateOptions{})
 		return report, err
 	default:
 		return nil, errors.New("unknow type")

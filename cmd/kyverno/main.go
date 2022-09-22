@@ -22,6 +22,7 @@ import (
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
+	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
 	backgroundscancontroller "github.com/kyverno/kyverno/pkg/controllers/report/background"
 	resourcereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -202,7 +203,7 @@ func main() {
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
-	// reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
+	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 
 	var registryOptions []registryclient.Option
 
@@ -344,6 +345,7 @@ func main() {
 	var resourceReportController resourcereportcontroller.Controller
 	var admissionReportController controllers.Controller
 	var backgroundScanController controllers.Controller
+	var aggregateReportController controllers.Controller
 
 	if backgroundScan || admissionReports {
 		resourceReportController = resourcereportcontroller.NewController(
@@ -351,6 +353,16 @@ func main() {
 			metadataClient,
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
+		)
+		aggregateReportController = aggregatereportcontroller.NewController(
+			kyvernoClient,
+			reportV1alpha2.PolicyReports(),
+			reportV1alpha2.ClusterPolicyReports(),
+			kyvernoV1alpha2.AdmissionReports(),
+			kyvernoV1alpha2.ClusterAdmissionReports(),
+			kyvernoV1alpha2.BackgroundScanReports(),
+			kyvernoV1alpha2.ClusterBackgroundScanReports(),
+			resourceReportController,
 		)
 		if admissionReports {
 			admissionReportController = admissionreportcontroller.NewController(
@@ -530,8 +542,6 @@ func main() {
 	// init events handlers
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
-	// go reportController.Run(stopCh)
-	// go auditController.Run(stopCh)
 	if resourceReportController != nil {
 		go resourceReportController.Run(stopCh)
 	}
@@ -540,6 +550,9 @@ func main() {
 	}
 	if backgroundScanController != nil {
 		go backgroundScanController.Run(stopCh)
+	}
+	if aggregateReportController != nil {
+		go aggregateReportController.Run(stopCh)
 	}
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(ctx)

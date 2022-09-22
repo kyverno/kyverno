@@ -3,6 +3,7 @@ package report
 import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
+	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 )
 
 func GetAdmissionReport(
@@ -40,6 +41,27 @@ func GetBackgroungScanReport(
 		return report.DeepCopy(), nil
 	} else {
 		report, err := lister.BackgroundScanReports(namespace).Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return report.DeepCopy(), nil
+	}
+}
+
+func GetPolicyReport(
+	namespace string,
+	name string,
+	lister policyreportv1alpha2listers.PolicyReportLister,
+	cLister policyreportv1alpha2listers.ClusterPolicyReportLister,
+) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+	if namespace == "" {
+		report, err := cLister.Get(name)
+		if err != nil {
+			return nil, err
+		}
+		return report.DeepCopy(), nil
+	} else {
+		report, err := lister.PolicyReports(namespace).Get(name)
 		if err != nil {
 			return nil, err
 		}

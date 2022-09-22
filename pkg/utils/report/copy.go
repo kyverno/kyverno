@@ -2,6 +2,7 @@ package report
 
 import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
 func DeepCopy(report kyvernov1alpha2.ReportChangeRequestInterface) kyvernov1alpha2.ReportChangeRequestInterface {
@@ -17,6 +18,10 @@ func DeepCopy(report kyvernov1alpha2.ReportChangeRequestInterface) kyvernov1alph
 	case *kyvernov1alpha2.ReportChangeRequest:
 		return v.DeepCopy()
 	case *kyvernov1alpha2.ClusterReportChangeRequest:
+		return v.DeepCopy()
+	case *policyreportv1alpha2.PolicyReport:
+		return v.DeepCopy()
+	case *policyreportv1alpha2.ClusterPolicyReport:
 		return v.DeepCopy()
 	default:
 		return nil

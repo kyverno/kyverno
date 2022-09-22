@@ -99,7 +99,6 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 			Message: ruleResult.Message,
 			Result:  toPolicyResult(ruleResult.Status),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
-			// TODO this is going to tigger updates
 			Timestamp: metav1.Timestamp{
 				Seconds: time.Now().Unix(),
 			},
@@ -112,6 +111,27 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 		results = append(results, result)
 	}
 	return results
+}
+
+func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
+	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
+	keysMap := map[string]string{}
+	for _, result := range results {
+		if keysMap[result.Policy] == "" {
+			// TODO error checking
+			ns, n, _ := cache.SplitMetaNamespaceKey(result.Policy)
+			if ns == "" {
+				keysMap[result.Policy] = "cpol-" + n
+			} else {
+				keysMap[result.Policy] = "pol-" + n
+			}
+		}
+	}
+	for _, result := range results {
+		key := keysMap[result.Policy]
+		resultsMap[key] = append(resultsMap[key], result)
+	}
+	return resultsMap
 }
 
 func SetResults(report kyvernov1alpha2.ReportChangeRequestInterface, results ...policyreportv1alpha2.PolicyReportResult) {

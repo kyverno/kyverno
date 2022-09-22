@@ -2,6 +2,7 @@ package report
 
 import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,5 +71,33 @@ func NewBackgroundScanReport(resource metav1.Object, gvk schema.GroupVersionKind
 	SetResourceLabels(report, resource)
 	SetResourceGvkLabels(report, gvk.Group, gvk.Version, gvk.Kind)
 	SetManagedByKyvernoLabel(report)
+	return report
+}
+
+func NewPolicyReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportChangeRequestInterface {
+	var report kyvernov1alpha2.ReportChangeRequestInterface
+	if namespace == "" {
+		report = &policyreportv1alpha2.ClusterPolicyReport{
+			// Owner: metav1.OwnerReference{
+			// 	APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+			// 	Kind:       gvk.Kind,
+			// 	Name:       resource.GetName(),
+			// 	UID:        resource.GetUID(),
+			// },
+		}
+	} else {
+		report = &policyreportv1alpha2.PolicyReport{
+			// Owner: metav1.OwnerReference{
+			// 	APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+			// 	Kind:       gvk.Kind,
+			// 	Name:       resource.GetName(),
+			// 	UID:        resource.GetUID(),
+			// },
+		}
+	}
+	report.SetName(name)
+	report.SetNamespace(namespace)
+	SetManagedByKyvernoLabel(report)
+	SetResults(report, results...)
 	return report
 }
