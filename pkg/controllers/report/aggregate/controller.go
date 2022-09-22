@@ -1,6 +1,8 @@
 package aggregate
 
 import (
+	"context"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -25,6 +28,7 @@ import (
 const (
 	maxRetries = 10
 	workers    = 5
+	chunkSize  = 1000
 )
 
 type controller struct {
@@ -136,6 +140,39 @@ func (c *controller) reconcileReport(namespace, name string, results ...policyre
 	return reportutils.UpdateReport(after, c.client)
 }
 
+func (c *controller) cleanReports(namespace string, expected []kyvernov1alpha2.ReportChangeRequestInterface) error {
+	keep := sets.NewString()
+	for _, obj := range expected {
+		keep.Insert(obj.GetName())
+	}
+	if namespace == "" {
+		actual, err := c.cpolrLister.List(labels.Everything())
+		if err != nil {
+			return nil
+		}
+		for _, obj := range actual {
+			if !keep.Has(obj.GetName()) {
+				if err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+		}
+	} else {
+		actual, err := c.polrLister.PolicyReports(namespace).List(labels.Everything())
+		if err != nil {
+			return nil
+		}
+		for _, obj := range actual {
+			if !keep.Has(obj.GetName()) {
+				if err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (c *controller) reconcile(key, _, _ string) error {
 	logger := logger.WithValues("key", key)
 	logger.Info("reconciling ...")
@@ -164,11 +201,19 @@ func (c *controller) reconcile(key, _, _ string) error {
 		}
 	}
 	splitReports := reportutils.SplitResultsByPolicy(results)
+	var expected []kyvernov1alpha2.ReportChangeRequestInterface
 	for name, results := range splitReports {
-		_, err := c.reconcileReport(key, name, results...)
-		if err != nil {
-			return err
+		for i := 0; i < len(results); i += chunkSize {
+			end := i + chunkSize
+			if end > len(results) {
+				end = len(results)
+			}
+			report, err := c.reconcileReport(key, fmt.Sprintf("%s-%d", name, i), results[i:end]...)
+			if err != nil {
+				return err
+			}
+			expected = append(expected, report)
 		}
 	}
-	return nil
+	return c.cleanReports(key, expected)
 }
