@@ -1,7 +1,6 @@
 package aggregate
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -10,14 +9,11 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	policyreportv1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/policyreport/v1alpha2"
 	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
-	policyreportv1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -27,7 +23,7 @@ import (
 
 const (
 	maxRetries = 10
-	workers    = 5
+	workers    = 1
 	chunkSize  = 1000
 )
 
@@ -36,8 +32,8 @@ type controller struct {
 	client versioned.Interface
 
 	// listers
-	polrLister     policyreportv1alpha2listers.PolicyReportLister
-	cpolrLister    policyreportv1alpha2listers.ClusterPolicyReportLister
+	// polrLister     policyreportv1alpha2listers.PolicyReportLister
+	// cpolrLister    policyreportv1alpha2listers.ClusterPolicyReportLister
 	admrLister     kyvernov1alpha2listers.AdmissionReportLister
 	cadmrLister    kyvernov1alpha2listers.ClusterAdmissionReportLister
 	bgscanrLister  kyvernov1alpha2listers.BackgroundScanReportLister
@@ -56,8 +52,8 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 
 func NewController(
 	client versioned.Interface,
-	polrInformer policyreportv1alpha2informers.PolicyReportInformer,
-	cpolrInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
+	// polrInformer policyreportv1alpha2informers.PolicyReportInformer,
+	// cpolrInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
 	admrInformer kyvernov1alpha2informers.AdmissionReportInformer,
 	cadmrInformer kyvernov1alpha2informers.ClusterAdmissionReportInformer,
 	bgscanrInformer kyvernov1alpha2informers.BackgroundScanReportInformer,
@@ -65,9 +61,9 @@ func NewController(
 	metadataCache resource.MetadataCache,
 ) *controller {
 	c := controller{
-		client:         client,
-		polrLister:     polrInformer.Lister(),
-		cpolrLister:    cpolrInformer.Lister(),
+		client: client,
+		// polrLister:     polrInformer.Lister(),
+		// cpolrLister:    cpolrInformer.Lister(),
 		admrLister:     admrInformer.Lister(),
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
@@ -75,8 +71,8 @@ func NewController(
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		metadataCache:  metadataCache,
 	}
-	controllerutils.AddExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, keyFunc)
-	controllerutils.AddExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, keyFunc)
+	// controllerutils.AddExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, keyFunc)
+	// controllerutils.AddExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, keyFunc)
 	controllerutils.AddExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, keyFunc)
 	controllerutils.AddExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, keyFunc)
 	controllerutils.AddExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, keyFunc)
@@ -124,13 +120,9 @@ func (c *controller) listReports(namespace string) ([]kyvernov1alpha2.ReportChan
 	return reports, nil
 }
 
-func (c *controller) reconcileReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
-	report, err := reportutils.GetPolicyReport(namespace, name, c.polrLister, c.cpolrLister)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return reportutils.CreateReport(c.client, reportutils.NewPolicyReport(namespace, name, results...))
-		}
-		return nil, err
+func (c *controller) reconcileReport(report kyvernov1alpha2.ReportChangeRequestInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+	if report == nil {
+		return reportutils.CreateReport(c.client, reportutils.NewPolicyReport(namespace, name, results...))
 	}
 	after := reportutils.DeepCopy(report)
 	reportutils.SetResults(after, results...)
@@ -140,33 +132,16 @@ func (c *controller) reconcileReport(namespace, name string, results ...policyre
 	return reportutils.UpdateReport(after, c.client)
 }
 
-func (c *controller) cleanReports(namespace string, expected []kyvernov1alpha2.ReportChangeRequestInterface) error {
+func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportChangeRequestInterface, expected []kyvernov1alpha2.ReportChangeRequestInterface) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}
-	if namespace == "" {
-		actual, err := c.cpolrLister.List(labels.Everything())
-		if err != nil {
-			return nil
-		}
-		for _, obj := range actual {
-			if !keep.Has(obj.GetName()) {
-				if err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		actual, err := c.polrLister.PolicyReports(namespace).List(labels.Everything())
-		if err != nil {
-			return nil
-		}
-		for _, obj := range actual {
-			if !keep.Has(obj.GetName()) {
-				if err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil {
-					return err
-				}
+	for _, obj := range actual {
+		if !keep.Has(obj.GetName()) {
+			err := reportutils.DeleteReport(obj, c.client)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -183,7 +158,7 @@ func (c *controller) reconcile(key, _, _ string) error {
 	if err != nil {
 		return err
 	}
-	var results []policyreportv1alpha2.PolicyReportResult
+	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -195,10 +170,27 @@ func (c *controller) reconcile(key, _, _ string) error {
 				UID:        ownerRef.UID,
 			}}
 			for _, result := range report.GetResults() {
+				key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
 				result.Resources = objectRefs
-				results = append(results, result)
+				if rule, exists := merged[key]; !exists {
+					merged[key] = result
+				} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+					merged[key] = result
+				}
 			}
 		}
+	}
+	var results []policyreportv1alpha2.PolicyReportResult
+	for _, result := range merged {
+		results = append(results, result)
+	}
+	policyReports, err := reportutils.GetPolicyReports(key, c.client.Wgpolicyk8sV1alpha2())
+	if err != nil {
+		return err
+	}
+	actual := map[string]kyvernov1alpha2.ReportChangeRequestInterface{}
+	for _, report := range policyReports {
+		actual[report.GetName()] = report
 	}
 	splitReports := reportutils.SplitResultsByPolicy(results)
 	var expected []kyvernov1alpha2.ReportChangeRequestInterface
@@ -208,12 +200,13 @@ func (c *controller) reconcile(key, _, _ string) error {
 			if end > len(results) {
 				end = len(results)
 			}
-			report, err := c.reconcileReport(key, fmt.Sprintf("%s-%d", name, i), results[i:end]...)
+			name := fmt.Sprintf("%s-%d", name, i/1000)
+			report, err := c.reconcileReport(actual[name], key, name, results[i:end]...)
 			if err != nil {
 				return err
 			}
 			expected = append(expected, report)
 		}
 	}
-	return c.cleanReports(key, expected)
+	return c.cleanReports(actual, expected)
 }

@@ -28,7 +28,7 @@ func SortReportResults(results []policyreportv1alpha2.PolicyReportResult) {
 				return a.Resources[i].UID < b.Resources[i].UID
 			}
 		}
-		return false
+		return a.Timestamp.String() < b.Timestamp.String()
 	})
 }
 

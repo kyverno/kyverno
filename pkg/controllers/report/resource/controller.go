@@ -1,9 +1,8 @@
 package resource
 
 import (
-	"fmt"
+	"context"
 	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,16 +12,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/informers"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/metadata"
-	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -31,10 +28,17 @@ const (
 	workers    = 1
 )
 
-type EventHandler func(string, types.UID)
+type Resource struct {
+	Namespace string
+	Name      string
+	Gvk       schema.GroupVersionKind
+	Hash      string
+}
+
+type EventHandler func(types.UID, Resource)
 
 type MetadataCache interface {
-	GetResource(types.UID) (metav1.Object, schema.GroupVersionKind, error)
+	GetResourceHash(uid types.UID) (Resource, bool)
 	AddEventHandler(EventHandler)
 }
 
@@ -44,9 +48,8 @@ type Controller interface {
 }
 
 type informer struct {
-	informer informers.GenericInformer
-	gvk      schema.GroupVersionKind
-	stop     chan struct{}
+	watcher watch.Interface
+	gvk     schema.GroupVersionKind
 }
 
 type controller struct {
@@ -63,6 +66,7 @@ type controller struct {
 
 	lock              sync.Mutex
 	metadataInformers map[schema.GroupVersionResource]*informer
+	hashes            map[types.UID]Resource
 	eventHandlers     []EventHandler
 }
 
@@ -71,7 +75,7 @@ func NewController(
 	metadataClient metadata.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
-) *controller {
+) Controller {
 	c := controller{
 		client:            client,
 		metadataClient:    metadataClient,
@@ -79,6 +83,7 @@ func NewController(
 		cpolLister:        cpolInformer.Lister(),
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		metadataInformers: map[schema.GroupVersionResource]*informer{},
+		hashes:            map[types.UID]Resource{},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
@@ -89,34 +94,18 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) GetResource(uid types.UID) (metav1.Object, schema.GroupVersionKind, error) {
-	for _, i := range c.metadataInformers {
-		objs, err := i.informer.Informer().GetIndexer().ByIndex("uid", string(uid))
-		if err == nil && len(objs) == 1 {
-			return objs[0].(metav1.Object), i.gvk, nil
-		} else if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return nil, schema.GroupVersionKind{}, err
-			} else {
-				logger.Error(err, "failed to query indexer")
-			}
-		}
-	}
-	return nil, schema.GroupVersionKind{}, nil
+func (c *controller) GetResourceHash(uid types.UID) (Resource, bool) {
+	ret, exists := c.hashes[uid]
+	return ret, exists
 }
 
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.eventHandlers = append(c.eventHandlers, eventHandler)
-	for _, i := range c.metadataInformers {
-		objs, _ := i.informer.Lister().List(labels.Everything())
-		for _, obj := range objs {
-			resource := obj.(metav1.Object)
-			eventHandler(resource.GetNamespace(), resource.GetUID())
-		}
+	for uid, resource := range c.hashes {
+		eventHandler(uid, resource)
 	}
-
 }
 
 func (c *controller) updateMetadataInformers() error {
@@ -148,64 +137,75 @@ func (c *controller) updateMetadataInformers() error {
 			delete(c.metadataInformers, gvr)
 		} else {
 			logger.Info("start metadata informer ...", "gvr", gvr)
+			watcher, _ := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
 			i := &informer{
-				gvk: gvr.GroupVersion().WithKind(kind),
-				informer: metadatainformers.NewFilteredMetadataInformer(
-					c.metadataClient,
-					gvr,
-					"",
-					time.Minute*10,
-					cache.Indexers{
-						"uid": func(obj interface{}) ([]string, error) {
-							meta, err := meta.Accessor(obj)
-							if err != nil {
-								return []string{""}, fmt.Errorf("object has no meta: %v", err)
-							}
-							return []string{string(meta.GetUID())}, nil
-						},
-					},
-					nil,
-				),
-				stop: make(chan struct{}),
+				watcher: watcher,
+				gvk:     gvr.GroupVersion().WithKind(kind),
 			}
-			i.informer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-				AddFunc:    c.addResource,
-				UpdateFunc: c.updateResource,
-				DeleteFunc: c.deleteResource,
-			})
-			go i.informer.Informer().Run(i.stop)
+			go func() {
+				for event := range watcher.ResultChan() {
+					switch event.Type {
+					case watch.Added:
+						c.updateHash(event.Object.(*unstructured.Unstructured), i.gvk)
+					case watch.Modified:
+						c.updateHash(event.Object.(*unstructured.Unstructured), i.gvk)
+					case watch.Deleted:
+						c.deleteHash(event.Object.(*unstructured.Unstructured))
+					}
+				}
+				logger.Info("stopping watch routine")
+			}()
 			metadataInformers[gvr] = i
-			cache.WaitForCacheSync(i.stop, i.informer.Informer().HasSynced)
+			objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+			for _, obj := range objs.Items {
+				uid := obj.GetUID()
+				hash := reportutils.CalculateResourceHash(obj)
+				c.hashes[uid] = Resource{
+					Hash:      hash,
+					Namespace: obj.GetNamespace(),
+					Name:      obj.GetName(),
+					Gvk:       i.gvk,
+				}
+			}
 		}
 	}
 	// shutdown remaining informers
 	for gvr, informer := range c.metadataInformers {
 		logger.Info("stop metadata informer ...", "gvr", gvr)
-		close(informer.stop)
+		informer.watcher.Stop()
 		delete(c.metadataInformers, gvr)
 	}
 	c.metadataInformers = metadataInformers
 	return nil
 }
 
-func (c *controller) notify(obj metav1.Object) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+func (c *controller) notify(uid types.UID, obj Resource) {
 	for _, handler := range c.eventHandlers {
-		handler(obj.GetNamespace(), obj.GetUID())
+		handler(uid, obj)
 	}
 }
 
-func (c *controller) addResource(obj interface{}) {
-	c.notify(obj.(metav1.Object))
+func (c *controller) updateHash(obj *unstructured.Unstructured, gvk schema.GroupVersionKind) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	uid := obj.GetUID()
+	hash := reportutils.CalculateResourceHash(*obj)
+	c.hashes[uid] = Resource{
+		Hash:      hash,
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+		Gvk:       gvk,
+	}
+	c.notify(uid, c.hashes[uid])
 }
 
-func (c *controller) updateResource(_, obj interface{}) {
-	c.notify(obj.(metav1.Object))
-}
-
-func (c *controller) deleteResource(obj interface{}) {
-	c.notify(obj.(metav1.Object))
+func (c *controller) deleteHash(obj *unstructured.Unstructured) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	uid := obj.GetUID()
+	hash := c.hashes[uid]
+	delete(c.hashes, uid)
+	c.notify(uid, hash)
 }
 
 func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {

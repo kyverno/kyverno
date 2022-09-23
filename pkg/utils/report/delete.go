@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
+	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -23,6 +24,10 @@ func DeleteReport(report kyvernov1alpha2.ReportChangeRequestInterface, client ve
 		return client.KyvernoV1alpha2().ReportChangeRequests(report.GetNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 	case *kyvernov1alpha2.ClusterReportChangeRequest:
 		return client.KyvernoV1alpha2().ClusterReportChangeRequests().Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+	case *policyreportv1alpha2.PolicyReport:
+		return client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
+	case *policyreportv1alpha2.ClusterPolicyReport:
+		return client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().Delete(context.TODO(), v.GetName(), metav1.DeleteOptions{})
 	default:
 		return errors.New("unknow type")
 	}

@@ -6,20 +6,24 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewAdmissionReport(resource metav1.Object, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportChangeRequestInterface {
+func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportChangeRequestInterface {
 	name := string(request.UID)
 	namespace := resource.GetNamespace()
+	owner := resource.GetName()
+	uid := resource.GetUID()
 	var report kyvernov1alpha2.ReportChangeRequestInterface
 	if namespace == "" {
 		report = &kyvernov1alpha2.ClusterAdmissionReport{
 			Owner: metav1.OwnerReference{
 				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
 				Kind:       gvk.Kind,
-				Name:       resource.GetName(),
-				UID:        resource.GetUID(),
+				Name:       owner,
+				UID:        uid,
 			},
 		}
 	} else {
@@ -27,32 +31,31 @@ func NewAdmissionReport(resource metav1.Object, request *admissionv1.AdmissionRe
 			Owner: metav1.OwnerReference{
 				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
 				Kind:       gvk.Kind,
-				Name:       resource.GetName(),
-				UID:        resource.GetUID(),
+				Name:       owner,
+				UID:        uid,
 			},
 		}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
 	SetAdmissionLabels(report, request)
-	SetResourceLabels(report, resource)
+	SetResourceLabels(report, namespace, owner, uid)
 	SetResourceGvkLabels(report, gvk.Group, gvk.Version, gvk.Kind)
+	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)
 	SetManagedByKyvernoLabel(report)
 	return report
 }
 
-func NewBackgroundScanReport(resource metav1.Object, gvk schema.GroupVersionKind) kyvernov1alpha2.ReportChangeRequestInterface {
-	name := string(resource.GetUID())
-	namespace := resource.GetNamespace()
+func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportChangeRequestInterface {
 	var report kyvernov1alpha2.ReportChangeRequestInterface
 	if namespace == "" {
 		report = &kyvernov1alpha2.ClusterBackgroundScanReport{
 			Owner: metav1.OwnerReference{
 				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
 				Kind:       gvk.Kind,
-				Name:       resource.GetName(),
-				UID:        resource.GetUID(),
+				Name:       owner,
+				UID:        uid,
 			},
 		}
 	} else {
@@ -60,15 +63,15 @@ func NewBackgroundScanReport(resource metav1.Object, gvk schema.GroupVersionKind
 			Owner: metav1.OwnerReference{
 				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
 				Kind:       gvk.Kind,
-				Name:       resource.GetName(),
-				UID:        resource.GetUID(),
+				Name:       owner,
+				UID:        uid,
 			},
 		}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
-	SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, resource)
-	SetResourceLabels(report, resource)
+	SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, owner, uid)
+	SetResourceLabels(report, namespace, owner, uid)
 	SetResourceGvkLabels(report, gvk.Group, gvk.Version, gvk.Kind)
 	SetManagedByKyvernoLabel(report)
 	return report

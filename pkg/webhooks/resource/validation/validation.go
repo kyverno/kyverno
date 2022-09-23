@@ -169,10 +169,10 @@ func (v *validationHandler) handleAudit(
 		v.log.Error(err, "failed to build audit responses")
 	}
 	responses = append(responses, engineResponses...)
-	report := reportutils.NewAdmissionReport(&resource, request, request.Kind, responses...)
+	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
 	//	if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
-		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, &resource)
+		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, resource.GetName(), resource.GetUID())
 	}
 	_, err = reportutils.CreateReport(v.kyvernoClient, report)
 	if err != nil {

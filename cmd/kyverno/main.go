@@ -60,31 +60,31 @@ const resyncPeriod = 15 * time.Minute
 var (
 	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	kubeconfig                   string
-	serverIP                     string
-	profilePort                  string
-	metricsPort                  string
-	webhookTimeout               int
-	genWorkers                   int
-	maxQueuedEvents              int
-	profile                      bool
-	disableMetricsExport         bool
-	enableTracing                bool
-	otel                         string
-	otelCollector                string
-	transportCreds               string
-	autoUpdateWebhooks           bool
-	policyControllerResyncPeriod time.Duration
-	imagePullSecrets             string
-	imageSignatureRepository     string
-	allowInsecureRegistry        bool
-	clientRateLimitQPS           float64
-	clientRateLimitBurst         int
-	changeRequestLimit           int
-	webhookRegistrationTimeout   time.Duration
-	backgroundScan               bool
-	admissionReports             bool
-	setupLog                     = log.Log.WithName("setup")
+	kubeconfig           string
+	serverIP             string
+	profilePort          string
+	metricsPort          string
+	webhookTimeout       int
+	genWorkers           int
+	maxQueuedEvents      int
+	profile              bool
+	disableMetricsExport bool
+	enableTracing        bool
+	otel                 string
+	otelCollector        string
+	transportCreds       string
+	autoUpdateWebhooks   bool
+	// policyControllerResyncPeriod time.Duration
+	imagePullSecrets           string
+	imageSignatureRepository   string
+	allowInsecureRegistry      bool
+	clientRateLimitQPS         float64
+	clientRateLimitBurst       int
+	changeRequestLimit         int
+	webhookRegistrationTimeout time.Duration
+	backgroundScan             bool
+	admissionReports           bool
+	setupLog                   = log.Log.WithName("setup")
 )
 
 func main() {
@@ -108,7 +108,6 @@ func main() {
 	flag.StringVar(&otelCollector, "otelCollector", "opentelemetrycollector.kyverno.svc.cluster.local", "Set this flag to the OpenTelemetry Collector Service Address. Kyverno will try to connect to this on the metrics port.")
 	flag.StringVar(&transportCreds, "transportCreds", "", "Set this flag to the CA secret containing the certificate which is used by our Opentelemetry Metrics Client. If empty string is set, means an insecure connection will be used")
 	flag.StringVar(&metricsPort, "metricsPort", "8000", "Expose prometheus metrics at the given port, default to 8000.")
-	flag.DurationVar(&policyControllerResyncPeriod, "backgroundScan", time.Hour, "Perform background scan every given interval, e.g., 30s, 15m, 1h.")
 	flag.StringVar(&imagePullSecrets, "imagePullSecrets", "", "Secret resource names for image registry access credentials.")
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
@@ -202,7 +201,7 @@ func main() {
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, policyControllerResyncPeriod)
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -317,7 +316,7 @@ func main() {
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
 		log.Log.WithName("PolicyController"),
-		policyControllerResyncPeriod,
+		time.Hour,
 		metricsConfig,
 	)
 	if err != nil {
@@ -471,14 +470,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
-
-	// warmup policy cache
-	if err := policyCacheController.WarmUp(); err != nil {
-		setupLog.Error(err, "Failed to warm up policy cache")
-		os.Exit(1)
-	}
-
 	reportControllers := setupReportControllers(
 		backgroundScan,
 		admissionReports,
@@ -488,6 +479,14 @@ func main() {
 		kubeInformer,
 		kyvernoInformer,
 	)
+
+	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
+
+	// warmup policy cache
+	if err := policyCacheController.WarmUp(); err != nil {
+		setupLog.Error(err, "Failed to warm up policy cache")
+		os.Exit(1)
+	}
 
 	for _, controller := range reportControllers {
 		go controller.Run(stopCh)
@@ -540,7 +539,7 @@ func setupReportControllers(
 ) []controllers.Controller {
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
-	reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
+	// reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 	resourceReportController := resourcereportcontroller.NewController(
 		client,
 		metadataClient,
@@ -551,8 +550,8 @@ func setupReportControllers(
 	if backgroundScan || admissionReports {
 		ctrls = append(ctrls, aggregatereportcontroller.NewController(
 			kyvernoClient,
-			reportV1alpha2.PolicyReports(),
-			reportV1alpha2.ClusterPolicyReports(),
+			// reportV1alpha2.PolicyReports(),
+			// reportV1alpha2.ClusterPolicyReports(),
 			kyvernoV1alpha2.AdmissionReports(),
 			kyvernoV1alpha2.ClusterAdmissionReports(),
 			kyvernoV1alpha2.BackgroundScanReports(),

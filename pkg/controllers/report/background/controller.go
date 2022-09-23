@@ -19,9 +19,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -81,7 +79,7 @@ func NewController(
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	c.metadataCache.AddEventHandler(func(namespace string, uid types.UID) {
+	c.metadataCache.AddEventHandler(func(uid types.UID, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
 			logger.Error(err, "failed to create label selector")
@@ -89,10 +87,10 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 		if err := c.enqueue(selector); err != nil {
 			logger.Error(err, "failed to enqueue")
 		}
-		if namespace == "" {
+		if resource.Namespace == "" {
 			c.queue.Add(string(uid))
 		} else {
-			c.queue.Add(namespace + "/" + string(uid))
+			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
@@ -173,7 +171,7 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) updateReport(before kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object, gvk schema.GroupVersionKind) error {
+func (c *controller) updateReport(before kyvernov1alpha2.ReportChangeRequestInterface, resource resource.Resource) error {
 	report := reportutils.DeepCopy(before)
 	namespace := report.GetNamespace()
 	labels := report.GetLabels()
@@ -195,9 +193,9 @@ func (c *controller) updateReport(before kyvernov1alpha2.ReportChangeRequestInte
 		return err
 	}
 	//	if the resource changed, we need to rebuild the report
-	if resource != nil && !reportutils.CompareHash(report, resource) {
+	if !reportutils.CompareHash(report, resource.Hash) {
 		scanner := utils.NewScanner(logger, c.client)
-		resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, report.GetNamespace(), resource.GetName())
+		resource, err := c.client.GetResource(resource.Gvk.GroupVersion().String(), resource.Gvk.Kind, resource.Namespace, resource.Name)
 		if err != nil {
 			return err
 		}
@@ -263,9 +261,9 @@ func (c *controller) updateReport(before kyvernov1alpha2.ReportChangeRequestInte
 			}
 		}
 		// creations
-		if resource != nil && len(toCreate) > 0 {
+		if len(toCreate) > 0 {
 			scanner := utils.NewScanner(logger, c.client)
-			resource, err := c.client.GetResource(gvk.GroupVersion().String(), gvk.Kind, report.GetNamespace(), resource.GetName())
+			resource, err := c.client.GetResource(resource.Gvk.GroupVersion().String(), resource.Gvk.Kind, resource.Namespace, resource.Name)
 			if err != nil {
 				return err
 			}
@@ -300,26 +298,26 @@ func (c *controller) reconcile(key, namespace, name string) error {
 	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
 	logger.V(3).Info("reconciling ...")
 	// try to find resource from the cache
-	resource, gvk, err := c.metadataCache.GetResource(types.UID(name))
-	if err != nil {
-		return err
+	uid := types.UID(name)
+	resource, exists := c.metadataCache.GetResourceHash(uid)
+	if !exists {
+		return nil
 	}
 	// try to find report from the cache
 	report, err := reportutils.GetBackgroungScanReport(namespace, name, c.bgscanrLister, c.cbgscanrLister)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			if resource != nil {
-				// if there's no report yet, try to create an empty one
-				_, err = reportutils.CreateReport(c.kyvernoClient, reportutils.NewBackgroundScanReport(resource, gvk))
-			}
+			// if there's no report yet, try to create an empty one
+			_, err = reportutils.CreateReport(c.kyvernoClient, reportutils.NewBackgroundScanReport(namespace, name, resource.Gvk, resource.Name, uid))
+			return err
 		}
 		return err
 	}
 	// set owner if not done yet (should never happen)
-	if resource != nil && len(report.GetOwnerReferences()) == 0 {
-		reportutils.SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, resource)
+	if len(report.GetOwnerReferences()) == 0 {
+		reportutils.SetOwner(report, resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind, resource.Name, uid)
 		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
 		return err
 	}
-	return c.updateReport(report, resource, gvk)
+	return c.updateReport(report, resource)
 }

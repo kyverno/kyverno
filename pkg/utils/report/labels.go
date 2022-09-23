@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -13,6 +12,7 @@ import (
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -25,12 +25,10 @@ const (
 	LabelRequestUid       = "audit.kyverno.io/request.uid"
 	LabelRequestVersion   = "audit.kyverno.io/request.version"
 	//	resource labels
-	LabelResourceGeneration = "audit.kyverno.io/resource.generation"
-	LabelResourceHash       = "audit.kyverno.io/resource.hash"
-	LabelResourceName       = "audit.kyverno.io/resource.name"
-	LabelResourceNamespace  = "audit.kyverno.io/resource.namespace"
-	LabelResourceUid        = "audit.kyverno.io/resource.uid"
-	LabelResourceVersion    = "audit.kyverno.io/resource.version"
+	LabelResourceHash      = "audit.kyverno.io/resource.hash"
+	LabelResourceName      = "audit.kyverno.io/resource.name"
+	LabelResourceNamespace = "audit.kyverno.io/resource.namespace"
+	LabelResourceUid       = "audit.kyverno.io/resource.uid"
 	//	resource gvk labels
 	LabelResourceGvkGroup   = "audit.kyverno.io/resource.gvk.group"
 	LabelResourceGvkKind    = "audit.kyverno.io/resource.gvk.kind"
@@ -89,21 +87,20 @@ func SetAdmissionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, req
 	controllerutils.SetLabel(report, LabelRequestVersion, request.Kind.Version)
 }
 
-func SetResourceLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) {
-	controllerutils.SetLabel(report, LabelResourceName, resource.GetName())
-	controllerutils.SetLabel(report, LabelResourceNamespace, resource.GetNamespace())
-	controllerutils.SetLabel(report, LabelResourceUid, string(resource.GetUID()))
-	controllerutils.SetLabel(report, LabelResourceVersion, resource.GetResourceVersion())
-	SetResourceVersionLabels(report, resource)
+func SetResourceLabels(report kyvernov1alpha2.ReportChangeRequestInterface, namespace, name string, uid types.UID) {
+	controllerutils.SetLabel(report, LabelResourceName, name)
+	controllerutils.SetLabel(report, LabelResourceNamespace, namespace)
+	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
 
-func CalculateResourceHash(resource metav1.Object) string {
-	var input []interface{}
-	for _, entry := range resource.GetManagedFields() {
-		if entry.Subresource == "" {
-			input = append(input, entry)
-		}
-	}
+func CalculateResourceHash(resource unstructured.Unstructured) string {
+	copy := resource.DeepCopy()
+	obj := copy.Object
+	labels := copy.GetLabels()
+	annotations := copy.GetAnnotations()
+	delete(obj, "metadata")
+	delete(obj, "status")
+	input := []interface{}{labels, annotations, obj}
 	data, err := json.Marshal(input)
 	if err != nil {
 		return ""
@@ -112,15 +109,11 @@ func CalculateResourceHash(resource metav1.Object) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) {
+func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource *unstructured.Unstructured) {
 	if resource != nil {
-		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(resource))
-		controllerutils.SetLabel(report, LabelResourceGeneration, strconv.FormatInt(resource.GetGeneration(), 10))
-		controllerutils.SetLabel(report, LabelResourceVersion, resource.GetResourceVersion())
+		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(*resource))
 	} else {
 		controllerutils.SetLabel(report, LabelResourceHash, "")
-		controllerutils.SetLabel(report, LabelResourceGeneration, "")
-		controllerutils.SetLabel(report, LabelResourceVersion, "")
 	}
 }
 
@@ -138,14 +131,10 @@ func GetResourceUid(report kyvernov1alpha2.ReportChangeRequestInterface) types.U
 	return types.UID(report.GetLabels()[LabelResourceUid])
 }
 
-func GetResourceVersion(report kyvernov1alpha2.ReportChangeRequestInterface) string {
-	return report.GetLabels()[LabelResourceVersion]
-}
-
 func GetResourceHash(report kyvernov1alpha2.ReportChangeRequestInterface) string {
 	return report.GetLabels()[LabelResourceHash]
 }
 
-func CompareHash(report kyvernov1alpha2.ReportChangeRequestInterface, resource metav1.Object) bool {
-	return GetResourceHash(report) == CalculateResourceHash(resource)
+func CompareHash(report kyvernov1alpha2.ReportChangeRequestInterface, hash string) bool {
+	return GetResourceHash(report) == hash
 }

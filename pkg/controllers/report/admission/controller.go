@@ -54,7 +54,7 @@ func NewController(
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	c.metadataCache.AddEventHandler(func(_ string, uid types.UID) {
+	c.metadataCache.AddEventHandler(func(uid types.UID, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
 			logger.Error(err, "failed to create label selector")
@@ -97,20 +97,18 @@ func (c *controller) reconcile(key, namespace, name string) error {
 		return err
 	}
 	// try to find resource from the cache
-	resource, gvk, err := c.metadataCache.GetResource(reportutils.GetResourceUid(report))
-	if err != nil {
-		return err
-	}
+	uid := reportutils.GetResourceUid(report)
+	resource, exists := c.metadataCache.GetResourceHash(uid)
 	// set owner if not done yet
-	if resource != nil && len(report.GetOwnerReferences()) == 0 {
-		reportutils.SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, resource)
+	if exists && len(report.GetOwnerReferences()) == 0 {
+		reportutils.SetOwner(report, resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind, resource.Name, uid)
 		_, err = reportutils.UpdateReport(report, c.client)
 		return err
 	}
 	// cleanup old reports
 	// if they are not the same version as the current resource version
 	// and were created more than five minutes ago
-	if resource == nil || !reportutils.CompareHash(report, resource) {
+	if !exists || !reportutils.CompareHash(report, resource.Hash) {
 		if report.GetCreationTimestamp().Add(time.Minute * 5).Before(time.Now()) {
 			return reportutils.DeleteReport(report, c.client)
 		}
