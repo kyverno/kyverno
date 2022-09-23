@@ -29,6 +29,18 @@ func formatSubresource(s string) string {
 	return strings.Replace(s, ".", "/", 1)
 }
 
+// GetGroupFromGVK - get group GVK
+func GetGroupFromGVK(str string) (group string) {
+	parts := strings.Split(str, "/")
+	count := len(parts)
+	if count == 3 {
+		if parts[1] == "*" {
+			return parts[0]
+		}
+	}
+	return ""
+}
+
 func SplitSubresource(s string) (kind string, subresource string) {
 	normalized := strings.Replace(s, ".", "/", 1)
 	parts := strings.Split(normalized, "/")
