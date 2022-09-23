@@ -1,6 +1,7 @@
 package aggregate
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"time"
@@ -8,15 +9,13 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
-	kyvernov1alpha2informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1alpha2"
-	kyvernov1alpha2listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
+	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -32,12 +31,10 @@ type controller struct {
 	client versioned.Interface
 
 	// listers
-	// polrLister     policyreportv1alpha2listers.PolicyReportLister
-	// cpolrLister    policyreportv1alpha2listers.ClusterPolicyReportLister
-	admrLister     kyvernov1alpha2listers.AdmissionReportLister
-	cadmrLister    kyvernov1alpha2listers.ClusterAdmissionReportLister
-	bgscanrLister  kyvernov1alpha2listers.BackgroundScanReportLister
-	cbgscanrLister kyvernov1alpha2listers.ClusterBackgroundScanReportLister
+	admrLister     cache.GenericLister
+	cadmrLister    cache.GenericLister
+	bgscanrLister  cache.GenericLister
+	cbgscanrLister cache.GenericLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -52,18 +49,15 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 
 func NewController(
 	client versioned.Interface,
-	// polrInformer policyreportv1alpha2informers.PolicyReportInformer,
-	// cpolrInformer policyreportv1alpha2informers.ClusterPolicyReportInformer,
-	admrInformer kyvernov1alpha2informers.AdmissionReportInformer,
-	cadmrInformer kyvernov1alpha2informers.ClusterAdmissionReportInformer,
-	bgscanrInformer kyvernov1alpha2informers.BackgroundScanReportInformer,
-	cbgscanrInformer kyvernov1alpha2informers.ClusterBackgroundScanReportInformer,
+	metadataFactory metadatainformers.SharedInformerFactory,
 	metadataCache resource.MetadataCache,
 ) *controller {
+	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
+	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
+	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
+	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	c := controller{
-		client: client,
-		// polrLister:     polrInformer.Lister(),
-		// cpolrLister:    cpolrInformer.Lister(),
+		client:         client,
 		admrLister:     admrInformer.Lister(),
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
@@ -71,12 +65,11 @@ func NewController(
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		metadataCache:  metadataCache,
 	}
-	// controllerutils.AddExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, keyFunc)
-	// controllerutils.AddExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, keyFunc)
-	controllerutils.AddExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, keyFunc)
-	controllerutils.AddExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, keyFunc)
-	controllerutils.AddExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, keyFunc)
-	controllerutils.AddExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, keyFunc)
+	delay := 15 * time.Second
+	controllerutils.AddDelayedExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
 	return &c
 }
 
@@ -87,34 +80,34 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 func (c *controller) listReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
 	var reports []kyvernov1alpha2.ReportChangeRequestInterface
 	if namespace == "" {
-		cadms, err := c.cadmrLister.List(labels.Everything())
+		cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for _, cadm := range cadms {
-			reports = append(reports, cadm)
+		for i := range cadms.Items {
+			reports = append(reports, &cadms.Items[i])
 		}
-		cbgscans, err := c.cbgscanrLister.List(labels.Everything())
+		cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for _, cbgscan := range cbgscans {
-			reports = append(reports, cbgscan)
+		for i := range cbgscans.Items {
+			reports = append(reports, &cbgscans.Items[i])
 		}
 	} else {
-		adms, err := c.admrLister.AdmissionReports(namespace).List(labels.Everything())
+		adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for _, adm := range adms {
-			reports = append(reports, adm)
+		for i := range adms.Items {
+			reports = append(reports, &adms.Items[i])
 		}
-		bgscans, err := c.bgscanrLister.BackgroundScanReports(namespace).List(labels.Everything())
+		bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
-		for _, bgscan := range bgscans {
-			reports = append(reports, bgscan)
+		for i := range bgscans.Items {
+			reports = append(reports, &bgscans.Items[i])
 		}
 	}
 	return reports, nil
@@ -153,7 +146,6 @@ func (c *controller) reconcile(key, _, _ string) error {
 	logger.Info("reconciling ...")
 	// delay processing to reduce reconciliation iterations
 	// in case things are changing fast in the cluster
-	time.Sleep(2 * time.Second)
 	reports, err := c.listReports(key)
 	if err != nil {
 		return err

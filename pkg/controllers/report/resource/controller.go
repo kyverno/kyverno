@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -31,14 +30,13 @@ const (
 type Resource struct {
 	Namespace string
 	Name      string
-	Gvk       schema.GroupVersionKind
 	Hash      string
 }
 
-type EventHandler func(types.UID, Resource)
+type EventHandler func(types.UID, schema.GroupVersionKind, Resource)
 
 type MetadataCache interface {
-	GetResourceHash(uid types.UID) (Resource, bool)
+	GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool)
 	AddEventHandler(EventHandler)
 }
 
@@ -47,15 +45,15 @@ type Controller interface {
 	MetadataCache
 }
 
-type informer struct {
+type watcher struct {
 	watcher watch.Interface
 	gvk     schema.GroupVersionKind
+	hashes  map[types.UID]Resource
 }
 
 type controller struct {
 	// clients
-	client         dclient.Interface
-	metadataClient metadata.Interface
+	client dclient.Interface
 
 	// listers
 	polLister  kyvernov1listers.PolicyLister
@@ -64,26 +62,22 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
-	lock              sync.Mutex
-	metadataInformers map[schema.GroupVersionResource]*informer
-	hashes            map[types.UID]Resource
-	eventHandlers     []EventHandler
+	lock            sync.Mutex
+	dynamicWatchers map[schema.GroupVersionResource]*watcher
+	eventHandlers   []EventHandler
 }
 
 func NewController(
 	client dclient.Interface,
-	metadataClient metadata.Interface,
 	polInformer kyvernov1informers.PolicyInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 ) Controller {
 	c := controller{
-		client:            client,
-		metadataClient:    metadataClient,
-		polLister:         polInformer.Lister(),
-		cpolLister:        cpolInformer.Lister(),
-		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
-		metadataInformers: map[schema.GroupVersionResource]*informer{},
-		hashes:            map[types.UID]Resource{},
+		client:          client,
+		polLister:       polInformer.Lister(),
+		cpolLister:      cpolInformer.Lister(),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
 	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
@@ -94,21 +88,29 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) GetResourceHash(uid types.UID) (Resource, bool) {
-	ret, exists := c.hashes[uid]
-	return ret, exists
+func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	for _, watcher := range c.dynamicWatchers {
+		if resource, exists := watcher.hashes[uid]; exists {
+			return resource, watcher.gvk, true
+		}
+	}
+	return Resource{}, schema.GroupVersionKind{}, false
 }
 
 func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.eventHandlers = append(c.eventHandlers, eventHandler)
-	for uid, resource := range c.hashes {
-		eventHandler(uid, resource)
+	for _, watcher := range c.dynamicWatchers {
+		for uid, resource := range watcher.hashes {
+			eventHandler(uid, watcher.gvk, resource)
+		}
 	}
 }
 
-func (c *controller) updateMetadataInformers() error {
+func (c *controller) updateDynamicWatchers() error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	clusterPolicies, err := c.fetchClusterPolicies(logger)
@@ -129,83 +131,90 @@ func (c *controller) updateMetadataInformers() error {
 			logger.Error(err, "failed to get gvr from kind", "kind", kind)
 		}
 	}
-	metadataInformers := map[schema.GroupVersionResource]*informer{}
+	dynamicWatchers := map[schema.GroupVersionResource]*watcher{}
 	for kind, gvr := range gvrs {
 		// if we already have one, transfer it to the new map
-		if c.metadataInformers[gvr] != nil {
-			metadataInformers[gvr] = c.metadataInformers[gvr]
-			delete(c.metadataInformers, gvr)
+		if c.dynamicWatchers[gvr] != nil {
+			dynamicWatchers[gvr] = c.dynamicWatchers[gvr]
+			delete(c.dynamicWatchers, gvr)
 		} else {
-			logger.Info("start metadata informer ...", "gvr", gvr)
-			watcher, _ := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
-			i := &informer{
-				watcher: watcher,
+			logger.Info("start watcher ...", "gvr", gvr)
+			watchInterface, _ := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
+			w := &watcher{
+				watcher: watchInterface,
 				gvk:     gvr.GroupVersion().WithKind(kind),
+				hashes:  map[types.UID]Resource{},
 			}
 			go func() {
-				for event := range watcher.ResultChan() {
+				gvr := gvr
+				defer logger.Info("watcher stopped")
+				for event := range watchInterface.ResultChan() {
 					switch event.Type {
 					case watch.Added:
-						c.updateHash(event.Object.(*unstructured.Unstructured), i.gvk)
+						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
 					case watch.Modified:
-						c.updateHash(event.Object.(*unstructured.Unstructured), i.gvk)
+						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
 					case watch.Deleted:
-						c.deleteHash(event.Object.(*unstructured.Unstructured))
+						c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
 					}
 				}
-				logger.Info("stopping watch routine")
 			}()
-			metadataInformers[gvr] = i
+			dynamicWatchers[gvr] = w
 			objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
 			for _, obj := range objs.Items {
 				uid := obj.GetUID()
 				hash := reportutils.CalculateResourceHash(obj)
-				c.hashes[uid] = Resource{
+				w.hashes[uid] = Resource{
 					Hash:      hash,
 					Namespace: obj.GetNamespace(),
 					Name:      obj.GetName(),
-					Gvk:       i.gvk,
 				}
 			}
 		}
 	}
-	// shutdown remaining informers
-	for gvr, informer := range c.metadataInformers {
-		logger.Info("stop metadata informer ...", "gvr", gvr)
-		informer.watcher.Stop()
-		delete(c.metadataInformers, gvr)
+	// shutdown remaining watcher
+	for gvr, watcher := range c.dynamicWatchers {
+		watcher.watcher.Stop()
+		delete(c.dynamicWatchers, gvr)
 	}
-	c.metadataInformers = metadataInformers
+	c.dynamicWatchers = dynamicWatchers
 	return nil
 }
 
-func (c *controller) notify(uid types.UID, obj Resource) {
+func (c *controller) notify(uid types.UID, gvk schema.GroupVersionKind, obj Resource) {
 	for _, handler := range c.eventHandlers {
-		handler(uid, obj)
+		handler(uid, gvk, obj)
 	}
 }
 
-func (c *controller) updateHash(obj *unstructured.Unstructured, gvk schema.GroupVersionKind) {
+func (c *controller) updateHash(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	uid := obj.GetUID()
-	hash := reportutils.CalculateResourceHash(*obj)
-	c.hashes[uid] = Resource{
-		Hash:      hash,
-		Namespace: obj.GetNamespace(),
-		Name:      obj.GetName(),
-		Gvk:       gvk,
+	watcher, exists := c.dynamicWatchers[gvr]
+	if exists {
+		uid := obj.GetUID()
+		hash := reportutils.CalculateResourceHash(*obj)
+		if exists && hash != watcher.hashes[uid].Hash {
+			watcher.hashes[uid] = Resource{
+				Hash:      hash,
+				Namespace: obj.GetNamespace(),
+				Name:      obj.GetName(),
+			}
+			c.notify(uid, watcher.gvk, watcher.hashes[uid])
+		}
 	}
-	c.notify(uid, c.hashes[uid])
 }
 
-func (c *controller) deleteHash(obj *unstructured.Unstructured) {
+func (c *controller) deleteHash(obj *unstructured.Unstructured, gvr schema.GroupVersionResource) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	uid := obj.GetUID()
-	hash := c.hashes[uid]
-	delete(c.hashes, uid)
-	c.notify(uid, hash)
+	watcher, exists := c.dynamicWatchers[gvr]
+	if exists {
+		uid := obj.GetUID()
+		hash := watcher.hashes[uid]
+		delete(watcher.hashes, uid)
+		c.notify(uid, watcher.gvk, hash)
+	}
 }
 
 func (c *controller) fetchClusterPolicies(logger logr.Logger) ([]kyvernov1.PolicyInterface, error) {
@@ -235,5 +244,5 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 func (c *controller) reconcile(key, namespace, name string) error {
 	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
 	logger.V(3).Info("reconciling ...")
-	return c.updateMetadataInformers()
+	return c.updateDynamicWatchers()
 }

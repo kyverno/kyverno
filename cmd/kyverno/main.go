@@ -49,6 +49,7 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
+	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
@@ -202,6 +203,7 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
@@ -474,13 +476,15 @@ func main() {
 		backgroundScan,
 		admissionReports,
 		dynamicClient,
-		metadataClient,
 		kyvernoClient,
+		metadataInformer,
 		kubeInformer,
 		kyvernoInformer,
 	)
 
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
+	metadataInformer.Start(stopCh)
+	metadataInformer.WaitForCacheSync(stopCh)
 
 	// warmup policy cache
 	if err := policyCacheController.WarmUp(); err != nil {
@@ -532,17 +536,14 @@ func setupReportControllers(
 	backgroundScan bool,
 	admissionReports bool,
 	client dclient.Interface,
-	metadataClient metadataclient.Interface,
 	kyvernoClient versioned.Interface,
+	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 ) []controllers.Controller {
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV1alpha2 := kyvernoInformer.Kyverno().V1alpha2()
-	// reportV1alpha2 := kyvernoInformer.Wgpolicyk8s().V1alpha2()
 	resourceReportController := resourcereportcontroller.NewController(
 		client,
-		metadataClient,
 		kyvernoV1.Policies(),
 		kyvernoV1.ClusterPolicies(),
 	)
@@ -550,19 +551,13 @@ func setupReportControllers(
 	if backgroundScan || admissionReports {
 		ctrls = append(ctrls, aggregatereportcontroller.NewController(
 			kyvernoClient,
-			// reportV1alpha2.PolicyReports(),
-			// reportV1alpha2.ClusterPolicyReports(),
-			kyvernoV1alpha2.AdmissionReports(),
-			kyvernoV1alpha2.ClusterAdmissionReports(),
-			kyvernoV1alpha2.BackgroundScanReports(),
-			kyvernoV1alpha2.ClusterBackgroundScanReports(),
+			metadataFactory,
 			resourceReportController,
 		))
 		if admissionReports {
 			ctrls = append(ctrls, admissionreportcontroller.NewController(
 				kyvernoClient,
-				kyvernoV1alpha2.AdmissionReports(),
-				kyvernoV1alpha2.ClusterAdmissionReports(),
+				metadataFactory,
 				resourceReportController,
 			))
 		}
@@ -570,10 +565,9 @@ func setupReportControllers(
 			ctrls = append(ctrls, backgroundscancontroller.NewController(
 				client,
 				kyvernoClient,
+				metadataFactory,
 				kyvernoV1.Policies(),
 				kyvernoV1.ClusterPolicies(),
-				kyvernoV1alpha2.BackgroundScanReports(),
-				kyvernoV1alpha2.ClusterBackgroundScanReports(),
 				kubeInformer.Core().V1().Namespaces(),
 				resourceReportController,
 			))

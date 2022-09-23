@@ -127,14 +127,14 @@ func SetPolicyLabel(report kyvernov1alpha2.ReportChangeRequestInterface, policy 
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 
-func GetResourceUid(report kyvernov1alpha2.ReportChangeRequestInterface) types.UID {
+func GetResourceUid(report metav1.Object) types.UID {
 	return types.UID(report.GetLabels()[LabelResourceUid])
 }
 
-func GetResourceHash(report kyvernov1alpha2.ReportChangeRequestInterface) string {
+func GetResourceHash(report metav1.Object) string {
 	return report.GetLabels()[LabelResourceHash]
 }
 
-func CompareHash(report kyvernov1alpha2.ReportChangeRequestInterface, hash string) bool {
+func CompareHash(report metav1.Object, hash string) bool {
 	return GetResourceHash(report) == hash
 }
