@@ -1010,7 +1010,5 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 		return res, errors.WithStack(err)
 	}
 
-	fmt.Printf("JSON: %s\n", buf.String())
-
 	return res, nil
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -293,9 +292,7 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 			"all": true,
 		}
 		var jsonDecoded map[string]interface{}
-		d := json.NewDecoder(strings.NewReader(string(jsonByteArr)))
-		d.UseNumber()
-		if err := d.Decode(&jsonDecoded); err != nil {
+		if err := json.Unmarshal(jsonByteArr, &jsonDecoded); err != nil {
 			return fmt.Errorf("error occurred while checking for unknown fields under %s: %+v", path, err)
 		}
 		for k := range jsonDecoded {
