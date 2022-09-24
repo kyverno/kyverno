@@ -121,7 +121,8 @@ func main() {
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
-	if err := flag.Set("v", "2"); err != nil {
+
+  if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
