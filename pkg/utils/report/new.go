@@ -4,6 +4,7 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,9 +39,7 @@ func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
-	SetAdmissionLabels(report, request)
 	SetResourceLabels(report, namespace, owner, uid)
-	SetResourceGvkLabels(report, gvk.Group, gvk.Version, gvk.Kind)
 	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)
 	SetManagedByKyvernoLabel(report)
@@ -70,9 +69,8 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
-	SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, owner, uid)
+	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
 	SetResourceLabels(report, namespace, owner, uid)
-	SetResourceGvkLabels(report, gvk.Group, gvk.Version, gvk.Kind)
 	SetManagedByKyvernoLabel(report)
 	return report
 }
@@ -80,23 +78,9 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 func NewPolicyReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &policyreportv1alpha2.ClusterPolicyReport{
-			// Owner: metav1.OwnerReference{
-			// 	APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-			// 	Kind:       gvk.Kind,
-			// 	Name:       resource.GetName(),
-			// 	UID:        resource.GetUID(),
-			// },
-		}
+		report = &policyreportv1alpha2.ClusterPolicyReport{}
 	} else {
-		report = &policyreportv1alpha2.PolicyReport{
-			// Owner: metav1.OwnerReference{
-			// 	APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-			// 	Kind:       gvk.Kind,
-			// 	Name:       resource.GetName(),
-			// 	UID:        resource.GetUID(),
-			// },
-		}
+		report = &policyreportv1alpha2.PolicyReport{}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)

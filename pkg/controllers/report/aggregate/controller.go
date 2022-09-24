@@ -205,12 +205,34 @@ func (c *controller) buildReportsResults(namepsace string) ([]policyreportv1alph
 	return results, nil
 }
 
+func (c *controller) getPolicyReports(namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
+	var reports []kyvernov1alpha2.ReportInterface
+	if namespace == "" {
+		list, err := c.client.Wgpolicyk8sV1alpha2().ClusterPolicyReports().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for i := range list.Items {
+			reports = append(reports, &list.Items[i])
+		}
+	} else {
+		list, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for i := range list.Items {
+			reports = append(reports, &list.Items[i])
+		}
+	}
+	return reports, nil
+}
+
 func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
 	results, err := c.buildReportsResults(key)
 	if err != nil {
 		return err
 	}
-	policyReports, err := reportutils.GetPolicyReports(key, c.client.Wgpolicyk8sV1alpha2())
+	policyReports, err := c.getPolicyReports(key)
 	if err != nil {
 		return err
 	}

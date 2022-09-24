@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -172,7 +173,8 @@ func (v *validationHandler) handleAudit(
 	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
 	//	if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
-		reportutils.SetOwner(report, request.Kind.Group, request.Kind.Version, request.Kind.Kind, resource.GetName(), resource.GetUID())
+		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
 	}
 	_, err = reportutils.CreateReport(v.kyvernoClient, report)
 	if err != nil {

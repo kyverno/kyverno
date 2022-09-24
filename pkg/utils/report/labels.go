@@ -10,29 +10,15 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
-	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
-	//	admission request labels
-	LabelRequestGroup     = "audit.kyverno.io/request.group"
-	LabelRequestKind      = "audit.kyverno.io/request.kind"
-	LabelRequestName      = "audit.kyverno.io/request.name"
-	LabelRequestNamespace = "audit.kyverno.io/request.namespace"
-	LabelRequestUid       = "audit.kyverno.io/request.uid"
-	LabelRequestVersion   = "audit.kyverno.io/request.version"
 	//	resource labels
-	LabelResourceHash      = "audit.kyverno.io/resource.hash"
-	LabelResourceName      = "audit.kyverno.io/resource.name"
-	LabelResourceNamespace = "audit.kyverno.io/resource.namespace"
-	LabelResourceUid       = "audit.kyverno.io/resource.uid"
-	//	resource gvk labels
-	LabelResourceGvkGroup   = "audit.kyverno.io/resource.gvk.group"
-	LabelResourceGvkKind    = "audit.kyverno.io/resource.gvk.kind"
-	LabelResourceGvkVersion = "audit.kyverno.io/resource.gvk.version"
+	LabelResourceHash = "audit.kyverno.io/resource.hash"
+	LabelResourceUid  = "audit.kyverno.io/resource.uid"
 	//	policy labels
 	LabelDomainClusterPolicy = "pol.kyverno.io"
 	LabelDomainPolicy        = "cpol.kyverno.io"
@@ -78,18 +64,7 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 }
 
-func SetAdmissionLabels(report kyvernov1alpha2.ReportInterface, request *admissionv1.AdmissionRequest) {
-	controllerutils.SetLabel(report, LabelRequestGroup, request.Kind.Group)
-	controllerutils.SetLabel(report, LabelRequestKind, request.Kind.Kind)
-	controllerutils.SetLabel(report, LabelRequestName, request.Name)
-	controllerutils.SetLabel(report, LabelRequestNamespace, request.Namespace)
-	controllerutils.SetLabel(report, LabelRequestUid, string(request.UID))
-	controllerutils.SetLabel(report, LabelRequestVersion, request.Kind.Version)
-}
-
 func SetResourceLabels(report kyvernov1alpha2.ReportInterface, namespace, name string, uid types.UID) {
-	controllerutils.SetLabel(report, LabelResourceName, name)
-	controllerutils.SetLabel(report, LabelResourceNamespace, namespace)
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
 
@@ -118,12 +93,6 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *
 	} else {
 		controllerutils.SetLabel(report, LabelResourceHash, "")
 	}
-}
-
-func SetResourceGvkLabels(report kyvernov1alpha2.ReportInterface, group, version, kind string) {
-	controllerutils.SetLabel(report, LabelResourceGvkGroup, group)
-	controllerutils.SetLabel(report, LabelResourceGvkKind, kind)
-	controllerutils.SetLabel(report, LabelResourceGvkVersion, version)
 }
 
 func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy kyvernov1.PolicyInterface) {

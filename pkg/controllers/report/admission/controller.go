@@ -150,7 +150,7 @@ func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) 
 		if err != nil {
 			return err
 		}
-		reportutils.SetOwner(report, gvk.Group, gvk.Version, gvk.Kind, resource.Name, uid)
+		controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
 		_, err = reportutils.UpdateReport(report, c.client)
 		return err
 	}
