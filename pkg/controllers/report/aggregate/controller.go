@@ -21,18 +21,15 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-// TODO: configurable chunk size
 // TODO: leader election
 // TODO: resync in resource controller
 // TODO: error handling in resource controller
 // TODO: policy hash
 // TODO: remove rcr and crcr
-// TODO: hash print column
 
 const (
 	maxRetries = 10
 	workers    = 1
-	chunkSize  = 1000
 )
 
 type controller struct {
@@ -50,6 +47,8 @@ type controller struct {
 
 	// cache
 	metadataCache resource.MetadataCache
+
+	chunkSize int
 }
 
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
@@ -60,6 +59,7 @@ func NewController(
 	client versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	metadataCache resource.MetadataCache,
+	chunkSize int,
 ) *controller {
 	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
@@ -73,6 +73,7 @@ func NewController(
 		cbgscanrLister: cbgscanrInformer.Lister(),
 		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		metadataCache:  metadataCache,
+		chunkSize:      chunkSize,
 	}
 	delay := 15 * time.Second
 	controllerutils.AddDelayedExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, delay, keyFunc)
@@ -220,13 +221,20 @@ func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
 	}
 	splitReports := reportutils.SplitResultsByPolicy(results)
 	var expected []kyvernov1alpha2.ReportChangeRequestInterface
+	chunkSize := c.chunkSize
+	if chunkSize <= 0 {
+		chunkSize = len(results)
+	}
 	for name, results := range splitReports {
 		for i := 0; i < len(results); i += chunkSize {
 			end := i + chunkSize
 			if end > len(results) {
 				end = len(results)
 			}
-			name := fmt.Sprintf("%s-%d", name, i/1000)
+			name := name
+			if i > 0 {
+				name = fmt.Sprintf("%s-%d", name, i/chunkSize)
+			}
 			report, err := c.reconcileReport(actual[name], key, name, results[i:end]...)
 			if err != nil {
 				return err

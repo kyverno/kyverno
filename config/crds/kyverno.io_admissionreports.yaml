@@ -23,7 +23,7 @@ spec:
       priority: 1
       type: string
     - jsonPath: .owner.name
-      name: Name
+      name: Subject
       priority: 1
       type: string
     - jsonPath: .summary.pass

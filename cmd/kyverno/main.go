@@ -84,6 +84,7 @@ var (
 	webhookRegistrationTimeout time.Duration
 	backgroundScan             bool
 	admissionReports           bool
+	reportsChunkSize           int
 	setupLog                   = log.Log.WithName("setup")
 )
 
@@ -121,8 +122,9 @@ func main() {
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
+	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 
-  if err := flag.Set("v", "2"); err != nil {
+	if err := flag.Set("v", "2"); err != nil {
 		setupLog.Error(err, "failed to set log level")
 		os.Exit(1)
 	}
@@ -540,18 +542,20 @@ func setupReportControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
 ) []controllers.Controller {
+	var ctrls []controllers.Controller
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	resourceReportController := resourcereportcontroller.NewController(
-		client,
-		kyvernoV1.Policies(),
-		kyvernoV1.ClusterPolicies(),
-	)
-	ctrls := []controllers.Controller{resourceReportController}
 	if backgroundScan || admissionReports {
+		resourceReportController := resourcereportcontroller.NewController(
+			client,
+			kyvernoV1.Policies(),
+			kyvernoV1.ClusterPolicies(),
+		)
+		ctrls = append(ctrls, resourceReportController)
 		ctrls = append(ctrls, aggregatereportcontroller.NewController(
 			kyvernoClient,
 			metadataFactory,
 			resourceReportController,
+			reportsChunkSize,
 		))
 		if admissionReports {
 			ctrls = append(ctrls, admissionreportcontroller.NewController(
