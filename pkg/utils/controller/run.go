@@ -44,10 +44,10 @@ func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRet
 	if err == nil {
 		queue.Forget(obj)
 	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping request from the queue", "obj", obj, "error", err.Error())
+		logger.Info("Dropping request from the queue", "obj", obj, "error", err.Error())
 		queue.Forget(obj)
 	} else if queue.NumRequeues(obj) < maxRetries {
-		logger.V(3).Info("Retrying request", "obj", obj, "error", err.Error())
+		logger.Info("Retrying request", "obj", obj, "error", err.Error())
 		queue.AddRateLimited(obj)
 	} else {
 		logger.Error(err, "Failed to process request", "obj", obj)
@@ -69,7 +69,7 @@ func reconcile(logger logr.Logger, obj interface{}, r reconcileFunc) error {
 		}
 	}
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
-	logger.V(3).Info("reconciling ...")
-	defer logger.V(3).Info("done", time.Since(start))
+	logger.Info("reconciling ...")
+	defer logger.Info("done", time.Since(start))
 	return r(logger, k, ns, n)
 }

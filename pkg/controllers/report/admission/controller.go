@@ -55,8 +55,8 @@ func NewController(
 		admrLister:    admrInformer.Lister(),
 		cadmrLister:   cadmrInformer.Lister(),
 		queue:         queue,
-		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger, admrInformer.Informer(), queue),
-		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger, cadmrInformer.Informer(), queue),
+		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger.V(3), admrInformer.Informer(), queue),
+		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), cadmrInformer.Informer(), queue),
 		metadataCache: metadataCache,
 	}
 	return &c
@@ -72,7 +72,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {

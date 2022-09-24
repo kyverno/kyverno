@@ -76,8 +76,8 @@ func NewController(
 		cbgscanrLister: cbgscanr.Lister(),
 		nsLister:       nsInformer.Lister(),
 		queue:          queue,
-		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
-		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
+		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), bgscanr.Informer(), queue),
+		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger.V(3), cbgscanr.Informer(), queue),
 		metadataCache:  metadataCache,
 	}
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -100,7 +100,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
 func (c *controller) addPolicy(obj interface{}) {

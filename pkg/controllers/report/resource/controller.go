@@ -79,13 +79,13 @@ func NewController(
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), polInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), cpolInformer.Informer(), c.queue)
 	return &c
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {

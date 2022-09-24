@@ -75,15 +75,15 @@ func NewController(
 		chunkSize:      chunkSize,
 	}
 	delay := 15 * time.Second
-	controllerutils.AddDelayedExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), admrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), cadmrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), bgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
 	return &c
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
 func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
