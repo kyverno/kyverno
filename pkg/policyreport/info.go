@@ -8,11 +8,12 @@ import (
 // Info stores the policy application results for all matched resources
 // Namespace is set to empty "" if resource is cluster wide resource
 type Info struct {
-	Namespace string
-	Resource  response.ResourceSpec
-	Results   map[string]EngineResponseResult
+	PolicyName string
+	Namespace  string
+	Results    []EngineResponseResult
 }
 
 type EngineResponseResult struct {
-	Rules []kyvernov1.ViolatedRule
+	Resource response.ResourceSpec
+	Rules    []kyvernov1.ViolatedRule
 }

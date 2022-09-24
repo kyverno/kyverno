@@ -11,8 +11,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/policyreport"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -92,16 +94,16 @@ func buildPolicyResults(infos []policyreport.Info) map[string][]policyreportv1al
 				}
 
 				result := policyreportv1alpha2.PolicyReportResult{
-					// Policy: info.PolicyName,
-					// Resources: []corev1.ObjectReference{
-					// 	{
-					// 		Kind:       infoResult.Resource.Kind,
-					// 		Namespace:  infoResult.Resource.Namespace,
-					// 		APIVersion: infoResult.Resource.APIVersion,
-					// 		Name:       infoResult.Resource.Name,
-					// 		UID:        types.UID(infoResult.Resource.UID),
-					// 	},
-					// },
+					Policy: info.PolicyName,
+					Resources: []corev1.ObjectReference{
+						{
+							Kind:       infoResult.Resource.Kind,
+							Namespace:  infoResult.Resource.Namespace,
+							APIVersion: infoResult.Resource.APIVersion,
+							Name:       infoResult.Resource.Name,
+							UID:        types.UID(infoResult.Resource.UID),
+						},
+					},
 					Scored: true,
 				}
 

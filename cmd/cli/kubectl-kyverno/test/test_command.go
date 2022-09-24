@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/go-git/go-billy/v5"
@@ -33,6 +34,7 @@ import (
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
@@ -514,7 +516,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 
 func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []TestResults) {
 	results := make(map[string]policyreportv1alpha2.PolicyReportResult)
-	// now := metav1.Timestamp{Seconds: time.Now().Unix()}
+	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
 	for _, resp := range engineResponses {
 		policyName := resp.PolicyResponse.Policy.Name
@@ -698,34 +700,34 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 		}
 	}
 
-	// for _, info := range infos {
-	// 	for _, infoResult := range info.Results {
-	// 		for _, rule := range infoResult.Rules {
-	// 			if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
-	// 				continue
-	// 			}
+	for _, info := range infos {
+		for _, infoResult := range info.Results {
+			for _, rule := range infoResult.Rules {
+				if rule.Type != string(response.Validation) && rule.Type != string(response.ImageVerify) {
+					continue
+				}
 
-	// 			var result policyreportv1alpha2.PolicyReportResult
-	// 			var resultsKeys []string
-	// 			var resultKey string
-	// 			resultsKeys = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
-	// 			for _, key := range resultsKeys {
-	// 				if val, ok := results[key]; ok {
-	// 					result = val
-	// 					resultKey = key
-	// 				} else {
-	// 					continue
-	// 				}
-	// 			}
+				var result policyreportv1alpha2.PolicyReportResult
+				var resultsKeys []string
+				var resultKey string
+				resultsKeys = GetAllPossibleResultsKey("", info.PolicyName, rule.Name, infoResult.Resource.Namespace, infoResult.Resource.Kind, infoResult.Resource.Name)
+				for _, key := range resultsKeys {
+					if val, ok := results[key]; ok {
+						result = val
+						resultKey = key
+					} else {
+						continue
+					}
+				}
 
-	// 			result.Rule = rule.Name
-	// 			result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-	// 			result.Source = policyreport.SourceValue
-	// 			result.Timestamp = now
-	// 			results[resultKey] = result
-	// 		}
-	// 	}
-	// }
+				result.Rule = rule.Name
+				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
+				result.Source = kyvernov1.ValueKyvernoApp
+				result.Timestamp = now
+				results[resultKey] = result
+			}
+		}
+	}
 
 	return results, testResults
 }
