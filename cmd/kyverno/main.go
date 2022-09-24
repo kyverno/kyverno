@@ -80,7 +80,6 @@ var (
 	allowInsecureRegistry      bool
 	clientRateLimitQPS         float64
 	clientRateLimitBurst       int
-	changeRequestLimit         int
 	webhookRegistrationTimeout time.Duration
 	backgroundScan             bool
 	admissionReports           bool
@@ -117,7 +116,6 @@ func main() {
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 100, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
-	flag.IntVar(&changeRequestLimit, "maxReportChangeRequests", 1000, "Maximum pending report change requests per namespace or for the cluster-wide policy report.")
 	flag.Func(toggle.SplitPolicyReportFlagName, toggle.SplitPolicyReportDescription, toggle.SplitPolicyReport.Parse)
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")

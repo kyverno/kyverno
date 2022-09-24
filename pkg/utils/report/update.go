@@ -10,7 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func UpdateReport(report kyvernov1alpha2.ReportChangeRequestInterface, client versioned.Interface) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func UpdateReport(report kyvernov1alpha2.ReportInterface, client versioned.Interface) (kyvernov1alpha2.ReportInterface, error) {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
 		report, err := client.KyvernoV1alpha2().AdmissionReports(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
@@ -23,12 +23,6 @@ func UpdateReport(report kyvernov1alpha2.ReportChangeRequestInterface, client ve
 		return report, err
 	case *kyvernov1alpha2.ClusterBackgroundScanReport:
 		report, err := client.KyvernoV1alpha2().ClusterBackgroundScanReports().Update(context.TODO(), v, metav1.UpdateOptions{})
-		return report, err
-	case *kyvernov1alpha2.ReportChangeRequest:
-		report, err := client.KyvernoV1alpha2().ReportChangeRequests(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})
-		return report, err
-	case *kyvernov1alpha2.ClusterReportChangeRequest:
-		report, err := client.KyvernoV1alpha2().ClusterReportChangeRequests().Update(context.TODO(), v, metav1.UpdateOptions{})
 		return report, err
 	case *policyreportv1alpha2.PolicyReport:
 		report, err := client.Wgpolicyk8sV1alpha2().PolicyReports(report.GetNamespace()).Update(context.TODO(), v, metav1.UpdateOptions{})

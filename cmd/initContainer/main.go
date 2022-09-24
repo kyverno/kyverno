@@ -38,11 +38,9 @@ var (
 )
 
 const (
-	policyReportKind               string = "PolicyReport"
-	clusterPolicyReportKind        string = "ClusterPolicyReport"
-	reportChangeRequestKind        string = "ReportChangeRequest"
-	clusterReportChangeRequestKind string = "ClusterReportChangeRequest"
-	convertGenerateRequest         string = "ConvertGenerateRequest"
+	policyReportKind        string = "PolicyReport"
+	clusterPolicyReportKind string = "ClusterPolicyReport"
+	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
 func main() {
@@ -99,9 +97,6 @@ func main() {
 	requests := []request{
 		{policyReportKind},
 		{clusterPolicyReportKind},
-
-		{reportChangeRequestKind},
-		{clusterReportChangeRequestKind},
 
 		{convertGenerateRequest},
 	}
@@ -193,10 +188,6 @@ func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 
 func executeRequest(client dclient.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
-	case reportChangeRequestKind:
-		return removeReportChangeRequest(client, req.kind)
-	case clusterReportChangeRequestKind:
-		return removeClusterReportChangeRequest(client, req.kind)
 	case convertGenerateRequest:
 		return convertGR(kyvernoclient)
 	}
@@ -289,36 +280,6 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 		close(out)
 	}()
 	return out
-}
-
-func removeReportChangeRequest(client dclient.Interface, kind string) error {
-	logger := log.Log.WithName("removeReportChangeRequest")
-
-	ns := config.KyvernoNamespace()
-	rcrList, err := client.ListResource("", kind, ns, nil)
-	if err != nil {
-		logger.Error(err, "failed to list reportChangeRequest")
-		return nil
-	}
-
-	for _, rcr := range rcrList.Items {
-		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName())
-	}
-
-	return nil
-}
-
-func removeClusterReportChangeRequest(client dclient.Interface, kind string) error {
-	crcrList, err := client.ListResource("", kind, "", nil)
-	if err != nil {
-		log.Log.Error(err, "failed to list clusterReportChangeRequest")
-		return nil
-	}
-
-	for _, crcr := range crcrList.Items {
-		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName())
-	}
-	return nil
 }
 
 func deleteResource(client dclient.Interface, apiversion, kind, ns, name string) {

@@ -25,7 +25,6 @@ import (
 // TODO: resync in resource controller
 // TODO: error handling in resource controller
 // TODO: policy hash
-// TODO: remove rcr and crcr
 
 const (
 	maxRetries = 10
@@ -87,8 +86,8 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
-	var reports []kyvernov1alpha2.ReportChangeRequestInterface
+func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
+	var reports []kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -109,8 +108,8 @@ func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.R
 	return reports, nil
 }
 
-func (c *controller) listBackgroundScanReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
-	var reports []kyvernov1alpha2.ReportChangeRequestInterface
+func (c *controller) listBackgroundScanReports(namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
+	var reports []kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -131,7 +130,7 @@ func (c *controller) listBackgroundScanReports(namespace string) ([]kyvernov1alp
 	return reports, nil
 }
 
-func (c *controller) reconcileReport(report kyvernov1alpha2.ReportChangeRequestInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func (c *controller) reconcileReport(report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
 	if report == nil {
 		return reportutils.CreateReport(c.client, reportutils.NewPolicyReport(namespace, name, results...))
 	}
@@ -143,7 +142,7 @@ func (c *controller) reconcileReport(report kyvernov1alpha2.ReportChangeRequestI
 	return reportutils.UpdateReport(after, c.client)
 }
 
-func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportChangeRequestInterface, expected []kyvernov1alpha2.ReportChangeRequestInterface) error {
+func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
@@ -159,7 +158,7 @@ func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportChange
 	return nil
 }
 
-func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportChangeRequestInterface) {
+func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -215,12 +214,12 @@ func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
 	if err != nil {
 		return err
 	}
-	actual := map[string]kyvernov1alpha2.ReportChangeRequestInterface{}
+	actual := map[string]kyvernov1alpha2.ReportInterface{}
 	for _, report := range policyReports {
 		actual[report.GetName()] = report
 	}
 	splitReports := reportutils.SplitResultsByPolicy(results)
-	var expected []kyvernov1alpha2.ReportChangeRequestInterface
+	var expected []kyvernov1alpha2.ReportInterface
 	chunkSize := c.chunkSize
 	if chunkSize <= 0 {
 		chunkSize = len(results)

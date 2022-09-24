@@ -30,8 +30,6 @@ type KyvernoV1alpha2Interface interface {
 	BackgroundScanReportsGetter
 	ClusterAdmissionReportsGetter
 	ClusterBackgroundScanReportsGetter
-	ClusterReportChangeRequestsGetter
-	ReportChangeRequestsGetter
 }
 
 // KyvernoV1alpha2Client is used to interact with features provided by the kyverno.io group.
@@ -53,14 +51,6 @@ func (c *KyvernoV1alpha2Client) ClusterAdmissionReports() ClusterAdmissionReport
 
 func (c *KyvernoV1alpha2Client) ClusterBackgroundScanReports() ClusterBackgroundScanReportInterface {
 	return newClusterBackgroundScanReports(c)
-}
-
-func (c *KyvernoV1alpha2Client) ClusterReportChangeRequests() ClusterReportChangeRequestInterface {
-	return newClusterReportChangeRequests(c)
-}
-
-func (c *KyvernoV1alpha2Client) ReportChangeRequests(namespace string) ReportChangeRequestInterface {
-	return newReportChangeRequests(c, namespace)
 }
 
 // NewForConfig creates a new KyvernoV1alpha2Client for the given config.

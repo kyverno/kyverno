@@ -11,12 +11,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportChangeRequestInterface {
+func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1.AdmissionRequest, gvk metav1.GroupVersionKind, responses ...*response.EngineResponse) kyvernov1alpha2.ReportInterface {
 	name := string(request.UID)
 	namespace := resource.GetNamespace()
 	owner := resource.GetName()
 	uid := resource.GetUID()
-	var report kyvernov1alpha2.ReportChangeRequestInterface
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &kyvernov1alpha2.ClusterAdmissionReport{
 			Owner: metav1.OwnerReference{
@@ -47,8 +47,8 @@ func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1
 	return report
 }
 
-func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportChangeRequestInterface {
-	var report kyvernov1alpha2.ReportChangeRequestInterface
+func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &kyvernov1alpha2.ClusterBackgroundScanReport{
 			Owner: metav1.OwnerReference{
@@ -77,8 +77,8 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	return report
 }
 
-func NewPolicyReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportChangeRequestInterface {
-	var report kyvernov1alpha2.ReportChangeRequestInterface
+func NewPolicyReport(namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) kyvernov1alpha2.ReportInterface {
+	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &policyreportv1alpha2.ClusterPolicyReport{
 			// Owner: metav1.OwnerReference{

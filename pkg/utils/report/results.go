@@ -134,13 +134,13 @@ func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map
 	return resultsMap
 }
 
-func SetResults(report kyvernov1alpha2.ReportChangeRequestInterface, results ...policyreportv1alpha2.PolicyReportResult) {
+func SetResults(report kyvernov1alpha2.ReportInterface, results ...policyreportv1alpha2.PolicyReportResult) {
 	SortReportResults(results)
 	report.SetResults(results)
 	report.SetSummary(CalculateSummary(results))
 }
 
-func SetResponses(report kyvernov1alpha2.ReportChangeRequestInterface, engineResponses ...*response.EngineResponse) {
+func SetResponses(report kyvernov1alpha2.ReportInterface, engineResponses ...*response.EngineResponse) {
 	var ruleResults []policyreportv1alpha2.PolicyReportResult
 	for _, result := range engineResponses {
 		SetPolicyLabel(report, result.Policy)

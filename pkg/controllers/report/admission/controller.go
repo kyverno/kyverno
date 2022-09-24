@@ -118,7 +118,7 @@ func (c *controller) deleteReport(namespace, name string) error {
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(context.TODO(), name, metav1.GetOptions{})
 	} else {

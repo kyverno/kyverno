@@ -14,7 +14,7 @@ func GetAdmissionReport(
 	name string,
 	lister kyvernov1alpha2listers.AdmissionReportLister,
 	cLister kyvernov1alpha2listers.ClusterAdmissionReportLister,
-) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := cLister.Get(name)
 		if err != nil {
@@ -35,7 +35,7 @@ func GetBackgroungScanReport(
 	name string,
 	lister kyvernov1alpha2listers.BackgroundScanReportLister,
 	cLister kyvernov1alpha2listers.ClusterBackgroundScanReportLister,
-) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		report, err := cLister.Get(name)
 		if err != nil {
@@ -56,8 +56,8 @@ func GetPolicyReports(
 	// lister policyreportv1alpha2listers.PolicyReportLister,
 	// cLister policyreportv1alpha2listers.ClusterPolicyReportLister,
 	client wgpolicyk8sv1alpha2.Wgpolicyk8sV1alpha2Interface,
-) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
-	var reports []kyvernov1alpha2.ReportChangeRequestInterface
+) ([]kyvernov1alpha2.ReportInterface, error) {
+	var reports []kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		list, err := client.ClusterPolicyReports().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {

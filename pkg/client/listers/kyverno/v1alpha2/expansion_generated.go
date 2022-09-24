@@ -41,15 +41,3 @@ type ClusterAdmissionReportListerExpansion interface{}
 // ClusterBackgroundScanReportListerExpansion allows custom methods to be added to
 // ClusterBackgroundScanReportLister.
 type ClusterBackgroundScanReportListerExpansion interface{}
-
-// ClusterReportChangeRequestListerExpansion allows custom methods to be added to
-// ClusterReportChangeRequestLister.
-type ClusterReportChangeRequestListerExpansion interface{}
-
-// ReportChangeRequestListerExpansion allows custom methods to be added to
-// ReportChangeRequestLister.
-type ReportChangeRequestListerExpansion interface{}
-
-// ReportChangeRequestNamespaceListerExpansion allows custom methods to be added to
-// ReportChangeRequestNamespaceLister.
-type ReportChangeRequestNamespaceListerExpansion interface{}

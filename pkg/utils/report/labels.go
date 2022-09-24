@@ -78,7 +78,7 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 }
 
-func SetAdmissionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, request *admissionv1.AdmissionRequest) {
+func SetAdmissionLabels(report kyvernov1alpha2.ReportInterface, request *admissionv1.AdmissionRequest) {
 	controllerutils.SetLabel(report, LabelRequestGroup, request.Kind.Group)
 	controllerutils.SetLabel(report, LabelRequestKind, request.Kind.Kind)
 	controllerutils.SetLabel(report, LabelRequestName, request.Name)
@@ -87,7 +87,7 @@ func SetAdmissionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, req
 	controllerutils.SetLabel(report, LabelRequestVersion, request.Kind.Version)
 }
 
-func SetResourceLabels(report kyvernov1alpha2.ReportChangeRequestInterface, namespace, name string, uid types.UID) {
+func SetResourceLabels(report kyvernov1alpha2.ReportInterface, namespace, name string, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceName, name)
 	controllerutils.SetLabel(report, LabelResourceNamespace, namespace)
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
@@ -112,7 +112,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	return hex.EncodeToString(hash[:])
 }
 
-func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterface, resource *unstructured.Unstructured) {
+func SetResourceVersionLabels(report kyvernov1alpha2.ReportInterface, resource *unstructured.Unstructured) {
 	if resource != nil {
 		controllerutils.SetLabel(report, LabelResourceHash, CalculateResourceHash(*resource))
 	} else {
@@ -120,13 +120,13 @@ func SetResourceVersionLabels(report kyvernov1alpha2.ReportChangeRequestInterfac
 	}
 }
 
-func SetResourceGvkLabels(report kyvernov1alpha2.ReportChangeRequestInterface, group, version, kind string) {
+func SetResourceGvkLabels(report kyvernov1alpha2.ReportInterface, group, version, kind string) {
 	controllerutils.SetLabel(report, LabelResourceGvkGroup, group)
 	controllerutils.SetLabel(report, LabelResourceGvkKind, kind)
 	controllerutils.SetLabel(report, LabelResourceGvkVersion, version)
 }
 
-func SetPolicyLabel(report kyvernov1alpha2.ReportChangeRequestInterface, policy kyvernov1.PolicyInterface) {
+func SetPolicyLabel(report kyvernov1alpha2.ReportInterface, policy kyvernov1.PolicyInterface) {
 	controllerutils.SetLabel(report, PolicyLabel(policy), policy.GetResourceVersion())
 }
 

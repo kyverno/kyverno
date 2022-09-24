@@ -32,10 +32,6 @@ type Interface interface {
 	ClusterAdmissionReports() ClusterAdmissionReportInformer
 	// ClusterBackgroundScanReports returns a ClusterBackgroundScanReportInformer.
 	ClusterBackgroundScanReports() ClusterBackgroundScanReportInformer
-	// ClusterReportChangeRequests returns a ClusterReportChangeRequestInformer.
-	ClusterReportChangeRequests() ClusterReportChangeRequestInformer
-	// ReportChangeRequests returns a ReportChangeRequestInformer.
-	ReportChangeRequests() ReportChangeRequestInformer
 }
 
 type version struct {
@@ -67,14 +63,4 @@ func (v *version) ClusterAdmissionReports() ClusterAdmissionReportInformer {
 // ClusterBackgroundScanReports returns a ClusterBackgroundScanReportInformer.
 func (v *version) ClusterBackgroundScanReports() ClusterBackgroundScanReportInformer {
 	return &clusterBackgroundScanReportInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ClusterReportChangeRequests returns a ClusterReportChangeRequestInformer.
-func (v *version) ClusterReportChangeRequests() ClusterReportChangeRequestInformer {
-	return &clusterReportChangeRequestInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// ReportChangeRequests returns a ReportChangeRequestInformer.
-func (v *version) ReportChangeRequests() ReportChangeRequestInformer {
-	return &reportChangeRequestInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -319,7 +319,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
 		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(context.TODO(), name, metav1.GetOptions{})
 	} else {

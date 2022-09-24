@@ -5,7 +5,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 )
 
-func DeepCopy(report kyvernov1alpha2.ReportChangeRequestInterface) kyvernov1alpha2.ReportChangeRequestInterface {
+func DeepCopy(report kyvernov1alpha2.ReportInterface) kyvernov1alpha2.ReportInterface {
 	switch v := report.(type) {
 	case *kyvernov1alpha2.AdmissionReport:
 		return v.DeepCopy()
@@ -14,10 +14,6 @@ func DeepCopy(report kyvernov1alpha2.ReportChangeRequestInterface) kyvernov1alph
 	case *kyvernov1alpha2.BackgroundScanReport:
 		return v.DeepCopy()
 	case *kyvernov1alpha2.ClusterBackgroundScanReport:
-		return v.DeepCopy()
-	case *kyvernov1alpha2.ReportChangeRequest:
-		return v.DeepCopy()
-	case *kyvernov1alpha2.ClusterReportChangeRequest:
 		return v.DeepCopy()
 	case *policyreportv1alpha2.PolicyReport:
 		return v.DeepCopy()

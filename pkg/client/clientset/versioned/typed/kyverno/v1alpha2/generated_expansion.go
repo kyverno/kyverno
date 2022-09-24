@@ -25,7 +25,3 @@ type BackgroundScanReportExpansion interface{}
 type ClusterAdmissionReportExpansion interface{}
 
 type ClusterBackgroundScanReportExpansion interface{}
-
-type ClusterReportChangeRequestExpansion interface{}
-
-type ReportChangeRequestExpansion interface{}

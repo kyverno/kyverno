@@ -44,14 +44,6 @@ func (c *FakeKyvernoV1alpha2) ClusterBackgroundScanReports() v1alpha2.ClusterBac
 	return &FakeClusterBackgroundScanReports{c}
 }
 
-func (c *FakeKyvernoV1alpha2) ClusterReportChangeRequests() v1alpha2.ClusterReportChangeRequestInterface {
-	return &FakeClusterReportChangeRequests{c}
-}
-
-func (c *FakeKyvernoV1alpha2) ReportChangeRequests(namespace string) v1alpha2.ReportChangeRequestInterface {
-	return &FakeReportChangeRequests{c, namespace}
-}
-
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeKyvernoV1alpha2) RESTClient() rest.Interface {
