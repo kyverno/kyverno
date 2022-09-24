@@ -282,16 +282,6 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 	return out
 }
 
-func deleteResource(client dclient.Interface, apiversion, kind, ns, name string) {
-	err := client.DeleteResource(apiversion, kind, ns, name, false)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
-		return
-	}
-
-	log.Log.V(2).Info("successfully cleaned up resource", "kind", kind, "name", name)
-}
-
 func convertGR(pclient kyvernoclient.Interface) error {
 	logger := log.Log.WithName("convertGenerateRequest")
 

@@ -1,7 +1,7 @@
 package report
 
 import (
-	"crypto/md5"
+	"crypto/md5" //nolint:gosec
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -108,7 +108,7 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	if err != nil {
 		return ""
 	}
-	hash := md5.Sum(data)
+	hash := md5.Sum(data) //nolint:gosec
 	return hex.EncodeToString(hash[:])
 }
 

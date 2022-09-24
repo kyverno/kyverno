@@ -140,14 +140,20 @@ func (c *controller) enqueue(selector labels.Selector) error {
 		return err
 	}
 	for _, bgscan := range bgscans {
-		c.bgscanEnqueue(bgscan)
+		err = c.bgscanEnqueue(bgscan)
+		if err != nil {
+			logger.Error(err, "failed to enqueue")
+		}
 	}
 	cbgscans, err := c.cbgscanrLister.List(selector)
 	if err != nil {
 		return err
 	}
 	for _, cbgscan := range cbgscans {
-		c.cbgscanEnqueue(cbgscan)
+		err = c.cbgscanEnqueue(cbgscan)
+		if err != nil {
+			logger.Error(err, "failed to enqueue")
+		}
 	}
 	return nil
 }

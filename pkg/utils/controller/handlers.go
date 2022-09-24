@@ -68,8 +68,7 @@ func Parse(parseKey keyFunc, inner EnqueueFunc) EnqueueFunc {
 		if key, err := parseKey(obj); err != nil {
 			return err
 		} else {
-			inner(key)
-			return nil
+			return inner(key)
 		}
 	}
 }

@@ -82,14 +82,20 @@ func (c *controller) enqueue(selector labels.Selector) error {
 		return err
 	}
 	for _, adm := range admrs {
-		c.admrEnqueue(adm)
+		err = c.admrEnqueue(adm)
+		if err != nil {
+			logger.Error(err, "failed to enqueue")
+		}
 	}
 	cadmrs, err := c.cadmrLister.List(selector)
 	if err != nil {
 		return err
 	}
 	for _, cadmr := range cadmrs {
-		c.admrEnqueue(cadmr)
+		err = c.admrEnqueue(cadmr)
+		if err != nil {
+			logger.Error(err, "failed to enqueue")
+		}
 	}
 	return nil
 }
