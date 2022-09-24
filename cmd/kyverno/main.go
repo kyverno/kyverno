@@ -284,7 +284,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	configuration, err := config.NewConfiguration(kubeClient /*prgen.ReconcileCh,*/, webhookCfg.UpdateWebhookChan)
+	configuration, err := config.NewConfiguration(kubeClient, webhookCfg.UpdateWebhookChan)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize configuration")
 		os.Exit(1)
