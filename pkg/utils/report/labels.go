@@ -98,8 +98,11 @@ func CalculateResourceHash(resource unstructured.Unstructured) string {
 	obj := copy.Object
 	labels := copy.GetLabels()
 	annotations := copy.GetAnnotations()
-	delete(obj, "metadata")
-	delete(obj, "status")
+	unstructured.RemoveNestedField(obj, "metadata")
+	unstructured.RemoveNestedField(obj, "status")
+	unstructured.RemoveNestedField(obj, "scale")
+	// fix for pods
+	unstructured.RemoveNestedField(obj, "spec", "nodeName")
 	input := []interface{}{labels, annotations, obj}
 	data, err := json.Marshal(input)
 	if err != nil {

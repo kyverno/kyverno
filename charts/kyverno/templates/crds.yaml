@@ -52,6 +52,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -297,6 +301,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -542,6 +550,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -787,6 +799,10 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .metadata.labels['audit\.kyverno\.io/resource\.hash']
+      name: Hash
+      priority: 1
+      type: string
     name: v1alpha2
     schema:
       openAPIV3Schema:

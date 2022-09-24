@@ -88,16 +88,6 @@ func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) Enqu
 	}
 }
 
-// func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, parseKey keyFunc) error {
-// 	if key, err := parseKey(obj); err != nil {
-// 		logger.Error(err, "failed to compute key name", "obj", obj)
-// 		return err
-// 	} else {
-// 		queue.Add(key)
-// 		return nil
-// 	}
-// }
-
 func MetaNamespaceKey(obj interface{}) (interface{}, error) {
 	return cache.MetaNamespaceKeyFunc(obj)
 }

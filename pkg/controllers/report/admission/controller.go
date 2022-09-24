@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
@@ -125,9 +126,7 @@ func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportCh
 	}
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
-	logger.V(3).Info("reconciling ...")
+func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
 	// try to find meta from the cache
 	meta, err := c.getMeta(namespace, name)
 	if err != nil {

@@ -61,21 +61,20 @@ const resyncPeriod = 15 * time.Minute
 var (
 	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
-	kubeconfig           string
-	serverIP             string
-	profilePort          string
-	metricsPort          string
-	webhookTimeout       int
-	genWorkers           int
-	maxQueuedEvents      int
-	profile              bool
-	disableMetricsExport bool
-	enableTracing        bool
-	otel                 string
-	otelCollector        string
-	transportCreds       string
-	autoUpdateWebhooks   bool
-	// policyControllerResyncPeriod time.Duration
+	kubeconfig                 string
+	serverIP                   string
+	profilePort                string
+	metricsPort                string
+	webhookTimeout             int
+	genWorkers                 int
+	maxQueuedEvents            int
+	profile                    bool
+	disableMetricsExport       bool
+	enableTracing              bool
+	otel                       string
+	otelCollector              string
+	transportCreds             string
+	autoUpdateWebhooks         bool
 	imagePullSecrets           string
 	imageSignatureRepository   string
 	allowInsecureRegistry      bool
@@ -444,11 +443,24 @@ func main() {
 		cleanUp,
 	)
 
+	reportControllers := setupReportControllers(
+		backgroundScan,
+		admissionReports,
+		dynamicClient,
+		kyvernoClient,
+		metadataInformer,
+		kubeInformer,
+		kyvernoInformer,
+	)
+
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
-		go policyCtrl.Run(2 /*, prgen.ReconcileCh*/ /*, reportReqGen.CleanupChangeRequest*/, stopCh)
+		go policyCtrl.Run(2, stopCh)
+		for _, controller := range reportControllers {
+			go controller.Run(stopCh)
+		}
 	}
 
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
@@ -472,16 +484,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	reportControllers := setupReportControllers(
-		backgroundScan,
-		admissionReports,
-		dynamicClient,
-		kyvernoClient,
-		metadataInformer,
-		kubeInformer,
-		kyvernoInformer,
-	)
-
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 	metadataInformer.Start(stopCh)
 	metadataInformer.WaitForCacheSync(stopCh)
@@ -490,10 +492,6 @@ func main() {
 	if err := policyCacheController.WarmUp(); err != nil {
 		setupLog.Error(err, "Failed to warm up policy cache")
 		os.Exit(1)
-	}
-
-	for _, controller := range reportControllers {
-		go controller.Run(stopCh)
 	}
 
 	// init events handlers

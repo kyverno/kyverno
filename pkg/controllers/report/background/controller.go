@@ -343,9 +343,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
-	logger.V(3).Info("reconciling ...")
+func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)

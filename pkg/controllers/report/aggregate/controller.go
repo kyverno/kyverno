@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
@@ -19,6 +20,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
+
+// TODO: configurable chunk size
+// TODO: leader election
+// TODO: resync in resource controller
+// TODO: error handling in resource controller
+// TODO: policy hash
+// TODO: remove rcr and crcr
+// TODO: hash print column
 
 const (
 	maxRetries = 10
@@ -77,7 +86,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
 }
 
-func (c *controller) listReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
+func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
 	var reports []kyvernov1alpha2.ReportChangeRequestInterface
 	if namespace == "" {
 		cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(context.TODO(), metav1.ListOptions{})
@@ -87,13 +96,6 @@ func (c *controller) listReports(namespace string) ([]kyvernov1alpha2.ReportChan
 		for i := range cadms.Items {
 			reports = append(reports, &cadms.Items[i])
 		}
-		cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range cbgscans.Items {
-			reports = append(reports, &cbgscans.Items[i])
-		}
 	} else {
 		adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -102,6 +104,21 @@ func (c *controller) listReports(namespace string) ([]kyvernov1alpha2.ReportChan
 		for i := range adms.Items {
 			reports = append(reports, &adms.Items[i])
 		}
+	}
+	return reports, nil
+}
+
+func (c *controller) listBackgroundScanReports(namespace string) ([]kyvernov1alpha2.ReportChangeRequestInterface, error) {
+	var reports []kyvernov1alpha2.ReportChangeRequestInterface
+	if namespace == "" {
+		cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for i := range cbgscans.Items {
+			reports = append(reports, &cbgscans.Items[i])
+		}
+	} else {
 		bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			return nil, err
@@ -141,16 +158,7 @@ func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportChange
 	return nil
 }
 
-func (c *controller) reconcile(key, _, _ string) error {
-	logger := logger.WithValues("key", key)
-	logger.Info("reconciling ...")
-	// delay processing to reduce reconciliation iterations
-	// in case things are changing fast in the cluster
-	reports, err := c.listReports(key)
-	if err != nil {
-		return err
-	}
-	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportChangeRequestInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -164,17 +172,43 @@ func (c *controller) reconcile(key, _, _ string) error {
 			for _, result := range report.GetResults() {
 				key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
 				result.Resources = objectRefs
-				if rule, exists := merged[key]; !exists {
-					merged[key] = result
+				if rule, exists := accumulator[key]; !exists {
+					accumulator[key] = result
 				} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-					merged[key] = result
+					accumulator[key] = result
 				}
 			}
 		}
 	}
+}
+
+func (c *controller) buildReportsResults(namepsace string) ([]policyreportv1alpha2.PolicyReportResult, error) {
+	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
+	{
+		reports, err := c.listAdmissionReports(namepsace)
+		if err != nil {
+			return nil, err
+		}
+		mergeReports(merged, reports...)
+	}
+	{
+		reports, err := c.listBackgroundScanReports(namepsace)
+		if err != nil {
+			return nil, err
+		}
+		mergeReports(merged, reports...)
+	}
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, result := range merged {
 		results = append(results, result)
+	}
+	return results, nil
+}
+
+func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
+	results, err := c.buildReportsResults(key)
+	if err != nil {
+		return err
 	}
 	policyReports, err := reportutils.GetPolicyReports(key, c.client.Wgpolicyk8sV1alpha2())
 	if err != nil {

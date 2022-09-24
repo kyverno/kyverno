@@ -62,7 +62,7 @@ type controller struct {
 	// queue
 	queue workqueue.RateLimitingInterface
 
-	lock            sync.Mutex
+	lock            sync.RWMutex
 	dynamicWatchers map[schema.GroupVersionResource]*watcher
 	eventHandlers   []EventHandler
 }
@@ -89,8 +89,8 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	for _, watcher := range c.dynamicWatchers {
 		if resource, exists := watcher.hashes[uid]; exists {
 			return resource, watcher.gvk, true
@@ -169,6 +169,7 @@ func (c *controller) updateDynamicWatchers() error {
 					Namespace: obj.GetNamespace(),
 					Name:      obj.GetName(),
 				}
+				c.notify(uid, w.gvk, w.hashes[uid])
 			}
 		}
 	}
@@ -241,8 +242,6 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
-	logger.V(3).Info("reconciling ...")
+func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
 	return c.updateDynamicWatchers()
 }
