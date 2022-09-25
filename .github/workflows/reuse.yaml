@@ -44,7 +44,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
         with:
-          go-version: 1.18
+          go-version: ~1.18.6
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
@@ -109,12 +109,16 @@ jobs:
         id: ko-publish-dev
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
+          set -e
           echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)"
 
       - name: ko build release image
         id: ko-publish
+        env:
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
         if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
         run: |
+          set -e
           echo "::set-output name=digest::$(REGISTRY=ghcr.io REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})"
 
       - name: Sign dev image
@@ -122,7 +126,8 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
-        run: |          
+        run: |
+          set -e
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
@@ -134,7 +139,8 @@ jobs:
         env:
           COSIGN_EXPERIMENTAL: "true"
           COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
-        run: |          
+        run: |
+          set -e
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
