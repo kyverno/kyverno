@@ -29,12 +29,12 @@ func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimiting
 		}
 		for i := 0; i < n; i++ {
 			wg.Add(1)
-			go func(id int) {
-				logger.Info("starting worker", "id", id)
+			go func(logger logr.Logger) {
+				logger.Info("starting worker")
 				defer wg.Done()
-				defer logger.Info("worker stopped", "id", id)
+				defer logger.Info("worker stopped")
 				wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, ctx.Done())
-			}(i)
+			}(logger.WithValues("id", i))
 		}
 		<-stopCh
 	}()

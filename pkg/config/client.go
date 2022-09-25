@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	rest "k8s.io/client-go/rest"
 	clientcmd "k8s.io/client-go/tools/clientcmd"
 )
@@ -31,4 +32,13 @@ func createClientConfig(kubeconfig string) (*rest.Config, error) {
 	}
 	logger.V(4).Info("Using specified kubeconfig", "kubeconfig", kubeconfig)
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+// CreateClientConfigWithContext creates client config from custom kubeconfig file and context
+// Used for cli commands
+func CreateClientConfigWithContext(kubeconfig string, context string) (*rest.Config, error) {
+	kubernetesConfig := genericclioptions.NewConfigFlags(true)
+	kubernetesConfig.KubeConfig = &kubeconfig
+	kubernetesConfig.Context = &context
+	return kubernetesConfig.ToRESTConfig()
 }
