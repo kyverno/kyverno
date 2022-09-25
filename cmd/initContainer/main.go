@@ -178,7 +178,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)

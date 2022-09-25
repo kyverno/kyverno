@@ -625,6 +625,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set replicaCount=3 \
 		--set extraArgs={--autogenInternals=true}
 	@echo Restart kyverno pods...
 	@kubectl rollout restart deployment -n kyverno kyverno
