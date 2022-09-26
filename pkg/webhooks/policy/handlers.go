@@ -21,7 +21,7 @@ type handlers struct {
 	openAPIController *openapi.Controller
 }
 
-func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller) webhooks.Handlers {
+func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller) webhooks.PolicyHandlers {
 	return &handlers{
 		client:            client,
 		openAPIController: openAPIController,
