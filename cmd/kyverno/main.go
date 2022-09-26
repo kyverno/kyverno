@@ -197,7 +197,7 @@ func main() {
 		os.Exit(1)
 	}
 
-  // sanity checks
+	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
