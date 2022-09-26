@@ -434,7 +434,7 @@ func (wrc *Register) checkEndpoint() error {
 		return err
 	}
 	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
-		return errors.New("kyverno is in rolling update")
+		return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
 	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
