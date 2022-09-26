@@ -178,7 +178,12 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-
+	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes leader client")
+		os.Exit(1)
+	}
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -434,7 +439,7 @@ func main() {
 	}()
 
 	// webhookconfigurations are registered by the leader only
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
@@ -487,12 +492,6 @@ func main() {
 		go prgen.Run(1, stopCh)
 	}
 
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
 	// cleanup Kyverno managed resources followed by webhook shutdown
 	// No need to exit here, as server.Stop(ctx) closes the cleanUp
 	// chan, thus the main process exits.
@@ -502,7 +501,7 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
