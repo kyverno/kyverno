@@ -10,6 +10,7 @@ import (
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 )
 
 // Generate provides implementation to validate 'generate' rule
@@ -74,8 +75,17 @@ func (g *Generate) Validate() (string, error) {
 	// instructions to modify the RBAC for kyverno are mentioned at https://github.com/kyverno/kyverno/blob/master/documentation/installation.md
 	// - operations required: create/update/delete/get
 	// If kind and namespace contain variables, then we cannot resolve then so we skip the processing
-	if err := g.canIGenerate(kind, namespace); err != nil {
-		return "", err
+	if len(rule.CloneList.Kinds) != 0 {
+		for _, kind = range rule.CloneList.Kinds {
+			_, kind = kubeutils.GetKindFromGVK(kind)
+			if err := g.canIGenerate(kind, namespace); err != nil {
+				return "", err
+			}
+		}
+	} else {
+		if err := g.canIGenerate(kind, namespace); err != nil {
+			return "", err
+		}
 	}
 	return "", nil
 }
