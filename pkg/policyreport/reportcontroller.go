@@ -890,7 +890,7 @@ func (g *ReportGenerator) updateReportsForDeletedResource(resName string, new *u
 
 			polr.SetGroupVersionKind(schema.GroupVersionKind{Group: gv.Group, Version: gv.Version, Kind: "PolicyReport"})
 
-			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(new.GetNamespace()).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
+			if _, err := g.pclient.Wgpolicyk8sV1alpha2().PolicyReports(polr.Namespace).Update(context.TODO(), polr, metav1.UpdateOptions{}); err != nil {
 				return fmt.Errorf("failed to update clusterPolicyReport %s %v", polr.Name, err)
 			}
 		}
