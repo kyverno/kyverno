@@ -173,7 +173,12 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-
+	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes leader client")
+		os.Exit(1)
+	}
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -495,7 +500,7 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
