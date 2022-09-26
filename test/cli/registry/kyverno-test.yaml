@@ -3,6 +3,7 @@ policies:
   - image-example.yaml
 resources:
   - resources.yaml
+variables: values.yaml
 results:
   - policy: images
     rule: only-allow-trusted-images
