@@ -16,6 +16,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -277,21 +278,31 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		<-wrc.UpdateWebhookChan
 		logger.V(4).Info("received the signal to update webhook configurations")
 
-		webhookCfgs := configHandler.GetWebhooks()
-		webhookCfg := config.WebhookConfig{}
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
-
 		retry := false
-		if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
-			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+		deploy, err := wrc.GetKubePolicyDeployment()
+		if err != nil {
+			retry = true
+		}
+		if tlsutils.IsKyvernoInRollingUpdate(deploy) {
 			retry = true
 		}
 
-		if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
-			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-			retry = true
+		if !retry {
+			webhookCfgs := configHandler.GetWebhooks()
+			webhookCfg := config.WebhookConfig{}
+			if len(webhookCfgs) > 0 {
+				webhookCfg = webhookCfgs[0]
+			}
+
+			if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
+				logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+				retry = true
+			}
+
+			if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
+				logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
+				retry = true
+			}
 		}
 
 		if retry {
@@ -417,6 +428,13 @@ func (wrc *Register) checkEndpoint() error {
 	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "EndPoint", config.KyvernoNamespace())
 	if err != nil {
 		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
+	}
+	deploy, err := wrc.GetKubePolicyDeployment()
+	if err != nil {
+		return err
+	}
+	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+		return errors.New("kyverno is in rolling update")
 	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
