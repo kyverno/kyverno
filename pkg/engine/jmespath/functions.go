@@ -961,7 +961,7 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 	rand.Seed(time.Now().UnixNano())
 	ans, err := regen.Generate(pattern)
 	if err != nil {
-		fmt.Println("Invalid Pattern: ", err)
+		return nil, err
 	}
 	return ans, nil
 }
