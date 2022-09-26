@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-logr/zapr"
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -90,8 +89,7 @@ func main() {
 	}
 
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.NewWithOptions(klogr.WithFormat(klogr.FormatKlog)))
-	flag.StringVar(&logFormat, "logging-format", "text", "This determines the output format of the logger.")
+	flag.StringVar(&logFormat, "loggingFormat", "text", "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -119,18 +117,27 @@ func main() {
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.Func(toggle.DisableBackgroundScanFlagName, toggle.DisableBackgroundScanDescription, toggle.DisableBackgroundScan.Parse)
 	if err := flag.Set("v", "2"); err != nil {
-		setupLog.Error(err, "failed to set log level")
+		fmt.Printf("failed to set log level: %s", err.Error())
 		os.Exit(1)
 	}
 	flag.Parse()
 
-	if logFormat == "json" {
-		zapLog, err := zap.NewProduction()
+	if logFormat == "text" {
+		// in text mode we use FormatSerialize format
+		log.SetLogger(klogr.New())
+	} else if logFormat == "json" {
+		// TODO: klog does not support json out of the box, we need to provide a logger with json support to klog here
+		_, err := zap.NewProduction()
 		if err != nil {
 			setupLog.Error(err, "Failed to initialize JSON logger")
 			os.Exit(1)
 		}
-		klog.SetLogger(zapr.NewLogger(zapLog))
+		// klog.SetLogger(zapr.NewLogger(zapLog))
+
+		// in json mode we use FormatKlog format
+		log.SetLogger(klog.NewKlogr())
+	} else {
+		// TODO
 	}
 
 	version.PrintVersionInfo(log.Log)
