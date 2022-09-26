@@ -99,6 +99,16 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	matchCount := 0
 	applyRules := ctx.Policy.GetSpec().GetApplyRules()
 
+	if ctx.Policy.IsNamespaced() {
+		polNs := ctx.Policy.GetNamespace()
+		if ctx.NewResource.Object != nil && (ctx.NewResource.GetNamespace() != polNs || ctx.NewResource.GetNamespace() == "") {
+			return resp
+		}
+		if ctx.OldResource.Object != nil && (ctx.OldResource.GetNamespace() != polNs || ctx.OldResource.GetNamespace() == "") {
+			return resp
+		}
+	}
+
 	for i := range rules {
 		rule := &rules[i]
 		hasValidate := rule.HasValidate()
