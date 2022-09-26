@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -14,16 +16,30 @@ import (
 type reconcileFunc func(logr.Logger, string, string, string) error
 
 func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) {
-	defer runtime.HandleCrash()
 	logger.Info("starting ...")
-	defer logger.Info("shutting down")
-	if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
-		return
-	}
-	for i := 0; i < n; i++ {
-		go wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, stopCh)
-	}
-	<-stopCh
+	defer runtime.HandleCrash()
+	defer logger.Info("stopped")
+	var wg sync.WaitGroup
+	func() {
+		ctx, cancel := context.WithCancel(context.TODO())
+		defer cancel()
+		defer queue.ShutDown()
+		if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
+			return
+		}
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(logger logr.Logger) {
+				logger.Info("starting worker")
+				defer wg.Done()
+				defer logger.Info("worker stopped")
+				wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, ctx.Done())
+			}(logger.WithValues("id", i))
+		}
+		<-stopCh
+	}()
+	logger.Info("waiting for workers to terminate ...")
+	wg.Wait()
 }
 
 func worker(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
