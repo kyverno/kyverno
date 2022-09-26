@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.Handlers {
+func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhooks.ResourceHandlers {
 	client := fake.NewSimpleClientset()
 	metricsConfig := metrics.NewFakeMetricsConfig(client)
 
