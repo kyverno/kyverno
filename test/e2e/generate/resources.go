@@ -440,7 +440,6 @@ spec:
           - kube-public
           - kyverno
     generate:
-      kind: Secret
       namespace: "{{request.object.metadata.name}}"
       synchronize : true
       cloneList:
