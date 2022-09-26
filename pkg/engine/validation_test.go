@@ -3246,11 +3246,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -3416,11 +3414,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -3585,11 +3581,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -3750,11 +3744,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_host_path_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -3858,11 +3850,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor(
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -3967,11 +3957,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -4075,11 +4063,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_app_armor_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -4184,11 +4170,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls(t 
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -4293,11 +4277,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -4401,11 +4383,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_sysctls_wi
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -4534,11 +4514,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_seccomp(t 
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -4688,11 +4666,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_with_r
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -4842,11 +4818,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_missin
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -4986,11 +4960,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_seccomp_missin
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -5132,11 +5104,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_SELinuxOpt
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -5295,7 +5265,7 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_SELinuxOpt
 // 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 // 	fmt.Println(er)
-// 	// msgs := []string{""}
+//
 
 // 	for _, r := range er.PolicyResponse.Rules {
 // 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -5465,11 +5435,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -5607,11 +5575,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -5777,11 +5743,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -5947,11 +5911,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_SELinuxOptions
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -7144,11 +7106,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostProces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -7298,11 +7258,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -7452,11 +7410,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -7598,11 +7554,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostProcesses_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -7681,11 +7635,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostNamesp
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -7823,11 +7775,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -7958,11 +7908,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -8100,11 +8048,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -8233,11 +8179,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -8368,11 +8312,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostNamespaces
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -8493,11 +8435,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_capabiliti
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -8640,11 +8580,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_capabilities_w
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -8784,11 +8722,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -8932,11 +8868,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_capabilities
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -9076,7 +9010,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_privileged
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -9248,7 +9181,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -9425,7 +9357,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -9587,7 +9518,6 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_privileged_con
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -9746,7 +9676,6 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_c
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -9925,7 +9854,6 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_privileged_c
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
@@ -10061,11 +9989,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_hostPorts(
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -10220,11 +10146,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_with
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -10378,11 +10302,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_hostPorts_miss
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -10525,11 +10447,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_hostPorts_mi
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -10642,11 +10562,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_all_procMounts
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -10777,11 +10695,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_wit
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -10911,11 +10827,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_mis
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -11036,11 +10950,9 @@ func TestValidate_pod_security_admission_enforce_baseline_exclude_procMounts_mis
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -11208,11 +11120,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -11378,11 +11288,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -11548,11 +11456,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -11716,11 +11622,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_volume_t
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -11883,11 +11787,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -12072,11 +11974,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -12279,11 +12179,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -12457,11 +12355,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -12620,11 +12516,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -12804,11 +12698,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -12987,11 +12879,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -13160,11 +13050,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_running_
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -13316,11 +13204,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_seccomp(
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -13500,11 +13386,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_with
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -13684,11 +13568,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -13858,11 +13740,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_seccomp_miss
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -14011,11 +13891,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -14181,11 +14059,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -14350,11 +14226,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -14509,11 +14383,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_privileg
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -14676,11 +14548,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -14846,11 +14716,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsSuccessful())
 }
@@ -15016,11 +14884,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
@@ -15176,11 +15042,9 @@ func TestValidate_pod_security_admission_enforce_restricted_exclude_all_capabili
 	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 
 	fmt.Println(er)
-	// msgs := []string{""}
 
 	for _, r := range er.PolicyResponse.Rules {
 		fmt.Printf("== Response: %+v\n", r.Message)
-		// assert.Equal(t, r.Message, msgs[index])
 	}
 	assert.Assert(t, er.IsFailed())
 }
