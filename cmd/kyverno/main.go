@@ -8,7 +8,9 @@ import (
 	"net/http"
 	_ "net/http/pprof" // #nosec
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/background"
@@ -29,7 +31,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -122,8 +123,12 @@ func main() {
 
 	version.PrintVersionInfo(log.Log)
 
+	// os signal handler
+	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer signalCancel()
+
 	cleanUp := make(chan struct{})
-	stopCh := signal.SetupSignalHandler()
+	stopCh := signalCtx.Done()
 	debug := serverIP != ""
 
 	// clients
@@ -173,7 +178,12 @@ func main() {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
-
+	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes leader client")
+		os.Exit(1)
+	}
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -422,24 +432,20 @@ func main() {
 		webhookCfg.UpdateWebhookChan <- true
 	}
 
-	// leader election context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// cancel leader election context on shutdown signals
 	go func() {
+		defer signalCancel()
 		<-stopCh
-		cancel()
 	}()
 
 	// webhookconfigurations are registered by the leader only
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
+	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
-	go webhookRegisterLeader.Run(ctx)
+	go webhookRegisterLeader.Run(signalCtx)
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
@@ -486,12 +492,6 @@ func main() {
 		go prgen.Run(1, stopCh)
 	}
 
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
 	// cleanup Kyverno managed resources followed by webhook shutdown
 	// No need to exit here, as server.Stop(ctx) closes the cleanUp
 	// chan, thus the main process exits.
@@ -501,7 +501,7 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, log.Log.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
@@ -519,7 +519,7 @@ func main() {
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
-	go le.Run(ctx)
+	go le.Run(signalCtx)
 	go reportReqGen.Run(2, stopCh)
 	go configurationController.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
