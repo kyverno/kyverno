@@ -25273,6 +25273,10 @@ spec:
       - env:
         - name: METRICS_CONFIG
           value: kyverno-metrics
+        - name: KYVERNO_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: KYVERNO_NAMESPACE
           valueFrom:
             fieldRef:
