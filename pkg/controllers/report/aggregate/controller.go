@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-// TODO: leader election
 // TODO: resync in resource controller
 // TODO: error handling in resource controller
 // TODO: policy hash
