@@ -6,6 +6,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/policy"
 )
 
@@ -13,6 +14,7 @@ import (
 // and returns pod manifests containing spec and container info respectively
 func getPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podSpec, matching *corev1.Pod) {
 	if len(exclude.Images) == 0 {
+		podSpec = &corev1.Pod{}
 		*podSpec = *pod
 		podSpec.Spec.Containers = []corev1.Container{{Name: "fake"}}
 		podSpec.Spec.InitContainers = []corev1.Container{}
@@ -21,20 +23,26 @@ func getPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 	}
 
 	matchingImages := exclude.Images
+	matching = &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod.GetName(),
+			Namespace: pod.GetNamespace(),
+		},
+	}
 	for _, container := range pod.Spec.Containers {
 		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
-			matching.Spec.Containers = append(pod.Spec.Containers, container)
+			matching.Spec.Containers = append(matching.Spec.Containers, container)
 		}
 	}
 	for _, container := range pod.Spec.InitContainers {
 		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
-			pod.Spec.InitContainers = append(pod.Spec.InitContainers, container)
+			matching.Spec.InitContainers = append(matching.Spec.InitContainers, container)
 		}
 	}
 
 	for _, container := range pod.Spec.EphemeralContainers {
 		if utils.ContainsWildcardPatterns(matchingImages, container.Image) {
-			pod.Spec.EphemeralContainers = append(pod.Spec.EphemeralContainers, container)
+			matching.Spec.EphemeralContainers = append(matching.Spec.EphemeralContainers, container)
 		}
 	}
 

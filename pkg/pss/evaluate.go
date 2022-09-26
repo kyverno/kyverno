@@ -8,7 +8,7 @@ import (
 )
 
 // Evaluate Pod's specified containers only and get PSSCheckResults
-func evaluatePSS(level *api.LevelVersion, pod *corev1.Pod) (results []pssCheckResult) {
+func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssCheckResult) {
 	checks := policy.DefaultChecks()
 
 	for _, check := range checks {
@@ -54,16 +54,34 @@ func exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults []pssCheckR
 	return newDefaultCheckResults
 }
 
-// Check if the pod creation is allowed after exempting some PSS controls
-func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelVersion) (bool, []pssCheckResult, error) {
-	// .exclude defines the excluded control name
-	// 1. apply PSS to the entire pods, checkResults
-	// 2. for loop extract matching containers for each exclude, at the pod or container level, and applies
-	// 3. exempt control checks by kyverno rule
-	//    - still violates, block, return false
-	//    - allow, continue
+func parseVersion(rule *kyvernov1.PodSecurity) (*api.LevelVersion, error) {
+	// Get pod security admission version
+	var apiVersion api.Version
 
-	defaultCheckResults := evaluatePSS(level, pod)
+	// Version set to "latest" by default
+	if rule.Version == "" || rule.Version == "latest" {
+		apiVersion = api.LatestVersion()
+	} else {
+		parsedApiVersion, err := api.ParseVersion(rule.Version)
+		if err != nil {
+			return nil, err
+		}
+		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
+	}
+	return &api.LevelVersion{
+		Level:   rule.Level,
+		Version: apiVersion,
+	}, nil
+}
+
+// EvaluatePod applies PSS checks to the pod and exempts controls specified in the rule
+func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod) (bool, []pssCheckResult, error) {
+	level, err := parseVersion(rule)
+	if err != nil {
+		return false, nil, err
+	}
+
+	defaultCheckResults := evaluatePSS(level, *pod)
 
 	for _, exclude := range rule.Exclude {
 		spec, matching := getPodWithMatchingContainers(exclude, pod)
@@ -71,12 +89,12 @@ func EvaluatePod(rule *kyvernov1.PodSecurity, pod *corev1.Pod, level *api.LevelV
 		switch {
 		// exclude pod level checks
 		case spec != nil:
-			excludeCheckResults := evaluatePSS(level, spec)
+			excludeCheckResults := evaluatePSS(level, *spec)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 
 		// exclude container level checks
 		default:
-			excludeCheckResults := evaluatePSS(level, matching)
+			excludeCheckResults := evaluatePSS(level, *matching)
 			defaultCheckResults = exemptKyvernoExclusion(defaultCheckResults, excludeCheckResults, exclude)
 		}
 	}
