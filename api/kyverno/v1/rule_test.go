@@ -13,7 +13,7 @@ func Test_Validate_RuleType_EmptyRule(t *testing.T) {
 		Name: "validate-user-privilege",
 	}
 	path := field.NewPath("dummy")
-	errs := subject.Validate(path, false, nil)
+	errs := subject.Validate(path, false, "", nil)
 	assert.Equal(t, len(errs), 1)
 	assert.Equal(t, errs[0].Field, "dummy")
 	assert.Equal(t, errs[0].Type, field.ErrorTypeInvalid)
@@ -90,7 +90,7 @@ func Test_Validate_RuleType_MultipleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path, false, nil)
+		errs := rule.Validate(path, false, "", nil)
 		assert.Assert(t, len(errs) != 0)
 	}
 }
@@ -145,7 +145,7 @@ func Test_Validate_RuleType_SingleRule(t *testing.T) {
 	assert.NilError(t, err)
 	for _, rule := range policy.Spec.Rules {
 		path := field.NewPath("dummy")
-		errs := rule.Validate(path, false, nil)
+		errs := rule.Validate(path, false, "", nil)
 		assert.Assert(t, len(errs) == 0)
 	}
 }
@@ -217,6 +217,166 @@ func Test_doesMatchExcludeConflict(t *testing.T) {
 		err := json.Unmarshal(testcase.rule, &rule)
 		assert.NilError(t, err)
 		errs := rule.ValidateMatchExcludeConflict(path)
+		var expectedErrs field.ErrorList
+		if testcase.errors != nil {
+			expectedErrs = testcase.errors(&rule)
+		}
+		assert.Equal(t, len(errs), len(expectedErrs))
+		for i := range errs {
+			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
+		}
+	}
+}
+
+func Test_Validate_NamespacedPolicy_MutateRuleTargetNamespace(t *testing.T) {
+	path := field.NewPath("dummy")
+	testcases := []struct {
+		description string
+		rule        []byte
+		errors      func(r *Rule) field.ErrorList
+	}{
+		{
+			description: "Invalid mutate rule target namespace",
+			rule: []byte(`
+			{
+				"name": "auto-rollout-on-config-change",
+				"match": {
+					"resources": {
+						"kinds": [
+							"ConfigMap"
+						]
+					}
+				},
+				"mutate": {
+					"targets": [
+						{
+							"apiVersion": "apps/v1",
+							"kind": "Deployment",
+							"namespace": "maddy"
+						},
+						{
+							"apiVersion": "v1",
+							"kind": "Service",
+							"namespace": "praddy"
+						}
+					],
+					"patchStrategicMerge": {
+						"metadata": {
+							"annotations": {
+								"kyverno/tls-changed:": "true"
+							}
+						}
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("targets").Index(0).Child("namespace"), "maddy", "This field can be ignored or should have value of the namespace where the policy is being created"),
+					field.Invalid(path.Child("targets").Index(1).Child("namespace"), "praddy", "This field can be ignored or should have value of the namespace where the policy is being created"))
+			},
+		},
+		{
+			description: "Valid mutate rule target namespace",
+			rule: []byte(`
+			{
+				"name": "auto-rollout-on-config-change",
+				"match": {
+					"resources": {
+						"kinds": [
+							"ConfigMap"
+						]
+					}
+				},
+				"mutate": {
+					"targets": [
+						{
+							"apiVersion": "apps/v1",
+							"kind": "Deployment",
+							"namespace": "amritapuri"
+						},
+						{
+							"apiVersion": "v1",
+							"kind": "Service",
+							"namespace": "amritapuri"
+						}
+					],
+					"patchStrategicMerge": {
+						"metadata": {
+							"annotations": {
+								"kyverno/tls-changed:": "true"
+							}
+						}
+					}
+				}
+			}`),
+		},
+	}
+
+	for _, testcase := range testcases {
+		var rule Rule
+		err := json.Unmarshal(testcase.rule, &rule)
+		assert.NilError(t, err)
+		errs := rule.ValidateMutationRuleTargetNamespace(path, true, "amritapuri")
+		var expectedErrs field.ErrorList
+		if testcase.errors != nil {
+			expectedErrs = testcase.errors(&rule)
+		}
+		assert.Equal(t, len(errs), len(expectedErrs))
+		for i := range errs {
+			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
+		}
+	}
+}
+
+func Test_Validate_ClusterPolicy_MutateRuleTargetNamespace(t *testing.T) {
+	path := field.NewPath("dummy")
+	testcases := []struct {
+		description string
+		rule        []byte
+		errors      func(r *Rule) field.ErrorList
+	}{
+		{
+			description: "Valid mutate rule target namespace",
+			rule: []byte(`
+			{
+				"name": "auto-rollout-on-config-change",
+				"match": {
+					"resources": {
+						"kinds": [
+							"ConfigMap"
+						]
+					}
+				},
+				"mutate": {
+					"targets": [
+						{
+							"apiVersion": "apps/v1",
+							"kind": "Deployment",
+							"namespace": "maddy"
+						},
+						{
+							"apiVersion": "v1",
+							"kind": "Service",
+							"namespace": "praddy"
+						}
+					],
+					"patchStrategicMerge": {
+						"metadata": {
+							"annotations": {
+								"kyverno/tls-changed:": "true"
+							}
+						}
+					}
+				}
+			}`),
+		},
+	}
+
+	for _, testcase := range testcases {
+		var rule Rule
+		err := json.Unmarshal(testcase.rule, &rule)
+		assert.NilError(t, err)
+		errs := rule.ValidateMutationRuleTargetNamespace(path, false, "")
 		var expectedErrs field.ErrorList
 		if testcase.errors != nil {
 			expectedErrs = testcase.errors(&rule)
