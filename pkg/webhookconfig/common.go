@@ -289,7 +289,8 @@ func defaultResourceWebhookRule(autoUpdate bool) admissionregistrationv1.Rule {
 }
 
 func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, url := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
+	name, baseUrl := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
+	url := fmt.Sprintf("%s/ignore", baseUrl)
 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationDebugName, owner),
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -297,13 +298,15 @@ func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, 
 		},
 	}
 	if autoUpdate {
+		url := fmt.Sprintf("%s/fail", baseUrl)
 		webhook.Webhooks = append(webhook.Webhooks, generateDebugMutatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, path := config.MutatingWebhookName, config.MutatingWebhookServicePath
+	name, basePath := config.MutatingWebhookName, config.MutatingWebhookServicePath
+	path := fmt.Sprintf("%s/ignore", basePath)
 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationName, owner),
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -311,13 +314,15 @@ func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, 
 		},
 	}
 	if autoUpdate {
+		path := fmt.Sprintf("%s/fail", basePath)
 		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultDebugValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, url := config.ValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.ValidatingWebhookServicePath)
+	name, baseUrl := config.ValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.ValidatingWebhookServicePath)
+	url := fmt.Sprintf("%s/ignore", baseUrl)
 	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationDebugName, owner),
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
@@ -325,13 +330,15 @@ func constructDefaultDebugValidatingWebhookConfig(serverIP string, caData []byte
 		},
 	}
 	if autoUpdate {
+		url := fmt.Sprintf("%s/fail", baseUrl)
 		webhook.Webhooks = append(webhook.Webhooks, generateDebugValidatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, path := config.ValidatingWebhookName, config.ValidatingWebhookServicePath
+	name, basePath := config.ValidatingWebhookName, config.ValidatingWebhookServicePath
+	path := fmt.Sprintf("%s/ignore", basePath)
 	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationName, owner),
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
@@ -339,6 +346,7 @@ func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32
 		},
 	}
 	if autoUpdate {
+		path := fmt.Sprintf("%s/fail", basePath)
 		webhook.Webhooks = append(webhook.Webhooks, generateValidatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
