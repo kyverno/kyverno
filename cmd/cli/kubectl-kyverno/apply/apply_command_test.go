@@ -12,12 +12,16 @@ func Test_Apply(t *testing.T) {
 		PolicyPaths           []string
 		ResourcePaths         []string
 		expectedPolicyReports []preport.PolicyReport
+		config                ApplyCommandConfig
 	}
 
 	testcases := []TestCase{
 		{
-			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-			ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_version_tag.yaml"},
+				PolicyReport:  true,
+			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
@@ -31,8 +35,11 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
-			ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/best_practices/disallow_latest_tag.yaml"},
+				ResourcePaths: []string{"../../../../test/resources/pod_with_latest_tag.yaml"},
+				PolicyReport:  true,
+			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
@@ -46,8 +53,11 @@ func Test_Apply(t *testing.T) {
 			},
 		},
 		{
-			PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
-			ResourcePaths: []string{"../../../../test/cli/apply/resource"},
+			config: ApplyCommandConfig{
+				PolicyPaths:   []string{"../../../../test/cli/apply/policies"},
+				ResourcePaths: []string{"../../../../test/cli/apply/resource"},
+				PolicyReport:  true,
+			},
 			expectedPolicyReports: []preport.PolicyReport{
 				{
 					Summary: preport.PolicyReportSummary{
@@ -71,7 +81,7 @@ func Test_Apply(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, _, _, info, _ := applyCommandHelper(tc.ResourcePaths, "", false, true, "", "", "", "", tc.PolicyPaths, false, false)
+		_, _, _, info, _ := tc.config.applyCommandHelper()
 		resps := buildPolicyReports(info)
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
