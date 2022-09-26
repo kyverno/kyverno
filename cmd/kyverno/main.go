@@ -8,7 +8,9 @@ import (
 	"net/http"
 	_ "net/http/pprof" // #nosec
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/background"
@@ -34,7 +36,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/policy"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"github.com/kyverno/kyverno/pkg/registryclient"
-	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
@@ -129,8 +130,12 @@ func main() {
 
 	version.PrintVersionInfo(log.Log)
 
+	// os signal handler
+	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer signalCancel()
+
 	cleanUp := make(chan struct{})
-	stopCh := signal.SetupSignalHandler()
+	stopCh := signalCtx.Done()
 	debug := serverIP != ""
 
 	// clients
@@ -393,14 +398,10 @@ func main() {
 		webhookCfg.UpdateWebhookChan <- true
 	}
 
-	// leader election context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	// cancel leader election context on shutdown signals
 	go func() {
+		defer signalCancel()
 		<-stopCh
-		cancel()
 	}()
 
 	// webhookconfigurations are registered by the leader only
@@ -410,7 +411,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go webhookRegisterLeader.Run(ctx)
+	go webhookRegisterLeader.Run(signalCtx)
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
@@ -505,7 +506,7 @@ func main() {
 	// start Kyverno controllers
 	go policyCacheController.Run(stopCh)
 	go urc.Run(genWorkers, stopCh)
-	go le.Run(ctx)
+	go le.Run(signalCtx)
 	go configurationController.Run(stopCh)
 	go eventGenerator.Run(3, stopCh)
 	if !debug {

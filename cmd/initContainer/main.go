@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -16,7 +18,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
-	"github.com/kyverno/kyverno/pkg/signal"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
@@ -61,7 +62,11 @@ func main() {
 	flag.Parse()
 
 	// os signal handler
-	stopCh := signal.SetupSignalHandler()
+	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer signalCancel()
+
+	stopCh := signalCtx.Done()
+
 	// create client config
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
@@ -101,11 +106,9 @@ func main() {
 		{convertGenerateRequest},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	go func() {
+		defer signalCancel()
 		<-stopCh
-		cancel()
 	}()
 
 	done := make(chan struct{})
@@ -131,7 +134,7 @@ func main() {
 			}
 		}
 
-		if err = acquireLeader(ctx, kubeClient); err != nil {
+		if err = acquireLeader(signalCtx, kubeClient); err != nil {
 			log.Log.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
@@ -164,7 +167,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	le.Run(ctx)
+	le.Run(signalCtx)
 }
 
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
