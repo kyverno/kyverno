@@ -100,7 +100,7 @@ func (p *Policy) IsReady() bool {
 func (p *Policy) Validate(clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, ValidateAutogenAnnotation(field.NewPath("metadata").Child("annotations"), p.GetAnnotations())...)
 	errs = append(errs, ValidatePolicyName(field.NewPath("name"), p.Name)...)
-	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), clusterResources)...)
+	errs = append(errs, p.Spec.Validate(field.NewPath("spec"), p.IsNamespaced(), p.Namespace, clusterResources)...)
 	return errs
 }
 
