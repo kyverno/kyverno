@@ -181,6 +181,11 @@ func main() {
 		os.Exit(1)
 	}
 	metadataClient, err := metadataclient.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create metadata client")
+		os.Exit(1)
+	}
+
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -443,21 +448,25 @@ func main() {
 		cleanUp,
 	)
 
-	reportControllers := setupReportControllers(
-		backgroundScan,
-		admissionReports,
-		dynamicClient,
-		kyvernoClient,
-		metadataInformer,
-		kubeInformer,
-		kyvernoInformer,
-	)
-
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
 	run := func() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, stopCh)
+
+		metadataInformer.Start(stopCh)
+		metadataInformer.WaitForCacheSync(stopCh)
+
+		reportControllers := setupReportControllers(
+			backgroundScan,
+			admissionReports,
+			dynamicClient,
+			kyvernoClient,
+			metadataInformer,
+			kubeInformer,
+			kyvernoInformer,
+		)
+
 		for _, controller := range reportControllers {
 			go controller.Run(stopCh)
 		}
@@ -485,8 +494,6 @@ func main() {
 	}
 
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
-	metadataInformer.Start(stopCh)
-	metadataInformer.WaitForCacheSync(stopCh)
 
 	// warmup policy cache
 	if err := policyCacheController.WarmUp(); err != nil {
