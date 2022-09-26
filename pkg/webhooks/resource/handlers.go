@@ -75,7 +75,7 @@ func NewHandlers(
 	eventGen event.Interface,
 	auditHandler audit.AuditHandler,
 	openAPIController openapi.ValidateInterface,
-) webhooks.Handlers {
+) webhooks.ResourceHandlers {
 	return &handlers{
 		client:            client,
 		kyvernoClient:     kyvernoClient,

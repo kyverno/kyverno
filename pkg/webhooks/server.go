@@ -28,10 +28,17 @@ type Server interface {
 	Stop(context.Context)
 }
 
-type Handlers interface {
+type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
-	Mutate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+}
+
+type ResourceHandlers interface {
+	// Mutate performs the mutation of kube resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on kube resources
 	Validate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
 }
 
@@ -45,8 +52,8 @@ type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers Handlers,
-	resourceHandlers Handlers,
+	policyHandlers PolicyHandlers,
+	resourceHandlers ResourceHandlers,
 	tlsProvider TlsProvider,
 	configuration config.Configuration,
 	register *webhookconfig.Register,
@@ -59,8 +66,8 @@ func NewServer(
 	verifyLogger := logger.WithName("verify")
 	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
 	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
-	registerWebhookHandlers(policyLogger.WithName("mutate"), mux, config.PolicyMutatingWebhookServicePath, monitor, configuration, policyHandlers.Mutate)
-	registerWebhookHandlers(policyLogger.WithName("validate"), mux, config.PolicyValidatingWebhookServicePath, monitor, configuration, policyHandlers.Validate)
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
