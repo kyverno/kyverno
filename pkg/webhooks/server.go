@@ -28,11 +28,18 @@ type Server interface {
 	Stop(context.Context)
 }
 
-type Handlers interface {
+type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
 	Mutate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
 	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
+}
+
+type ResourceHandlers interface {
+	// Mutate performs the mutation of kube resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on kube resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
 }
 
 type server struct {
@@ -45,8 +52,8 @@ type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers Handlers,
-	resourceHandlers Handlers,
+	policyHandlers PolicyHandlers,
+	resourceHandlers ResourceHandlers,
 	tlsProvider TlsProvider,
 	configuration config.Configuration,
 	register *webhookconfig.Register,
@@ -57,8 +64,8 @@ func NewServer(
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, admission(resourceLogger.WithName("mutate"), monitor, filter(configuration, resourceHandlers.Mutate)))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, admission(resourceLogger.WithName("validate"), monitor, filter(configuration, resourceHandlers.Validate)))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
@@ -152,4 +159,32 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 
 func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
 	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner)))
+}
+
+func registerWebhookHandlers(
+	logger logr.Logger,
+	mux *httprouter.Router,
+	basePath string,
+	monitor *webhookconfig.Monitor,
+	configuration config.Configuration,
+	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
+) {
+	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "all", startTime)
+		})),
+	)
+	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "fail", startTime)
+		})),
+	)
+	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "ignore", startTime)
+		})),
+	)
 }

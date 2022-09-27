@@ -614,7 +614,8 @@ func (m *webhookConfigManager) mergeWebhook(dst *webhook, policy kyvernov1.Polic
 					continue
 				}
 				if strings.Contains(gvk, "*") {
-					gvrList = append(gvrList, schema.GroupVersionResource{Group: gvr.Group, Version: "*", Resource: gvr.Resource})
+					group := kubeutils.GetGroupFromGVK(gvk)
+					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: "*", Resource: gvr.Resource})
 				} else {
 					m.log.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
 					gvrList = append(gvrList, gvr)
