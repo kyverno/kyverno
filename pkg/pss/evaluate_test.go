@@ -24,7 +24,12 @@ func Test_EvaluatePod(t *testing.T) {
 		baseline_procMount,
 		baseline_seccompProfile,
 		baseline_sysctls,
+		restricted_volume_types,
+		restricted_privilege_escalation,
 		restricted_runAsNonRoot,
+		restricted_runAsUser,
+		restricted_seccompProfile,
+		restricted_capabilities,
 	}
 
 	for _, test := range tests {
@@ -42,8 +47,11 @@ func Test_EvaluatePod(t *testing.T) {
 
 		allowed, checkResults, err := EvaluatePod(&rule, &pod)
 		assert.Assert(t, err == nil)
-		for _, result := range checkResults {
-			fmt.Printf("failed check result: %v\n", result)
+
+		if allowed != test.allowed {
+			for _, result := range checkResults {
+				fmt.Printf("failed check result: %v\n", result)
+			}
 		}
 		assert.Assert(t, allowed == test.allowed, fmt.Sprintf("test \"%s\" fails", test.name))
 	}
@@ -2588,10 +2596,350 @@ var baseline_sysctls = []testCase{
 	},
 }
 
-var restricted_runAsNonRoot = []testCase{
+var restricted_volume_types = []testCase{
 	{
-		name: "restricted_runAsNonRoot_defines_all_violate_true",
-		rawRule: []byte(`{
+		name: "restricted_volume_types_undefined",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Volume Types"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_volume_types_not_match_block",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"name": "test-volume",
+						"awsElasticBlockStore": null,
+						"volumeID": "<volume id>",
+						"fsType": "ext4"
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "restricted_volume_types_defines_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Volume Types"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"name": "test-volume",
+						"awsElasticBlockStore": null,
+						"volumeID": "<volume id>",
+						"fsType": "ext4"
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_volume_types_defines_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Volume Types"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"emptyDir": {}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_volume_types_defines_violate_false_not_match_pass",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "HostPath Volumes"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"emptyDir": {}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_volume_types_defines_violate_true_not_match_block",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "HostPath Volumes"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				],
+				"volumes": [
+					{
+						"hostPath": {
+							"path": "/var/lib1"
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+}
+
+var restricted_privilege_escalation = []testCase{
+	{
+		name: "restricted_privilege_escalation_undefined",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_privilege_escalation_undefined_not_match_block",
+		rawRule: []byte(`
+		{
 			"level": "restricted",
 			"version": "v1.24",
 			"exclude": [
@@ -2600,6 +2948,413 @@ var restricted_runAsNonRoot = []testCase{
 					"images": [
 						"nginx"
 					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "restricted_privilege_escalation_defines_container_violate_true",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Privilege Escalation",
+						"images": [
+							"nginx"
+						]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": true,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: true,
+	},
+
+	{
+		name: "restricted_privilege_escalation_defines_container_violate_false",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Privilege Escalation",
+						"images": [
+							"nginx"
+						]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: true,
+	},
+
+	{
+		name: "restricted_privilege_escalation_defines_init_container_violate_true",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Privilege Escalation",
+						"images": [
+							"nginx"
+						]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					],
+					"initContainers": [
+						{
+							"name": "nginx-init",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": true,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: true,
+	},
+
+	{
+		name: "restricted_privilege_escalation_defines_init_container_violate_false",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Privilege Escalation",
+						"images": [
+							"nginx"
+						]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					],
+					"initContainers": [
+						{
+							"name": "nginx-init",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: true,
+	},
+
+	{
+		name: "restricted_privilege_escalation_defines_init_container_violate_true_not_match_block",
+		rawRule: []byte(`
+			{
+				"level": "restricted",
+				"version": "v1.24",
+				"exclude": [
+					{
+						"controlName": "Running as Non-root",
+						"images": [
+							"nginx"
+						]
+					}
+				]
+			}`),
+		rawPod: []byte(`
+			{
+				"kind": "Pod",
+				"metadata": {
+					"name": "test"
+				},
+				"spec": {
+					"securityContext": {
+						"seccompProfile": {
+							"type": "RuntimeDefault"
+						}
+					},
+					"containers": [
+						{
+							"name": "nginx",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": false,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					],
+					"initContainers": [
+						{
+							"name": "nginx-init",
+							"image": "nginx",
+							"securityContext": {
+								"allowPrivilegeEscalation": true,
+								"runAsNonRoot": true,
+								"capabilities": {
+									"drop": [
+										"ALL"
+									]
+								}
+							}
+						}
+					]
+				}
+			}`),
+		allowed: false,
+	},
+}
+
+var restricted_runAsNonRoot = []testCase{
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_false",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": false,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_false_container_false",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_true_spec_level",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
 				}
 			]
 		}`),
@@ -2635,7 +3390,185 @@ var restricted_runAsNonRoot = []testCase{
 		allowed: true,
 	},
 	{
-		name: "restricted_runAsNonRoot_defines_all_violate_false",
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_false_container_true_spec_level",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": false,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_false_container_level",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": false,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": true,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	// {
+	// 	// TODO shuting: check
+	// 	name: "restricted_runAsNonRoot_defines_all_violate_spec_true_container_true_container_level",
+	// 	rawRule: []byte(`{
+	// 		"level": "restricted",
+	// 		"version": "v1.24",
+	// 		"exclude": [
+	// 			{
+	// 				"controlName": "Running as Non-root",
+	// 				"images": [
+	// 					"nginx"
+	// 				]
+	// 			}
+	// 		]
+	// 	}`),
+	// 	rawPod: []byte(`{
+	// 		"kind": "Pod",
+	// 		"metadata": {
+	// 			"name": "test"
+	// 		},
+	// 		"spec": {
+	// 			"securityContext": {
+	// 				"runAsNonRoot": false,
+	// 				"seccompProfile": {
+	// 					"type": "RuntimeDefault"
+	// 				}
+	// 			},
+	// 			"containers": [
+	// 				{
+	// 					"name": "nginx",
+	// 					"image": "nginx",
+	// 					"securityContext": {
+	// 						"runAsNonRoot": false,
+	// 						"allowPrivilegeEscalation": false,
+	// 						"capabilities": {
+	// 							"drop": [
+	// 								"ALL"
+	// 							]
+	// 						}
+	// 					}
+	// 				}
+	// 			]
+	// 		}
+	// 	}`),
+	// 	allowed: false,
+	// },
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_false_container_true_container_level",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsNonRoot": false,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_all_violate_spec_false_container_false_container_level",
 		rawRule: []byte(`{
 			"level": "restricted",
 			"version": "v1.24",
@@ -2852,6 +3785,48 @@ var restricted_runAsNonRoot = []testCase{
 		allowed: true,
 	},
 	{
+		name: "restricted_runAsNonRoot_defines_spec_violate_true_not_match",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": false,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
 		name: "restricted_runAsNonRoot_defines_none",
 		rawRule: []byte(`{
 			"level": "restricted",
@@ -2894,6 +3869,1171 @@ var restricted_runAsNonRoot = []testCase{
 			}
 		}`),
 		allowed: true,
+	},
+	{
+		name: "restricted_runAsNonRoot_defines_none_not_match",
+		rawRule: []byte(`{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+}
+
+var restricted_runAsUser = []testCase{
+	{
+		name: "restricted_runAsUser_defines_all_violate_true_spec_level",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 0,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 1000,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_all_violate_false_spec_level",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 1000,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 1000,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_all_violate_true_container_level",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 1000,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 0,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_all_violate_false_container_level",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 1000,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 1000,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_container_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 0,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_container_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"runAsUser": 1000,
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_spec_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 0,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_spec_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 1000,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_none",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_runAsUser_defines_spec_violate_true_not_match",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsUser": 0,
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+}
+
+var restricted_seccompProfile = []testCase{
+	{
+		name: "restricted_seccompProfile_defines_container_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"seccompProfile": {
+								"type": "fakeValue"
+							},
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_defines_spec_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "fakeValue"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_undefined",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_undefined_spec_level",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Seccomp"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_seccompProfile_undefined_not_match_block",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Running as Non-root user"
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+}
+
+var restricted_capabilities = []testCase{
+	{
+		name: "restricted_capabilities_drop_undefined",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_drop_defines_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"KILL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_drop_defines_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_add_undefined",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_add_undefined_not_match_block",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "restricted_capabilities_add_undefined_not_match_pass",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"drop": [
+									"ALL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_add_defines_violate_true",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"add": [
+									"KILL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_add_defines_violate_false",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Capabilities",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"add": [
+									"NET_BIND_SERVICE"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: true,
+	},
+	{
+		name: "restricted_capabilities_add_defines_violate_true_not_match_block",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"add": [
+									"KILL"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
+	},
+	{
+		name: "restricted_capabilities_add_defines_violate_false_not_match_pass",
+		rawRule: []byte(`
+		{
+			"level": "restricted",
+			"version": "v1.24",
+			"exclude": [
+				{
+					"controlName": "Privilege Escalation",
+					"images": [
+						"nginx"
+					]
+				}
+			]
+		}`),
+		rawPod: []byte(`
+		{
+			"kind": "Pod",
+			"metadata": {
+				"name": "test"
+			},
+			"spec": {
+				"securityContext": {
+					"runAsNonRoot": true,
+					"seccompProfile": {
+						"type": "RuntimeDefault"
+					}
+				},
+				"containers": [
+					{
+						"name": "nginx",
+						"image": "nginx",
+						"securityContext": {
+							"allowPrivilegeEscalation": false,
+							"capabilities": {
+								"add": [
+									"NET_BIND_SERVICE"
+								]
+							}
+						}
+					}
+				]
+			}
+		}`),
+		allowed: false,
 	},
 }
 
