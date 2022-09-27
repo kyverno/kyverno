@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kyverno/kyverno/pkg/background"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -78,7 +80,7 @@ var (
 	clientRateLimitBurst         int
 	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
-	setupLog                     = log.Log.WithName("setup")
+	setupLog                     = logging.Logger.WithName("setup")
 	logFormat                    string
 )
 
@@ -126,18 +128,18 @@ func main() {
 		// in text mode we use FormatSerialize format
 		log.SetLogger(klogr.New())
 	} else if logFormat == "json" {
-		// TODO: klog does not support json out of the box, we need to provide a logger with json support to klog here
-		_, err := zap.NewProduction()
+		zapLog, err := zap.NewProduction()
 		if err != nil {
-			setupLog.Error(err, "Failed to initialize JSON logger")
+			fmt.Printf("failed to initialize JSON logger: %s", err.Error())
 			os.Exit(1)
 		}
-		// klog.SetLogger(zapr.NewLogger(zapLog))
+		klog.SetLogger(zapr.NewLogger(zapLog))
 
 		// in json mode we use FormatKlog format
 		log.SetLogger(klog.NewKlogr())
 	} else {
-		// TODO
+		fmt.Println("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+		os.Exit(1)
 	}
 
 	version.PrintVersionInfo(log.Log)
