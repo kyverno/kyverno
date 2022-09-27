@@ -185,7 +185,6 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 }
 
 func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
-	// report := reportutils.DeepCopy(before)
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
 	// load all policies
@@ -238,7 +237,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 			}
 		}
 		reportutils.SetResponses(report, responses...)
-		if reflect.DeepEqual(before, meta) {
+		if reflect.DeepEqual(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
@@ -317,7 +316,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 			}
 		}
 		reportutils.SetResults(report, ruleResults...)
-		if reflect.DeepEqual(before, meta) {
+		if reflect.DeepEqual(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
@@ -358,7 +357,6 @@ func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) 
 	}
 	// try to find report from the cache
 	report, err := c.getMeta(namespace, name)
-	// reportutils.GetBackgroungScanReport(namespace, name, c.bgscanrLister, c.cbgscanrLister)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if there's no report yet, try to create an empty one
