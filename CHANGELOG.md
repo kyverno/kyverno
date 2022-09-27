@@ -6,7 +6,7 @@
 - A new flag `admissionReports` to enable/disable kyverno admission reports (default value is `true`). When this is set to `false`, kyverno will not create admission reports.
 - If both `backgroundScan` and  `admissionReports` are set to `false` the entire reports system will be disabled.
 - A new flag `reportsChunkSize` to split reports according to the number of results contained in the report (default value is `1000`). This can be disabled by setting the flag value to `0`.
-- The `splitPolicyReport` was removed, splitting reports per policy is always enabled.
+- Deprecated `splitPolicyReport` flag, splitting reports per policy is always enabled, keeping it for backward compatibility, will be removed in future version.
 - `ReportChangeRequest` and `ClusterReportChangeRequest` CRDs have been removed and replaced by `AdmissionReport`, `ClusterAdmissionReport`, `BackgroundScanReport` and `ClusterBackgroundScanReport` CRDs.
 
 ## v1.8.0-rc1
