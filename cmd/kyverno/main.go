@@ -57,7 +57,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const resyncPeriod = 15 * time.Minute
+const (
+	resyncPeriod         = 15 * time.Minute
+	metadataResyncPeriod = 15 * time.Minute
+)
 
 var (
 	// TODO: this has been added to backward support command line arguments
@@ -180,7 +183,7 @@ func main() {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, 15*time.Minute, stopCh)
+	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, metadataResyncPeriod, stopCh)
 	if err != nil {
 		setupLog.Error(err, "Failed to create dynamic client")
 		os.Exit(1)

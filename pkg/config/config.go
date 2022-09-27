@@ -227,7 +227,6 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	}
 	if reconcilePolicyReport {
 		logger.Info("resource filters changed, sending reconcile signal to the policy controller")
-		// cd.reconcilePolicyReport <- true
 	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
