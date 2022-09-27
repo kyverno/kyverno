@@ -20,20 +20,24 @@ func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
 		report = &kyvernov1alpha2.ClusterAdmissionReport{
-			Owner: metav1.OwnerReference{
-				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-				Kind:       gvk.Kind,
-				Name:       owner,
-				UID:        uid,
+			Spec: kyvernov1alpha2.AdmissionReportSpec{
+				Owner: metav1.OwnerReference{
+					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+					Kind:       gvk.Kind,
+					Name:       owner,
+					UID:        uid,
+				},
 			},
 		}
 	} else {
 		report = &kyvernov1alpha2.AdmissionReport{
-			Owner: metav1.OwnerReference{
-				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-				Kind:       gvk.Kind,
-				Name:       owner,
-				UID:        uid,
+			Spec: kyvernov1alpha2.AdmissionReportSpec{
+				Owner: metav1.OwnerReference{
+					APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
+					Kind:       gvk.Kind,
+					Name:       owner,
+					UID:        uid,
+				},
 			},
 		}
 	}

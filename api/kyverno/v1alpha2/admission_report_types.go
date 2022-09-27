@@ -21,6 +21,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type AdmissionReportSpec struct {
+	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
+	Owner metav1.OwnerReference `json:"owner"`
+
+	// PolicyReportSummary provides a summary of results
+	// +optional
+	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
+
+	// PolicyReportResult provides result details
+	// +optional
+	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -40,29 +53,19 @@ import (
 type AdmissionReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
-
-	// PolicyReportSummary provides a summary of results
-	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
-
-	// PolicyReportResult provides result details
-	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Spec              AdmissionReportSpec `json:"spec"`
 }
 
 func (r *AdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
-	return r.Results
+	return r.Spec.Results
 }
 
 func (r *AdmissionReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
-	r.Results = results
+	r.Spec.Results = results
 }
 
 func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
-	r.Summary = summary
+	r.Spec.Summary = summary
 }
 
 // +genclient
@@ -85,29 +88,19 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 type ClusterAdmissionReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
-
-	// PolicyReportSummary provides a summary of results
-	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
-
-	// PolicyReportResult provides result details
-	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Spec              AdmissionReportSpec `json:"spec"`
 }
 
 func (r *ClusterAdmissionReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
-	return r.Results
+	return r.Spec.Results
 }
 
 func (r *ClusterAdmissionReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
-	r.Results = results
+	r.Spec.Results = results
 }
 
 func (r *ClusterAdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
-	r.Summary = summary
+	r.Spec.Summary = summary
 }
 
 // +kubebuilder:object:root=true

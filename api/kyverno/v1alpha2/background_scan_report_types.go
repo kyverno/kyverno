@@ -21,6 +21,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type BackgroundScanReportSpec struct {
+	// PolicyReportSummary provides a summary of results
+	// +optional
+	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
+
+	// PolicyReportResult provides result details
+	// +optional
+	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+}
+
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -40,26 +50,19 @@ import (
 type BackgroundScanReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// PolicyReportSummary provides a summary of results
-	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
-
-	// PolicyReportResult provides result details
-	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Spec              BackgroundScanReportSpec `json:"spec"`
 }
 
 func (r *BackgroundScanReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
-	return r.Results
+	return r.Spec.Results
 }
 
 func (r *BackgroundScanReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
-	r.Results = results
+	r.Spec.Results = results
 }
 
 func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
-	r.Summary = summary
+	r.Spec.Summary = summary
 }
 
 // +genclient
@@ -82,26 +85,19 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 type ClusterBackgroundScanReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// PolicyReportSummary provides a summary of results
-	// +optional
-	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
-
-	// PolicyReportResult provides result details
-	// +optional
-	Results []policyreportv1alpha2.PolicyReportResult `json:"results,omitempty"`
+	Spec              BackgroundScanReportSpec `json:"spec"`
 }
 
 func (r *ClusterBackgroundScanReport) GetResults() []policyreportv1alpha2.PolicyReportResult {
-	return r.Results
+	return r.Spec.Results
 }
 
 func (r *ClusterBackgroundScanReport) SetResults(results []policyreportv1alpha2.PolicyReportResult) {
-	r.Results = results
+	r.Spec.Results = results
 }
 
 func (r *ClusterBackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyReportSummary) {
-	r.Summary = summary
+	r.Spec.Summary = summary
 }
 
 // +kubebuilder:object:root=true

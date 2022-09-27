@@ -83,6 +83,19 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
 <code>owner</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
@@ -116,6 +129,9 @@ github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
 <td>
 <em>(Optional)</em>
 <p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -167,17 +183,17 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>owner</code><br/>
+<code>spec</code><br/>
 <em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
-Kubernetes meta/v1.OwnerReference
+<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
 </a>
 </em>
 </td>
 <td>
-<p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
-</td>
-</tr>
+<br/>
+<br/>
+<table class="table table-striped">
 <tr>
 <td>
 <code>summary</code><br/>
@@ -200,6 +216,9 @@ github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
 <td>
 <em>(Optional)</em>
 <p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -251,6 +270,19 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v1alpha2.AdmissionReportSpec">
+AdmissionReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
 <code>owner</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
@@ -284,6 +316,9 @@ github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
 <td>
 <em>(Optional)</em>
 <p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
 </td>
 </tr>
 </tbody>
@@ -335,6 +370,66 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v1alpha2.BackgroundScanReportSpec">
+BackgroundScanReportSpec
+</a>
+</em>
+</td>
+<td>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+[]github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.AdmissionReportSpec">AdmissionReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.AdmissionReport">AdmissionReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterAdmissionReport">ClusterAdmissionReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
 <code>owner</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#ownerreference-v1-meta">
@@ -346,6 +441,50 @@ Kubernetes meta/v1.OwnerReference
 <p>Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>summary</code><br/>
+<em>
+github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportSummary
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportSummary provides a summary of results</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>results</code><br/>
+<em>
+[]github.com/kyverno/kyverno/api/policyreport/v1alpha2.PolicyReportResult
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>PolicyReportResult provides result details</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1alpha2.BackgroundScanReportSpec">BackgroundScanReportSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1alpha2.BackgroundScanReport">BackgroundScanReport</a>, 
+<a href="#kyverno.io/v1alpha2.ClusterBackgroundScanReport">ClusterBackgroundScanReport</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
 <tr>
 <td>
 <code>summary</code><br/>
