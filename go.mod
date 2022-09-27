@@ -78,10 +78,10 @@ require (
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
+	github.com/go-logr/zapr v1.2.0
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
+	go.uber.org/zap v1.22.0
 )
-
-require github.com/go-logr/zapr v1.2.3
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
@@ -353,7 +353,6 @@ require (
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/zap v1.22.0
 	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220923203811-8be639271d50 // indirect
