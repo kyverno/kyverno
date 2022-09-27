@@ -97,7 +97,6 @@ func (in *BackgroundScanReport) DeepCopyInto(out *BackgroundScanReport) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Owner.DeepCopyInto(&out.Owner)
 	out.Summary = in.Summary
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results
@@ -229,7 +228,6 @@ func (in *ClusterBackgroundScanReport) DeepCopyInto(out *ClusterBackgroundScanRe
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
-	in.Owner.DeepCopyInto(&out.Owner)
 	out.Summary = in.Summary
 	if in.Results != nil {
 		in, out := &in.Results, &out.Results

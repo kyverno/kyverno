@@ -41,9 +41,6 @@ type BackgroundScanReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
-
 	// PolicyReportSummary provides a summary of results
 	// +optional
 	Summary policyreportv1alpha2.PolicyReportSummary `json:"summary,omitempty"`
@@ -85,9 +82,6 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 type ClusterBackgroundScanReport struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	// Owner is a reference to the report owner (e.g. a Deployment, Namespace, or Node)
-	Owner metav1.OwnerReference `json:"owner"`
 
 	// PolicyReportSummary provides a summary of results
 	// +optional

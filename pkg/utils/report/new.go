@@ -49,23 +49,9 @@ func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1
 func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind, owner string, uid types.UID) kyvernov1alpha2.ReportInterface {
 	var report kyvernov1alpha2.ReportInterface
 	if namespace == "" {
-		report = &kyvernov1alpha2.ClusterBackgroundScanReport{
-			Owner: metav1.OwnerReference{
-				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-				Kind:       gvk.Kind,
-				Name:       owner,
-				UID:        uid,
-			},
-		}
+		report = &kyvernov1alpha2.ClusterBackgroundScanReport{}
 	} else {
-		report = &kyvernov1alpha2.BackgroundScanReport{
-			Owner: metav1.OwnerReference{
-				APIVersion: metav1.GroupVersion{Group: gvk.Group, Version: gvk.Version}.String(),
-				Kind:       gvk.Kind,
-				Name:       owner,
-				UID:        uid,
-			},
-		}
+		report = &kyvernov1alpha2.BackgroundScanReport{}
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
