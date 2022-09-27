@@ -440,11 +440,27 @@ codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
+.PHONY: codegen-install
+codegen-install: $(KUSTOMIZE) ## Create install maifests
+	@echo Generate install.yaml...
+	@$(KUSTOMIZE) build ./config > ./config/install.yaml
+	@echo Generate install_debug.yaml...
+	@$(KUSTOMIZE) build ./config/debug > ./config/install_debug.yaml
+
+# guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
+.PHONY: codegen-release
+codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
+	@echo Generate release manifests...
+	@$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
+
 .PHONY: codegen-quick
-codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all ## Generate all generated code except client
+codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client
+
+.PHONY: codegen-slow
+codegen-slow: codegen-client-all ## Generate client code
 
 .PHONY: codegen-all
-codegen-all: codegen-quick codegen-client-all ## Generate all generated code
+codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
 # .PHONY: codegen-openapi
 # codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
@@ -598,18 +614,6 @@ helm-test-values:
 	sed -i -e "s|tag:  # replaced in e2e tests.*|tag: $(IMAGE_TAG_DEV)|" charts/kyverno/values.yaml
 	sed -i -e "s|repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests|repository: $(LOCAL_KYVERNOPRE_IMAGE)|" charts/kyverno/values.yaml
 	sed -i -e "s|repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests|repository: $(LOCAL_KYVERNO_IMAGE)|" charts/kyverno/values.yaml
-
-.PHONY: kustomize-crd
-kustomize-crd: $(KUSTOMIZE) ## Create install.yaml
-	# Generate install.yaml that have all resources for kyverno
-	$(KUSTOMIZE) build ./config > ./config/install.yaml
-	# Generate install_debug.yaml that for developer testing
-	$(KUSTOMIZE) build ./config/debug > ./config/install_debug.yaml
-
-# guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
-release:
-	$(KUSTOMIZE) build ./config > ./config/install.yaml
-	$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
 
 release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
