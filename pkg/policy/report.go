@@ -21,7 +21,7 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation( /*reconcileCh <-chan bool, */ /*cleanupChangeRequest <-chan policyreport.ReconcileInfo,*/ stopCh <-chan struct{}) {
+func (pc *PolicyController) forceReconciliation(stopCh <-chan struct{}) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
