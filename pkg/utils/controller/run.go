@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type reconcileFunc func(logr.Logger, string, string, string) error
+type reconcileFunc func(logger logr.Logger, key string, namespace string, name string) error
 
 func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) {
 	logger.Info("starting ...")
