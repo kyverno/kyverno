@@ -26,19 +26,19 @@ spec:
       name: Subject
       priority: 1
       type: string
-    - jsonPath: .summary.pass
+    - jsonPath: .spec.summary.pass
       name: Pass
       type: integer
-    - jsonPath: .summary.fail
+    - jsonPath: .spec.summary.fail
       name: Fail
       type: integer
-    - jsonPath: .summary.warn
+    - jsonPath: .spec.summary.warn
       name: Warn
       type: integer
-    - jsonPath: .summary.error
+    - jsonPath: .spec.summary.error
       name: Error
       type: integer
-    - jsonPath: .summary.skip
+    - jsonPath: .spec.summary.skip
       name: Skip
       type: integer
     - jsonPath: .metadata.creationTimestamp

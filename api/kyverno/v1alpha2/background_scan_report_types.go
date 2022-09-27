@@ -36,13 +36,13 @@ type BackgroundScanReportSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=bgscanr
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".owner.kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".owner.name",priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".summary.pass"
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".summary.fail"
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".summary.warn"
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".summary.error"
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".summary.skip"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
+// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
+// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
+// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
+// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
+// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
@@ -71,13 +71,13 @@ func (r *BackgroundScanReport) SetSummary(summary policyreportv1alpha2.PolicyRep
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cbgscanr
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".owner.kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".owner.name",priority=1
-// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".summary.pass"
-// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".summary.fail"
-// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".summary.warn"
-// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".summary.error"
-// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".summary.skip"
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
+// +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
+// +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
+// +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
+// +kubebuilder:printcolumn:name="Error",type=integer,JSONPath=".spec.summary.error"
+// +kubebuilder:printcolumn:name="Skip",type=integer,JSONPath=".spec.summary.skip"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Hash",type=string,JSONPath=".metadata.labels['audit\\.kyverno\\.io/resource\\.hash']",priority=1
 
