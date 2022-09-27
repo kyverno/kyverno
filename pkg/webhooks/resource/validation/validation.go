@@ -64,6 +64,7 @@ func (v *validationHandler) HandleValidation(
 	admissionRequestTimestamp time.Time,
 ) (bool, string, []string) {
 	if len(policies) == 0 {
+		// invoke handleAudit as we may have some policies in audit mode to consider
 		go v.handleAudit(policyContext.NewResource, request, namespaceLabels)
 		return true, "", nil
 	}
