@@ -85,7 +85,7 @@ func NewController(
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {

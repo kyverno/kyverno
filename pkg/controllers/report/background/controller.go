@@ -100,7 +100,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
 }
 
 func (c *controller) addPolicy(obj interface{}) {

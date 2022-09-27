@@ -72,7 +72,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh /*, c.configmapSynced*/)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
