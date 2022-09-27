@@ -459,10 +459,10 @@ verify-crds: codegen-crds-all ## Check CRDs are up to date
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
-	@git --no-pager diff pkg/client
+	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
 	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
-	@git diff --quiet --exit-code pkg/client
+	@git diff --ignore-space-change --quiet --exit-code pkg/client
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
