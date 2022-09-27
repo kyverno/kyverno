@@ -84,18 +84,9 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 	for _, ruleResult := range response.PolicyResponse.Rules {
 		annotations := response.Policy.GetAnnotations()
 		result := policyreportv1alpha2.PolicyReportResult{
-			Source: kyvernov1.ValueKyvernoApp,
-			Policy: key,
-			Rule:   ruleResult.Name,
-			// Resources: []corev1.ObjectReference{
-			// 	{
-			// 		Kind:       response.PatchedResource.GetKind(),
-			// 		Namespace:  response.PatchedResource.GetNamespace(),
-			// 		APIVersion: response.PatchedResource.GetAPIVersion(),
-			// 		Name:       response.PatchedResource.GetName(),
-			// 		UID:        response.PatchedResource.GetUID(),
-			// 	},
-			// },
+			Source:  kyvernov1.ValueKyvernoApp,
+			Policy:  key,
+			Rule:    ruleResult.Name,
 			Message: ruleResult.Message,
 			Result:  toPolicyResult(ruleResult.Status),
 			Scored:  annotations[kyvernov1.AnnotationPolicyScored] != "false",
