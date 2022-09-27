@@ -24,7 +24,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
-	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -80,7 +79,7 @@ var (
 	clientRateLimitBurst         int
 	changeRequestLimit           int
 	webhookRegistrationTimeout   time.Duration
-	setupLog                     = logging.Logger.WithName("setup")
+	setupLog                     = log.Log.WithName("setup")
 	logFormat                    string
 )
 
