@@ -81,6 +81,7 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 
+# -- Security context for the test containers
 testSecurityContext:
   runAsNonRoot: true
   privileged: false
