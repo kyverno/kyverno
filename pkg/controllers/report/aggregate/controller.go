@@ -239,7 +239,7 @@ func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
 	for _, report := range policyReports {
 		actual[report.GetName()] = report
 	}
-	splitReports := reportutils.SplitResultsByPolicy(results)
+	splitReports := reportutils.SplitResultsByPolicy(logger, results)
 	var expected []kyvernov1alpha2.ReportInterface
 	chunkSize := c.chunkSize
 	if chunkSize <= 0 {

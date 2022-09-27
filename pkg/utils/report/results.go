@@ -3,6 +3,7 @@ package report
 import (
 	"time"
 
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -104,17 +105,20 @@ func EngineResponseToReportResults(response *response.EngineResponse) []policyre
 	return results
 }
 
-func SplitResultsByPolicy(results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
+func SplitResultsByPolicy(logger logr.Logger, results []policyreportv1alpha2.PolicyReportResult) map[string][]policyreportv1alpha2.PolicyReportResult {
 	resultsMap := map[string][]policyreportv1alpha2.PolicyReportResult{}
 	keysMap := map[string]string{}
 	for _, result := range results {
 		if keysMap[result.Policy] == "" {
-			// TODO error checking
-			ns, n, _ := cache.SplitMetaNamespaceKey(result.Policy)
-			if ns == "" {
-				keysMap[result.Policy] = "cpol-" + n
+			ns, n, err := cache.SplitMetaNamespaceKey(result.Policy)
+			if err != nil {
+				logger.Error(err, "failed to decode policy name", "key", result.Policy)
 			} else {
-				keysMap[result.Policy] = "pol-" + n
+				if ns == "" {
+					keysMap[result.Policy] = "cpol-" + n
+				} else {
+					keysMap[result.Policy] = "pol-" + n
+				}
 			}
 		}
 	}
