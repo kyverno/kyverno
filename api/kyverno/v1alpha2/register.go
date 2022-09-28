@@ -50,10 +50,14 @@ var (
 // Adds the list of known types to Scheme.
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
-		&ReportChangeRequest{},
-		&ReportChangeRequestList{},
-		&ClusterReportChangeRequest{},
-		&ClusterReportChangeRequestList{},
+		&AdmissionReport{},
+		&AdmissionReportList{},
+		&BackgroundScanReport{},
+		&BackgroundScanReportList{},
+		&ClusterAdmissionReport{},
+		&ClusterAdmissionReportList{},
+		&ClusterBackgroundScanReport{},
+		&ClusterBackgroundScanReportList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

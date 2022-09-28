@@ -23,8 +23,8 @@ import (
 
 // +kubebuilder:object:generate=false
 
-// ReportChangeRequestInterface abstracts the concrete report change request type (ReportChangeRequest vs ClusterReportChangeRequest)
-type ReportChangeRequestInterface interface {
+// ReportInterface abstracts the concrete report change request type
+type ReportInterface interface {
 	metav1.Object
 	GetResults() []policyreportv1alpha2.PolicyReportResult
 	SetResults([]policyreportv1alpha2.PolicyReportResult)
