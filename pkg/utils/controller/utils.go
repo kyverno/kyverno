@@ -11,51 +11,66 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-type ClientCreate[T metav1.Object] interface {
+type CreateClient[T metav1.Object] interface {
 	Create(context.Context, T, metav1.CreateOptions) (T, error)
 }
 
-type ClientUpdate[T metav1.Object] interface {
+type UpdateClient[T metav1.Object] interface {
 	Update(context.Context, T, metav1.UpdateOptions) (T, error)
 }
 
-type ClientDelete[T metav1.Object] interface {
+type DeleteClient[T metav1.Object] interface {
 	Delete(context.Context, string, metav1.DeleteOptions) error
 }
 
-type ClientDeleteCollection[T metav1.Object] interface {
+type DeleteCollectionClient[T metav1.Object] interface {
 	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
 }
 
-type ClientGet[T metav1.Object] interface {
+type GetClient[T metav1.Object] interface {
 	Get(context.Context, string, metav1.GetOptions) (T, error)
 }
 
-type ClientWatch[T metav1.Object] interface {
+type WatchClient[T metav1.Object] interface {
 	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
 }
 
-type ClientPatch[T metav1.Object] interface {
+type PatchClient[T metav1.Object] interface {
 	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (T, error)
 }
 
-type ClientList[T any] interface {
-	List(context.Context, metav1.ListOptions) (T, error)
+type ObjectClient[T metav1.Object] interface {
+	CreateClient[T]
+	UpdateClient[T]
+	DeleteClient[T]
+	DeleteCollectionClient[T]
+	GetClient[T]
+	WatchClient[T]
+	PatchClient[T]
 }
 
-type Client[T metav1.Object, L any] interface {
-	ClientCreate[T]
-	ClientUpdate[T]
-	ClientDelete[T]
-	ClientDeleteCollection[T]
-	ClientGet[T]
-	ClientWatch[T]
-	ClientPatch[T]
-	ClientList[L]
+type ListClient[T any] interface {
+	List(context.Context, metav1.ListOptions) (T, error)
 }
 
 type StatusClient[T metav1.Object] interface {
 	UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type ObjectListClient[T metav1.Object, L any] interface {
+	ObjectClient[T]
+	ListClient[L]
+}
+
+type ObjectStatusClient[T metav1.Object] interface {
+	ObjectClient[T]
+	StatusClient[T]
+}
+
+type ObjectListStatusClient[T metav1.Object, L any] interface {
+	ObjectClient[T]
+	ListClient[L]
+	StatusClient[T]
 }
 
 type Object[T any] interface {
