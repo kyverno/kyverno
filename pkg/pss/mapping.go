@@ -7,10 +7,10 @@ type restrictedField struct {
 	allowedValues []interface{}
 }
 
-type PSSCheckResult struct {
-	ID               string
-	CheckResult      policy.CheckResult
-	RestrictedFields []restrictedField
+type pssCheckResult struct {
+	id               string
+	checkResult      policy.CheckResult
+	restrictedFields []restrictedField
 }
 
 // Translate PSS control to CheckResult.ID so that we can use PSS control in Kyverno policy
@@ -18,10 +18,12 @@ type PSSCheckResult struct {
 // For CheckResult.ID see: https://github.com/kubernetes/pod-security-admission/tree/master/policy
 var PSS_controls_to_check_id = map[string][]string{
 	// Controls with 2 different controls for each level
+	// container-level control
 	"Capabilities": {
 		"capabilities_baseline",
 		"capabilities_restricted",
 	},
+	// Container and Pod-level control
 	"Seccomp": {
 		"seccompProfile_baseline",
 		"seccompProfile_restricted",
@@ -37,9 +39,6 @@ var PSS_controls_to_check_id = map[string][]string{
 	},
 	"/proc Mount Type": {
 		"procMount",
-	},
-	"procMount": {
-		"hostPorts",
 	},
 
 	// Container and pod-level controls
@@ -67,10 +66,10 @@ var PSS_controls_to_check_id = map[string][]string{
 	},
 
 	// === Restricted
-	// Container and pod-level controls
 	"Privilege Escalation": {
 		"allowPrivilegeEscalation",
 	},
+	// Container and pod-level controls
 	"Running as Non-root": {
 		"runAsNonRoot",
 	},

@@ -6,6 +6,7 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -345,19 +346,11 @@ type PodSecurityStandard struct {
 	// See: https://kubernetes.io/docs/concepts/security/pod-security-standards/
 	ControlName string `json:"controlName" yaml:"controlName"`
 
-	// Images is a list of matching image patterns.
+	// Images selects matching containers and applies the container level PSS.
 	// Each image is the image name consisting of the registry address, repository, image, and tag.
+	// Empty list matches no containers, PSS checks are applied at the pod level only.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
-
-	// RestrictedField selects the field for the given Pod Security Standard control.
-	// When not set, all restricted fields for the control are selected.
-	// +optional
-	RestrictedField string `json:"restrictedField,omitempty" yaml:"restrictedField,omitempty"`
-
-	// Values defines the allowed values that can be excluded.
-	// +optional
-	Values []string `json:"values,omitempty" yaml:"values,omitempty"`
 }
 
 // DeserializeAnyPattern deserialize apiextensions.JSON to []interface{}
@@ -504,6 +497,11 @@ type CloneList struct {
 
 	// Kinds is a list of resource kinds.
 	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+
+	// Selector is a label selector. Label keys and values in `matchLabels`.
+	// wildcard characters are not supported.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
 func (g *Generation) GetData() apiextensions.JSON {

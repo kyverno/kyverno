@@ -64,10 +64,14 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1().Policies().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1alpha2
-	case v1alpha2.SchemeGroupVersion.WithResource("clusterreportchangerequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterReportChangeRequests().Informer()}, nil
-	case v1alpha2.SchemeGroupVersion.WithResource("reportchangerequests"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ReportChangeRequests().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("admissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().AdmissionReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().BackgroundScanReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterAdmissionReports().Informer()}, nil
+	case v1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Kyverno().V1alpha2().ClusterBackgroundScanReports().Informer()}, nil
 
 		// Group=kyverno.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("updaterequests"):

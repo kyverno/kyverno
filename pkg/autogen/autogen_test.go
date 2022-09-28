@@ -607,37 +607,6 @@ func Test_Deny(t *testing.T) {
 	}
 }
 
-func Test_ValidatePodSecurity(t *testing.T) {
-	dir, err := os.Getwd()
-	baseDir := filepath.Dir(filepath.Dir(dir))
-	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/policy/validate/enforce-baseline-exclude-selinuxoptions.yaml")
-	if err != nil {
-		t.Log(err)
-	}
-	policies, err := yamlutils.GetPolicy(file)
-	if err != nil {
-		t.Log(err)
-	}
-
-	policy := policies[0]
-	spec := policy.GetSpec()
-
-	rulePatches, errs := GenerateRulePatches(spec, PodControllers)
-	if len(errs) != 0 {
-		t.Log(errs)
-	}
-	expectedPatches := [][]byte{
-		[]byte(`{"path":"/spec/rules/1","op":"add","value":{"name":"autogen-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["DaemonSet","Deployment","Job","StatefulSet"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
-		[]byte(`{"path":"/spec/rules/2","op":"add","value":{"name":"autogen-cronjob-enforce-baseline-exclude-se-linux-options","match":{"any":[{"resources":{"kinds":["CronJob"],"namespaces":["privileged-pss-with-kyverno"]}}],"resources":{}},"validate":{"podSecurity":{"level":"baseline","version":"v1.24","exclude":[{"controlName":"SELinux","images":["nginx"],"restrictedField":"spec.jobTemplate.spec.template.spec.containers[*].securityContext.seLinuxOptions.role","values":["baz"]},{"controlName":"SELinux","images":["nodejs"],"restrictedField":"spec.jobTemplate.spec.template.spec.initContainers[*].securityContext.seLinuxOptions.role","values":["init-bazo"]}]}}}}`),
-	}
-
-	for i, ep := range expectedPatches {
-		assert.Equal(t, string(rulePatches[i]), string(ep),
-			fmt.Sprintf("unexpected patch: %s\nexpected: %s", rulePatches[i], ep))
-	}
-}
-
 func Test_ComputeRules(t *testing.T) {
 	intPtr := func(i int) *int { return &i }
 	testCases := []struct {

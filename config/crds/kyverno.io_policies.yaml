@@ -854,6 +854,55 @@ spec:
                             namespace:
                               description: Namespace specifies source resource namespace.
                               type: string
+                            selector:
+                              description: Selector is a label selector. Label keys
+                                and values in `matchLabels`. wildcard characters are
+                                not supported.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         data:
                           description: Data provides the resource declaration used
@@ -2321,22 +2370,12 @@ spec:
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                     type: string
                                   images:
-                                    description: Images is a list of matching image
-                                      patterns. Each image is the image name consisting
-                                      of the registry address, repository, image,
-                                      and tag.
-                                    items:
-                                      type: string
-                                    type: array
-                                  restrictedField:
-                                    description: RestrictedField selects the field
-                                      for the given Pod Security Standard control.
-                                      When not set, all restricted fields for the
-                                      control are selected.
-                                    type: string
-                                  values:
-                                    description: Values defines the allowed values
-                                      that can be excluded.
+                                    description: Images selects matching containers
+                                      and applies the container level PSS. Each image
+                                      is the image name consisting of the registry
+                                      address, repository, image, and tag. Empty list
+                                      matches no containers, PSS checks are applied
+                                      at the pod level only.
                                     items:
                                       type: string
                                     type: array
@@ -3595,6 +3634,59 @@ spec:
                                   description: Namespace specifies source resource
                                     namespace.
                                   type: string
+                                selector:
+                                  description: Selector is a label selector. Label
+                                    keys and values in `matchLabels`. wildcard characters
+                                    are not supported.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                               type: object
                             data:
                               description: Data provides the resource declaration
@@ -5120,22 +5212,12 @@ spec:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                         type: string
                                       images:
-                                        description: Images is a list of matching
-                                          image patterns. Each image is the image
-                                          name consisting of the registry address,
-                                          repository, image, and tag.
-                                        items:
-                                          type: string
-                                        type: array
-                                      restrictedField:
-                                        description: RestrictedField selects the field
-                                          for the given Pod Security Standard control.
-                                          When not set, all restricted fields for
-                                          the control are selected.
-                                        type: string
-                                      values:
-                                        description: Values defines the allowed values
-                                          that can be excluded.
+                                        description: Images selects matching containers
+                                          and applies the container level PSS. Each
+                                          image is the image name consisting of the
+                                          registry address, repository, image, and
+                                          tag. Empty list matches no containers, PSS
+                                          checks are applied at the pod level only.
                                         items:
                                           type: string
                                         type: array
@@ -6281,6 +6363,55 @@ spec:
                             namespace:
                               description: Namespace specifies source resource namespace.
                               type: string
+                            selector:
+                              description: Selector is a label selector. Label keys
+                                and values in `matchLabels`. wildcard characters are
+                                not supported.
+                              properties:
+                                matchExpressions:
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
+                                  items:
+                                    description: A label selector requirement is a
+                                      selector that contains values, a key, and an
+                                      operator that relates the key and values.
+                                    properties:
+                                      key:
+                                        description: key is the label key that the
+                                          selector applies to.
+                                        type: string
+                                      operator:
+                                        description: operator represents a key's relationship
+                                          to a set of values. Valid operators are
+                                          In, NotIn, Exists and DoesNotExist.
+                                        type: string
+                                      values:
+                                        description: values is an array of string
+                                          values. If the operator is In or NotIn,
+                                          the values array must be non-empty. If the
+                                          operator is Exists or DoesNotExist, the
+                                          values array must be empty. This array is
+                                          replaced during a strategic merge patch.
+                                        items:
+                                          type: string
+                                        type: array
+                                    required:
+                                    - key
+                                    - operator
+                                    type: object
+                                  type: array
+                                matchLabels:
+                                  additionalProperties:
+                                    type: string
+                                  description: matchLabels is a map of {key,value}
+                                    pairs. A single {key,value} in the matchLabels
+                                    map is equivalent to an element of matchExpressions,
+                                    whose key field is "key", the operator is "In",
+                                    and the values array contains only "value". The
+                                    requirements are ANDed.
+                                  type: object
+                              type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         data:
                           description: Data provides the resource declaration used
@@ -7718,22 +7849,12 @@ spec:
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                     type: string
                                   images:
-                                    description: Images is a list of matching image
-                                      patterns. Each image is the image name consisting
-                                      of the registry address, repository, image,
-                                      and tag.
-                                    items:
-                                      type: string
-                                    type: array
-                                  restrictedField:
-                                    description: RestrictedField selects the field
-                                      for the given Pod Security Standard control.
-                                      When not set, all restricted fields for the
-                                      control are selected.
-                                    type: string
-                                  values:
-                                    description: Values defines the allowed values
-                                      that can be excluded.
+                                    description: Images selects matching containers
+                                      and applies the container level PSS. Each image
+                                      is the image name consisting of the registry
+                                      address, repository, image, and tag. Empty list
+                                      matches no containers, PSS checks are applied
+                                      at the pod level only.
                                     items:
                                       type: string
                                     type: array
@@ -8951,6 +9072,59 @@ spec:
                                   description: Namespace specifies source resource
                                     namespace.
                                   type: string
+                                selector:
+                                  description: Selector is a label selector. Label
+                                    keys and values in `matchLabels`. wildcard characters
+                                    are not supported.
+                                  properties:
+                                    matchExpressions:
+                                      description: matchExpressions is a list of label
+                                        selector requirements. The requirements are
+                                        ANDed.
+                                      items:
+                                        description: A label selector requirement
+                                          is a selector that contains values, a key,
+                                          and an operator that relates the key and
+                                          values.
+                                        properties:
+                                          key:
+                                            description: key is the label key that
+                                              the selector applies to.
+                                            type: string
+                                          operator:
+                                            description: operator represents a key's
+                                              relationship to a set of values. Valid
+                                              operators are In, NotIn, Exists and
+                                              DoesNotExist.
+                                            type: string
+                                          values:
+                                            description: values is an array of string
+                                              values. If the operator is In or NotIn,
+                                              the values array must be non-empty.
+                                              If the operator is Exists or DoesNotExist,
+                                              the values array must be empty. This
+                                              array is replaced during a strategic
+                                              merge patch.
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - key
+                                        - operator
+                                        type: object
+                                      type: array
+                                    matchLabels:
+                                      additionalProperties:
+                                        type: string
+                                      description: matchLabels is a map of {key,value}
+                                        pairs. A single {key,value} in the matchLabels
+                                        map is equivalent to an element of matchExpressions,
+                                        whose key field is "key", the operator is
+                                        "In", and the values array contains only "value".
+                                        The requirements are ANDed.
+                                      type: object
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                               type: object
                             data:
                               description: Data provides the resource declaration
@@ -10476,22 +10650,12 @@ spec:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
                                         type: string
                                       images:
-                                        description: Images is a list of matching
-                                          image patterns. Each image is the image
-                                          name consisting of the registry address,
-                                          repository, image, and tag.
-                                        items:
-                                          type: string
-                                        type: array
-                                      restrictedField:
-                                        description: RestrictedField selects the field
-                                          for the given Pod Security Standard control.
-                                          When not set, all restricted fields for
-                                          the control are selected.
-                                        type: string
-                                      values:
-                                        description: Values defines the allowed values
-                                          that can be excluded.
+                                        description: Images selects matching containers
+                                          and applies the container level PSS. Each
+                                          image is the image name consisting of the
+                                          registry address, repository, image, and
+                                          tag. Empty list matches no containers, PSS
+                                          checks are applied at the pod level only.
                                         items:
                                           type: string
                                         type: array
