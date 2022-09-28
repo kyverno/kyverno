@@ -47,7 +47,7 @@ func (c *client[T]) Watch(ctx context.Context, opts metav1.ListOptions) (watch.I
 	return c.inner.Watch(ctx, opts)
 }
 
-func (c *client[T]) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result T, err error) {
+func (c *client[T]) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (T, error) {
 	defer c.metricsConfig.RecordClientQueries(ClientPatch, c.clientType, c.kind, c.ns)
 	return c.inner.Patch(ctx, name, pt, data, opts, subresources...)
 }

@@ -18,7 +18,7 @@ type Client[T metav1.Object] interface {
 	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
 	Get(context.Context, string, metav1.GetOptions) (T, error)
 	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
-	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (result T, err error)
+	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (T, error)
 	// TODO: how do we manage list type ?
 	// List(ctx context.Context, metav1.ListOptions) (TList, error)
 	// TODO: shall we manage status separately ?
