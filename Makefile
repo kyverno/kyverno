@@ -472,7 +472,7 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
 # .PHONY: codegen-openapi
 # codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
-# 	@echo Generate open api definitions...
+# 	@echo Generate open api definitions... >&2
 # 	@GOPATH=$(GOPATH_SHIM) $(OPENAPI_GEN) --go-header-file ./scripts/boilerplate.go.txt \
 # 		--input-dirs $(INPUT_DIRS) \
 # 		--input-dirs  k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
@@ -486,36 +486,36 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@git --no-pager diff config
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".'
-	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
+	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code config
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
 	@git --no-pager diff --ignore-space-change pkg/client
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
-	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
+	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
 	@git diff --ignore-space-change --quiet --exit-code pkg/client
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".'
-	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 	@git --no-pager diff docs
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".'
-	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
+	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code docs
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@git --no-pager diff charts
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".'
-	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
+	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-codegen
