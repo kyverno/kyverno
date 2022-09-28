@@ -41,7 +41,7 @@ CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
-CODE_GEN_VERSION                   := v0.19.0
+CODE_GEN_VERSION                   := v0.25.2
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -458,10 +458,10 @@ verify-crds: codegen-crds-all ## Check CRDs are up to date
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
-	@git --no-pager diff pkg/client
+	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
 	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
-	@git diff --quiet --exit-code pkg/client
+	@git diff --ignore-space-change --quiet --exit-code pkg/client
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
