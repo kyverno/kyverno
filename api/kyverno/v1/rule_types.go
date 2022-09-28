@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/kyverno/kyverno/pkg/pss/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -137,6 +138,10 @@ func (r *Rule) HasGenerate() bool {
 // IsMutateExisting checks if the mutate rule applies to existing resources
 func (r *Rule) IsMutateExisting() bool {
 	return r.Mutation.Targets != nil
+}
+
+func (r *Rule) IsPodSecurity() bool {
+	return r.Validation.PodSecurity != nil
 }
 
 // IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true
@@ -359,6 +364,38 @@ func (r *Rule) ValidateMutationRuleTargetNamespace(path *field.Path, namespaced 
 	return errs
 }
 
+func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) {
+	if r.IsPodSecurity() {
+		podSecurity := r.Validation.PodSecurity
+		forbiddenControls := utils.PSS_baseline_control_names
+		if podSecurity.Level == "baseline" {
+			forbiddenControls = utils.PSS_restricted_control_names
+		}
+
+		for idx, exclude := range podSecurity.Exclude {
+			// container level control must specify images
+			if containsString(utils.PSS_container_level_control, exclude.ControlName) {
+				if len(exclude.Images) == 0 {
+					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must be specified for the container level control"))
+				}
+			} else if containsString(utils.PSS_pod_level_control, exclude.ControlName) {
+				if len(exclude.Images) != 0 {
+					errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "exclude.images must not be specified for the pod level control"))
+				}
+			}
+
+			if containsString([]string{"Seccomp", "Capabilities"}, exclude.ControlName) {
+				continue
+			}
+
+			if containsString(forbiddenControls, exclude.ControlName) {
+				errs = append(errs, field.Invalid(path.Child("podSecurity").Child("exclude").Index(idx).Child("controlName"), exclude.ControlName, "Invalid control name defined at the given level"))
+			}
+		}
+	}
+	return errs
+}
+
 // Validate implements programmatic validation
 func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, r.ValidateRuleType(path)...)
@@ -366,5 +403,6 @@ func (r *Rule) Validate(path *field.Path, namespaced bool, policyNamespace strin
 	errs = append(errs, r.MatchResources.Validate(path.Child("match"), namespaced, clusterResources)...)
 	errs = append(errs, r.ExcludeResources.Validate(path.Child("exclude"), namespaced, clusterResources)...)
 	errs = append(errs, r.ValidateMutationRuleTargetNamespace(path, namespaced, policyNamespace)...)
+	errs = append(errs, r.ValidatePSaControlNames(path)...)
 	return errs
 }
