@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
@@ -21,7 +22,6 @@ import (
 	"github.com/blang/semver/v4"
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
-	"github.com/pkg/errors"
 	regen "github.com/zach-klippenstein/goregen"
 	"golang.org/x/crypto/cryptobyte"
 	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
@@ -1002,7 +1002,7 @@ func jpX509Decode(arguments []interface{}) (interface{}, error) {
 
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
-		return res, errors.WithStack(err)
+		return res, err
 	}
 
 	buf := new(bytes.Buffer)
