@@ -27,11 +27,3 @@ func TestGetAnchorsFromMap_ThereAreNoAnchors(t *testing.T) {
 	actualMap := GetAnchorsFromMap(unmarshalled)
 	assert.Equal(t, len(actualMap), 0)
 }
-
-func Test_JsonPointerToJMESPath(t *testing.T) {
-	assert.Equal(t, "a.b.c[1].d", JsonPointerToJMESPath("a/b/c/1//d"))
-	assert.Equal(t, "a.b.c[1].d", JsonPointerToJMESPath("/a/b/c/1/d"))
-	assert.Equal(t, "a.b.c[1].d", JsonPointerToJMESPath("/a/b/c/1/d/"))
-	assert.Equal(t, "a[1].b.c[1].d", JsonPointerToJMESPath("a/1/b/c/1/d"))
-	assert.Equal(t, "a[1].b.c[1].d[2]", JsonPointerToJMESPath("/a/1/b/c/1/d/2/"))
-}

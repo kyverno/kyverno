@@ -3,6 +3,7 @@ package jsonutils
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kyverno/kyverno/pkg/utils"
 )
@@ -101,7 +102,7 @@ func (t *Traversal) traverseObject(object map[string]interface{}, path string) (
 			}
 		}
 
-		value, err := t.traverseJSON(element, path+"/"+key)
+		value, err := t.traverseJSON(element, path+"/"+strings.ReplaceAll(key, "/", `\/`))
 		if err != nil {
 			return nil, err
 		}
