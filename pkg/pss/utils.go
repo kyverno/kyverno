@@ -14,11 +14,10 @@ import (
 // and returns pod manifests containing spec and container info respectively
 func getPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *corev1.Pod) (podSpec, matching *corev1.Pod) {
 	if len(exclude.Images) == 0 {
-		podSpec = &corev1.Pod{}
-		*podSpec = *pod
+		podSpec = pod.DeepCopy()
 		podSpec.Spec.Containers = []corev1.Container{{Name: "fake"}}
-		podSpec.Spec.InitContainers = []corev1.Container{}
-		podSpec.Spec.EphemeralContainers = []corev1.EphemeralContainer{}
+		podSpec.Spec.InitContainers = nil
+		podSpec.Spec.EphemeralContainers = nil
 		return podSpec, nil
 	}
 
