@@ -11,12 +11,20 @@ type client struct {
 	clientQueryMetric utils.ClientQueryMetric
 }
 
-func (c *client) ClusterReportChangeRequests() v1alpha2.ClusterReportChangeRequestInterface {
-	return wrapClusterReportChangeRequests(c.inner.ClusterReportChangeRequests(), c.clientQueryMetric)
+func (c *client) ClusterAdmissionReports() v1alpha2.ClusterAdmissionReportInterface {
+	return wrapClusterAdmissionReports(c.inner.ClusterAdmissionReports(), c.clientQueryMetric)
 }
 
-func (c *client) ReportChangeRequests(namespace string) v1alpha2.ReportChangeRequestInterface {
-	return wrapReportChangeRequests(c.inner.ReportChangeRequests(namespace), c.clientQueryMetric, namespace)
+func (c *client) ClusterBackgroundScanReports() v1alpha2.ClusterBackgroundScanReportInterface {
+	return wrapClusterBackgroundScanReports(c.inner.ClusterBackgroundScanReports(), c.clientQueryMetric)
+}
+
+func (c *client) AdmissionReports(namespace string) v1alpha2.AdmissionReportInterface {
+	return wrapAdmissionReports(c.inner.AdmissionReports(namespace), c.clientQueryMetric, namespace)
+}
+
+func (c *client) BackgroundScanReports(namespace string) v1alpha2.BackgroundScanReportInterface {
+	return wrapBackgroundScanReports(c.inner.BackgroundScanReports(namespace), c.clientQueryMetric, namespace)
 }
 
 func (c *client) RESTClient() rest.Interface {
