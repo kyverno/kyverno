@@ -27,57 +27,62 @@ func (r *clientQueryRecorder) Record(clientQueryOperation ClientQueryOperation, 
 	r.manager.RecordClientQueries(clientQueryOperation, clientType, resourceKind, resourceNamespace)
 }
 
-type client[T metav1.Object] struct {
+type client[T metav1.Object, L any] struct {
 	recorder   Recorder
 	ns         string
 	kind       string
 	clientType ClientType
-	inner      controllerutils.Client[T]
+	inner      controllerutils.Client[T, L]
 }
 
-func (c *client[T]) Create(ctx context.Context, obj T, opts metav1.CreateOptions) (T, error) {
+func (c *client[T, L]) Create(ctx context.Context, obj T, opts metav1.CreateOptions) (T, error) {
 	defer c.recorder.Record(ClientCreate, c.clientType, c.kind, c.ns)
 	return c.inner.Create(ctx, obj, opts)
 }
 
-func (c *client[T]) Update(ctx context.Context, obj T, opts metav1.UpdateOptions) (T, error) {
+func (c *client[T, L]) Update(ctx context.Context, obj T, opts metav1.UpdateOptions) (T, error) {
 	defer c.recorder.Record(ClientUpdate, c.clientType, c.kind, c.ns)
 	return c.inner.Update(ctx, obj, opts)
 }
 
-func (c *client[T]) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
+func (c *client[T, L]) List(ctx context.Context, opts metav1.ListOptions) (L, error) {
+	defer c.recorder.Record(ClientList, c.clientType, c.kind, c.ns)
+	return c.inner.List(ctx, opts)
+}
+
+func (c *client[T, L]) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	defer c.recorder.Record(ClientDelete, c.clientType, c.kind, c.ns)
 	return c.inner.Delete(ctx, name, opts)
 }
 
-func (c *client[T]) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
+func (c *client[T, L]) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
 	defer c.recorder.Record(ClientDeleteCollection, c.clientType, c.kind, c.ns)
 	return c.inner.DeleteCollection(ctx, opts, listOpts)
 }
 
-func (c *client[T]) Get(ctx context.Context, name string, opts metav1.GetOptions) (T, error) {
+func (c *client[T, L]) Get(ctx context.Context, name string, opts metav1.GetOptions) (T, error) {
 	defer c.recorder.Record(ClientGet, c.clientType, c.kind, c.ns)
 	return c.inner.Get(ctx, name, opts)
 }
 
-func (c *client[T]) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
+func (c *client[T, L]) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	defer c.recorder.Record(ClientUpdate, c.clientType, c.kind, c.ns)
 	return c.inner.Watch(ctx, opts)
 }
 
-func (c *client[T]) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (T, error) {
+func (c *client[T, L]) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (T, error) {
 	defer c.recorder.Record(ClientPatch, c.clientType, c.kind, c.ns)
 	return c.inner.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
-func NamespacedClient[T metav1.Object](
+func NamespacedClient[T metav1.Object, L any](
 	recorder Recorder,
 	ns string,
 	kind string,
 	clientType ClientType,
-	inner controllerutils.Client[T],
-) *client[T] {
-	return &client[T]{
+	inner controllerutils.Client[T, L],
+) controllerutils.Client[T, L] {
+	return &client[T, L]{
 		recorder:   recorder,
 		ns:         ns,
 		kind:       kind,
@@ -86,29 +91,16 @@ func NamespacedClient[T metav1.Object](
 	}
 }
 
-func ClusteredClient[T metav1.Object](
+func ClusteredClient[T metav1.Object, L any](
 	recorder Recorder,
 	kind string,
 	clientType ClientType,
-	inner controllerutils.Client[T],
-) *client[T] {
-	return &client[T]{
+	inner controllerutils.Client[T, L],
+) controllerutils.Client[T, L] {
+	return &client[T, L]{
 		recorder:   recorder,
 		kind:       kind,
 		clientType: clientType,
 		inner:      inner,
 	}
-}
-
-type lister[T metav1.Object] struct {
-	recorder   Recorder
-	ns         string
-	kind       string
-	clientType ClientType
-	inner      controllerutils.Lister[T]
-}
-
-func (c *client[T]) List(ctx context.Context, opts metav1.ListOptions) (T, error) {
-	defer c.recorder.Record(ClientList, c.clientType, c.kind, c.ns)
-	return c.inner.List(ctx, opts)
 }

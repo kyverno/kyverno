@@ -13,7 +13,7 @@ import (
 var ErrorsNotFound = "root CA certificate not found"
 
 // ReadRootCASecret returns the RootCA from the pre-defined secret
-func ReadRootCASecret(client controllerutils.Client[*corev1.Secret]) ([]byte, error) {
+func ReadRootCASecret(client controllerutils.ClientGet[*corev1.Secret]) ([]byte, error) {
 	sname := GenerateRootCASecretName()
 	stlsca, err := client.Get(context.TODO(), sname, metav1.GetOptions{})
 	if err != nil {

@@ -11,16 +11,47 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-type Client[T metav1.Object] interface {
+type ClientCreate[T metav1.Object] interface {
 	Create(context.Context, T, metav1.CreateOptions) (T, error)
+}
+
+type ClientUpdate[T metav1.Object] interface {
 	Update(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type ClientDelete[T metav1.Object] interface {
 	Delete(context.Context, string, metav1.DeleteOptions) error
+}
+
+type ClientDeleteCollection[T metav1.Object] interface {
 	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
+}
+
+type ClientGet[T metav1.Object] interface {
 	Get(context.Context, string, metav1.GetOptions) (T, error)
+}
+
+type ClientWatch[T metav1.Object] interface {
 	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
+}
+
+type ClientPatch[T metav1.Object] interface {
 	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (T, error)
-	// TODO: how do we manage list type ?
-	// List(ctx context.Context, metav1.ListOptions) (TList, error)
+}
+
+type ClientList[T any] interface {
+	List(context.Context, metav1.ListOptions) (T, error)
+}
+
+type Client[T metav1.Object, L any] interface {
+	ClientCreate[T]
+	ClientUpdate[T]
+	ClientDelete[T]
+	ClientDeleteCollection[T]
+	ClientGet[T]
+	ClientWatch[T]
+	ClientPatch[T]
+	ClientList[L]
 	// TODO: shall we manage status separately ?
 	// UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
 }

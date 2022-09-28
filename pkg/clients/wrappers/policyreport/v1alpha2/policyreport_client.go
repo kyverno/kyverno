@@ -8,13 +8,13 @@ import (
 )
 
 type client struct {
-	inner             v1alpha2.Wgpolicyk8sV1alpha2Interface
-	clientQueryMetric metrics.Recorder
+	inner    v1alpha2.Wgpolicyk8sV1alpha2Interface
+	recorder metrics.Recorder
 }
 
 func (c *client) ClusterPolicyReports() v1alpha2.ClusterPolicyReportInterface {
-	return metrics.ClusteredClient[*policyreportv1alpha2.ClusterPolicyReport](
-		c.clientQueryMetric,
+	return metrics.ClusteredClient[*policyreportv1alpha2.ClusterPolicyReport, *policyreportv1alpha2.ClusterPolicyReportList](
+		c.recorder,
 		"ClusterPolicyReport",
 		metrics.KyvernoClient,
 		c.inner.ClusterPolicyReports(),
@@ -22,7 +22,13 @@ func (c *client) ClusterPolicyReports() v1alpha2.ClusterPolicyReportInterface {
 }
 
 func (c *client) PolicyReports(namespace string) v1alpha2.PolicyReportInterface {
-	return wrapPolicyReports(c.inner.PolicyReports(namespace), c.clientQueryMetric, namespace)
+	return metrics.NamespacedClient[*policyreportv1alpha2.PolicyReport, *policyreportv1alpha2.PolicyReportList](
+		c.recorder,
+		namespace,
+		"ClusterPolicyReport",
+		metrics.KyvernoClient,
+		c.inner.PolicyReports(namespace),
+	)
 }
 
 func (c *client) RESTClient() rest.Interface {

@@ -50,8 +50,8 @@ func (wrc *Register) readCaData() []byte {
 	logger := wrc.log.WithName("readCaData")
 	var caData []byte
 	var err error
-	secretsClient := metrics.Client[*corev1.Secret](
-		wrc.metricsConfig,
+	secretsClient := metrics.NamespacedClient[*corev1.Secret, *corev1.SecretList](
+		metrics.NewClientQueryRecorder(wrc.metricsConfig),
 		config.KyvernoNamespace(),
 		"Secret",
 		metrics.KubeClient,
