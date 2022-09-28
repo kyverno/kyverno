@@ -11,12 +11,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	"github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -47,24 +44,10 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 		rbLister:          rbLister,
 		crbLister:         crbLister,
 		urLister:          urLister,
-		prGenerator:       policyreport.NewFake(),
 		urGenerator:       updaterequest.NewFake(),
 		eventGen:          event.NewFake(),
-		auditHandler:      newFakeAuditHandler(),
 		openAPIController: openapi.NewFake(),
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
 		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
 	}
-}
-
-func newFakeAuditHandler() audit.AuditHandler {
-	return &fakeAuditHandler{}
-}
-
-type fakeAuditHandler struct{}
-
-func (f *fakeAuditHandler) Add(request *admissionv1.AdmissionRequest) {
-}
-
-func (f *fakeAuditHandler) Run(workers int, stopCh <-chan struct{}) {
 }

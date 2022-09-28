@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -32,25 +33,22 @@ func NewController(configuration config.Configuration, configmapInformer corev1i
 	c := controller{
 		configuration:   configuration,
 		configmapLister: configmapInformer.Lister(),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "config-controller"),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
 
 	c.configmapSynced = configmapInformer.Informer().HasSynced
-	controllerutils.AddDefaultEventHandlers(logger, configmapInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), configmapInformer.Informer(), c.queue)
 	return &c
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger, c.queue, workers, maxRetries, c.reconcile, stopCh, c.configmapSynced)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh, c.configmapSynced)
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger := logger.WithValues("key", key, "namespace", namespace, "name", name)
+func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
 	if namespace != config.KyvernoNamespace() || name != config.KyvernoConfigMapName() {
-		logger.V(4).Info("ignoring ...")
 		return nil
 	}
-	logger.Info("reconciling ...")
 	configMap, err := c.configmapLister.ConfigMaps(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {

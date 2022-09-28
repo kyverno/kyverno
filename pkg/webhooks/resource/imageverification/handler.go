@@ -10,7 +10,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -27,18 +26,16 @@ type ImageVerificationHandler interface {
 	) ([]byte, []string, error)
 }
 
-func NewImageVerificationHandler(log logr.Logger, eventGen event.Interface, prGenerator policyreport.GeneratorInterface) ImageVerificationHandler {
+func NewImageVerificationHandler(log logr.Logger, eventGen event.Interface) ImageVerificationHandler {
 	return &imageVerificationHandler{
-		log:         log,
-		eventGen:    eventGen,
-		prGenerator: prGenerator,
+		log:      log,
+		eventGen: eventGen,
 	}
 }
 
 type imageVerificationHandler struct {
-	log         logr.Logger
-	eventGen    event.Interface
-	prGenerator policyreport.GeneratorInterface
+	log      logr.Logger
+	eventGen event.Interface
 }
 
 func (h *imageVerificationHandler) Handle(
@@ -83,9 +80,6 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 		logger.V(4).Info("admission request blocked")
 		return false, webhookutils.GetBlockedMessages(engineResponses), nil, nil
 	}
-
-	prInfos := policyreport.GeneratePRsFromEngineResponse(engineResponses, logger)
-	h.prGenerator.Add(prInfos...)
 
 	if !verifiedImageData.IsEmpty() {
 		hasAnnotations := hasAnnotations(policyContext)
