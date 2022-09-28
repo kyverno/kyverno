@@ -4,20 +4,18 @@ import (
 	"context"
 
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/metrics"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 var ErrorsNotFound = "root CA certificate not found"
 
 // ReadRootCASecret returns the RootCA from the pre-defined secret
-func ReadRootCASecret(client kubernetes.Interface, metricsConfig metrics.MetricsConfigManager) ([]byte, error) {
+func ReadRootCASecret(client controllerutils.Client[*corev1.Secret]) ([]byte, error) {
 	sname := GenerateRootCASecretName()
-	stlsca, err := client.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), sname, metav1.GetOptions{})
-	metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "Secret", config.KyvernoNamespace())
+	stlsca, err := client.Get(context.TODO(), sname, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

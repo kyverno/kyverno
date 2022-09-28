@@ -6,8 +6,24 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 )
+
+type Client[T metav1.Object] interface {
+	Create(context.Context, T, metav1.CreateOptions) (T, error)
+	Update(context.Context, T, metav1.UpdateOptions) (T, error)
+	Delete(context.Context, string, metav1.DeleteOptions) error
+	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
+	Get(context.Context, string, metav1.GetOptions) (T, error)
+	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
+	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (result T, err error)
+	// TODO: how do we manage list type ?
+	// List(ctx context.Context, metav1.ListOptions) (TList, error)
+	// TODO: shall we manage status separately ?
+	// UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
+}
 
 type Object[T any] interface {
 	*T
