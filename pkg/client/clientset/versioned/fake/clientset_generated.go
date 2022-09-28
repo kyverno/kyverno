@@ -80,7 +80,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // KyvernoV1 retrieves the KyvernoV1Client
 func (c *Clientset) KyvernoV1() kyvernov1.KyvernoV1Interface {
