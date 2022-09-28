@@ -641,6 +641,18 @@ release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
+##########
+# GITHUB #
+##########
+
+.PHONY: gh-install-pin-github-action
+gh-install-pin-github-action:
+	@npm install -g pin-github-action
+
+.PHONY: gh-pin-actions
+gh-pin-actions: gh-install-pin-github-action
+	@pin-github-action ./.github/workflows/release.yaml
+
 ########
 # KIND #
 ########
