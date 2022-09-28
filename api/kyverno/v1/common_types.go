@@ -6,6 +6,7 @@ import (
 	"github.com/sigstore/k8s-manifest-sigstore/pkg/k8smanifest"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/pod-security-admission/api"
 )
 
@@ -496,6 +497,11 @@ type CloneList struct {
 
 	// Kinds is a list of resource kinds.
 	Kinds []string `json:"kinds,omitempty" yaml:"kinds,omitempty"`
+
+	// Selector is a label selector. Label keys and values in `matchLabels`.
+	// wildcard characters are not supported.
+	// +optional
+	Selector *metav1.LabelSelector `json:"selector,omitempty" yaml:"selector,omitempty"`
 }
 
 func (g *Generation) GetData() apiextensions.JSON {
