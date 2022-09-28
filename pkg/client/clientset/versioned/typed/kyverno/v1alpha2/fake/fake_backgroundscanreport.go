@@ -105,7 +105,7 @@ func (c *FakeBackgroundScanReports) Update(ctx context.Context, backgroundScanRe
 // Delete takes name of the backgroundScanReport and deletes it. Returns an error if one occurs.
 func (c *FakeBackgroundScanReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(backgroundscanreportsResource, c.ns, name), &v1alpha2.BackgroundScanReport{})
+		Invokes(testing.NewDeleteActionWithOptions(backgroundscanreportsResource, c.ns, name, opts), &v1alpha2.BackgroundScanReport{})
 
 	return err
 }

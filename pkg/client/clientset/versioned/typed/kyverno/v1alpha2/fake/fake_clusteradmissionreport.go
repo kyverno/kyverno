@@ -99,7 +99,7 @@ func (c *FakeClusterAdmissionReports) Update(ctx context.Context, clusterAdmissi
 // Delete takes name of the clusterAdmissionReport and deletes it. Returns an error if one occurs.
 func (c *FakeClusterAdmissionReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(clusteradmissionreportsResource, name), &v1alpha2.ClusterAdmissionReport{})
+		Invokes(testing.NewRootDeleteActionWithOptions(clusteradmissionreportsResource, name, opts), &v1alpha2.ClusterAdmissionReport{})
 	return err
 }
 

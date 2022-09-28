@@ -105,7 +105,7 @@ func (c *FakeAdmissionReports) Update(ctx context.Context, admissionReport *v1al
 // Delete takes name of the admissionReport and deletes it. Returns an error if one occurs.
 func (c *FakeAdmissionReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(admissionreportsResource, c.ns, name), &v1alpha2.AdmissionReport{})
+		Invokes(testing.NewDeleteActionWithOptions(admissionreportsResource, c.ns, name, opts), &v1alpha2.AdmissionReport{})
 
 	return err
 }
