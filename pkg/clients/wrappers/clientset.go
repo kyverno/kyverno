@@ -10,7 +10,6 @@ import (
 	wrappedkyvernov1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1alpha2"
 	wrappedkyvernov1beta1 "github.com/kyverno/kyverno/pkg/clients/wrappers/kyverno/v1beta1"
 	wrappedwgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/clients/wrappers/policyreport/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
 )
@@ -40,16 +39,16 @@ func (c *clientset) Wgpolicyk8sV1alpha2() versionedpolicyreportv1alpha2.Wgpolicy
 }
 
 func NewForConfig(c *rest.Config, m *metrics.MetricsConfig) (versioned.Interface, error) {
-	clientQueryMetric := utils.NewClientQueryMetric(m)
+	recorder := metrics.NewClientQueryRecorder(m)
 	kClientset, err := versioned.NewForConfig(c)
 	if err != nil {
 		return nil, err
 	}
 	return &clientset{
 		Interface:           kClientset,
-		kyvernoV1:           wrappedkyvernov1.Wrap(kClientset.KyvernoV1(), clientQueryMetric),
-		kyvernoV1beta1:      wrappedkyvernov1beta1.Wrap(kClientset.KyvernoV1beta1(), clientQueryMetric),
-		kyvernoV1alpha2:     wrappedkyvernov1alpha2.Wrap(kClientset.KyvernoV1alpha2(), clientQueryMetric),
-		wgpolicyk8sV1alpha2: wrappedwgpolicyk8sv1alpha2.Wrap(kClientset.Wgpolicyk8sV1alpha2(), clientQueryMetric),
+		kyvernoV1:           wrappedkyvernov1.Wrap(kClientset.KyvernoV1(), recorder),
+		kyvernoV1beta1:      wrappedkyvernov1beta1.Wrap(kClientset.KyvernoV1beta1(), recorder),
+		kyvernoV1alpha2:     wrappedkyvernov1alpha2.Wrap(kClientset.KyvernoV1alpha2(), recorder),
+		wgpolicyk8sV1alpha2: wrappedwgpolicyk8sv1alpha2.Wrap(kClientset.Wgpolicyk8sV1alpha2(), recorder),
 	}, nil
 }

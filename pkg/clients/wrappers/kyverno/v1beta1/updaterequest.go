@@ -6,6 +6,7 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -13,11 +14,11 @@ import (
 
 type updateRequests struct {
 	inner             v1beta1.UpdateRequestInterface
-	clientQueryMetric utils.ClientQueryMetric
+	clientQueryMetric metrics.Recorder
 	ns                string
 }
 
-func wrapUpdateRequests(c v1beta1.UpdateRequestInterface, m utils.ClientQueryMetric, namespace string) v1beta1.UpdateRequestInterface {
+func wrapUpdateRequests(c v1beta1.UpdateRequestInterface, m metrics.Recorder, namespace string) v1beta1.UpdateRequestInterface {
 	return &updateRequests{
 		inner:             c,
 		clientQueryMetric: m,

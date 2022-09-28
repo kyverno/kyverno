@@ -2,13 +2,13 @@ package v1alpha2
 
 import (
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
-	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	"k8s.io/client-go/rest"
 )
 
 type client struct {
 	inner             v1alpha2.KyvernoV1alpha2Interface
-	clientQueryMetric utils.ClientQueryMetric
+	clientQueryMetric metrics.Recorder
 }
 
 func (c *client) ClusterAdmissionReports() v1alpha2.ClusterAdmissionReportInterface {
@@ -31,6 +31,6 @@ func (c *client) RESTClient() rest.Interface {
 	return c.inner.RESTClient()
 }
 
-func Wrap(inner v1alpha2.KyvernoV1alpha2Interface, m utils.ClientQueryMetric) v1alpha2.KyvernoV1alpha2Interface {
+func Wrap(inner v1alpha2.KyvernoV1alpha2Interface, m metrics.Recorder) v1alpha2.KyvernoV1alpha2Interface {
 	return &client{inner, m}
 }

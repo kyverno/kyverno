@@ -6,6 +6,7 @@ import (
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -13,10 +14,10 @@ import (
 
 type clusterPolicyReports struct {
 	inner             v1alpha2.ClusterPolicyReportInterface
-	clientQueryMetric utils.ClientQueryMetric
+	clientQueryMetric metrics.Recorder
 }
 
-func wrapClusterPolicyReports(c v1alpha2.ClusterPolicyReportInterface, m utils.ClientQueryMetric) v1alpha2.ClusterPolicyReportInterface {
+func wrapClusterPolicyReports(c v1alpha2.ClusterPolicyReportInterface, m metrics.Recorder) v1alpha2.ClusterPolicyReportInterface {
 	return &clusterPolicyReports{
 		inner:             c,
 		clientQueryMetric: m,
