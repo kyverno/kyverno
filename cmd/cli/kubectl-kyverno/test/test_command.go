@@ -722,7 +722,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 				result.Rule = rule.Name
 				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = policyreport.SourceValue
+				result.Source = kyvernov1.ValueKyvernoApp
 				result.Timestamp = now
 				results[resultKey] = result
 			}

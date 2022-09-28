@@ -250,8 +250,10 @@ config:
   - '[SelfSubjectAccessReview,*,*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
-  - '[ReportChangeRequest,*,*]'
-  - '[ClusterReportChangeRequest,*,*]'
+  - '[AdmissionReport,*,*]'
+  - '[ClusterAdmissionReport,*,*]'
+  - '[BackgroundScanReport,*,*]'
+  - '[ClusterBackgroundScanReport,*,*]'
   # exclude resources from the chart
   - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
   - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'

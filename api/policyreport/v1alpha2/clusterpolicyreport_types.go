@@ -59,9 +59,22 @@ type ClusterPolicyReport struct {
 	Results []PolicyReportResult `json:"results,omitempty"`
 }
 
-// ClusterPolicyReportList contains a list of ClusterPolicyReport
+func (r *ClusterPolicyReport) GetResults() []PolicyReportResult {
+	return r.Results
+}
+
+func (r *ClusterPolicyReport) SetResults(results []PolicyReportResult) {
+	r.Results = results
+}
+
+func (r *ClusterPolicyReport) SetSummary(summary PolicyReportSummary) {
+	r.Summary = summary
+}
+
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// ClusterPolicyReportList contains a list of ClusterPolicyReport
 type ClusterPolicyReportList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

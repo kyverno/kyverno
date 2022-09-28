@@ -9,7 +9,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220119192733-fe33c00cee21
-	github.com/cornelk/hashmap v1.0.1
 	github.com/distribution/distribution v2.7.1+incompatible
 	github.com/evanphx/json-patch v4.12.0+incompatible
 	github.com/evanphx/json-patch/v5 v5.6.0
@@ -70,6 +69,8 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.3
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require golang.org/x/exp v0.0.0-20220915210609-840b3808d824
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
@@ -148,7 +149,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/cyberphone/json-canonicalization v0.0.0-20210823021906-dc406ceaf94b // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dchest/siphash v1.1.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/djherbis/times v1.5.0 // indirect
 	github.com/docker/cli v20.10.17+incompatible // indirect
@@ -354,7 +354,7 @@ require (
 	golang.org/x/sys v0.0.0-20220907062415-87db552b00fd // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/time v0.0.0-20220722155302-e5dcc9cfc0b9 // indirect
-	golang.org/x/tools v0.1.11 // indirect
+	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/api v0.95.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220805133916-01dd62135a58 // indirect

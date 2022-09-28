@@ -17,11 +17,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -51,13 +49,13 @@ type handlers struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
-	prGenerator       policyreport.GeneratorInterface
 	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
-	auditHandler      audit.AuditHandler
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
 	urUpdater         webhookutils.UpdateRequestUpdater
+
+	admissionReports bool
 }
 
 func NewHandlers(
@@ -70,11 +68,10 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
-	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
-	auditHandler audit.AuditHandler,
 	openAPIController openapi.ValidateInterface,
+	admissionReports bool,
 ) webhooks.ResourceHandlers {
 	return &handlers{
 		client:            client,
@@ -86,13 +83,12 @@ func NewHandlers(
 		rbLister:          rbLister,
 		crbLister:         crbLister,
 		urLister:          urLister,
-		prGenerator:       prGenerator,
 		urGenerator:       urGenerator,
 		eventGen:          eventGen,
-		auditHandler:      auditHandler,
 		openAPIController: openAPIController,
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
 		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
+		admissionReports:  admissionReports,
 	}
 }
 
@@ -132,16 +128,15 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.eventGen, h.prGenerator)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports)
 
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
 	}
-	defer func() { h.handleDelete(logger, request) }()
 
-	h.auditHandler.Add(request.DeepCopy())
+	defer h.handleDelete(logger, request)
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	if warnings != nil {
@@ -186,7 +181,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseFailure(err.Error())
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
-	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen, h.prGenerator)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
