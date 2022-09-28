@@ -11,6 +11,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // Generate provides implementation to validate 'generate' rule
@@ -55,7 +56,12 @@ func (g *Generate) Validate() (string, error) {
 			return "kind", fmt.Errorf("kind cannot be empty")
 		}
 	}
-	// Can I generate resource
+
+	if rule.CloneList.Selector != nil {
+		if wildcard.ContainsWildcard(rule.CloneList.Selector.String()) {
+			return "selector", fmt.Errorf("wildcard characters `*/?` not supported")
+		}
+	}
 
 	if !reflect.DeepEqual(rule.Clone, kyvernov1.CloneFrom{}) {
 		if path, err := g.validateClone(rule.Clone, rule.CloneList, kind); err != nil {
