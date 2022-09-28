@@ -2,6 +2,8 @@ package jmespath
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -20,8 +22,9 @@ import (
 	gojmespath "github.com/jmespath/go-jmespath"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
-	"github.com/smallstep/zcrypto/x509"
 	regen "github.com/zach-klippenstein/goregen"
+	"golang.org/x/crypto/cryptobyte"
+	cryptobyte_asn1 "golang.org/x/crypto/cryptobyte/asn1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -39,6 +42,11 @@ type (
 	JpType  = gojmespath.JpType
 	ArgSpec = gojmespath.ArgSpec
 )
+
+type PublicKey struct {
+	N string
+	E int
+}
 
 // function names
 var (
@@ -982,32 +990,54 @@ func jpRandom(arguments []interface{}) (interface{}, error) {
 }
 
 func jpX509Decode(arguments []interface{}) (interface{}, error) {
+	res := make(map[string]interface{})
 	input, err := validateArg(x509_decode, arguments, 0, reflect.String)
 	if err != nil {
 		return nil, err
 	}
-	res := make(map[string]interface{})
 	p, _ := pem.Decode([]byte(input.String()))
 	if p == nil {
 		return res, errors.New("invalid certificate")
 	}
 
-	var v interface{}
 	cert, err := x509.ParseCertificate(p.Bytes)
 	if err != nil {
 		return res, errors.WithStack(err)
 	}
-	v = struct{ *x509.Certificate }{cert}
 
 	buf := new(bytes.Buffer)
-	enc := json.NewEncoder(buf)
-	err = enc.Encode(v)
-	if err != nil {
-		return res, errors.WithStack(err)
+	if fmt.Sprint(cert.PublicKeyAlgorithm) == "RSA" {
+		spki := cryptobyte.String(cert.RawSubjectPublicKeyInfo)
+		if !spki.ReadASN1(&spki, cryptobyte_asn1.SEQUENCE) {
+			return res, errors.New("writing asn.1 element to 'spki' failed")
+		}
+		var pkAISeq cryptobyte.String
+		if !spki.ReadASN1(&pkAISeq, cryptobyte_asn1.SEQUENCE) {
+			return res, errors.New("writing asn.1 element to 'pkAISeq' failed")
+		}
+		var spk asn1.BitString
+		if !spki.ReadASN1BitString(&spk) {
+			return res, errors.New("writing asn.1 bit string to 'spk' failed")
+		}
+		kk, err := x509.ParsePKCS1PublicKey(spk.Bytes)
+		if err != nil {
+			return res, err
+		}
+
+		cert.PublicKey = PublicKey{
+			N: kk.N.String(),
+			E: kk.E,
+		}
+
+		enc := json.NewEncoder(buf)
+		err = enc.Encode(cert)
+		if err != nil {
+			return res, err
+		}
 	}
 
 	if err := json.Unmarshal(buf.Bytes(), &res); err != nil {
-		return res, errors.WithStack(err)
+		return res, err
 	}
 
 	return res, nil

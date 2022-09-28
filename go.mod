@@ -78,11 +78,10 @@ require (
 
 require (
 	github.com/IGLOU-EU/go-wildcard v1.0.3
-	github.com/google/go-cmp v0.5.9
 	github.com/sigstore/k8s-manifest-sigstore v0.3.1-0.20220810053329-14f7cab4fd52
 )
 
-require github.com/weppos/publicsuffix-go v0.15.1-0.20220413065649-906f534b73a4 // indirect
+require github.com/google/go-cmp v0.5.9 // indirect
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
@@ -307,7 +306,6 @@ require (
 	github.com/sigstore/rekor v0.11.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966 // indirect
-	github.com/smallstep/zcrypto v0.0.0-20210924233136-66c2600f6e71
 	github.com/soheilhy/cmux v0.1.5 // indirect
 	github.com/spf13/afero v1.8.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
@@ -355,7 +353,7 @@ require (
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/zap v1.22.0 // indirect
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220826154423-83b083e8dc8b // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect

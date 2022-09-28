@@ -911,13 +911,13 @@ spec:
           kinds:
           - ConfigMap
     validate:
-      message: "public key modulus mismatch: \"{{ x509_decode('{{request.object.data.cert}}').subject_key_info.rsa_public_key.modulus }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').subject_key_info.rsa_public_key.modulus }}\""
+      message: "public key modulus mismatch: \"{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}\""
       deny:
         conditions:
           any:
-            - key: "{{ x509_decode('{{request.object.data.cert}}').subject_key_info.rsa_public_key.modulus }}"
+            - key: "{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}"
               operator: NotEquals
-              value: "{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').subject_key_info.rsa_public_key.modulus }}"
+              value: "{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}"
 `)
 
 var kyverno_decode_x509_certificate_resource_fail = []byte(`
