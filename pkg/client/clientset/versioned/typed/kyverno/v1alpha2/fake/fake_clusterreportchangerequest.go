@@ -99,7 +99,7 @@ func (c *FakeClusterReportChangeRequests) Update(ctx context.Context, clusterRep
 // Delete takes name of the clusterReportChangeRequest and deletes it. Returns an error if one occurs.
 func (c *FakeClusterReportChangeRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(clusterreportchangerequestsResource, name), &v1alpha2.ClusterReportChangeRequest{})
+		Invokes(testing.NewRootDeleteActionWithOptions(clusterreportchangerequestsResource, name, opts), &v1alpha2.ClusterReportChangeRequest{})
 	return err
 }
 

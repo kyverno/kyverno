@@ -105,7 +105,7 @@ func (c *FakeReportChangeRequests) Update(ctx context.Context, reportChangeReque
 // Delete takes name of the reportChangeRequest and deletes it. Returns an error if one occurs.
 func (c *FakeReportChangeRequests) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(reportchangerequestsResource, c.ns, name), &v1alpha2.ReportChangeRequest{})
+		Invokes(testing.NewDeleteActionWithOptions(reportchangerequestsResource, c.ns, name, opts), &v1alpha2.ReportChangeRequest{})
 
 	return err
 }
