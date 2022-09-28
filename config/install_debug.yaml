@@ -3598,6 +3598,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -6386,6 +6402,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -8973,6 +9005,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -11721,6 +11769,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -15118,6 +15182,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -17907,6 +17987,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -20495,6 +20591,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -23243,6 +23355,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers

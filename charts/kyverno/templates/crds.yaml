@@ -2429,6 +2429,22 @@ spec:
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -4118,6 +4134,22 @@ spec:
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -5759,6 +5791,22 @@ spec:
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -7423,6 +7471,22 @@ spec:
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -9660,6 +9724,22 @@ spec:
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -11349,6 +11429,22 @@ spec:
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -12990,6 +13086,22 @@ spec:
                                 properties:
                                   controlName:
                                     description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
@@ -14654,6 +14766,22 @@ spec:
                                     properties:
                                       controlName:
                                         description: 'ControlName specifies the name of the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
