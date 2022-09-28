@@ -2,18 +2,19 @@ package controller
 
 import (
 	"errors"
+	"time"
 
 	"github.com/go-logr/logr"
-	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
 type (
-	addFunc    func(interface{})
-	updateFunc func(interface{}, interface{})
-	deleteFunc func(interface{})
-	keyFunc    func(interface{}) (interface{}, error)
+	addFunc     func(interface{})
+	updateFunc  func(interface{}, interface{})
+	deleteFunc  func(interface{})
+	keyFunc     func(interface{}) (interface{}, error)
+	EnqueueFunc func(interface{}) error
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
@@ -24,23 +25,65 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 	})
 }
 
-func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) {
-	AddEventHandlers(informer, AddFunc(logger, queue, parseKey), UpdateFunc(logger, queue, parseKey), DeleteFunc(logger, queue, parseKey))
+func AddKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey keyFunc) EnqueueFunc {
+	enqueueFunc := LogError(logger, Parse(parseKey, Queue(queue)))
+	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
+	return enqueueFunc
 }
 
-func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) {
-	AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
+func AddDelayedKeyedEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey keyFunc) EnqueueFunc {
+	enqueueFunc := LogError(logger, Parse(parseKey, QueueAfter(queue, delay)))
+	AddEventHandlers(informer, AddFunc(logger, enqueueFunc), UpdateFunc(logger, enqueueFunc), DeleteFunc(logger, enqueueFunc))
+	return enqueueFunc
 }
 
-func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) {
-	AddKeyedEventHandlers(logger, informer, queue, ExplicitKey(parseKey))
+func AddDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface) EnqueueFunc {
+	return AddKeyedEventHandlers(logger, informer, queue, MetaNamespaceKey)
 }
 
-func Enqueue(logger logr.Logger, queue workqueue.RateLimitingInterface, obj interface{}, parseKey keyFunc) {
-	if key, err := parseKey(obj); err != nil {
-		logger.Error(err, "failed to compute key name", "obj", obj)
-	} else {
-		queue.Add(key)
+func AddDelayedDefaultEventHandlers(logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration) EnqueueFunc {
+	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, MetaNamespaceKey)
+}
+
+func AddExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, parseKey func(K) cache.ExplicitKey) EnqueueFunc {
+	return AddKeyedEventHandlers(logger, informer, queue, ExplicitKey(parseKey))
+}
+
+func AddDelayedExplicitEventHandlers[K any](logger logr.Logger, informer cache.SharedInformer, queue workqueue.RateLimitingInterface, delay time.Duration, parseKey func(K) cache.ExplicitKey) EnqueueFunc {
+	return AddDelayedKeyedEventHandlers(logger, informer, queue, delay, ExplicitKey(parseKey))
+}
+
+func LogError(logger logr.Logger, inner EnqueueFunc) EnqueueFunc {
+	return func(obj interface{}) error {
+		err := inner(obj)
+		if err != nil {
+			logger.Error(err, "failed to compute key name", "obj", obj)
+		}
+		return err
+	}
+}
+
+func Parse(parseKey keyFunc, inner EnqueueFunc) EnqueueFunc {
+	return func(obj interface{}) error {
+		if key, err := parseKey(obj); err != nil {
+			return err
+		} else {
+			return inner(key)
+		}
+	}
+}
+
+func Queue(queue workqueue.RateLimitingInterface) EnqueueFunc {
+	return func(obj interface{}) error {
+		queue.Add(obj)
+		return nil
+	}
+}
+
+func QueueAfter(queue workqueue.RateLimitingInterface, delay time.Duration) EnqueueFunc {
+	return func(obj interface{}) error {
+		queue.AddAfter(obj, delay)
+		return nil
 	}
 }
 
@@ -61,20 +104,20 @@ func ExplicitKey[K any](parseKey func(K) cache.ExplicitKey) keyFunc {
 	}
 }
 
-func AddFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) addFunc {
+func AddFunc(logger logr.Logger, enqueue EnqueueFunc) addFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, obj, parseKey)
+		_ = enqueue(obj)
 	}
 }
 
-func UpdateFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) updateFunc {
+func UpdateFunc(logger logr.Logger, enqueue EnqueueFunc) updateFunc {
 	return func(_, obj interface{}) {
-		Enqueue(logger, queue, obj, parseKey)
+		_ = enqueue(obj)
 	}
 }
 
-func DeleteFunc(logger logr.Logger, queue workqueue.RateLimitingInterface, parseKey keyFunc) deleteFunc {
+func DeleteFunc(logger logr.Logger, enqueue EnqueueFunc) deleteFunc {
 	return func(obj interface{}) {
-		Enqueue(logger, queue, kubeutils.GetObjectWithTombstone(obj), parseKey)
+		_ = enqueue(obj)
 	}
 }
