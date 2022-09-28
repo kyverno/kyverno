@@ -83,7 +83,7 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
-	return contains(patterns, ns, compareNamespaces)
+	return contains(patterns, ns, comparePatterns)
 }
 
 // ContainsString checks if the string is contained in the list
@@ -91,7 +91,11 @@ func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
 
-func compareNamespaces(pattern, ns string) bool {
+func ContainsWildcardPatterns(patterns []string, key string) bool {
+	return contains(patterns, key, comparePatterns)
+}
+
+func comparePatterns(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
 }
 
