@@ -26,7 +26,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/pod-security-admission/api"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -511,37 +510,20 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
 	}
-	// Get pod security admission version
-	var apiVersion api.Version
 
-	// Version set to "latest" by default
-	if v.podSecurity.Version == "" || v.podSecurity.Version == "latest" {
-		apiVersion = api.LatestVersion()
-	} else {
-		parsedApiVersion, err := api.ParseVersion(v.podSecurity.Version)
-		if err != nil {
-			return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
-		}
-		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
-	}
-	level := &api.LevelVersion{
-		Level:   v.podSecurity.Level,
-		Version: apiVersion,
-	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
 		ObjectMeta: *metadata,
 	}
-	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
+	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to evaluate validation rule `%s`: %v", v.rule.Name, err)
-		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError, nil)
+		return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 	} else {
-		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, pss.FormatChecksPrint(pssChecks))
+		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }

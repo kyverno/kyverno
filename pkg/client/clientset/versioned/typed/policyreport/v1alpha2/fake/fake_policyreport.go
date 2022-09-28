@@ -105,7 +105,7 @@ func (c *FakePolicyReports) Update(ctx context.Context, policyReport *v1alpha2.P
 // Delete takes name of the policyReport and deletes it. Returns an error if one occurs.
 func (c *FakePolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(policyreportsResource, c.ns, name), &v1alpha2.PolicyReport{})
+		Invokes(testing.NewDeleteActionWithOptions(policyreportsResource, c.ns, name, opts), &v1alpha2.PolicyReport{})
 
 	return err
 }
