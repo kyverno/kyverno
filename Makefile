@@ -16,7 +16,6 @@ IMAGE_TAG_LATEST_DEV  = $(shell git describe --match "[0-9].[0-9]-dev*" | cut -d
 IMAGE_TAG_DEV         = $(GIT_VERSION_DEV)
 IMAGE_TAG            ?= $(GIT_VERSION)
 K8S_VERSION          ?= $(shell kubectl version --short | grep -i server | cut -d" " -f3 | cut -c2-)
-TEST_GIT_BRANCH      ?= main
 KIND_IMAGE           ?= kindest/node:v1.24.4
 KIND_NAME            ?= kind
 GOOS                 ?= $(shell go env GOOS)
@@ -43,7 +42,7 @@ CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
 OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
-CODE_GEN_VERSION                   := v0.19.0
+CODE_GEN_VERSION                   := v0.25.2
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
 GO_ACC                             := $(TOOLS_DIR)/go-acc
@@ -484,10 +483,10 @@ verify-crds: codegen-crds-all ## Check CRDs are up to date
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
-	@git --no-pager diff pkg/client
+	@git --no-pager diff --ignore-space-change pkg/client
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
 	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
-	@git diff --quiet --exit-code pkg/client
+	@git diff --ignore-space-change --quiet --exit-code pkg/client
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
@@ -512,6 +511,67 @@ verify-helm: codegen-helm-all ## Check Helm charts are up to date
 
 .PHONY: verify-codegen
 verify-codegen: verify-crds verify-client verify-deepcopy verify-api-docs verify-helm ## Verify all generated code and docs are up to date
+
+##############
+# UNIT TESTS #
+##############
+
+CODE_COVERAGE_FILE      := coverage
+CODE_COVERAGE_FILE_TXT  := $(CODE_COVERAGE_FILE).txt
+CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
+
+.PHONY: test
+test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
+
+.PHONY: test-clean
+test-clean: ## Clean tests cache
+	@echo Clean test cache...
+	@go clean -testcache ./...
+
+.PHONY: test-unit
+test-unit: test-clean $(GO_ACC) ## Run unit tests
+	@echo Running unit tests...
+	@$(GO_ACC) ./... -o $(CODE_COVERAGE_FILE_TXT)
+
+.PHONY: code-cov-report
+code-cov-report: test-clean ## Generate code coverage report
+	@echo Generating code coverage report...
+	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
+	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+
+#############
+# CLI TESTS #
+#############
+
+TEST_GIT_BRANCH ?= main
+
+.PHONY: test-cli
+test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry ## Run all CLI tests
+
+.PHONY: test-cli-policies
+test-cli-policies: $(CLI_BIN)
+	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
+
+.PHONY: test-cli-local
+test-cli-local: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test
+
+.PHONY: test-cli-local-mutate
+test-cli-local-mutate: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test-mutate
+
+.PHONY: test-cli-local-generate
+test-cli-local-generate: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test-generate
+
+.PHONY: test-cli-test-case-selector-flag
+test-cli-test-case-selector-flag: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
+
+.PHONY: test-cli-registry
+test-cli-registry: $(CLI_BIN)
+	@$(CLI_BIN) test ./test/cli/registry --registry
 
 ##################################
 # Create e2e Infrastructure
@@ -543,53 +603,6 @@ create-e2e-infrastructure: e2e-init-container e2e-kyverno-container e2e-kustomiz
 ##################################
 # Testing & Code-Coverage
 ##################################
-
-CODE_COVERAGE_FILE:= coverage
-CODE_COVERAGE_FILE_TXT := $(CODE_COVERAGE_FILE).txt
-CODE_COVERAGE_FILE_HTML := $(CODE_COVERAGE_FILE).html
-
-test: test-clean test-unit test-e2e ## Clean tests cache then run unit and e2e tests
-
-test-clean: ## Clean tests cache
-	@echo "	cleaning test cache"
-	go clean -testcache ./...
-
-.PHONY: test-cli
-test-cli: test-cli-policies test-cli-local test-cli-local-mutate test-cli-local-generate test-cli-test-case-selector-flag test-cli-registry
-
-.PHONY: test-cli-policies
-test-cli-policies: $(CLI_BIN)
-	@$(CLI_BIN) test https://github.com/kyverno/policies/$(TEST_GIT_BRANCH)
-
-.PHONY: test-cli-local
-test-cli-local: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/test
-
-.PHONY: test-cli-local-mutate
-test-cli-local-mutate: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/test-mutate
-
-.PHONY: test-cli-local-generate
-test-cli-local-generate: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/test-generate
-
-.PHONY: test-cli-test-case-selector-flag
-test-cli-test-case-selector-flag: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/test --test-case-selector "policy=disallow-latest-tag, rule=require-image-tag, resource=test-require-image-tag-pass"
-
-.PHONY: test-cli-registry
-test-cli-registry: $(CLI_BIN)
-	@$(CLI_BIN) test ./test/cli/registry --registry
-
-test-unit: $(GO_ACC) ## Run unit tests
-	@echo "	running unit tests"
-	$(GO_ACC) ./... -o $(CODE_COVERAGE_FILE_TXT)
-
-code-cov-report: ## Generate code coverage report
-	@echo "	generating code coverage report"
-	GO111MODULE=on go test -v -coverprofile=coverage.out ./...
-	go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
-	go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
 # Test E2E
 test-e2e:
