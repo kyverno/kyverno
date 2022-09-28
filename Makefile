@@ -41,6 +41,7 @@ CONTROLLER_GEN_VERSION             := v0.9.1-0.20220629131006-1878064c4cdf
 CLIENT_GEN                         := $(TOOLS_DIR)/client-gen
 LISTER_GEN                         := $(TOOLS_DIR)/lister-gen
 INFORMER_GEN                       := $(TOOLS_DIR)/informer-gen
+OPENAPI_GEN                        := $(TOOLS_DIR)/openapi-gen
 CODE_GEN_VERSION                   := v0.25.2
 GEN_CRD_API_REFERENCE_DOCS         := $(TOOLS_DIR)/gen-crd-api-reference-docs
 GEN_CRD_API_REFERENCE_DOCS_VERSION := latest
@@ -54,7 +55,7 @@ HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -62,36 +63,51 @@ SED                                := sed
 endif
 
 $(KIND):
+	@echo Install kind...
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kind@$(KIND_VERSION)
 
 $(CONTROLLER_GEN):
+	@echo Install controller-gen...
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_GEN_VERSION)
 
 $(CLIENT_GEN):
+	@echo Install client-gen...
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/client-gen@$(CODE_GEN_VERSION)
 
 $(LISTER_GEN):
+	@echo Install lister-gen...
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/lister-gen@$(CODE_GEN_VERSION)
 
 $(INFORMER_GEN):
+	@echo Install informer-gen...
 	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/informer-gen@$(CODE_GEN_VERSION)
 
+$(OPENAPI_GEN):
+	@echo Install openapi-gen...
+	@GOBIN=$(TOOLS_DIR) go install k8s.io/code-generator/cmd/openapi-gen@$(CODE_GEN_VERSION)
+
 $(GEN_CRD_API_REFERENCE_DOCS):
+	@echo Install gen-crd-api-reference-docs...
 	@GOBIN=$(TOOLS_DIR) go install github.com/ahmetb/gen-crd-api-reference-docs@$(GEN_CRD_API_REFERENCE_DOCS_VERSION)
 
 $(GO_ACC):
+	@echo Install go-acc...
 	@GOBIN=$(TOOLS_DIR) go install github.com/ory/go-acc@$(GO_ACC_VERSION)
 
 $(KUSTOMIZE):
+	@echo Install kustomize...
 	@GOBIN=$(TOOLS_DIR) go install sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION)
 
 $(GOIMPORTS):
+	@echo Install goimports...
 	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
 
 $(HELM_DOCS):
+	@echo Install helm-docs...
 	@GOBIN=$(TOOLS_DIR) go install github.com/norwoodj/helm-docs/cmd/helm-docs@$(HELM_DOCS_VERSION)
 
 $(KO):
+	@echo Install ko...
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
 
 .PHONY: install-tools
@@ -444,6 +460,15 @@ codegen-slow: codegen-client-all ## Generate client code
 
 .PHONY: codegen-all
 codegen-all: codegen-quick codegen-slow ## Generate all generated code
+
+# .PHONY: codegen-openapi
+# codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
+# 	@echo Generate open api definitions...
+# 	@GOPATH=$(GOPATH_SHIM) $(OPENAPI_GEN) --go-header-file ./scripts/boilerplate.go.txt \
+# 		--input-dirs $(INPUT_DIRS) \
+# 		--input-dirs  k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
+# 		--output-package $(OUT_PACKAGE)/openapi \
+# 		-O zz_generated.openapi
 
 ##################
 # VERIFY CODEGEN #

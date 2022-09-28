@@ -6,11 +6,15 @@ func ExcludeKyvernoResources(kind string) bool {
 		return true
 	case "PolicyReport":
 		return true
-	case "ReportChangeRequest":
+	case "AdmissionReport":
+		return true
+	case "ClusterAdmissionReport":
+		return true
+	case "BackgroundScanReport":
+		return true
+	case "ClusterBackgroundScanReport":
 		return true
 	case "GenerateRequest":
-		return true
-	case "ClusterReportChangeRequest":
 		return true
 	default:
 		return false

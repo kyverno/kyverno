@@ -1,6 +1,7 @@
 package policycache
 
 import (
+	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
@@ -41,10 +42,10 @@ func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterP
 		polLister:  polInformer.Lister(),
 		cpolSynced: cpolInformer.Informer().HasSynced,
 		polSynced:  polInformer.Informer().HasSynced,
-		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policycache-controller"),
+		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
-	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), polInformer.Informer(), c.queue)
 	return &c
 }
 
@@ -78,11 +79,10 @@ func (c *controller) WarmUp() error {
 }
 
 func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run("policycache-controller", logger, c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
+	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
 }
 
-func (c *controller) reconcile(key, namespace, name string) error {
-	logger.Info("reconciling ...", "key", key, "namespace", namespace, "name", name)
+func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {
