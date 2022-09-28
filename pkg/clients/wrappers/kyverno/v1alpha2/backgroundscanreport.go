@@ -6,6 +6,7 @@ import (
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
+	"github.com/kyverno/kyverno/pkg/metrics"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
@@ -13,11 +14,11 @@ import (
 
 type backgroundScanReport struct {
 	inner             v1alpha2.BackgroundScanReportInterface
-	clientQueryMetric utils.ClientQueryMetric
+	clientQueryMetric metrics.Recorder
 	ns                string
 }
 
-func wrapBackgroundScanReports(c v1alpha2.BackgroundScanReportInterface, m utils.ClientQueryMetric, namespace string) v1alpha2.BackgroundScanReportInterface {
+func wrapBackgroundScanReports(c v1alpha2.BackgroundScanReportInterface, m metrics.Recorder, namespace string) v1alpha2.BackgroundScanReportInterface {
 	return &backgroundScanReport{
 		inner:             c,
 		clientQueryMetric: m,
