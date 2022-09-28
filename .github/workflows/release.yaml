@@ -100,6 +100,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build yaml manifest
+        run: make codegen-release
+
+      - name: Upload yaml manifest
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: config/release/install.yaml
+          asset_name: install.yaml
+          tag: ${{ github.ref }}
+
   release-cli-via-krew:
     runs-on: ubuntu-latest
     needs: 

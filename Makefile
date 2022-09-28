@@ -442,6 +442,9 @@ codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and 
 
 .PHONY: codegen-install
 codegen-install: $(KUSTOMIZE) ## Create install maifests
+	@echo Create kustomization... >&2
+	@VERSION=latest TOP_PATH="./" envsubst < config/templates/labels.yaml.envsubst > config/labels.yaml
+	@VERSION=latest TOP_PATH="./" envsubst < config/templates/kustomization.yaml.envsubst > config/kustomization.yaml
 	@echo Generate install.yaml... >&2
 	@$(KUSTOMIZE) build ./config > ./config/install.yaml
 	@echo Generate install_debug.yaml... >&2
@@ -450,7 +453,12 @@ codegen-install: $(KUSTOMIZE) ## Create install maifests
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 .PHONY: codegen-release
 codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
-	@echo Generate release manifests...
+	@echo Create release folder... >&2
+	@mkdir -p config/release
+	@echo Create kustomization... >&2
+	@VERSION=$(GIT_VERSION) TOP_PATH="../" envsubst < config/templates/labels.yaml.envsubst > config/release/labels.yaml
+	@VERSION=$(GIT_VERSION) TOP_PATH="../" envsubst < config/templates/kustomization.yaml.envsubst > config/release/kustomization.yaml
+	@echo Generate release manifests... >&2
 	@$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
 
 .PHONY: codegen-quick
