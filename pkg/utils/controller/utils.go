@@ -52,8 +52,10 @@ type Client[T metav1.Object, L any] interface {
 	ClientWatch[T]
 	ClientPatch[T]
 	ClientList[L]
-	// TODO: shall we manage status separately ?
-	// UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type StatusClient[T metav1.Object] interface {
+	UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
 }
 
 type Object[T any] interface {

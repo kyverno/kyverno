@@ -75,6 +75,19 @@ func (c *client[T, L]) Patch(ctx context.Context, name string, pt types.PatchTyp
 	return c.inner.Patch(ctx, name, pt, data, opts, subresources...)
 }
 
+type statusClient[T metav1.Object] struct {
+	recorder   Recorder
+	ns         string
+	kind       string
+	clientType ClientType
+	inner      controllerutils.StatusClient[T]
+}
+
+func (c *statusClient[T]) UpdateStatus(ctx context.Context, obj T, opts metav1.UpdateOptions) (T, error) {
+	defer c.recorder.Record(ClientUpdateStatus, c.clientType, c.kind, c.ns)
+	return c.inner.UpdateStatus(ctx, obj, opts)
+}
+
 func NamespacedClient[T metav1.Object, L any](
 	recorder Recorder,
 	ns string,
@@ -83,6 +96,16 @@ func NamespacedClient[T metav1.Object, L any](
 	inner controllerutils.Client[T, L],
 ) controllerutils.Client[T, L] {
 	return &client[T, L]{
+		recorder:   recorder,
+		ns:         ns,
+		kind:       kind,
+		clientType: clientType,
+		inner:      inner,
+	}
+}
+
+func NamespacedStatusClient[T metav1.Object](recorder Recorder, ns string, kind string, clientType ClientType, inner controllerutils.StatusClient[T]) controllerutils.StatusClient[T] {
+	return &statusClient[T]{
 		recorder:   recorder,
 		ns:         ns,
 		kind:       kind,

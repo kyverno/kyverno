@@ -25,7 +25,7 @@ func (c *client) PolicyReports(namespace string) v1alpha2.PolicyReportInterface 
 	return metrics.NamespacedClient[*policyreportv1alpha2.PolicyReport, *policyreportv1alpha2.PolicyReportList](
 		c.recorder,
 		namespace,
-		"ClusterPolicyReport",
+		"PolicyReport",
 		metrics.KyvernoClient,
 		c.inner.PolicyReports(namespace),
 	)
