@@ -50,10 +50,11 @@ func (wrc *Register) readCaData() []byte {
 	logger := wrc.log.WithName("readCaData")
 	var caData []byte
 	var err error
-
+	recorder := metrics.NamespacedClientQueryRecorder(wrc.metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient)
+	secretsClient := metrics.ObjectClient[*corev1.Secret](recorder, wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()))
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.kubeClient, wrc.metricsConfig); err == nil {
+	if caData, err = tls.ReadRootCASecret(secretsClient); err == nil {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}
