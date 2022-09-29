@@ -62,9 +62,21 @@ func NewController(
 	}
 	controllerutils.AddEventHandlers(
 		secretInformer.Informer(),
-		func(obj interface{}) { c.enqueue(obj.(*corev1.Secret)) },
-		func(_, obj interface{}) { c.enqueue(obj.(*corev1.Secret)) },
-		func(obj interface{}) { c.enqueue(obj.(*corev1.Secret)) },
+		func(obj interface{}) {
+			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
+				logger.Error(err, "failed to enqueue")
+			}
+		},
+		func(_, obj interface{}) {
+			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
+				logger.Error(err, "failed to enqueue")
+			}
+		},
+		func(obj interface{}) {
+			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
+				logger.Error(err, "failed to enqueue")
+			}
+		},
 	)
 	return &c
 }
@@ -117,7 +129,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(logger logr.Logger, n
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
-	controllerutils.Update(w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
+	_, err = controllerutils.Update(w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		caData, err := tls.ReadRootCASecret(c.secretClient)
 		if err != nil {
 			return err
@@ -127,7 +139,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(logger logr.Logger, n
 		}
 		return nil
 	})
-	return nil
+	return err
 }
 
 func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger, name string) error {
@@ -142,7 +154,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger,
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
-	controllerutils.Update(w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+	_, err = controllerutils.Update(w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		caData, err := tls.ReadRootCASecret(c.secretClient)
 		if err != nil {
 			return err
@@ -152,7 +164,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger,
 		}
 		return nil
 	})
-	return nil
+	return err
 }
 
 func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
