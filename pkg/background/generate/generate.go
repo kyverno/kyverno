@@ -678,7 +678,7 @@ func manageCloneList(log logr.Logger, namespace, policy string, clone kyvernov1.
 
 	for _, kind := range kinds {
 		apiVersion, kind := kubeutils.GetKindFromGVK(kind)
-		resources, err := client.ListResource(apiVersion, kind, rNamespace, nil)
+		resources, err := client.ListResource(apiVersion, kind, rNamespace, clone.CloneList.Selector)
 		if err != nil {
 			response = append(response, GenerateResponse{
 				Data:   nil,
