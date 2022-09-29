@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"gotest.tools/assert"
@@ -321,6 +322,391 @@ func Test_Validate_NamespacedPolicy_MutateRuleTargetNamespace(t *testing.T) {
 		if testcase.errors != nil {
 			expectedErrs = testcase.errors(&rule)
 		}
+		assert.Equal(t, len(errs), len(expectedErrs))
+		for i := range errs {
+			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
+		}
+	}
+}
+
+func Test_ValidatePSaControlNames(t *testing.T) {
+	path := field.NewPath("dummy")
+	testcases := []struct {
+		description string
+		rule        []byte
+		errors      func(r *Rule) field.ErrorList
+	}{
+		{
+			description: "baseline_with_restricted_control_name",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Running as Non-root",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							},
+							{
+								"controlName": "Seccomp",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Running as Non-root", "Invalid control name defined at the given level"),
+				)
+			},
+		},
+		{
+			description: "baseline_with_baseline_control_name",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							},
+							{
+								"controlName": "Seccomp",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+		},
+		{
+			description: "restricted_with_baseline_control_name",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "/proc Mount Type",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							},
+							{
+								"controlName": "Seccomp",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "/proc Mount Type", "Invalid control name defined at the given level"),
+				)
+			},
+		},
+		{
+			description: "restricted_with_restricted_control_name",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Privilege Escalation",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+		},
+		{
+			description: "container_level_control_with_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Privilege Escalation"
+							}
+						]
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Privilege Escalation", "exclude.images must be specified for the container level control"),
+				)
+			},
+		},
+		{
+			description: "container_level_control_without_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Privilege Escalation",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+		},
+		{
+			description: "pod_level_control_with_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Host Namespaces", "exclude.images must not be specified for the pod level control"),
+				)
+			},
+		},
+		{
+			description: "pod_level_control_without_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Host Namespaces"
+							}
+						]
+					}
+				}
+			}`),
+		},
+		{
+			description: "mixed_level_controls_without_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux"
+							}
+						]
+					}
+				}
+			}`),
+		},
+		{
+			description: "mixed_level_controls_with_images",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "SELinux",
+								"images": [
+									"nginx",
+									"nodejs"
+								]
+							}
+						]
+					}
+				}
+			}`),
+		},
+	}
+
+	for _, testcase := range testcases {
+		var rule Rule
+		err := json.Unmarshal(testcase.rule, &rule)
+		assert.NilError(t, err)
+		errs := rule.ValidatePSaControlNames(path)
+		var expectedErrs field.ErrorList
+		if testcase.errors != nil {
+			expectedErrs = testcase.errors(&rule)
+		}
+		fmt.Println("====errs", errs)
 		assert.Equal(t, len(errs), len(expectedErrs))
 		for i := range errs {
 			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())
