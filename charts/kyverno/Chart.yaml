@@ -36,3 +36,5 @@ annotations:
       description: Docs for generatecontrollerExtraResources.
     - kind: changed
       description: Enable autogen internals by default.
+    - kind: fixed
+      description: Self signed certificates not using SANs.
