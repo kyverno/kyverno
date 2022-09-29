@@ -53,7 +53,6 @@ import (
 	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
 )
 
 const (
@@ -99,7 +98,6 @@ func main() {
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
 
-	klog.InitFlags(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
@@ -136,7 +134,7 @@ func main() {
 	flag.Parse()
 
 	if err := logging.Setup(logFormat); err != nil {
-		fmt.Printf("failed to setup logger: %s", err)
+		fmt.Printf("failed to setup logger: %v", err)
 		os.Exit(1)
 	}
 

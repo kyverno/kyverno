@@ -12,16 +12,17 @@ import (
 )
 
 const (
-	//JSONFormat represents JSON logging mode.
+	// JSONFormat represents JSON logging mode.
 	JSONFormat = "json"
-	//TextFormat represents text logging mode.
-	//Default logging mode is TextFormat.
+	// TextFormat represents text logging mode.
+	// Default logging mode is TextFormat.
 	TextFormat = "text"
 )
 
-//Setup configures the logger with the supplied log format.
-//It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
+// Setup configures the logger with the supplied log format.
+// It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string) error {
+	klog.InitFlags(nil)
 
 	switch logFormat {
 	case TextFormat:
@@ -42,22 +43,32 @@ func Setup(logFormat string) error {
 	return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 }
 
-//GlobalLogger returns a logr.Logger as configured in main.
+// GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return log.Log
 }
 
-//WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
+// WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
 func WithName(name string) logr.Logger {
 	return GlobalLogger().WithName(name)
 }
 
-//WithValues returns a new logr.Logger instance with additional key/value pairs.
+// WithValues returns a new logr.Logger instance with additional key/value pairs.
 func WithValues(keysAndValues ...interface{}) logr.Logger {
 	return GlobalLogger().WithValues(keysAndValues...)
 }
 
-//V returns a new logr.Logger instance for a specific verbosity level.
+// V returns a new logr.Logger instance for a specific verbosity level.
 func V(level int) logr.Logger {
 	return GlobalLogger().V(level)
+}
+
+// Info logs a non-error message with the given key/value pairs.
+func Info(msg string, keysAndValues ...interface{}) {
+	GlobalLogger().Info(msg, keysAndValues...)
+}
+
+// Error logs an error, with the given message and key/value pairs.
+func Error(err error, msg string, keysAndValues ...interface{}) {
+	GlobalLogger().Error(err, msg, keysAndValues...)
 }
