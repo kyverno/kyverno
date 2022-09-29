@@ -3,6 +3,7 @@ package logging
 import (
 	"errors"
 	"flag"
+	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -20,9 +21,13 @@ const (
 	TextFormat = "text"
 )
 
-// InitKlogFlags explicitly initializes the flags
-func InitKlogFlags(flags *flag.FlagSet) {
-	klog.InitFlags(flags)
+func init() {
+	// clear flags initialized in static dependencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}
+
+	klog.InitFlags(nil)
 }
 
 // Setup configures the logger with the supplied log format.

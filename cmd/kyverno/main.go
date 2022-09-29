@@ -93,12 +93,7 @@ var (
 )
 
 func main() {
-	// clear flags initialized in static dependencies
-	if flag.CommandLine.Lookup("log_dir") != nil {
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	}
 
-	logging.InitKlogFlags(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
