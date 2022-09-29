@@ -3,7 +3,7 @@ package jp
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -37,7 +37,7 @@ func Command() *cobra.Command {
 			// https://github.com/jmespath/jp/blob/54882e03bd277fc4475a677fab1d35eaa478b839/jp.go
 			var expression string
 			if exprFile != "" {
-				byteExpr, err := ioutil.ReadFile(filepath.Clean(exprFile))
+				byteExpr, err := os.ReadFile(filepath.Clean(exprFile))
 				if err != nil {
 					return fmt.Errorf("error opening expression file: %w", err)
 				}
@@ -64,7 +64,7 @@ func Command() *cobra.Command {
 			}
 			var input interface{}
 			if filename != "" {
-				f, err := ioutil.ReadFile(filepath.Clean(filename))
+				f, err := os.ReadFile(filepath.Clean(filename))
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
@@ -72,7 +72,7 @@ func Command() *cobra.Command {
 					return fmt.Errorf("error parsing input json: %w", err)
 				}
 			} else {
-				f, err := ioutil.ReadAll(os.Stdin)
+				f, err := io.ReadAll(os.Stdin)
 				if err != nil {
 					return fmt.Errorf("error opening input file: %w", err)
 				}
