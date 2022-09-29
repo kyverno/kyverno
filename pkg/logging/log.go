@@ -12,11 +12,15 @@ import (
 )
 
 const (
+	//JSONFormat represents JSON logging mode.
 	JSONFormat = "json"
+	//TextFormat represents text logging mode.
+	//Default logging mode is TextFormat.
 	TextFormat = "text"
 )
 
-//Confugures the logger with the supplied log format
+//Setup configures the logger with the supplied log format.
+//It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string) error {
 
 	switch logFormat {
@@ -38,22 +42,22 @@ func Setup(logFormat string) error {
 	return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 }
 
-//Returns the global logger as configured in main
+//GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return log.Log
 }
 
-//Return a new Logger instance with the specified name element added to the Logger's name
+//WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
 func WithName(name string) logr.Logger {
 	return GlobalLogger().WithName(name)
 }
 
-//WithValues returns a new Logger instance with additional key/value pairs
+//WithValues returns a new logr.Logger instance with additional key/value pairs.
 func WithValues(keysAndValues ...interface{}) logr.Logger {
 	return GlobalLogger().WithValues(keysAndValues...)
 }
 
-//V returns a new Logger instance for a specific verbosity level
+//V returns a new logr.Logger instance for a specific verbosity level.
 func V(level int) logr.Logger {
 	return GlobalLogger().V(level)
 }

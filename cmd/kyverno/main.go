@@ -136,7 +136,7 @@ func main() {
 	flag.Parse()
 
 	if err := logging.Setup(logFormat); err != nil {
-		fmt.Printf("failed to setup logger: %s", err.Error())
+		fmt.Printf("failed to setup logger: %s", err)
 		os.Exit(1)
 	}
 
