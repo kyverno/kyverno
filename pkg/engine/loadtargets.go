@@ -68,6 +68,11 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	namespace := target.Namespace
 	name := target.Name
 
+	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
+	if ctx.Policy.IsNamespaced() {
+		namespace = ctx.Policy.GetNamespace()
+	}
+
 	if namespace != "" && name != "" &&
 		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
 		obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)

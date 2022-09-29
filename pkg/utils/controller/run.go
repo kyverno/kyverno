@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -11,21 +13,33 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type reconcileFunc func(string, string, string) error
+type reconcileFunc func(logger logr.Logger, key string, namespace string, name string) error
 
 func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) {
-	defer runtime.HandleCrash()
 	logger.Info("starting ...")
-	defer logger.Info("shutting down")
-
-	if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
-		return
-	}
-
-	for i := 0; i < n; i++ {
-		go wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, stopCh)
-	}
-	<-stopCh
+	defer runtime.HandleCrash()
+	defer logger.Info("stopped")
+	var wg sync.WaitGroup
+	func() {
+		ctx, cancel := context.WithCancel(context.TODO())
+		defer cancel()
+		defer queue.ShutDown()
+		if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
+			return
+		}
+		for i := 0; i < n; i++ {
+			wg.Add(1)
+			go func(logger logr.Logger) {
+				logger.Info("starting worker")
+				defer wg.Done()
+				defer logger.Info("worker stopped")
+				wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, ctx.Done())
+			}(logger.WithValues("id", i))
+		}
+		<-stopCh
+	}()
+	logger.Info("waiting for workers to terminate ...")
+	wg.Wait()
 }
 
 func worker(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
@@ -36,7 +50,7 @@ func worker(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetrie
 func processNextWorkItem(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
-		handleErr(logger, queue, maxRetries, reconcile(obj, r), obj)
+		handleErr(logger, queue, maxRetries, reconcile(logger, obj, r), obj)
 		return true
 	}
 	return false
@@ -46,10 +60,10 @@ func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRet
 	if err == nil {
 		queue.Forget(obj)
 	} else if errors.IsNotFound(err) {
-		logger.V(4).Info("Dropping request from the queue", "obj", obj, "error", err.Error())
+		logger.Info("Dropping request from the queue", "obj", obj, "error", err.Error())
 		queue.Forget(obj)
 	} else if queue.NumRequeues(obj) < maxRetries {
-		logger.V(3).Info("Retrying request", "obj", obj, "error", err.Error())
+		logger.Info("Retrying request", "obj", obj, "error", err.Error())
 		queue.AddRateLimited(obj)
 	} else {
 		logger.Error(err, "Failed to process request", "obj", obj)
@@ -57,7 +71,8 @@ func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRet
 	}
 }
 
-func reconcile(obj interface{}, r reconcileFunc) error {
+func reconcile(logger logr.Logger, obj interface{}, r reconcileFunc) error {
+	start := time.Now()
 	var k, ns, n string
 	if key, ok := obj.(cache.ExplicitKey); ok {
 		k = string(key)
@@ -69,5 +84,8 @@ func reconcile(obj interface{}, r reconcileFunc) error {
 			ns, n = namespace, name
 		}
 	}
-	return r(k, ns, n)
+	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
+	logger.Info("reconciling ...")
+	defer logger.Info("done", time.Since(start))
+	return r(logger, k, ns, n)
 }

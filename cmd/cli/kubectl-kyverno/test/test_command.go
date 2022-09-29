@@ -722,7 +722,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 				result.Rule = rule.Name
 				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = policyreport.SourceValue
+				result.Source = kyvernov1.ValueKyvernoApp
 				result.Timestamp = now
 				results[resultKey] = result
 			}
@@ -1226,9 +1226,6 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 		}
 	}
 
-	if countDeprecatedResource > 0 {
-		fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
-	}
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"
 	printer.ColumnSeparator = "│"
