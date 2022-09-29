@@ -388,48 +388,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
-	registerWebhookConfigurations := func() {
-		if err := certRenewer.InitTLSPemPair(); err != nil {
-			setupLog.Error(err, "tls initialization error")
-			os.Exit(1)
-		}
-		// wait for cache to be synced before use it
-		cache.WaitForCacheSync(stopCh,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
-		)
-
-		// validate the ConfigMap format
-		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			os.Exit(1)
-		}
-		if autoUpdateWebhooks {
-			go webhookCfg.UpdateWebhookConfigurations(configuration)
-		}
-		if registrationErr := registerWrapperRetry(); registrationErr != nil {
-			setupLog.Error(err, "Timeout registering admission control webhooks")
-			os.Exit(1)
-		}
-		webhookCfg.UpdateWebhookChan <- true
-	}
-
-	// cancel leader election context on shutdown signals
-	go func() {
-		defer signalCancel()
-		<-stopCh
-	}()
-
-	// webhookconfigurations are registered by the leader only
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
-	if err != nil {
-		setupLog.Error(err, "failed to elect a leader")
-		os.Exit(1)
-	}
-
-	go webhookRegisterLeader.Run(signalCtx)
-
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
 
@@ -468,7 +426,31 @@ func main() {
 
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	run := func() {
+		if err := certRenewer.InitTLSPemPair(); err != nil {
+			setupLog.Error(err, "tls initialization error")
+			os.Exit(1)
+		}
+		// wait for cache to be synced before use it
+		cache.WaitForCacheSync(stopCh,
+			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
+			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
+		)
+
+		// validate the ConfigMap format
+		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
+			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+			os.Exit(1)
+		}
+		if autoUpdateWebhooks {
+			go webhookCfg.UpdateWebhookConfigurations(configuration)
+		}
+		if registrationErr := registerWrapperRetry(); registrationErr != nil {
+			setupLog.Error(err, "Timeout registering admission control webhooks")
+			os.Exit(1)
+		}
+		webhookCfg.UpdateWebhookChan <- true
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, stopCh)
 
@@ -504,6 +486,12 @@ func main() {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
+
+	// cancel leader election context on shutdown signals
+	go func() {
+		defer signalCancel()
+		<-stopCh
+	}()
 
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
