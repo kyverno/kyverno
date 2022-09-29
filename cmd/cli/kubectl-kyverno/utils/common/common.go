@@ -1139,7 +1139,8 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	} else {
 		var errors []error
-		bytes, err := os.ReadFile(filepath.Join(policyResourcePath, path))
+		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
+		bytes, err := os.ReadFile(pathname)
 		if err != nil {
 			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 		}
