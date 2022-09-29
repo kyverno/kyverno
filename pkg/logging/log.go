@@ -2,6 +2,7 @@ package logging
 
 import (
 	"errors"
+	"flag"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -19,11 +20,14 @@ const (
 	TextFormat = "text"
 )
 
+// InitKlogFlags explicitly initializes the flags
+func InitKlogFlags(flags *flag.FlagSet) {
+	klog.InitFlags(flags)
+}
+
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string) error {
-	klog.InitFlags(nil)
-
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
@@ -35,7 +39,6 @@ func Setup(logFormat string) error {
 			return errors.New("JSON logger could not be initialized")
 		}
 		klog.SetLogger(zapr.NewLogger(zapLog))
-
 		// in json mode we use FormatKlog format
 		log.SetLogger(klog.NewKlogr())
 		return nil
