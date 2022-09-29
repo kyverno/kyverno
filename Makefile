@@ -430,7 +430,7 @@ codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
 	@echo Generate helm docs... >&2
-	@docker run -v ${PWD}:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
+	@docker run -v ${PWD}/charts:/work -w /work jnorwood/helm-docs:v1.11.0 -s file
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
