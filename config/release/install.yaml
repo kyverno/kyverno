@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: admissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -355,7 +355,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: backgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -655,7 +655,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: clusteradmissionreports.kyverno.io
 spec:
   group: kyverno.io
@@ -990,7 +990,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: clusterbackgroundscanreports.kyverno.io
 spec:
   group: kyverno.io
@@ -1290,7 +1290,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: clusterpolicies.kyverno.io
 spec:
   group: kyverno.io
@@ -3653,6 +3653,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -6494,6 +6510,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -9130,6 +9162,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -11931,6 +11979,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -12457,7 +12521,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: clusterpolicyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -12826,7 +12890,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: generaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -13016,7 +13080,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: policies.kyverno.io
 spec:
   group: kyverno.io
@@ -15380,6 +15444,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -18222,6 +18302,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -20859,6 +20955,22 @@ spec:
                                   controlName:
                                     description: 'ControlName specifies the name of
                                       the Pod Security Standard control. See: https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                    enum:
+                                    - HostProcess
+                                    - Host Namespaces
+                                    - Privileged Containers
+                                    - Capabilities
+                                    - HostPath Volumes
+                                    - Host Ports
+                                    - AppArmor
+                                    - SELinux
+                                    - /proc Mount Type
+                                    - Seccomp
+                                    - Sysctls
+                                    - Volume Types
+                                    - Privilege Escalation
+                                    - Running as Non-root
+                                    - Running as Non-root user
                                     type: string
                                   images:
                                     description: Images selects matching containers
@@ -23660,6 +23772,22 @@ spec:
                                         description: 'ControlName specifies the name
                                           of the Pod Security Standard control. See:
                                           https://kubernetes.io/docs/concepts/security/pod-security-standards/'
+                                        enum:
+                                        - HostProcess
+                                        - Host Namespaces
+                                        - Privileged Containers
+                                        - Capabilities
+                                        - HostPath Volumes
+                                        - Host Ports
+                                        - AppArmor
+                                        - SELinux
+                                        - /proc Mount Type
+                                        - Seccomp
+                                        - Sysctls
+                                        - Volume Types
+                                        - Privilege Escalation
+                                        - Running as Non-root
+                                        - Running as Non-root user
                                         type: string
                                       images:
                                         description: Images selects matching containers
@@ -24186,7 +24314,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: policyreports.wgpolicyk8s.io
 spec:
   group: wgpolicyk8s.io
@@ -24554,7 +24682,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: updaterequests.kyverno.io
 spec:
   group: kyverno.io
@@ -24943,7 +25071,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno-service-account
   namespace: kyverno
 ---
@@ -24956,7 +25084,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:leaderelection
   namespace: kyverno
 rules:
@@ -24994,7 +25122,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno
 rules: []
 ---
@@ -25007,7 +25135,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-generaterequest
 rules:
@@ -25033,7 +25161,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policies
 rules:
@@ -25060,7 +25188,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-policyreport
 rules:
@@ -25087,7 +25215,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-reports
 rules:
@@ -25116,7 +25244,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
   name: kyverno:admin-updaterequest
 rules:
@@ -25142,7 +25270,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:events
 rules:
 - apiGroups:
@@ -25165,7 +25293,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:generate
 rules:
 - apiGroups:
@@ -25212,7 +25340,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:policies
 rules:
 - apiGroups:
@@ -25265,7 +25393,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:userinfo
 rules:
 - apiGroups:
@@ -25288,7 +25416,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:view
 rules:
 - apiGroups:
@@ -25309,7 +25437,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:webhook
 rules:
 - apiGroups:
@@ -25335,7 +25463,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno:leaderelection
   namespace: kyverno
 roleRef:
@@ -25356,7 +25484,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -25382,7 +25510,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno
   namespace: kyverno
 ---
@@ -25398,7 +25526,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno-metrics
   namespace: kyverno
 ---
@@ -25411,7 +25539,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno-svc
   namespace: kyverno
 spec:
@@ -25432,7 +25560,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno-svc-metrics
   namespace: kyverno
 spec:
@@ -25453,7 +25581,7 @@ metadata:
     app.kubernetes.io/instance: kyverno
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
-    app.kubernetes.io/version: v1.8.0-rc2
+    app.kubernetes.io/version: v1.8.0-rc3
   name: kyverno
   namespace: kyverno
 spec:
@@ -25475,7 +25603,7 @@ spec:
         app.kubernetes.io/instance: kyverno
         app.kubernetes.io/name: kyverno
         app.kubernetes.io/part-of: kyverno
-        app.kubernetes.io/version: v1.8.0-rc2
+        app.kubernetes.io/version: v1.8.0-rc3
     spec:
       affinity:
         podAntiAffinity:
@@ -25510,7 +25638,7 @@ spec:
           value: kyverno-svc
         - name: TUF_ROOT
           value: /.sigstore
-        image: ghcr.io/kyverno/kyverno:v1.8.0-rc2
+        image: ghcr.io/kyverno/kyverno:v1.8.0-rc3
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 2
@@ -25571,7 +25699,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: ghcr.io/kyverno/kyvernopre:v1.8.0-rc2
+        image: ghcr.io/kyverno/kyvernopre:v1.8.0-rc3
         imagePullPolicy: Always
         name: kyverno-pre
         resources:
