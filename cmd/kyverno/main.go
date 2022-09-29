@@ -472,9 +472,6 @@ func main() {
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, stopCh)
 
-		metadataInformer.Start(stopCh)
-		metadataInformer.WaitForCacheSync(stopCh)
-
 		reportControllers := setupReportControllers(
 			backgroundScan,
 			admissionReports,
@@ -484,6 +481,9 @@ func main() {
 			kubeInformer,
 			kyvernoInformer,
 		)
+
+		metadataInformer.Start(stopCh)
+		metadataInformer.WaitForCacheSync(stopCh)
 
 		for _, controller := range reportControllers {
 			go controller.Run(stopCh)
