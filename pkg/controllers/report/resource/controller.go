@@ -139,37 +139,41 @@ func (c *controller) updateDynamicWatchers() error {
 			delete(c.dynamicWatchers, gvr)
 		} else {
 			logger.Info("start watcher ...", "gvr", gvr)
-			watchInterface, _ := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
-			w := &watcher{
-				watcher: watchInterface,
-				gvk:     gvr.GroupVersion().WithKind(kind),
-				hashes:  map[types.UID]Resource{},
-			}
-			go func() {
-				gvr := gvr
-				defer logger.Info("watcher stopped")
-				for event := range watchInterface.ResultChan() {
-					switch event.Type {
-					case watch.Added:
-						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Modified:
-						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Deleted:
-						c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+			watchInterface, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
+			if err != nil {
+				logger.Error(err, "failed to create watcher", "gvr", gvr)
+			} else {
+				w := &watcher{
+					watcher: watchInterface,
+					gvk:     gvr.GroupVersion().WithKind(kind),
+					hashes:  map[types.UID]Resource{},
+				}
+				go func() {
+					gvr := gvr
+					defer logger.Info("watcher stopped")
+					for event := range watchInterface.ResultChan() {
+						switch event.Type {
+						case watch.Added:
+							c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+						case watch.Modified:
+							c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+						case watch.Deleted:
+							c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+						}
 					}
+				}()
+				dynamicWatchers[gvr] = w
+				objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+				for _, obj := range objs.Items {
+					uid := obj.GetUID()
+					hash := reportutils.CalculateResourceHash(obj)
+					w.hashes[uid] = Resource{
+						Hash:      hash,
+						Namespace: obj.GetNamespace(),
+						Name:      obj.GetName(),
+					}
+					c.notify(uid, w.gvk, w.hashes[uid])
 				}
-			}()
-			dynamicWatchers[gvr] = w
-			objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
-			for _, obj := range objs.Items {
-				uid := obj.GetUID()
-				hash := reportutils.CalculateResourceHash(obj)
-				w.hashes[uid] = Resource{
-					Hash:      hash,
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				}
-				c.notify(uid, w.gvk, w.hashes[uid])
 			}
 		}
 	}
