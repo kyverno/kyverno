@@ -162,17 +162,22 @@ func (c *controller) updateDynamicWatchers() error {
 						}
 					}
 				}()
-				dynamicWatchers[gvr] = w
-				objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
-				for _, obj := range objs.Items {
-					uid := obj.GetUID()
-					hash := reportutils.CalculateResourceHash(obj)
-					w.hashes[uid] = Resource{
-						Hash:      hash,
-						Namespace: obj.GetNamespace(),
-						Name:      obj.GetName(),
+				objs, err := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+				if err != nil {
+					logger.Error(err, "failed to list resources", "gvr", gvr)
+					watchInterface.Stop()
+				} else {
+					for _, obj := range objs.Items {
+						uid := obj.GetUID()
+						hash := reportutils.CalculateResourceHash(obj)
+						w.hashes[uid] = Resource{
+							Hash:      hash,
+							Namespace: obj.GetNamespace(),
+							Name:      obj.GetName(),
+						}
+						c.notify(uid, w.gvk, w.hashes[uid])
 					}
-					c.notify(uid, w.gvk, w.hashes[uid])
+					dynamicWatchers[gvr] = w
 				}
 			}
 		}
