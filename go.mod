@@ -52,6 +52,8 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.22.0
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
+	golang.org/x/exp v0.0.0-20220927162542-c76eaa363f9d
 	golang.org/x/text v0.3.8-0.20211004125949-5bd84dd9b33b
 	google.golang.org/grpc v1.49.0
 	gopkg.in/inf.v0 v0.9.1
@@ -71,10 +73,6 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.13.3
 	sigs.k8s.io/yaml v1.3.0
 )
-
-require golang.org/x/exp v0.0.0-20220915210609-840b3808d824
-
-require github.com/google/go-cmp v0.5.9 // indirect
 
 require (
 	bitbucket.org/creachadair/shell v0.0.7 // indirect
@@ -197,6 +195,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/certificate-transparency-go v1.1.3 // indirect
+	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/go-github/v45 v45.2.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -348,8 +347,6 @@ require (
 	go.opentelemetry.io/proto/otlp v0.16.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/zap v1.22.0 // indirect
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20220923203811-8be639271d50 // indirect
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094 // indirect
