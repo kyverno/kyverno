@@ -21,13 +21,12 @@ const (
 	TextFormat = "text"
 )
 
-func init() {
+func Init(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
 	if flag.CommandLine.Lookup("log_dir") != nil {
 		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	}
-
-	klog.InitFlags(nil)
+	klog.InitFlags(flags)
 }
 
 // Setup configures the logger with the supplied log format.

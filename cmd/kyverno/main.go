@@ -93,6 +93,7 @@ var (
 )
 
 func main() {
+	logging.Init(nil)
 
 	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
