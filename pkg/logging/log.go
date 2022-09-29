@@ -36,18 +36,18 @@ func Setup(logFormat string) error {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
 		log.SetLogger(klogr.New())
-		return nil
 	case JSONFormat:
 		zapLog, err := zap.NewProduction()
 		if err != nil {
-			return errors.New("JSON logger could not be initialized")
+			return err
 		}
 		klog.SetLogger(zapr.NewLogger(zapLog))
 		// in json mode we use FormatKlog format
 		log.SetLogger(klog.NewKlogr())
-		return nil
+	default:
+		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
-	return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+	return nil
 }
 
 // GlobalLogger returns a logr.Logger as configured in main.
