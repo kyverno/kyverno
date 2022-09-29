@@ -45,3 +45,12 @@ func ValidatePolicyName(path *field.Path, name string) (errs field.ErrorList) {
 	}
 	return errs
 }
+
+func containsString(list []string, key string) bool {
+	for _, val := range list {
+		if val == key {
+			return true
+		}
+	}
+	return false
+}
