@@ -1,7 +1,6 @@
 package testrunner
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -16,7 +15,7 @@ func LoadFile(path string) ([]byte, error) {
 	}
 	path = filepath.Clean(path)
 	// We accept the risk of including a user provided file here.
-	return ioutil.ReadFile(path) // #nosec G304
+	return os.ReadFile(path) // #nosec G304
 }
 
 var kindToResource = map[string]string{

@@ -6,19 +6,21 @@ import (
 )
 
 const (
-	AutogenInternalsFlagName     = "autogenInternals"
-	AutogenInternalsDescription  = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
-	autogenInternalsEnvVar       = "FLAG_AUTOGEN_INTERNALS"
-	defaultAutogenInternals      = true
-	SplitPolicyReportFlagName    = "splitPolicyReport"
-	SplitPolicyReportDescription = "Set the flag to 'true', to enable the split-up PolicyReports per policy."
-	splitPolicyReportEnvVar      = "FLAG_SPLIT_POLICY_REPORT"
-	defaultSplitPolicyReport     = false
+	// autogen
+	AutogenInternalsFlagName    = "autogenInternals"
+	AutogenInternalsDescription = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
+	autogenInternalsEnvVar      = "FLAG_AUTOGEN_INTERNALS"
+	defaultAutogenInternals     = true
+	// protect managed resource
+	ProtectManagedResourcesFlagName    = "protectManagedResources"
+	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
+	protectManagedResourcesEnvVar      = "FLAG_PROTECT_MANAGED_RESOURCES"
+	defaultProtectManagedResources     = false
 )
 
 var (
-	AutogenInternals  = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
-	SplitPolicyReport = newToggle(defaultSplitPolicyReport, splitPolicyReportEnvVar)
+	AutogenInternals        = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
+	ProtectManagedResources = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 )
 
 type Toggle interface {

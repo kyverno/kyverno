@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	tlsutils "github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -42,7 +44,7 @@ const (
 type Register struct {
 	// clients
 	kubeClient    kubernetes.Interface
-	kyvernoClient kyvernoclient.Interface
+	kyvernoClient versioned.Interface
 	clientConfig  *rest.Config
 
 	// listers
@@ -72,7 +74,7 @@ func NewRegister(
 	clientConfig *rest.Config,
 	client dclient.Interface,
 	kubeClient kubernetes.Interface,
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	kDeplInformer appsv1informers.DeploymentInformer,
@@ -223,7 +225,7 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 func (wrc *Register) UpdateWebhooksCaBundle() error {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			managedByLabel: kyvernoValue,
+			managedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 	}
 	caData := wrc.readCaData()
@@ -276,21 +278,31 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		<-wrc.UpdateWebhookChan
 		logger.V(4).Info("received the signal to update webhook configurations")
 
-		webhookCfgs := configHandler.GetWebhooks()
-		webhookCfg := config.WebhookConfig{}
-		if len(webhookCfgs) > 0 {
-			webhookCfg = webhookCfgs[0]
-		}
-
 		retry := false
-		if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
-			logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+		deploy, err := wrc.GetKubePolicyDeployment()
+		if err != nil {
+			retry = true
+		}
+		if tlsutils.IsKyvernoInRollingUpdate(deploy) {
 			retry = true
 		}
 
-		if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
-			logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-			retry = true
+		if !retry {
+			webhookCfgs := configHandler.GetWebhooks()
+			webhookCfg := config.WebhookConfig{}
+			if len(webhookCfgs) > 0 {
+				webhookCfg = webhookCfgs[0]
+			}
+
+			if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
+				logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+				retry = true
+			}
+
+			if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
+				logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
+				retry = true
+			}
 		}
 
 		if retry {
@@ -417,9 +429,16 @@ func (wrc *Register) checkEndpoint() error {
 	if err != nil {
 		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
 	}
+	deploy, err := wrc.GetKubePolicyDeployment()
+	if err != nil {
+		return err
+	}
+	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+		return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
+	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": "kyverno",
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})

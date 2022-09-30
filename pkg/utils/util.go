@@ -83,7 +83,7 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
-	return contains(patterns, ns, compareNamespaces)
+	return contains(patterns, ns, comparePatterns)
 }
 
 // ContainsString checks if the string is contained in the list
@@ -91,7 +91,11 @@ func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
 
-func compareNamespaces(pattern, ns string) bool {
+func ContainsWildcardPatterns(patterns []string, key string) bool {
+	return contains(patterns, key, comparePatterns)
+}
+
+func comparePatterns(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
 }
 
@@ -101,7 +105,7 @@ func compareString(str, name string) bool {
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
 func CRDsInstalled(discovery dclient.IDiscovery) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
+	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
 			return false
@@ -344,12 +348,12 @@ func OverrideRuntimeErrorHandler() {
 	logger := log.Log.WithName("RuntimeErrorHandler")
 	if len(runtime.ErrorHandlers) > 0 {
 		runtime.ErrorHandlers[0] = func(err error) {
-			logger.V(6).Info("runtime error: %s", err)
+			logger.V(6).Info("runtime error", "msg", err.Error())
 		}
 	} else {
 		runtime.ErrorHandlers = []func(err error){
 			func(err error) {
-				logger.V(6).Info("runtime error: %s", err)
+				logger.V(6).Info("runtime error", "msg", err.Error())
 			},
 		}
 	}

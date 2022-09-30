@@ -5,7 +5,7 @@ import (
 
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/toggle"
-	ut "github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 )
 
@@ -98,7 +98,7 @@ func Test_NamespaceSelector(t *testing.T) {
 
 	rc := &ResultCounts{}
 	for _, tc := range testcases {
-		policyArray, _ := ut.GetPolicy(tc.policy)
+		policyArray, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
 		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))

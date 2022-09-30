@@ -149,7 +149,7 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation = deny
 		return rule
 	}
-	if rule.Validation.PodSecurity != nil && len(rule.Validation.PodSecurity.Exclude) > 0 {
+	if rule.Validation.PodSecurity != nil {
 		newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
 		copy(newExclude, rule.Validation.PodSecurity.Exclude)
 		podSecurity := kyvernov1.Validation{

@@ -1,0 +1,44 @@
+name: Verify codegen
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release*'
+  pull_request:
+    branches:
+      - 'main'
+      - 'release*'
+
+jobs:
+  verify-codegen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3
+
+      - name: Unshallow
+        run: git fetch --prune --unshallow
+
+      - name: Set up Go 
+        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        with:
+          go-version: ~1.18.6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab # v1.1
+        with:
+          version: v3.5.0
+
+      - name: Cache Go modules
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Verify generated code is up to date
+        run: make verify-codegen

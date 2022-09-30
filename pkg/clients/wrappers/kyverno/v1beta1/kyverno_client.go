@@ -1,33 +1,35 @@
 package v1beta1
 
 import (
-	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/clients/wrappers/utils"
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/client-go/rest"
 )
 
-type KyvernoV1beta1Interface interface {
-	RESTClient() rest.Interface
-	UpdateRequestsGetter
+type client struct {
+	inner   v1beta1.KyvernoV1beta1Interface
+	metrics metrics.MetricsConfigManager
 }
 
-type KyvernoV1beta1Client struct {
-	restClient              rest.Interface
-	kyvernov1beta1Interface kyvernov1beta1.KyvernoV1beta1Interface
-	clientQueryMetric       utils.ClientQueryMetric
-}
-
-func (c *KyvernoV1beta1Client) UpdateRequests(namespace string) UpdateRequestControlInterface {
-	return newUpdateRequests(c, namespace)
-}
-
-func (c *KyvernoV1beta1Client) RESTClient() rest.Interface {
-	if c == nil {
-		return nil
+func (c *client) UpdateRequests(namespace string) v1beta1.UpdateRequestInterface {
+	recorder := metrics.NamespacedClientQueryRecorder(c.metrics, namespace, "UpdateRequest", metrics.KyvernoClient)
+	return struct {
+		controllerutils.ObjectClient[*kyvernov1beta1.UpdateRequest]
+		controllerutils.ListClient[*kyvernov1beta1.UpdateRequestList]
+		controllerutils.StatusClient[*kyvernov1beta1.UpdateRequest]
+	}{
+		metrics.ObjectClient[*kyvernov1beta1.UpdateRequest](recorder, c.inner.UpdateRequests(namespace)),
+		metrics.ListClient[*kyvernov1beta1.UpdateRequestList](recorder, c.inner.UpdateRequests(namespace)),
+		metrics.StatusClient[*kyvernov1beta1.UpdateRequest](recorder, c.inner.UpdateRequests(namespace)),
 	}
-	return c.restClient
 }
 
-func NewForConfig(restClient rest.Interface, kyvernov1beta1Interface kyvernov1beta1.KyvernoV1beta1Interface, m utils.ClientQueryMetric) *KyvernoV1beta1Client {
-	return &KyvernoV1beta1Client{restClient, kyvernov1beta1Interface, m}
+func (c *client) RESTClient() rest.Interface {
+	return c.inner.RESTClient()
+}
+
+func Wrap(inner v1beta1.KyvernoV1beta1Interface, metrics metrics.MetricsConfigManager) v1beta1.KyvernoV1beta1Interface {
+	return &client{inner, metrics}
 }

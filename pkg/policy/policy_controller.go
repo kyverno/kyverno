@@ -15,17 +15,16 @@ import (
 	utilscommon "github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	common "github.com/kyverno/kyverno/pkg/background/common"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned/scheme"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1beta1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1beta1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -56,7 +55,7 @@ const (
 // in the system with the corresponding policy violations
 type PolicyController struct {
 	client        dclient.Interface
-	kyvernoClient kyvernoclient.Interface
+	kyvernoClient versioned.Interface
 	pInformer     kyvernov1informers.ClusterPolicyInformer
 	npInformer    kyvernov1informers.PolicyInformer
 
@@ -86,11 +85,6 @@ type PolicyController struct {
 	// helpers to validate against current loaded configuration
 	configHandler config.Configuration
 
-	// policy report generator
-	prGenerator policyreport.GeneratorInterface
-
-	policyReportEraser policyreport.PolicyReportEraser
-
 	reconcilePeriod time.Duration
 
 	log logr.Logger
@@ -100,15 +94,13 @@ type PolicyController struct {
 
 // NewPolicyController create a new PolicyController
 func NewPolicyController(
-	kyvernoClient kyvernoclient.Interface,
+	kyvernoClient versioned.Interface,
 	client dclient.Interface,
 	pInformer kyvernov1informers.ClusterPolicyInformer,
 	npInformer kyvernov1informers.PolicyInformer,
 	urInformer kyvernov1beta1informers.UpdateRequestInformer,
 	configHandler config.Configuration,
 	eventGen event.Interface,
-	prGenerator policyreport.GeneratorInterface,
-	policyReportEraser policyreport.PolicyReportEraser,
 	namespaces corev1informers.NamespaceInformer,
 	log logr.Logger,
 	reconcilePeriod time.Duration,
@@ -124,19 +116,17 @@ func NewPolicyController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: eventInterface})
 
 	pc := PolicyController{
-		client:             client,
-		kyvernoClient:      kyvernoClient,
-		pInformer:          pInformer,
-		npInformer:         npInformer,
-		eventGen:           eventGen,
-		eventRecorder:      eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
-		queue:              workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
-		configHandler:      configHandler,
-		prGenerator:        prGenerator,
-		policyReportEraser: policyReportEraser,
-		reconcilePeriod:    reconcilePeriod,
-		metricsConfig:      metricsConfig,
-		log:                log,
+		client:          client,
+		kyvernoClient:   kyvernoClient,
+		pInformer:       pInformer,
+		npInformer:      npInformer,
+		eventGen:        eventGen,
+		eventRecorder:   eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "policy_controller"}),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "policy"),
+		configHandler:   configHandler,
+		reconcilePeriod: reconcilePeriod,
+		metricsConfig:   metricsConfig,
+		log:             log,
 	}
 
 	pc.pLister = pInformer.Lister()
@@ -226,7 +216,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 
 	logger.V(2).Info("updating policy", "name", oldP.Name)
 
-	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -244,8 +233,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
 
 	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
-
-	pc.enqueueRCRDeletedPolicy(p.Name)
 
 	// do not clean up UR on generate clone (sync=true) policy deletion
 	rules := autogen.ComputeRules(p)
@@ -317,7 +304,6 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 
 	logger.V(4).Info("updating namespace policy", "namespace", oldP.Namespace, "name", oldP.Name)
 
-	pc.enqueueRCRDeletedRule(oldP, curP)
 	pc.enqueuePolicy(curP)
 }
 
@@ -338,8 +324,6 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 
 	pol := p
 
-	pc.enqueueRCRDeletedPolicy(p.Name)
-
 	// do not clean up UR on generate clone (sync=true) policy deletion
 	rules := autogen.ComputeRules(pol)
 	for _, r := range rules {
@@ -349,34 +333,6 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 		}
 	}
 	pc.enqueuePolicy(pol)
-}
-
-func (pc *PolicyController) enqueueRCRDeletedRule(old, cur kyvernov1.PolicyInterface) {
-	curRule := make(map[string]bool)
-	for _, rule := range autogen.ComputeRules(cur) {
-		curRule[rule.Name] = true
-	}
-
-	for _, rule := range autogen.ComputeRules(old) {
-		if !curRule[rule.Name] {
-			pc.prGenerator.Add(policyreport.Info{
-				PolicyName: cur.GetName(),
-				Results: []policyreport.EngineResponseResult{
-					{
-						Rules: []kyvernov1.ViolatedRule{
-							{Name: rule.Name},
-						},
-					},
-				},
-			})
-		}
-	}
-}
-
-func (pc *PolicyController) enqueueRCRDeletedPolicy(policyName string) {
-	pc.prGenerator.Add(policyreport.Info{
-		PolicyName: policyName,
-	})
 }
 
 func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
@@ -390,7 +346,7 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupChangeRequest <-chan policyreport.ReconcileInfo, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(workers int /*, reconcileCh <-chan bool*/ /*, cleanupChangeRequest <-chan policyreport.ReconcileInfo*/, stopCh <-chan struct{}) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -419,7 +375,7 @@ func (pc *PolicyController) Run(workers int, reconcileCh <-chan bool, cleanupCha
 		go wait.Until(pc.worker, time.Second, stopCh)
 	}
 
-	go pc.forceReconciliation(reconcileCh, cleanupChangeRequest, stopCh)
+	go pc.forceReconciliation( /*reconcileCh, */ /* cleanupChangeRequest,*/ stopCh)
 
 	<-stopCh
 }
@@ -509,7 +465,7 @@ func generateTriggers(client dclient.Interface, rule kyvernov1.Rule, log logr.Lo
 	return convertlist(list.Items)
 }
 
-func updateUR(kyvernoClient kyvernoclient.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
+func updateUR(kyvernoClient versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, policyKey string, urList []*kyvernov1beta1.UpdateRequest, logger logr.Logger) {
 	for _, ur := range urList {
 		if policyKey == ur.Spec.Policy {
 			_, err := common.Update(kyvernoClient, urLister, ur.GetName(), func(ur *kyvernov1beta1.UpdateRequest) {

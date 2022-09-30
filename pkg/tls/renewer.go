@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -213,7 +214,7 @@ func (c *CertRenewer) writeSecret(name string, key *rsa.PrivateKey, certs ...*x5
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					ManagedByLabel: "kyverno",
+					ManagedByLabel: kyvernov1.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,

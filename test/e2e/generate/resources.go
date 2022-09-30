@@ -377,6 +377,17 @@ data:
   initial_lives: "2"
 `)
 
+var cloneSecretSourceResource = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-basic-auth
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: t0p-Secret
+`)
+
 var genCloneConfigMapPolicyYaml = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -404,4 +415,36 @@ spec:
       clone:
         namespace: default
         name: game-demo
+`)
+
+var genMultipleClonePolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-secret-with-multi-clone
+spec:
+  generateExistingOnPolicyUpdate: true
+  rules:
+  - name: sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize : true
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
 `)

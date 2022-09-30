@@ -16,7 +16,6 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/openapi"
@@ -132,6 +131,9 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
+	if !mock {
+		openapi.NewCRDSync(client, openAPIController).CheckSync()
+	}
 
 	var errs field.ErrorList
 	specPath := field.NewPath("spec")
@@ -990,13 +992,6 @@ func validateConfigMap(entry kyvernov1.ContextEntry) error {
 }
 
 func validateAPICall(entry kyvernov1.ContextEntry) error {
-	// Replace all variables to prevent validation failing on variable keys.
-	urlPath := variables.ReplaceAllVars(entry.APICall.URLPath, func(s string) string { return "kyvernoapicallvariable" })
-
-	if _, err := engine.NewAPIPath(urlPath); err != nil {
-		return err
-	}
-
 	// If JMESPath contains variables, the validation will fail because it's not possible to infer which value
 	// will be inserted by the variable
 	// Skip validation if a variable is detected
@@ -1123,7 +1118,7 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 		if !mock && !kubeutils.SkipSubResources(k) && !strings.Contains(kind, "*") {
 			_, _, err := client.Discovery().FindResource(gv, k)
 			if err != nil {
-				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", kinds, err)
+				return fmt.Errorf("unable to convert GVK to GVR for kinds %s, err: %s", k, err)
 			}
 		}
 	}
