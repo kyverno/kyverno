@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -139,7 +140,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
-				resourceBytes, _ = ioutil.ReadAll(filep)
+				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = getFileBytes(resourcePath)
 			}
@@ -233,14 +234,14 @@ func getFileBytes(path string) ([]byte, error) {
 			return nil, err
 		}
 
-		file, err = ioutil.ReadAll(resp.Body)
+		file, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		path = filepath.Clean(path)
 		// We accept the risk of including a user provided file here.
-		file, err = ioutil.ReadFile(path) // #nosec G304
+		file, err = os.ReadFile(path) // #nosec G304
 		if err != nil {
 			return nil, err
 		}

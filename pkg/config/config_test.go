@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"math"
 	"os"
 	"testing"
@@ -70,7 +69,7 @@ func createMinimalKubeconfig(t *testing.T) string {
 
 func createCustomKubeConfig(t *testing.T, fileName string, hosts map[string]string, currentContext string) {
 	t.Helper()
-	err := ioutil.WriteFile(fileName, []byte(fmt.Sprintf(`
+	err := os.WriteFile(fileName, []byte(fmt.Sprintf(`
 apiVersion: v1
 clusters:
 - cluster:
