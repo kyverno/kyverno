@@ -48,7 +48,7 @@ func (c *controller) Run(ctx context.Context) {
 	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, c.configmapSynced)
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	if namespace != config.KyvernoNamespace() || name != config.KyvernoConfigMapName() {
 		return nil
 	}

@@ -226,7 +226,7 @@ func (c *controller) getPolicyReports(namespace string) ([]kyvernov1alpha2.Repor
 	return reports, nil
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, _, _ string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
 	results, err := c.buildReportsResults(key)
 	if err != nil {
 		return err

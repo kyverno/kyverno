@@ -132,7 +132,7 @@ func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportIn
 	}
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	// try to find meta from the cache
 	meta, err := c.getMeta(namespace, name)
 	if err != nil {

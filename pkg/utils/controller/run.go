@@ -13,7 +13,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-type reconcileFunc func(logger logr.Logger, key string, namespace string, name string) error
+type reconcileFunc func(ctx context.Context, logger logr.Logger, key string, namespace string, name string) error
 
 func Run(ctx context.Context, controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, cacheSyncs ...cache.InformerSynced) {
 	logger.Info("starting ...")
@@ -33,7 +33,7 @@ func Run(ctx context.Context, controllerName string, logger logr.Logger, queue w
 				logger.Info("starting worker")
 				defer wg.Done()
 				defer logger.Info("worker stopped")
-				wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, ctx.Done())
+				wait.UntilWithContext(ctx, func(ctx context.Context) { worker(ctx, logger, queue, maxRetries, r) }, time.Second)
 			}(logger.WithValues("id", i))
 		}
 		<-ctx.Done()
@@ -42,15 +42,15 @@ func Run(ctx context.Context, controllerName string, logger logr.Logger, queue w
 	wg.Wait()
 }
 
-func worker(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
-	for processNextWorkItem(logger, queue, maxRetries, r) {
+func worker(ctx context.Context, logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) {
+	for processNextWorkItem(ctx, logger, queue, maxRetries, r) {
 	}
 }
 
-func processNextWorkItem(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) bool {
+func processNextWorkItem(ctx context.Context, logger logr.Logger, queue workqueue.RateLimitingInterface, maxRetries int, r reconcileFunc) bool {
 	if obj, quit := queue.Get(); !quit {
 		defer queue.Done(obj)
-		handleErr(logger, queue, maxRetries, reconcile(logger, obj, r), obj)
+		handleErr(logger, queue, maxRetries, reconcile(ctx, logger, obj, r), obj)
 		return true
 	}
 	return false
@@ -71,7 +71,7 @@ func handleErr(logger logr.Logger, queue workqueue.RateLimitingInterface, maxRet
 	}
 }
 
-func reconcile(logger logr.Logger, obj interface{}, r reconcileFunc) error {
+func reconcile(ctx context.Context, logger logr.Logger, obj interface{}, r reconcileFunc) error {
 	start := time.Now()
 	var k, ns, n string
 	if key, ok := obj.(cache.ExplicitKey); ok {
@@ -87,5 +87,5 @@ func reconcile(logger logr.Logger, obj interface{}, r reconcileFunc) error {
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
 	logger.Info("reconciling ...")
 	defer logger.Info("done", time.Since(start))
-	return r(logger, k, ns, n)
+	return r(ctx, logger, k, ns, n)
 }
