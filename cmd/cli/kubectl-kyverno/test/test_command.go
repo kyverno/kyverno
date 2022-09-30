@@ -3,7 +3,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -428,7 +428,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 			if path.Base(file.Name()) == fileName {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
-				bytes, err := ioutil.ReadAll(file)
+				bytes, err := io.ReadAll(file)
 				if err != nil {
 					errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
 					continue
@@ -483,7 +483,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failOnly, removeColor bool) []error {
 	var errors []error
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
@@ -495,7 +495,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 		if file.Name() == fileName {
 			*testFiles++
 			// We accept the risk of including files here as we read the test dir only.
-			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
+			yamlFile, err := os.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
 				errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 				continue
