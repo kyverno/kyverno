@@ -1,6 +1,7 @@
 package apply
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -185,7 +186,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}
-		dClient, err = dclient.NewClient(restConfig, kubeClient, nil, 15*time.Minute, make(chan struct{}))
+		dClient, err = dclient.NewClient(context.Background(), restConfig, kubeClient, nil, 15*time.Minute)
 		if err != nil {
 			return rc, resources, skipInvalidPolicies, pvInfos, err
 		}

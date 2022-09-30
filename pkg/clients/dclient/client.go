@@ -63,7 +63,7 @@ type client struct {
 }
 
 // NewClient creates new instance of client
-func NewClient(config *rest.Config, kclient *kubernetes.Clientset, metricsConfig metrics.MetricsConfigManager, resync time.Duration, stopCh <-chan struct{}) (Interface, error) {
+func NewClient(ctx context.Context, config *rest.Config, kclient *kubernetes.Clientset, metricsConfig metrics.MetricsConfigManager, resync time.Duration) (Interface, error) {
 	dclient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func NewClient(config *rest.Config, kclient *kubernetes.Clientset, metricsConfig
 	// we will be invalidating the local cache, so the next request get a fresh cache
 	// If a resource is removed then and cache is not invalidate yet, we will not detect the removal
 	// but the re-sync shall re-evaluate
-	go discoveryClient.Poll(resync, stopCh)
+	go discoveryClient.Poll(ctx, resync)
 	client.SetDiscovery(discoveryClient)
 	return &client, nil
 }
