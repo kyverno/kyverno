@@ -204,7 +204,7 @@ func main() {
 		logger.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(clientConfig, kubeClient, metricsConfig, metadataResyncPeriod, stopCh)
+	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
 		logger.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
