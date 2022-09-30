@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -28,7 +28,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			return
 		}
 		defer request.Body.Close()
-		body, err := ioutil.ReadAll(request.Body)
+		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			logger.Info("failed to read HTTP body", "req", request.URL.String())
 			http.Error(writer, "failed to read HTTP body", http.StatusBadRequest)
