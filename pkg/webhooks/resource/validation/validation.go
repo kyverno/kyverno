@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"context"
 	"reflect"
 	"time"
 
@@ -177,7 +178,7 @@ func (v *validationHandler) handleAudit(
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
 		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
 	}
-	_, err = reportutils.CreateReport(v.kyvernoClient, report)
+	_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
 	if err != nil {
 		v.log.Error(err, "failed to create report")
 	}
