@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"testing"
@@ -64,4 +65,124 @@ func createMinimalKubeconfig(t *testing.T) string {
 	assert.NilError(t, f.Close())
 
 	return f.Name()
+}
+
+func createCustomKubeConfig(t *testing.T, fileName string, hosts map[string]string, currentContext string) {
+	t.Helper()
+	err := os.WriteFile(fileName, []byte(fmt.Sprintf(`
+apiVersion: v1
+clusters:
+- cluster:
+    server: %s
+  name: dev
+- cluster:
+    server: %s
+  name: qa
+contexts:
+- context:
+    cluster: dev
+    user: dev
+  name: dev
+- context:
+    cluster: qa
+    user: qa
+  name: qa
+current-context: %s
+kind: Config
+preferences: {}
+users:
+- name: dev
+  user: {}
+- name: qa
+  user: {}
+
+`, hosts["dev"], hosts["qa"], currentContext)), os.FileMode(0755))
+	assert.NilError(t, err)
+}
+
+func Test_CreateCustomClientConfig_WithContext(t *testing.T) {
+	pwd, _ := os.Getwd()
+	customKubeConfig := pwd + "/kubeConfig"
+	hosts := map[string]string{
+		"dev": "http://127.0.0.1:8081",
+		"qa":  "http://127.0.0.2:8082",
+	}
+	currentContext := "dev"
+	createCustomKubeConfig(t, customKubeConfig, hosts, currentContext)
+	defer os.Remove(customKubeConfig)
+
+	testCases := []struct {
+		testName   string
+		kubeConfig string
+		context    string
+		host       string
+	}{
+		{
+			testName:   "default kubeconfig",
+			kubeConfig: "",
+			context:    "",
+		},
+		{
+			testName:   "custom kubeconfig file with current-context as dev",
+			kubeConfig: customKubeConfig,
+			context:    "",
+			host:       hosts["dev"],
+		},
+		{
+			testName:   "custom kubeconfig file with custom context as qa",
+			kubeConfig: customKubeConfig,
+			context:    "qa",
+			host:       hosts["qa"],
+		},
+	}
+
+	for _, test := range testCases {
+		restConfig, err := config.CreateClientConfigWithContext(test.kubeConfig, test.context)
+		assert.NilError(t, err, fmt.Sprintf("test %s failed", test.testName))
+		if test.host != "" {
+			assert.Equal(t, restConfig.Host, test.host, fmt.Sprintf("test %s failed", test.testName))
+		}
+	}
+
+	t.Setenv("KUBECONFIG", customKubeConfig) // use custom kubeconfig instead of ~/.kube/config
+	newCustomKubeConfig := pwd + "/newkubeConfig"
+	newHosts := map[string]string{
+		"dev": "http://127.0.0.1:8083",
+		"qa":  "http://127.0.0.2:8084",
+	}
+	createCustomKubeConfig(t, newCustomKubeConfig, newHosts, currentContext)
+	defer os.Remove(newCustomKubeConfig)
+	testCases = []struct {
+		testName   string
+		kubeConfig string
+		context    string
+		host       string
+	}{
+		{
+			testName:   "kubeconfig file from env with current-context as dev",
+			kubeConfig: "",
+			context:    "",
+			host:       hosts["dev"],
+		},
+		{
+			testName:   "kubeconfig file from env with custom context as qa",
+			kubeConfig: "",
+			context:    "qa",
+			host:       hosts["qa"],
+		},
+		{
+			testName:   "override kubeconfig from env with new kubeconfig and custom context as qa",
+			kubeConfig: newCustomKubeConfig,
+			context:    "qa",
+			host:       newHosts["qa"],
+		},
+	}
+
+	for _, test := range testCases {
+		restConfig, err := config.CreateClientConfigWithContext(test.kubeConfig, test.context)
+		assert.NilError(t, err, fmt.Sprintf("test %s failed", test.testName))
+		if test.host != "" {
+			assert.Equal(t, restConfig.Host, test.host, fmt.Sprintf("test %s failed", test.testName))
+		}
+	}
 }

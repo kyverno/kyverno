@@ -3,7 +3,6 @@ package autogen
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -299,7 +298,7 @@ func Test_Any(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -337,7 +336,7 @@ func Test_All(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -376,7 +375,7 @@ func Test_Exclude(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -410,7 +409,7 @@ func Test_CronJobOnly(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -440,7 +439,7 @@ func Test_ForEachPod(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
+	file, err := os.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -475,7 +474,7 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
 
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -512,7 +511,7 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -543,7 +542,7 @@ func Test_UpdateVariablePath(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/select-secrets.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/select-secrets.yaml")
 	if err != nil {
 		t.Log(err)
 	}
@@ -573,7 +572,7 @@ func Test_Deny(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
+	file, err := os.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
 	if err != nil {
 		t.Log(err)
 	}
