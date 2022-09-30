@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -16,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
-	"github.com/kyverno/kyverno/pkg/engine/context"
+	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -84,7 +85,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
-		openapi.NewCRDSync(client, openAPIController).CheckSync()
+		openapi.NewCRDSync(client, openAPIController).CheckSync(context.TODO())
 	}
 
 	var errs field.ErrorList
@@ -488,9 +489,9 @@ func objectHasVariables(object interface{}) error {
 	return nil
 }
 
-func buildContext(rule *kyvernov1.Rule, background bool) *context.MockContext {
+func buildContext(rule *kyvernov1.Rule, background bool) *enginecontext.MockContext {
 	re := getAllowedVariables(background)
-	ctx := context.NewMockContext(re)
+	ctx := enginecontext.NewMockContext(re)
 
 	addContextVariables(rule.Context, ctx)
 
@@ -513,7 +514,7 @@ func getAllowedVariables(background bool) *regexp.Regexp {
 	return allowedVariables
 }
 
-func addContextVariables(entries []kyvernov1.ContextEntry, ctx *context.MockContext) {
+func addContextVariables(entries []kyvernov1.ContextEntry, ctx *enginecontext.MockContext) {
 	for _, contextEntry := range entries {
 		if contextEntry.APICall != nil || contextEntry.ImageRegistry != nil || contextEntry.Variable != nil {
 			ctx.AddVariable(contextEntry.Name + "*")
@@ -530,7 +531,7 @@ func checkNotFoundErr(err error) bool {
 		switch err.(type) {
 		case jmespath.NotFoundError:
 			return true
-		case context.InvalidVariableError:
+		case enginecontext.InvalidVariableError:
 			return false
 		default:
 			return false
