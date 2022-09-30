@@ -116,19 +116,19 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) deleteReport(namespace, name string) error {
+func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(context.TODO(), name, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -146,7 +146,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	// set owner if not done yet
 	if exists && len(meta.GetOwnerReferences()) == 0 {
-		report, err := c.getReport(namespace, name)
+		report, err := c.getReport(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
@@ -159,7 +159,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// and were created more than five minutes ago
 	if !exists || !reportutils.CompareHash(meta, resource.Hash) {
 		if meta.GetCreationTimestamp().Add(time.Minute * 5).Before(time.Now()) {
-			return c.deleteReport(namespace, name)
+			return c.deleteReport(ctx, namespace, name)
 		}
 	}
 	return nil

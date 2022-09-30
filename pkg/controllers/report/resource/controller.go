@@ -110,7 +110,7 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
-func (c *controller) updateDynamicWatchers() error {
+func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	clusterPolicies, err := c.fetchClusterPolicies(logger)
@@ -139,7 +139,7 @@ func (c *controller) updateDynamicWatchers() error {
 			delete(c.dynamicWatchers, gvr)
 		} else {
 			logger.Info("start watcher ...", "gvr", gvr)
-			watchInterface, err := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
+			watchInterface, err := c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, metav1.ListOptions{})
 			if err != nil {
 				logger.Error(err, "failed to create watcher", "gvr", gvr)
 			} else {
@@ -162,7 +162,7 @@ func (c *controller) updateDynamicWatchers() error {
 						}
 					}
 				}()
-				objs, err := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
+				objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
 				if err != nil {
 					logger.Error(err, "failed to list resources", "gvr", gvr)
 					watchInterface.Stop()
@@ -252,5 +252,5 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	return c.updateDynamicWatchers()
+	return c.updateDynamicWatchers(ctx)
 }

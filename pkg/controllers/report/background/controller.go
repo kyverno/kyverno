@@ -184,7 +184,7 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
+func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
 	// load all policies
@@ -207,7 +207,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 	//	if the resource changed, we need to rebuild the report
 	if !reportutils.CompareHash(meta, resource.Hash) {
 		scanner := utils.NewScanner(logger, c.client)
-		before, err := c.getReport(meta.GetNamespace(), meta.GetName())
+		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
 		}
@@ -275,7 +275,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 		if len(toDelete) == 0 && len(toCreate) == 0 {
 			return nil
 		}
-		before, err := c.getReport(meta.GetNamespace(), meta.GetName())
+		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return err
 		}
@@ -324,11 +324,11 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(context.TODO(), name, metav1.GetOptions{})
+		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -365,5 +365,5 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 		}
 		return err
 	}
-	return c.updateReport(report, gvk, resource)
+	return c.updateReport(ctx, report, gvk, resource)
 }
