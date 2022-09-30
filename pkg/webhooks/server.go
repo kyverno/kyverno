@@ -120,6 +120,7 @@ func (s *server) Stop(ctx context.Context) {
 		}
 	}
 }
+
 func (s *server) Cleanup() <-chan struct{} {
 	return s.cleanUp
 }
