@@ -467,7 +467,7 @@ func main() {
 			os.Exit(1)
 		}
 		webhookCfg.UpdateWebhookChan <- true
-		go certManager.Run(stopCh)
+		go certManager.Run(signalCtx)
 		go policyCtrl.Run(2, stopCh)
 
 		reportControllers := setupReportControllers(
@@ -483,8 +483,8 @@ func main() {
 		metadataInformer.Start(stopCh)
 		metadataInformer.WaitForCacheSync(stopCh)
 
-		for i := range reportControllers {
-			go reportControllers[i].Run(stopCh)
+		for _, controller := range reportControllers {
+			go controller.Run(signalCtx)
 		}
 	}
 
@@ -519,10 +519,10 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
-	go policyCacheController.Run(stopCh)
+	go policyCacheController.Run(signalCtx)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(signalCtx)
-	go configurationController.Run(stopCh)
+	go configurationController.Run(signalCtx)
 	go eventGenerator.Run(3, stopCh)
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
