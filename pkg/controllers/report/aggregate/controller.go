@@ -81,8 +81,8 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+func (c *controller) Run(ctx context.Context) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) listAdmissionReports(namespace string) ([]kyvernov1alpha2.ReportInterface, error) {

@@ -15,16 +15,16 @@ import (
 
 type reconcileFunc func(logger logr.Logger, key string, namespace string, name string) error
 
-func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) {
+func Run(ctx context.Context, controllerName string, logger logr.Logger, queue workqueue.RateLimitingInterface, n, maxRetries int, r reconcileFunc, cacheSyncs ...cache.InformerSynced) {
 	logger.Info("starting ...")
 	defer runtime.HandleCrash()
 	defer logger.Info("stopped")
 	var wg sync.WaitGroup
 	func() {
-		ctx, cancel := context.WithCancel(context.TODO())
+		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer queue.ShutDown()
-		if !cache.WaitForNamedCacheSync(controllerName, stopCh, cacheSyncs...) {
+		if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), cacheSyncs...) {
 			return
 		}
 		for i := 0; i < n; i++ {
@@ -36,7 +36,7 @@ func Run(controllerName string, logger logr.Logger, queue workqueue.RateLimiting
 				wait.Until(func() { worker(logger, queue, maxRetries, r) }, time.Second, ctx.Done())
 			}(logger.WithValues("id", i))
 		}
-		<-stopCh
+		<-ctx.Done()
 	}()
 	logger.Info("waiting for workers to terminate ...")
 	wg.Wait()

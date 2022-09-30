@@ -1,6 +1,8 @@
 package policycache
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
@@ -78,8 +80,8 @@ func (c *controller) WarmUp() error {
 	return nil
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
+func (c *controller) Run(ctx context.Context) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, c.cpolSynced, c.polSynced)
 }
 
 func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {

@@ -62,7 +62,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
+func (c *controller) Run(ctx context.Context) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -72,7 +72,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {

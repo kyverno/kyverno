@@ -85,7 +85,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
+func (c *controller) Run(ctx context.Context) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -100,7 +100,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) addPolicy(obj interface{}) {
