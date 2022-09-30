@@ -85,7 +85,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
+func (c *controller) Run(ctx context.Context) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -100,7 +100,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) addPolicy(obj interface{}) {
@@ -184,7 +184,7 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
+func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
 	// load all policies
@@ -207,7 +207,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 	//	if the resource changed, we need to rebuild the report
 	if !reportutils.CompareHash(meta, resource.Hash) {
 		scanner := utils.NewScanner(logger, c.client)
-		before, err := c.getReport(meta.GetNamespace(), meta.GetName())
+		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return nil
 		}
@@ -240,7 +240,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 		if reflect.DeepEqual(before, report) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
+		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
 		return err
 	} else {
 		expected := map[string]kyvernov1.PolicyInterface{}
@@ -275,7 +275,7 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 		if len(toDelete) == 0 && len(toCreate) == 0 {
 			return nil
 		}
-		before, err := c.getReport(meta.GetNamespace(), meta.GetName())
+		before, err := c.getReport(ctx, meta.GetNamespace(), meta.GetName())
 		if err != nil {
 			return err
 		}
@@ -319,16 +319,16 @@ func (c *controller) updateReport(meta metav1.Object, gvk schema.GroupVersionKin
 		if reflect.DeepEqual(before, report) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
+		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
 		return err
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(context.TODO(), name, metav1.GetOptions{})
+		return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
@@ -348,7 +348,7 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
@@ -360,10 +360,10 @@ func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if there's no report yet, try to create an empty one
-			_, err = reportutils.CreateReport(c.kyvernoClient, reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid))
+			_, err = reportutils.CreateReport(ctx, reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid), c.kyvernoClient)
 			return err
 		}
 		return err
 	}
-	return c.updateReport(report, gvk, resource)
+	return c.updateReport(ctx, report, gvk, resource)
 }
