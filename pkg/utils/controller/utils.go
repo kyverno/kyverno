@@ -133,7 +133,8 @@ type DeepCopy[T any] interface {
 func Update[T interface {
 	metav1.Object
 	DeepCopy[T]
-}, S UpdateClient[T]](obj T, setter S, build func(T) error) (T, error) {
+}, S UpdateClient[T]](obj T, setter S, build func(T) error,
+) (T, error) {
 	mutated := obj.DeepCopy()
 	if err := build(mutated); err != nil {
 		var d T
