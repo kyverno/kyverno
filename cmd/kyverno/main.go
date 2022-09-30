@@ -157,7 +157,6 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	cleanUp := make(chan struct{})
 	debug := serverIP != ""
 
 	// clients
@@ -432,7 +431,6 @@ func main() {
 		configuration,
 		webhookCfg,
 		webhookMonitor,
-		cleanUp,
 	)
 
 	// wrap all controllers that need leaderelection
@@ -538,7 +536,7 @@ func main() {
 
 	// resource cleanup
 	// remove webhook configurations
-	<-cleanUp
+	<-server.Cleanup()
 	logger.V(2).Info("Kyverno shutdown successful")
 }
 
