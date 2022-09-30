@@ -240,7 +240,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		if reflect.DeepEqual(before, report) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
+		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
 		return err
 	} else {
 		expected := map[string]kyvernov1.PolicyInterface{}
@@ -319,7 +319,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		if reflect.DeepEqual(before, report) {
 			return nil
 		}
-		_, err = reportutils.UpdateReport(report, c.kyvernoClient)
+		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
 		return err
 	}
 }
@@ -360,7 +360,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// if there's no report yet, try to create an empty one
-			_, err = reportutils.CreateReport(c.kyvernoClient, reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid))
+			_, err = reportutils.CreateReport(ctx, reportutils.NewBackgroundScanReport(namespace, name, gvk, resource.Name, uid), c.kyvernoClient)
 			return err
 		}
 		return err

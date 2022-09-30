@@ -129,26 +129,26 @@ func (c *controller) listBackgroundScanReports(ctx context.Context, namespace st
 	return reports, nil
 }
 
-func (c *controller) reconcileReport(report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) reconcileReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
 	if report == nil {
-		return reportutils.CreateReport(c.client, reportutils.NewPolicyReport(namespace, name, results...))
+		return reportutils.CreateReport(ctx, reportutils.NewPolicyReport(namespace, name, results...), c.client)
 	}
 	after := reportutils.DeepCopy(report)
 	reportutils.SetResults(after, results...)
 	if reflect.DeepEqual(report, after) {
 		return after, nil
 	}
-	return reportutils.UpdateReport(after, c.client)
+	return reportutils.UpdateReport(ctx, after, c.client)
 }
 
-func (c *controller) cleanReports(actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
+func (c *controller) cleanReports(ctx context.Context, actual map[string]kyvernov1alpha2.ReportInterface, expected []kyvernov1alpha2.ReportInterface) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}
 	for _, obj := range actual {
 		if !keep.Has(obj.GetName()) {
-			err := reportutils.DeleteReport(obj, c.client)
+			err := reportutils.DeleteReport(ctx, obj, c.client)
 			if err != nil {
 				return err
 			}
@@ -255,12 +255,12 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			if i > 0 {
 				name = fmt.Sprintf("%s-%d", name, i/chunkSize)
 			}
-			report, err := c.reconcileReport(actual[name], key, name, results[i:end]...)
+			report, err := c.reconcileReport(ctx, actual[name], key, name, results[i:end]...)
 			if err != nil {
 				return err
 			}
 			expected = append(expected, report)
 		}
 	}
-	return c.cleanReports(actual, expected)
+	return c.cleanReports(ctx, actual, expected)
 }

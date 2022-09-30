@@ -151,7 +151,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 			return err
 		}
 		controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-		_, err = reportutils.UpdateReport(report, c.client)
+		_, err = reportutils.UpdateReport(ctx, report, c.client)
 		return err
 	}
 	// cleanup old reports
