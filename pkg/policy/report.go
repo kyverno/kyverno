@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -21,7 +22,7 @@ func (pc *PolicyController) report(engineResponses []*response.EngineResponse, l
 }
 
 // forceReconciliation forces a background scan by adding all policies to the workqueue
-func (pc *PolicyController) forceReconciliation(stopCh <-chan struct{}) {
+func (pc *PolicyController) forceReconciliation(ctx context.Context) {
 	logger := pc.log.WithName("forceReconciliation")
 	ticker := time.NewTicker(pc.reconcilePeriod)
 
@@ -31,7 +32,7 @@ func (pc *PolicyController) forceReconciliation(stopCh <-chan struct{}) {
 			logger.Info("performing the background scan", "scan interval", pc.reconcilePeriod.String())
 			pc.requeuePolicies()
 
-		case <-stopCh:
+		case <-ctx.Done():
 			return
 		}
 	}
