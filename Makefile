@@ -434,11 +434,11 @@ codegen-helm-docs: ## Generate helm docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
-	@echo Create release folder... >&2
+	@echo Create temp folder for kustomization... >&2
 	@mkdir -p config/.helm
 	@echo Create kustomization... >&2
 	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
+	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
 	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 
