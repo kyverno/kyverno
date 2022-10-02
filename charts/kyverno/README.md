@@ -75,7 +75,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
-| initContainer.extraArgs | string | `nil` | Extra arguments to give to the kyvernopre binary. |
+| initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
 | testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
@@ -97,7 +97,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
-| extraArgs | list | `["--autogenInternals=true"]` | Extra arguments to give to the binary. |
+| extraArgs | list | `["--autogenInternals=true","--loggingFormat=text"]` | Extra arguments to give to the binary. |
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
