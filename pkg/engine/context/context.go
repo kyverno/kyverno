@@ -8,14 +8,14 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var logger = log.Log.WithName("context")
+var logger = logging.WithName("context")
 
 // EvalInterface is used to query and inspect context data
 type EvalInterface interface {
@@ -262,7 +262,7 @@ func (ctx *context) AddImageInfos(resource *unstructured.Unstructured) error {
 	}
 	ctx.images = images
 
-	log.Log.V(4).Info("updated image info", "images", images)
+	logging.V(4).Info("updated image info", "images", images)
 	return addToContext(ctx, images, "images")
 }
 
