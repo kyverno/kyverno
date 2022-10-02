@@ -434,8 +434,13 @@ codegen-helm-docs: ## Generate helm docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
+	@echo Create release folder... >&2
+	@mkdir -p config/.helm
+	@echo Create kustomization... >&2
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
@@ -454,12 +459,12 @@ codegen-install: $(KUSTOMIZE) ## Create install maifests
 .PHONY: codegen-release
 codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
 	@echo Create release folder... >&2
-	@mkdir -p config/release
+	@mkdir -p config/.release
 	@echo Create kustomization... >&2
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/release/labels.yaml
-	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/release/kustomization.yaml
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.release/labels.yaml
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.release/kustomization.yaml
 	@echo Generate release manifests... >&2
-	@$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
+	@$(KUSTOMIZE) build ./config/.release > ./config/.release/install.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client

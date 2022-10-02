@@ -107,7 +107,7 @@ jobs:
         uses: svenstaro/upload-release-action@133984371c30d34e38222a64855679a414cb7575 # pin@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: config/release/install.yaml
+          file: config/.release/install.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
 
