@@ -124,8 +124,7 @@ func parseFlags() error {
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	if err := flag.Set("v", "2"); err != nil {
-		fmt.Printf("failed to set log level: %s", err.Error())
-		os.Exit(1)
+		return err
 	}
 	flag.Parse()
 	return nil
