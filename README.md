@@ -2,6 +2,7 @@
 
 **Kubernetes Native Policy Management 🎉**
 
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno/badge)](https://api.securityscorecards.dev/projects/github.com/kyverno/kyverno)
 ![build](https://github.com/kyverno/kyverno/workflows/build/badge.svg)
 ![prereleaser](https://github.com/kyverno/kyverno/workflows/prereleaser/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kyverno/kyverno)](https://goreportcard.com/report/github.com/kyverno/kyverno)
