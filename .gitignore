@@ -12,3 +12,4 @@ kubectl-kyverno
 .DS_Store
 .tools
 .gopath
+.dist
