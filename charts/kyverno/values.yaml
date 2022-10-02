@@ -47,6 +47,7 @@ initImage:
 initContainer:
   # -- Extra arguments to give to the kyvernopre binary.
   extraArgs:
+    - --loggingFormat=text
 
 
 testImage:
@@ -147,6 +148,7 @@ envVars: {}
 # -- Extra arguments to give to the binary.
 extraArgs:
   - --autogenInternals=true
+  - --loggingFormat=text
 
 # -- Array of extra init containers
 extraInitContainers: []
