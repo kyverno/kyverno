@@ -1,7 +1,7 @@
 package background
 
-import "sigs.k8s.io/controller-runtime/pkg/log"
+import "github.com/kyverno/kyverno/pkg/logging"
 
 const controllerName = "background-scan-controller"
 
-var logger = log.Log.WithName(controllerName)
+var logger = logging.WithName(controllerName)

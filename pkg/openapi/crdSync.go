@@ -10,6 +10,7 @@ import (
 	"github.com/google/gnostic/compiler"
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -19,7 +20,6 @@ import (
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type crdSync struct {
@@ -72,17 +72,17 @@ func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
 
 func (c *crdSync) Run(ctx context.Context, workers int) {
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		log.Log.Error(err, "failed to update in-cluster api versions")
+		logging.Error(err, "failed to update in-cluster api versions")
 	}
 
 	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get OpenAPI schema")
+		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.controller.useOpenAPIDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenAPI document")
+		logging.Error(err, "Could not set custom OpenAPI document")
 	}
 	// Sync CRD before kyverno starts
 	c.sync()
@@ -101,7 +101,7 @@ func (c *crdSync) sync() {
 
 	c.client.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, "CustomResourceDefinition", "")
 	if err != nil {
-		log.Log.Error(err, "could not fetch crd's from server")
+		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
 
@@ -112,17 +112,17 @@ func (c *crdSync) sync() {
 	}
 
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
+		logging.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
 	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get OpenAPI schema")
+		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.controller.useOpenAPIDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenAPI document")
+		logging.Error(err, "Could not set custom OpenAPI document")
 	}
 }
 
@@ -173,19 +173,19 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	if openV3schema == nil {
-		log.Log.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
+		logging.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
 		return
 	}
 
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		log.Log.V(4).Info("failed to parse crd schema", "name", crdName)
+		logging.V(4).Info("failed to parse crd schema", "name", crdName)
 		return
 	}
 
 	schemaRaw, err = addingDefaultFieldsToSchema(crdName, schemaRaw)
 	if err != nil {
-		log.Log.Error(err, "failed to parse crd schema", "name", crdName)
+		logging.Error(err, "failed to parse crd schema", "name", crdName)
 		return
 	}
 
@@ -196,7 +196,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
 		if !v3valueFound {
-			log.Log.Error(err, "failed to parse crd schema", "name", crdName)
+			logging.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return
 	}
@@ -226,7 +226,7 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 	_ = json.Unmarshal(schemaRaw, &schema)
 
 	if len(schema.Properties) < 1 {
-		log.Log.V(6).Info("crd schema has no properties", "name", crdName)
+		logging.V(6).Info("crd schema has no properties", "name", crdName)
 		return schemaRaw, nil
 	}
 
@@ -256,7 +256,7 @@ func (c *crdSync) CheckSync(ctx context.Context) {
 		Resource: "customresourcedefinitions",
 	}).List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Log.Error(err, "could not fetch crd's from server")
+		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
 	if len(c.controller.crdList) != len(crds.Items) {

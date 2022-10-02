@@ -7,11 +7,11 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -153,7 +153,7 @@ var pod = `{
 
 func Test_AdmissionResponseValid(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_AdmissionResponseValid")
+	logger := log.WithName("Test_AdmissionResponseValid")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -196,7 +196,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 
 func Test_AdmissionResponseInvalid(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_AdmissionResponseInvalid")
+	logger := log.WithName("Test_AdmissionResponseInvalid")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -235,7 +235,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 
 func Test_ImageVerify(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_ImageVerify")
+	logger := log.WithName("Test_ImageVerify")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
