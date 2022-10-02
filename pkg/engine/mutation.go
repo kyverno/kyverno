@@ -12,8 +12,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Mutate performs mutation. Overlay first and then mutation patches
@@ -27,7 +27,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	ctx := policyContext.JSONContext
 	var skippedRules []string
 
-	logger := log.Log.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
+	logger := logging.WithName("EngineMutate").WithValues("policy", policy.GetName(), "kind", matchedResource.GetKind(),
 		"namespace", matchedResource.GetNamespace(), "name", matchedResource.GetName())
 
 	logger.V(4).Info("start mutate policy processing", "startTime", startTime)
@@ -100,7 +100,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 			if !policyContext.AdmissionOperation && rule.IsMutateExisting() {
 				policyContext := policyContext.Copy()
 				if err := policyContext.JSONContext.AddTargetResource(patchedResource.Object); err != nil {
-					log.Log.Error(err, "failed to add target resource to the context")
+					logging.Error(err, "failed to add target resource to the context")
 					continue
 				}
 			}
