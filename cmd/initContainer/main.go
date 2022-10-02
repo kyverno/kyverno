@@ -59,7 +59,7 @@ func parseFlags() error {
 }
 
 func main() {
-	//parse flags
+	// parse flags
 	if err := parseFlags(); err != nil {
 		fmt.Println("failed to parse flags", err)
 		os.Exit(1)
