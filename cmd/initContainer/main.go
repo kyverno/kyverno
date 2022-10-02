@@ -82,7 +82,7 @@ func main() {
 
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := dclient.NewClient(clientConfig, kubeClient, nil, 15*time.Minute, stopCh)
+	client, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, nil, 15*time.Minute)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
@@ -102,7 +102,6 @@ func main() {
 	requests := []request{
 		{policyReportKind},
 		{clusterPolicyReportKind},
-
 		{convertGenerateRequest},
 	}
 
@@ -139,7 +138,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		// use pipline to pass request to cleanup resources
+		// use pipeline to pass request to cleanup resources
 		in := gen(done, stopCh, requests...)
 		// process requests
 		// processing routine count : 2

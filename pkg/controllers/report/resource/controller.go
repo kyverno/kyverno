@@ -84,8 +84,8 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+func (c *controller) Run(ctx context.Context) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
@@ -110,7 +110,7 @@ func (c *controller) AddEventHandler(eventHandler EventHandler) {
 	}
 }
 
-func (c *controller) updateDynamicWatchers() error {
+func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	clusterPolicies, err := c.fetchClusterPolicies(logger)
@@ -139,37 +139,46 @@ func (c *controller) updateDynamicWatchers() error {
 			delete(c.dynamicWatchers, gvr)
 		} else {
 			logger.Info("start watcher ...", "gvr", gvr)
-			watchInterface, _ := c.client.GetDynamicInterface().Resource(gvr).Watch(context.TODO(), metav1.ListOptions{})
-			w := &watcher{
-				watcher: watchInterface,
-				gvk:     gvr.GroupVersion().WithKind(kind),
-				hashes:  map[types.UID]Resource{},
-			}
-			go func() {
-				gvr := gvr
-				defer logger.Info("watcher stopped")
-				for event := range watchInterface.ResultChan() {
-					switch event.Type {
-					case watch.Added:
-						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Modified:
-						c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
-					case watch.Deleted:
-						c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+			watchInterface, err := c.client.GetDynamicInterface().Resource(gvr).Watch(ctx, metav1.ListOptions{})
+			if err != nil {
+				logger.Error(err, "failed to create watcher", "gvr", gvr)
+			} else {
+				w := &watcher{
+					watcher: watchInterface,
+					gvk:     gvr.GroupVersion().WithKind(kind),
+					hashes:  map[types.UID]Resource{},
+				}
+				go func() {
+					gvr := gvr
+					defer logger.Info("watcher stopped")
+					for event := range watchInterface.ResultChan() {
+						switch event.Type {
+						case watch.Added:
+							c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+						case watch.Modified:
+							c.updateHash(event.Object.(*unstructured.Unstructured), gvr)
+						case watch.Deleted:
+							c.deleteHash(event.Object.(*unstructured.Unstructured), gvr)
+						}
 					}
+				}()
+				objs, err := c.client.GetDynamicInterface().Resource(gvr).List(ctx, metav1.ListOptions{})
+				if err != nil {
+					logger.Error(err, "failed to list resources", "gvr", gvr)
+					watchInterface.Stop()
+				} else {
+					for _, obj := range objs.Items {
+						uid := obj.GetUID()
+						hash := reportutils.CalculateResourceHash(obj)
+						w.hashes[uid] = Resource{
+							Hash:      hash,
+							Namespace: obj.GetNamespace(),
+							Name:      obj.GetName(),
+						}
+						c.notify(uid, w.gvk, w.hashes[uid])
+					}
+					dynamicWatchers[gvr] = w
 				}
-			}()
-			dynamicWatchers[gvr] = w
-			objs, _ := c.client.GetDynamicInterface().Resource(gvr).List(context.TODO(), metav1.ListOptions{})
-			for _, obj := range objs.Items {
-				uid := obj.GetUID()
-				hash := reportutils.CalculateResourceHash(obj)
-				w.hashes[uid] = Resource{
-					Hash:      hash,
-					Namespace: obj.GetNamespace(),
-					Name:      obj.GetName(),
-				}
-				c.notify(uid, w.gvk, w.hashes[uid])
 			}
 		}
 	}
@@ -242,6 +251,6 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
-	return c.updateDynamicWatchers()
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	return c.updateDynamicWatchers(ctx)
 }

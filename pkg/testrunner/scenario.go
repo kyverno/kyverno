@@ -3,7 +3,6 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	ospath "path"
 	"path/filepath"
@@ -119,7 +118,7 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 	}
 	path = filepath.Clean(path)
 	// We accept the risk of including a user provided file here.
-	return ioutil.ReadFile(path) // #nosec G304
+	return os.ReadFile(path) // #nosec G304
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {

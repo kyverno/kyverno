@@ -70,7 +70,7 @@ func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
 	}
 }
 
-func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
+func (c *crdSync) Run(ctx context.Context, workers int) {
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
 		log.Log.Error(err, "failed to update in-cluster api versions")
 	}
@@ -87,7 +87,7 @@ func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
 	// Sync CRD before kyverno starts
 	c.sync()
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.CheckSync, 15*time.Second, stopCh)
+		go wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
 	}
 }
 
@@ -249,12 +249,12 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 	return schemaWithDefaultFields, nil
 }
 
-func (c *crdSync) CheckSync() {
+func (c *crdSync) CheckSync(ctx context.Context) {
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
-	}).List(context.TODO(), metav1.ListOptions{})
+	}).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		log.Log.Error(err, "could not fetch crd's from server")
 		return

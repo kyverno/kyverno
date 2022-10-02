@@ -6,8 +6,72 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 )
+
+type CreateClient[T metav1.Object] interface {
+	Create(context.Context, T, metav1.CreateOptions) (T, error)
+}
+
+type UpdateClient[T metav1.Object] interface {
+	Update(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type DeleteClient[T metav1.Object] interface {
+	Delete(context.Context, string, metav1.DeleteOptions) error
+}
+
+type DeleteCollectionClient[T metav1.Object] interface {
+	DeleteCollection(context.Context, metav1.DeleteOptions, metav1.ListOptions) error
+}
+
+type GetClient[T metav1.Object] interface {
+	Get(context.Context, string, metav1.GetOptions) (T, error)
+}
+
+type WatchClient[T metav1.Object] interface {
+	Watch(context.Context, metav1.ListOptions) (watch.Interface, error)
+}
+
+type PatchClient[T metav1.Object] interface {
+	Patch(context.Context, string, types.PatchType, []byte, metav1.PatchOptions, ...string) (T, error)
+}
+
+type ObjectClient[T metav1.Object] interface {
+	CreateClient[T]
+	UpdateClient[T]
+	DeleteClient[T]
+	DeleteCollectionClient[T]
+	GetClient[T]
+	WatchClient[T]
+	PatchClient[T]
+}
+
+type ListClient[T any] interface {
+	List(context.Context, metav1.ListOptions) (T, error)
+}
+
+type StatusClient[T metav1.Object] interface {
+	UpdateStatus(context.Context, T, metav1.UpdateOptions) (T, error)
+}
+
+type ObjectListClient[T metav1.Object, L any] interface {
+	ObjectClient[T]
+	ListClient[L]
+}
+
+type ObjectStatusClient[T metav1.Object] interface {
+	ObjectClient[T]
+	StatusClient[T]
+}
+
+type ObjectListStatusClient[T metav1.Object, L any] interface {
+	ObjectClient[T]
+	ListClient[L]
+	StatusClient[T]
+}
 
 type Object[T any] interface {
 	*T
@@ -41,7 +105,7 @@ func GetOrNew[T any, R Object[T], G Getter[R]](name string, getter G) (R, error)
 	return obj, nil
 }
 
-func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, getter G, setter S, build func(R) error) (R, error) {
+func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](ctx context.Context, name string, getter G, setter S, build func(R) error) (R, error) {
 	if obj, err := GetOrNew[T, R](name, getter); err != nil {
 		return nil, err
 	} else {
@@ -50,19 +114,19 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, g
 			return nil, err
 		} else {
 			if obj.GetResourceVersion() == "" {
-				return setter.Create(context.TODO(), mutated, metav1.CreateOptions{})
+				return setter.Create(ctx, mutated, metav1.CreateOptions{})
 			} else {
 				if reflect.DeepEqual(obj, mutated) {
 					return mutated, nil
 				} else {
-					return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+					return setter.Update(ctx, mutated, metav1.UpdateOptions{})
 				}
 			}
 		}
 	}
 }
 
-func Update[T any, R Object[T], S Setter[R]](setter S, obj R, build func(R) error) (R, error) {
+func Update[T any, R Object[T], S Setter[R]](ctx context.Context, setter S, obj R, build func(R) error) (R, error) {
 	mutated := obj.DeepCopy()
 	if err := build(mutated); err != nil {
 		return nil, err
@@ -70,19 +134,19 @@ func Update[T any, R Object[T], S Setter[R]](setter S, obj R, build func(R) erro
 		if reflect.DeepEqual(obj, mutated) {
 			return mutated, nil
 		} else {
-			return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+			return setter.Update(ctx, mutated, metav1.UpdateOptions{})
 		}
 	}
 }
 
-func Cleanup[T any, R Object[T]](actual []R, expected []R, deleter Deleter) error {
+func Cleanup[T any, R Object[T]](ctx context.Context, actual []R, expected []R, deleter Deleter) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}
 	for _, obj := range actual {
 		if !keep.Has(obj.GetName()) {
-			if err := deleter.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := deleter.Delete(ctx, obj.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
