@@ -26,6 +26,8 @@ type Server interface {
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
 	Stop(context.Context)
+	// Cleanup returns the chanel used to wait for the server to clean up resources
+	Cleanup() <-chan struct{}
 }
 
 type PolicyHandlers interface {
@@ -45,7 +47,7 @@ type ResourceHandlers interface {
 type server struct {
 	server          *http.Server
 	webhookRegister *webhookconfig.Register
-	cleanUp         chan<- struct{}
+	cleanUp         chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -58,7 +60,6 @@ func NewServer(
 	configuration config.Configuration,
 	register *webhookconfig.Register,
 	monitor *webhookconfig.Monitor,
-	cleanUp chan<- struct{},
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -94,7 +95,7 @@ func NewServer(
 			ReadHeaderTimeout: 30 * time.Second,
 		},
 		webhookRegister: register,
-		cleanUp:         cleanUp,
+		cleanUp:         make(chan struct{}),
 	}
 }
 
@@ -118,6 +119,10 @@ func (s *server) Stop(ctx context.Context) {
 			logger.Error(err, "server shut down failed")
 		}
 	}
+}
+
+func (s *server) Cleanup() <-chan struct{} {
+	return s.cleanUp
 }
 
 func (s *server) cleanup(ctx context.Context) {
