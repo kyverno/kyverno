@@ -44,6 +44,11 @@ initImage:
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
 
+initContainer:
+  # -- Extra arguments to give to the kyvernopre binary.
+  extraArgs:
+
+
 testImage:
   # -- Image repository
   # Defaults to `busybox` if omitted
