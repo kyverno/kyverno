@@ -193,19 +193,6 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	// clients
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		logger.Error(err, "Failed to build kubeconfig")
-		os.Exit(1)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
 	// Metrics Configuration
 	var metricsConfig *metrics.MetricsConfig
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
