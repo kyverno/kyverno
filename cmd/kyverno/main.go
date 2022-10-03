@@ -21,6 +21,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -135,6 +136,16 @@ func showStartup(logger logr.Logger) {
 	if splitPolicyReport {
 		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
 	}
+}
+
+func createOpenApiController(client dclient.Interface) (*openapi.Controller, controllers.Controller, error) {
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		return nil, nil, err
+	}
+	// Sync openAPI definitions of resources
+	openAPISync := openapi.NewCRDSync(client, openAPIController)
+	return openAPIController, openAPISync, nil
 }
 
 func main() {
@@ -404,7 +415,12 @@ func main() {
 	}
 
 	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(signalCtx, logger, dynamicClient)
+	openAPIController, ctrl, err := createOpenApiController(dynamicClient)
+	if err != nil {
+		logger.Error(err, "failed to initialize open api controller")
+		os.Exit(1)
+	}
+	nonLeaderControllers = append(nonLeaderControllers, newController(ctrl, 1))
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -544,21 +560,6 @@ func main() {
 	// remove webhook configurations
 	<-server.Cleanup()
 	logger.V(2).Info("Kyverno shutdown successful")
-}
-
-func startOpenAPIController(ctx context.Context, logger logr.Logger, client dclient.Interface) *openapi.Controller {
-	logger = logger.WithName("open-api")
-	openAPIController, err := openapi.NewOpenAPIController()
-	if err != nil {
-		logger.Error(err, "Failed to create openAPIController")
-		os.Exit(1)
-	}
-	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
-	// start openAPI controller, this is used in admission review
-	// thus is required in each instance
-	openAPISync.Run(ctx, 1)
-	return openAPIController
 }
 
 func setupReportControllers(
