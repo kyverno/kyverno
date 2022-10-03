@@ -130,6 +130,42 @@ func parseFlags() error {
 	return nil
 }
 
+func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, error) {
+	logger = logger.WithName("metrics")
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		return nil, err
+	}
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		logging.WithName("Metrics"),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if otel == "grpc" {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer metrics.ShutDownController(ctx, metricsPusher)
+		defer cancel()
+	}
+	if otel == "prometheus" {
+		go func() {
+			logger.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
+			}
+		}()
+	}
+	return metricsConfig, nil
+}
+
 func showStartup(logger logr.Logger) {
 	logger = logger.WithName("startup")
 	logger.Info("kyverno is staring...")
@@ -172,41 +208,6 @@ func main() {
 		logger.Error(err, "Failed to create kubernetes client")
 		os.Exit(1)
 	}
-
-	// Metrics Configuration
-	var metricsConfig *metrics.MetricsConfig
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		logger.Error(err, "failed to fetch metrics config")
-		os.Exit(1)
-	}
-
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		logging.WithName("Metrics"),
-	)
-	if err != nil {
-		logger.Error(err, "failed to initialize metrics")
-		os.Exit(1)
-	}
-
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create client")
-		os.Exit(1)
-	}
-	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
-	if err != nil {
-		logger.Error(err, "Failed to create dynamic client")
-		os.Exit(1)
-	}
 	metadataClient, err := metadataclient.NewForConfig(clientConfig)
 	if err != nil {
 		logger.Error(err, "Failed to create metadata client")
@@ -216,6 +217,23 @@ func main() {
 	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
 		logger.Error(err, "Failed to create kubernetes leader client")
+		os.Exit(1)
+	}
+	// setup metrics
+	metricsConfig, err := setupMetrics(logger, kubeClient)
+	if err != nil {
+		logger.Error(err, "failed to setup metrics")
+		os.Exit(1)
+	}
+	// instrumented clients
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		logger.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	if err != nil {
+		logger.Error(err, "Failed to create dynamic client")
 		os.Exit(1)
 	}
 	// sanity checks
@@ -246,21 +264,6 @@ func main() {
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 
 	var registryOptions []registryclient.Option
-
-	if otel == "grpc" {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(ctx, metricsPusher)
-		defer cancel()
-	}
-
-	if otel == "prometheus" {
-		go func() {
-			logger.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
