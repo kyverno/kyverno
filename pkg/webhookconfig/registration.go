@@ -71,6 +71,7 @@ type Register struct {
 
 // NewRegister creates new Register instance
 func NewRegister(
+	ctx context.Context,
 	clientConfig *rest.Config,
 	client dclient.Interface,
 	kubeClient kubernetes.Interface,
@@ -85,7 +86,6 @@ func NewRegister(
 	webhookTimeout int32,
 	debug bool,
 	autoUpdateWebhooks bool,
-	stopCh <-chan struct{},
 	log logr.Logger,
 ) *Register {
 	register := &Register{
@@ -98,7 +98,7 @@ func NewRegister(
 		metricsConfig:        metricsConfig,
 		UpdateWebhookChan:    make(chan bool),
 		createDefaultWebhook: make(chan string),
-		stopCh:               stopCh,
+		stopCh:               ctx.Done(),
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
@@ -106,7 +106,21 @@ func NewRegister(
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 	}
 
-	register.manage = newWebhookConfigManager(client.Discovery(), kubeClient, kyvernoClient, pInformer, npInformer, mwcInformer, vwcInformer, metricsConfig, serverIP, register.autoUpdateWebhooks, register.createDefaultWebhook, stopCh, log.WithName("WebhookConfigManager"))
+	register.manage = newWebhookConfigManager(
+		ctx,
+		client.Discovery(),
+		kubeClient,
+		kyvernoClient,
+		pInformer,
+		npInformer,
+		mwcInformer,
+		vwcInformer,
+		metricsConfig,
+		serverIP,
+		register.autoUpdateWebhooks,
+		register.createDefaultWebhook,
+		log.WithName("WebhookConfigManager"),
+	)
 
 	return register
 }
