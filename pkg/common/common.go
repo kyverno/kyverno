@@ -11,11 +11,11 @@ import (
 	kyvernov1beta1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Policy Reporting Types
@@ -30,7 +30,7 @@ func GetNamespaceSelectorsFromNamespaceLister(kind, namespaceOfResource string, 
 	if kind != "Namespace" && namespaceOfResource != "" {
 		namespaceObj, err := nsLister.Get(namespaceOfResource)
 		if err != nil {
-			log.Log.Error(err, "failed to get the namespace", "name", namespaceOfResource)
+			logging.Error(err, "failed to get the namespace", "name", namespaceOfResource)
 			return namespaceLabels
 		}
 		return GetNamespaceLabels(namespaceObj, logger)

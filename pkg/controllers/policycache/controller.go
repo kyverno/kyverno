@@ -1,10 +1,13 @@
 package policycache
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,9 +18,15 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 3
 	maxRetries = 10
-	workers    = 3
 )
+
+type Controller interface {
+	controllers.Controller
+	WarmUp() error
+}
 
 type controller struct {
 	cache pcache.Cache
@@ -35,7 +44,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) *controller {
+func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) Controller {
 	c := controller{
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
@@ -78,11 +87,11 @@ func (c *controller) WarmUp() error {
 	return nil
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh, c.cpolSynced, c.polSynced)
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, c.cpolSynced, c.polSynced)
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	policy, err := c.loadPolicy(namespace, name)
 	if err != nil {
 		if errors.IsNotFound(err) {

@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -105,7 +105,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 
 		// apply file from a directory is possible only if the path is not HTTP URL
 		if !isHTTPPath && fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
+			files, err := os.ReadDir(path)
 			if err != nil {
 				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 				errors = append(errors, err)
@@ -147,7 +147,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 					continue
 				}
 
-				fileBytes, err = ioutil.ReadAll(resp.Body)
+				fileBytes, err = io.ReadAll(resp.Body)
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -156,7 +156,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 			} else {
 				path = filepath.Clean(path)
 				// We accept the risk of including a user provided file here.
-				fileBytes, err = ioutil.ReadFile(path) // #nosec G304
+				fileBytes, err = os.ReadFile(path) // #nosec G304
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -267,13 +267,13 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			if err != nil {
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
-			yamlFile, err = ioutil.ReadAll(filep)
+			yamlFile, err = io.ReadAll(filep)
 			if err != nil {
 				fmt.Printf("Unable to read variable files: %s. error: %s \n", filep, err)
 			}
 		} else {
 			// We accept the risk of including a user provided file here.
-			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
+			yamlFile, err = os.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
 			if err != nil {
 				fmt.Printf("\n Unable to open variable file: %s. error: %s \n", valuesFile, err)
 			}
@@ -621,7 +621,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
 				continue
 			}
-			bytes, err := ioutil.ReadAll(filep)
+			bytes, err := io.ReadAll(filep)
 			if err != nil {
 				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
 				continue
@@ -703,7 +703,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 					return nil, err
 				}
 				if fileDesc.IsDir() {
-					files, err := ioutil.ReadDir(resourcePaths[0])
+					files, err := os.ReadDir(resourcePaths[0])
 					if err != nil {
 						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
 					}
@@ -1013,7 +1013,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 			if fileErr != nil {
 				fmt.Printf("Unable to open %s file: %s. \nerror: %s", resourceType, path, err)
 			}
-			resourceBytes, err = ioutil.ReadAll(filep)
+			resourceBytes, err = io.ReadAll(filep)
 		}
 	} else {
 		resourceBytes, err = getFileBytes(path)
@@ -1117,7 +1117,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err != nil {
 			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)
 		}
-		bytes, err := ioutil.ReadAll(filep)
+		bytes, err := io.ReadAll(filep)
 		if err != nil {
 			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
 		}
@@ -1139,7 +1139,8 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	} else {
 		var errors []error
-		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
+		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
+		bytes, err := os.ReadFile(pathname)
 		if err != nil {
 			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 		}
