@@ -236,51 +236,6 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 	return time.Duration(wrc.timeoutSeconds)
 }
 
-func (wrc *Register) UpdateWebhooksCaBundle() error {
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			managedByLabel: kyvernov1.ValueKyvernoApp,
-		},
-	}
-	caData := wrc.readCaData()
-	m := wrc.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations()
-	v := wrc.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations()
-
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, kindMutating, "")
-	if list, err := m.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		return err
-	} else {
-		for _, item := range list.Items {
-			copy := item
-			for r := range copy.Webhooks {
-				copy.Webhooks[r].ClientConfig.CABundle = caData
-			}
-			if _, err := m.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
-				wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
-				return err
-			}
-		}
-	}
-
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, kindValidating, "")
-	if list, err := v.List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)}); err != nil {
-		return err
-	} else {
-		for _, item := range list.Items {
-			copy := item
-			for r := range copy.Webhooks {
-				copy.Webhooks[r].ClientConfig.CABundle = caData
-			}
-
-			wrc.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
-			if _, err := v.Update(context.TODO(), &copy, metav1.UpdateOptions{}); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
 // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
 //
