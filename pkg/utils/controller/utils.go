@@ -126,10 +126,19 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](ctx context.Co
 	}
 }
 
-func Update[T any, R Object[T], S Setter[R]](ctx context.Context, setter S, obj R, build func(R) error) (R, error) {
+type DeepCopy[T any] interface {
+	DeepCopy() T
+}
+
+func Update[T interface {
+	metav1.Object
+	DeepCopy[T]
+}, S UpdateClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
+) (T, error) {
 	mutated := obj.DeepCopy()
 	if err := build(mutated); err != nil {
-		return nil, err
+		var d T
+		return d, err
 	} else {
 		if reflect.DeepEqual(obj, mutated) {
 			return mutated, nil
