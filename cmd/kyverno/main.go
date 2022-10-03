@@ -291,8 +291,9 @@ func main() {
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
+	var nonLeaderControllers []controller
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, logging.WithName("EventGenerator"))
-
+	nonLeaderControllers = append(nonLeaderControllers, newController(eventGenerator, 3))
 	webhookCfg := webhookconfig.NewRegister(
 		signalCtx,
 		clientConfig,
@@ -323,7 +324,10 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
+	nonLeaderControllers = append(nonLeaderControllers, newController(
+		configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps()),
+		configcontroller.Workers,
+	))
 
 	// Tracing Configuration
 	if enableTracing {
@@ -361,21 +365,24 @@ func main() {
 	}
 
 	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
-
-	urc := background.NewController(
-		kyvernoClient,
-		dynamicClient,
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		kyvernoV1beta1.UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
-		eventGenerator,
-		configuration,
-	)
+	nonLeaderControllers = append(nonLeaderControllers, newController(
+		background.NewController(
+			kyvernoClient,
+			dynamicClient,
+			kyvernoV1.ClusterPolicies(),
+			kyvernoV1.Policies(),
+			kyvernoV1beta1.UpdateRequests(),
+			kubeInformer.Core().V1().Namespaces(),
+			kubeKyvernoInformer.Core().V1().Pods(),
+			eventGenerator,
+			configuration,
+		),
+		genWorkers,
+	))
 
 	policyCache := policycache.NewCache()
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
+	nonLeaderControllers = append(nonLeaderControllers, newController(policyCacheController, policycachecontroller.Workers))
 
 	certRenewer, err := tls.NewCertRenewer(
 		kubeClient,
@@ -480,7 +487,7 @@ func main() {
 		}
 
 		for _, controller := range reportControllers {
-			go controller.run(signalCtx)
+			go controller.start(signalCtx)
 		}
 	}
 
@@ -518,13 +525,13 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
-	go policyCacheController.Run(signalCtx, policycachecontroller.Workers)
-	go urc.Run(signalCtx, genWorkers)
-	go le.Run(signalCtx)
-	go configurationController.Run(signalCtx, configcontroller.Workers)
-	go eventGenerator.Run(signalCtx, 3)
+	for _, c := range nonLeaderControllers {
+		go c.start(signalCtx)
+	}
 
-  if !debug {
+	go le.Run(signalCtx)
+
+	if !debug {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
@@ -571,8 +578,8 @@ func setupReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 		)
-		ctrls = append(ctrls, controller{resourceReportController, resourcereportcontroller.Workers})
-		ctrls = append(ctrls, controller{
+		ctrls = append(ctrls, newController(resourceReportController, resourcereportcontroller.Workers))
+		ctrls = append(ctrls, newController(
 			aggregatereportcontroller.NewController(
 				kyvernoClient,
 				metadataFactory,
@@ -580,19 +587,19 @@ func setupReportControllers(
 				reportsChunkSize,
 			),
 			aggregatereportcontroller.Workers,
-		})
+		))
 		if admissionReports {
-			ctrls = append(ctrls, controller{
+			ctrls = append(ctrls, newController(
 				admissionreportcontroller.NewController(
 					kyvernoClient,
 					metadataFactory,
 					resourceReportController,
 				),
 				admissionreportcontroller.Workers,
-			})
+			))
 		}
 		if backgroundScan {
-			ctrls = append(ctrls, controller{
+			ctrls = append(ctrls, newController(
 				backgroundscancontroller.NewController(
 					client,
 					kyvernoClient,
@@ -603,7 +610,7 @@ func setupReportControllers(
 					resourceReportController,
 				),
 				backgroundscancontroller.Workers,
-			})
+			))
 		}
 	}
 	return ctrls
