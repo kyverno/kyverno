@@ -95,8 +95,12 @@ func (c *controller) ticker(ctx context.Context) {
 			list, err := c.secretLister.List(labels.Everything())
 			if err == nil {
 				for _, secret := range list {
-					c.secretEnqueue(secret)
+					if err := c.secretEnqueue(secret); err != nil {
+						logger.Error(err, "falied to enqueue secret", "name", secret.Name)
+					}
 				}
+			} else {
+				logger.Error(err, "falied to list secrets")
 			}
 		case <-ctx.Done():
 			return
