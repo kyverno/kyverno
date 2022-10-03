@@ -18,7 +18,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.0.0
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v1.2.3
-	github.com/go-logr/zapr v1.2.0
+	github.com/go-logr/zapr v1.2.3
 	github.com/google/go-containerregistry v0.11.0
 	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20220301182634-bfe2ffc6b6bd
 	github.com/googleapis/gnostic v0.5.5
@@ -31,7 +31,7 @@ require (
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
-	github.com/orcaman/concurrent-map v0.0.0-20190826125027-8c72a8bb44f6
+	github.com/orcaman/concurrent-map v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/sigstore/cosign v1.12.1
 	github.com/sigstore/k8s-manifest-sigstore v0.4.1-0.20220927074341-7a2d417b0f45
@@ -52,8 +52,8 @@ require (
 	go.uber.org/automaxprocs v1.5.1
 	go.uber.org/multierr v1.8.0
 	go.uber.org/zap v1.23.0
-	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90
-	golang.org/x/exp v0.0.0-20220927162542-c76eaa363f9d
+	golang.org/x/crypto v0.0.0-20220926161630-eccd6366d1be
+	golang.org/x/exp v0.0.0-20221002003631-540bb7301a08
 	golang.org/x/text v0.3.8-0.20211004125949-5bd84dd9b33b
 	google.golang.org/grpc v1.49.0
 	gopkg.in/inf.v0 v0.9.1
@@ -65,7 +65,7 @@ require (
 	k8s.io/apimachinery v0.23.5
 	k8s.io/cli-runtime v0.23.5
 	k8s.io/client-go v0.23.5
-	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89
+	k8s.io/klog/v2 v2.80.1
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf
 	k8s.io/pod-security-admission v0.23.0
 	sigs.k8s.io/controller-runtime v0.11.0
