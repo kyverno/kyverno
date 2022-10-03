@@ -96,7 +96,7 @@ func (c *controller) ticker(ctx context.Context) {
 			if err == nil {
 				for _, secret := range list {
 					if err := c.secretEnqueue(secret); err != nil {
-						logger.Error(err, "falied to enqueue secret", "name", secret.Name)
+						logger.Error(err, "failed to enqueue secret", "name", secret.Name)
 					}
 				}
 			} else {
