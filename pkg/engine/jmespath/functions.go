@@ -459,7 +459,7 @@ func GetFunctions() []*FunctionEntry {
 				Handler: jpX509Decode,
 			},
 			ReturnType: []JpType{JpObject},
-			Note:       "decodes an x.509 certificate to json. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
+			Note:       "decodes an x.509 certificate to an object. you may also use this in conjunction with `base64_decode` jmespath function to decode a base64-encoded certificate",
 		},
 	}
 }

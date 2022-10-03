@@ -52,7 +52,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
-	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -156,7 +155,6 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	stopCh := signalCtx.Done()
 	debug := serverIP != ""
 
 	// clients
@@ -296,6 +294,7 @@ func main() {
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, logging.WithName("EventGenerator"))
 
 	webhookCfg := webhookconfig.NewRegister(
+		signalCtx,
 		clientConfig,
 		dynamicClient,
 		kubeClient,
@@ -310,7 +309,6 @@ func main() {
 		int32(webhookTimeout),
 		debug,
 		autoUpdateWebhooks,
-		stopCh,
 		logging.GlobalLogger(),
 	)
 
@@ -442,10 +440,13 @@ func main() {
 			os.Exit(1)
 		}
 		// wait for cache to be synced before use it
-		cache.WaitForCacheSync(stopCh,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
-		)
+		if !waitForInformersCacheSync(signalCtx,
+			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
+			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
+		) {
+			// TODO: shall we just exit ?
+			logger.Info("failed to wait for cache sync")
+		}
 
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
@@ -461,7 +462,7 @@ func main() {
 		}
 		webhookCfg.UpdateWebhookChan <- true
 		go certManager.Run(signalCtx, certmanager.Workers)
-		go policyCtrl.Run(2, stopCh)
+		go policyCtrl.Run(signalCtx, 2)
 
 		reportControllers := setupReportControllers(
 			backgroundScan,
@@ -472,9 +473,11 @@ func main() {
 			kubeInformer,
 			kyvernoInformer,
 		)
-
-		metadataInformer.Start(stopCh)
-		metadataInformer.WaitForCacheSync(stopCh)
+		startInformers(signalCtx, metadataInformer)
+		if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
+			// TODO: shall we just exit ?
+			logger.Info("failed to wait for cache sync")
+		}
 
 		for _, controller := range reportControllers {
 			go controller.run(signalCtx)
@@ -499,10 +502,13 @@ func main() {
 	// cancel leader election context on shutdown signals
 	go func() {
 		defer signalCancel()
-		<-stopCh
+		<-signalCtx.Done()
 	}()
 
-	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
+	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+		logger.Error(err, "Failed to wait for cache sync")
+		os.Exit(1)
+	}
 
 	// warmup policy cache
 	if err := policyCacheController.WarmUp(); err != nil {
@@ -513,18 +519,19 @@ func main() {
 	// init events handlers
 	// start Kyverno controllers
 	go policyCacheController.Run(signalCtx, policycachecontroller.Workers)
-	go urc.Run(genWorkers, stopCh)
+	go urc.Run(signalCtx, genWorkers)
 	go le.Run(signalCtx)
 	go configurationController.Run(signalCtx, configcontroller.Workers)
-	go eventGenerator.Run(3, stopCh)
+	go eventGenerator.Run(signalCtx, 3)
+
 	if !debug {
-		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
+		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
 	// verifies if the admission control is enabled and active
-	server.Run(stopCh)
+	server.Run(signalCtx.Done())
 
-	<-stopCh
+	<-signalCtx.Done()
 
 	// resource cleanup
 	// remove webhook configurations
