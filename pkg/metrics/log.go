@@ -2,10 +2,10 @@ package metrics
 
 import (
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
-var logger = log.Log.WithName("metrics")
+var logger = logging.WithName("metrics")
 
 func Logger() logr.Logger {
 	return logger

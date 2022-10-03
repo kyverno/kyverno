@@ -1,12 +1,14 @@
 package certmanager
 
 import (
+	"context"
 	"os"
 	"reflect"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	corev1 "k8s.io/api/core/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -14,10 +16,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-type Controller interface {
-	// Run starts the certManager
-	Run(stopCh <-chan struct{})
+// Workers is the number of workers for this controller
+const Workers = 1
 
+type Controller interface {
+	controllers.Controller
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
 	GetTLSPemPair() ([]byte, []byte, error)
 }
@@ -26,24 +29,45 @@ type controller struct {
 	renewer      *tls.CertRenewer
 	secretLister corev1listers.SecretLister
 	// secretSynced returns true if the secret shared informer has synced at least once
-	secretSynced    cache.InformerSynced
-	secretQueue     chan bool
-	onSecretChanged func() error
+	secretSynced cache.InformerSynced
+	secretQueue  chan bool
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) Controller {
 	manager := &controller{
-		renewer:         certRenewer,
-		secretLister:    secretInformer.Lister(),
-		secretSynced:    secretInformer.Informer().HasSynced,
-		secretQueue:     make(chan bool, 1),
-		onSecretChanged: onSecretChanged,
+		renewer:      certRenewer,
+		secretLister: secretInformer.Lister(),
+		secretSynced: secretInformer.Informer().HasSynced,
+		secretQueue:  make(chan bool, 1),
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    manager.addSecretFunc,
 		UpdateFunc: manager.updateSecretFunc,
 	})
-	return manager, nil
+	return manager
+}
+
+func (m *controller) Run(ctx context.Context, workers int) {
+	logger.Info("start managing certificate")
+	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
+	defer certsRenewalTicker.Stop()
+	for {
+		select {
+		case <-certsRenewalTicker.C:
+			if err := m.renewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
+				os.Exit(1)
+			}
+		case <-m.secretQueue:
+			if err := m.renewCertificates(); err != nil {
+				logger.Error(err, "unable to renew certificates, force restarting")
+				os.Exit(1)
+			}
+		case <-ctx.Done():
+			logger.V(2).Info("stopping cert renewer")
+			return
+		}
+	}
 }
 
 func (m *controller) addSecretFunc(obj interface{}) {
@@ -76,11 +100,6 @@ func (m *controller) renewCertificates() error {
 	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
 		return err
 	}
-	if m.onSecretChanged != nil {
-		if err := common.RetryFunc(time.Second, 5*time.Second, m.onSecretChanged, "failed to renew CA", logger)(); err != nil {
-			return err
-		}
-	}
 	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewTLS, "failed to renew TLS", logger)(); err != nil {
 		return err
 	}
@@ -97,27 +116,4 @@ func (m *controller) GetCAPem() ([]byte, error) {
 		result = secret.Data[tls.RootCAKey]
 	}
 	return result, nil
-}
-
-func (m *controller) Run(stopCh <-chan struct{}) {
-	logger.Info("start managing certificate")
-	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
-	defer certsRenewalTicker.Stop()
-	for {
-		select {
-		case <-certsRenewalTicker.C:
-			if err := m.renewCertificates(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
-			}
-		case <-m.secretQueue:
-			if err := m.renewCertificates(); err != nil {
-				logger.Error(err, "unable to renew certificates, force restarting")
-				os.Exit(1)
-			}
-		case <-stopCh:
-			logger.V(2).Info("stopping cert renewer")
-			return
-		}
-	}
 }

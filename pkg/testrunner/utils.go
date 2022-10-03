@@ -4,8 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // LoadFile loads file in byte buffer
@@ -40,7 +40,7 @@ func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)
 	if err != nil {
-		log.Log.Error(err, "failed to unmarshal resource")
+		logging.Error(err, "failed to unmarshal resource")
 		return nil, err
 	}
 	return resource, nil
