@@ -81,6 +81,20 @@ securityContext:
   seccompProfile:
     type: RuntimeDefault
 
+# -- Security context for the test containers
+testSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
 # -- Optional priority class to be used for kyverno pods
 priorityClassName: ''
 
@@ -181,6 +195,16 @@ resources:
     memory: 128Mi
 
 initResources:
+  # -- Pod resource limits
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  # -- Pod resource requests
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+testResources:
   # -- Pod resource limits
   limits:
     cpu: 100m

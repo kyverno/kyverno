@@ -228,7 +228,6 @@ func main() {
 		setupLog.Error(err, "Failed to create kubernetes leader client")
 		os.Exit(1)
 	}
-
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
