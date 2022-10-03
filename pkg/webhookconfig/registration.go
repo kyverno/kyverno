@@ -279,12 +279,14 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		logger.V(4).Info("received the signal to update webhook configurations")
 
 		retry := false
-		deploy, err := wrc.GetKubePolicyDeployment()
-		if err != nil {
-			retry = true
-		} else {
-			if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+		if !wrc.debug {
+			deploy, err := wrc.GetKubePolicyDeployment()
+			if err != nil {
 				retry = true
+			} else {
+				if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+					retry = true
+				}
 			}
 		}
 
