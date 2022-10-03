@@ -40,3 +40,5 @@ annotations:
       description: Self signed certificates not using SANs.
     - kind: added
       description: Extra args support for init container.
+    - kind: added
+      description: Allow overriding of test security context and resource block.
