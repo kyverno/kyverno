@@ -191,16 +191,25 @@ func startProfiling(logger logr.Logger) {
 	}
 }
 
-func createKubeClient() (*rest.Config, *kubernetes.Clientset, error) {
+func createKubeClients() (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return clientConfig, kubeClient, nil
+	metadataClient, err := metadataclient.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
 }
 
 func main() {
@@ -218,9 +227,9 @@ func main() {
 	// start profiling
 	startProfiling(logger)
 	// create client config and kube client
-	clientConfig, kubeClient, err := createKubeClient()
+	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients()
 	if err != nil {
-		logger.Error(err, "failed to create kube client")
+		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
 	}
 	// show startup message
@@ -230,18 +239,6 @@ func main() {
 	defer signalCancel()
 
 	debug := serverIP != ""
-
-	metadataClient, err := metadataclient.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create metadata client")
-		os.Exit(1)
-	}
-	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes leader client")
-		os.Exit(1)
-	}
 	// setup metrics
 	metricsConfig, err := setupMetrics(logger, kubeClient)
 	if err != nil {
