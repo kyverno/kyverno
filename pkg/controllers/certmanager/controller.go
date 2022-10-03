@@ -28,8 +28,6 @@ type Controller interface {
 type controller struct {
 	renewer      *tls.CertRenewer
 	secretLister corev1listers.SecretLister
-	// secretSynced returns true if the secret shared informer has synced at least once
-	secretSynced cache.InformerSynced
 	secretQueue  chan bool
 }
 
@@ -37,7 +35,6 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer *t
 	manager := &controller{
 		renewer:      certRenewer,
 		secretLister: secretInformer.Lister(),
-		secretSynced: secretInformer.Informer().HasSynced,
 		secretQueue:  make(chan bool, 1),
 	}
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
