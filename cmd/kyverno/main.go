@@ -484,7 +484,7 @@ func main() {
 		webhookCfg.UpdateWebhookChan <- true
 		go certManager.Run(signalCtx)
 		go policyCtrl.Run(2, stopCh)
-		go webhookController.Run(stopCh)
+		go webhookController.Run(signalCtx)
 
 		reportControllers := setupReportControllers(
 			backgroundScan,

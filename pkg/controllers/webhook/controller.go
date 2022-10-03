@@ -1,6 +1,8 @@
 package background
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -81,8 +83,8 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+func (c *controller) Run(ctx context.Context) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) enqueue(obj *corev1.Secret) error {
@@ -117,7 +119,7 @@ func (c *controller) enqueue(obj *corev1.Secret) error {
 	return nil
 }
 
-func (c *controller) reconcileMutatingWebhookConfiguration(logger logr.Logger, name string) error {
+func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, logger logr.Logger, name string) error {
 	w, err := c.mwcLister.Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -129,7 +131,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(logger logr.Logger, n
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
-	_, err = controllerutils.Update(w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
+	_, err = controllerutils.Update(ctx, w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		caData, err := tls.ReadRootCASecret(c.secretClient)
 		if err != nil {
 			return err
@@ -142,7 +144,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(logger logr.Logger, n
 	return err
 }
 
-func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger, name string) error {
+func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, logger logr.Logger, name string) error {
 	w, err := c.vwcLister.Get(name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -154,7 +156,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger,
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
-	_, err = controllerutils.Update(w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+	_, err = controllerutils.Update(ctx, w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		caData, err := tls.ReadRootCASecret(c.secretClient)
 		if err != nil {
 			return err
@@ -167,11 +169,11 @@ func (c *controller) reconcileValidatingWebhookConfiguration(logger logr.Logger,
 	return err
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
-	if err := c.reconcileMutatingWebhookConfiguration(logger, name); err != nil {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	if err := c.reconcileMutatingWebhookConfiguration(ctx, logger, name); err != nil {
 		return err
 	}
-	if err := c.reconcileValidatingWebhookConfiguration(logger, name); err != nil {
+	if err := c.reconcileValidatingWebhookConfiguration(ctx, logger, name); err != nil {
 		return err
 	}
 	return nil
