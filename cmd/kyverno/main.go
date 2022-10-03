@@ -21,7 +21,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -138,14 +137,45 @@ func showStartup(logger logr.Logger) {
 	}
 }
 
-func createOpenApiController(client dclient.Interface) (*openapi.Controller, controllers.Controller, error) {
-	openAPIController, err := openapi.NewOpenAPIController()
-	if err != nil {
-		return nil, nil, err
+func createNonLeaderControllers(
+	dynamicClient dclient.Interface,
+	kubeClient kubernetes.Interface,
+	kyvernoClient versioned.Interface,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	configuration config.Configuration,
+	eventGenerator *event.Generator,
+	policyCache policycache.Cache,
+	openapiManager *openapi.Controller,
+) []controller {
+	configController := configcontroller.NewController(
+		configuration,
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+	)
+	backgroundController := background.NewController(
+		kyvernoClient,
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		kubeKyvernoInformer.Core().V1().Pods(),
+		eventGenerator,
+		configuration,
+	)
+	policyCacheController := policycachecontroller.NewController(
+		policyCache,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+	)
+	openApiController := openapi.NewCRDSync(dynamicClient, openapiManager)
+	return []controller{
+		newController(configController, configcontroller.Workers),
+		newController(backgroundController, genWorkers),
+		newController(policyCacheController, policycachecontroller.Workers),
+		newController(openApiController, 1),
 	}
-	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
-	return openAPIController, openAPISync, nil
 }
 
 func main() {
@@ -244,16 +274,6 @@ func main() {
 		}()
 	}
 
-	// informer factories
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
-
-	// utils
-	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-
 	var registryOptions []registryclient.Option
 
 	if otel == "grpc" {
@@ -300,11 +320,39 @@ func main() {
 		cosign.ImageSignatureRepository = imageSignatureRepository
 	}
 
+	// Tracing Configuration
+	if enableTracing {
+		logger.V(2).Info("Enabling tracing for Kyverno...")
+		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("Tracing"))
+		if err != nil {
+			logger.Error(err, "Failed to enable tracing for Kyverno")
+			os.Exit(1)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer tracing.ShutDownController(ctx, tracerProvider)
+		defer cancel()
+	}
+
+	// informer factories
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
+
+	// utils
+	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
+
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	var nonLeaderControllers []controller
+	openAPIController, err := openapi.NewOpenAPIController()
+	if err != nil {
+		logger.Error(err, "failed to create open api controller")
+		os.Exit(1)
+	}
 	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, logging.WithName("EventGenerator"))
-	nonLeaderControllers = append(nonLeaderControllers, newController(eventGenerator, 3))
+	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
+	policyCache := policycache.NewCache()
 	webhookCfg := webhookconfig.NewRegister(
 		signalCtx,
 		clientConfig,
@@ -323,34 +371,15 @@ func main() {
 		autoUpdateWebhooks,
 		logging.GlobalLogger(),
 	)
-
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
-	if err != nil {
-		logger.Error(err, "failed to initialize webhookMonitor")
-		os.Exit(1)
-	}
-
 	configuration, err := config.NewConfiguration(kubeClient, webhookCfg.UpdateWebhookChan)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	nonLeaderControllers = append(nonLeaderControllers, newController(
-		configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps()),
-		configcontroller.Workers,
-	))
-
-	// Tracing Configuration
-	if enableTracing {
-		logger.V(2).Info("Enabling tracing for Kyverno...")
-		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("Tracing"))
-		if err != nil {
-			logger.Error(err, "Failed to enable tracing for Kyverno")
-			os.Exit(1)
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer tracing.ShutDownController(ctx, tracerProvider)
-		defer cancel()
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
+	if err != nil {
+		logger.Error(err, "failed to initialize webhookMonitor")
+		os.Exit(1)
 	}
 
 	// POLICY CONTROLLER
@@ -374,27 +403,6 @@ func main() {
 		logger.Error(err, "Failed to create policy controller")
 		os.Exit(1)
 	}
-
-	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
-	nonLeaderControllers = append(nonLeaderControllers, newController(
-		background.NewController(
-			kyvernoClient,
-			dynamicClient,
-			kyvernoV1.ClusterPolicies(),
-			kyvernoV1.Policies(),
-			kyvernoV1beta1.UpdateRequests(),
-			kubeInformer.Core().V1().Namespaces(),
-			kubeKyvernoInformer.Core().V1().Pods(),
-			eventGenerator,
-			configuration,
-		),
-		genWorkers,
-	))
-
-	policyCache := policycache.NewCache()
-	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
-	nonLeaderControllers = append(nonLeaderControllers, newController(policyCacheController, policycachecontroller.Workers))
-
 	certRenewer, err := tls.NewCertRenewer(
 		kubeClient,
 		clientConfig,
@@ -414,13 +422,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	// the webhook server runs across all instances
-	openAPIController, ctrl, err := createOpenApiController(dynamicClient)
-	if err != nil {
-		logger.Error(err, "failed to initialize open api controller")
-		os.Exit(1)
-	}
-	nonLeaderControllers = append(nonLeaderControllers, newController(ctrl, 1))
+	nonLeaderControllers := createNonLeaderControllers(
+		dynamicClient,
+		kubeClient,
+		kyvernoClient,
+		kubeInformer,
+		kubeKyvernoInformer,
+		kyvernoInformer,
+		configuration,
+		eventGenerator,
+		policyCache,
+		openAPIController,
+	)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -528,16 +541,18 @@ func main() {
 		<-signalCtx.Done()
 	}()
 
+	// start informers and wait for cache sync
 	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
 		logger.Error(err, "Failed to wait for cache sync")
 		os.Exit(1)
 	}
 
 	// warmup policy cache
-	if err := policyCacheController.WarmUp(); err != nil {
-		logger.Error(err, "Failed to warm up policy cache")
-		os.Exit(1)
-	}
+	// TODO
+	// if err := policyCacheController.WarmUp(); err != nil {
+	// 	logger.Error(err, "Failed to warm up policy cache")
+	// 	os.Exit(1)
+	// }
 
 	// init events handlers
 	// start Kyverno controllers
