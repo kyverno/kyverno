@@ -8,14 +8,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/mutate"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ForceMutate does not check any conditions, it simply mutates the given resource
 // It is used to validate mutation logic, and for tests.
 func ForceMutate(ctx context.Interface, policy kyvernov1.PolicyInterface, resource unstructured.Unstructured) (unstructured.Unstructured, error) {
-	logger := log.Log.WithName("EngineForceMutate").WithValues("policy", policy.GetName(), "kind", resource.GetKind(),
+	logger := logging.WithName("EngineForceMutate").WithValues("policy", policy.GetName(), "kind", resource.GetKind(),
 		"namespace", resource.GetNamespace(), "name", resource.GetName())
 
 	patchedResource := resource

@@ -434,14 +434,22 @@ codegen-helm-docs: ## Generate helm docs
 
 .PHONY: codegen-helm-crds
 codegen-helm-crds: $(KUSTOMIZE) codegen-crds-all ## Generate helm CRDs
+	@echo Create temp folder for kustomization... >&2
+	@mkdir -p config/.helm
+	@echo Create kustomization... >&2
+	@VERSION='"{{.Chart.AppVersion}}"' TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.helm/labels.yaml
+	@VERSION=dummy TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.helm/kustomization.yaml
 	@echo Generate helm crds... >&2
-	@$(KUSTOMIZE) build ./config/release | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
+	@$(KUSTOMIZE) build ./config/.helm | $(KUSTOMIZE) cfg grep kind=CustomResourceDefinition | $(SED) -e "1i{{- if .Values.installCRDs }}" -e '$$a{{- end }}' > ./charts/kyverno/templates/crds.yaml
 
 .PHONY: codegen-helm-all
 codegen-helm-all: codegen-helm-crds codegen-helm-docs ## Generate helm docs and CRDs
 
 .PHONY: codegen-install
 codegen-install: $(KUSTOMIZE) ## Create install maifests
+	@echo Create kustomization... >&2
+	@VERSION=latest TOP_PATH="." envsubst < config/templates/labels.yaml.envsubst > config/labels.yaml
+	@VERSION=latest TOP_PATH="." envsubst < config/templates/kustomization.yaml.envsubst > config/kustomization.yaml
 	@echo Generate install.yaml... >&2
 	@$(KUSTOMIZE) build ./config > ./config/install.yaml
 	@echo Generate install_debug.yaml... >&2
@@ -450,8 +458,13 @@ codegen-install: $(KUSTOMIZE) ## Create install maifests
 # guidance https://github.com/kyverno/kyverno/wiki/Generate-a-Release
 .PHONY: codegen-release
 codegen-release: codegen-install $(KUSTOMIZE) ## Create release maifests
-	@echo Generate release manifests...
-	@$(KUSTOMIZE) build ./config/release > ./config/release/install.yaml
+	@echo Create release folder... >&2
+	@mkdir -p config/.release
+	@echo Create kustomization... >&2
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/labels.yaml.envsubst > config/.release/labels.yaml
+	@VERSION=$(GIT_VERSION) TOP_PATH=".." envsubst < config/templates/kustomization.yaml.envsubst > config/.release/kustomization.yaml
+	@echo Generate release manifests... >&2
+	@$(KUSTOMIZE) build ./config/.release > ./config/.release/install.yaml
 
 .PHONY: codegen-quick
 codegen-quick: codegen-deepcopy-all codegen-crds-all codegen-api-docs codegen-helm-all codegen-install codegen-release ## Generate all generated code except client
@@ -464,7 +477,7 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 
 # .PHONY: codegen-openapi
 # codegen-openapi: $(PACKAGE_SHIM) $(OPENAPI_GEN) ## Generate open api code
-# 	@echo Generate open api definitions...
+# 	@echo Generate open api definitions... >&2
 # 	@GOPATH=$(GOPATH_SHIM) $(OPENAPI_GEN) --go-header-file ./scripts/boilerplate.go.txt \
 # 		--input-dirs $(INPUT_DIRS) \
 # 		--input-dirs  k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/runtime,k8s.io/apimachinery/pkg/version \
@@ -478,36 +491,36 @@ codegen-all: codegen-quick codegen-slow ## Generate all generated code
 .PHONY: verify-crds
 verify-crds: codegen-crds-all ## Check CRDs are up to date
 	@git --no-pager diff config
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".'
-	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-crds-all".' >&2
+	@echo 'To correct this, locally run "make codegen-crds-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code config
 
 .PHONY: verify-client
 verify-client: codegen-client-all ## Check client is up to date
 	@git --no-pager diff --ignore-space-change pkg/client
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".'
-	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-client-all".' >&2
+	@echo 'To correct this, locally run "make codegen-client-all", commit the changes, and re-run tests.' >&2
 	@git diff --ignore-space-change --quiet --exit-code pkg/client
 
 .PHONY: verify-deepcopy
 verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 	@git --no-pager diff api
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".'
-	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-deepcopy-all".' >&2
+	@echo 'To correct this, locally run "make codegen-deepcopy-all", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code api
 
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
 	@git --no-pager diff docs
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".'
-	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
+	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code docs
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
 	@git --no-pager diff charts
-	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".'
-	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.'
+	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-helm-all".' >&2
+	@echo 'To correct this, locally run "make codegen-helm", commit the changes, and re-run tests.' >&2
 	@git diff --quiet --exit-code charts
 
 .PHONY: verify-codegen
@@ -633,6 +646,18 @@ release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
+##########
+# GITHUB #
+##########
+
+.PHONY: gh-install-pin-github-action
+gh-install-pin-github-action:
+	@npm install -g pin-github-action
+
+.PHONY: gh-pin-actions
+gh-pin-actions: gh-install-pin-github-action
+	@pin-github-action ./.github/workflows/release.yaml
+
 ########
 # KIND #
 ########
@@ -668,6 +693,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set initContainer.extraArgs={--loggingFormat=text} \
 		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno

@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
 // ValidationHandler for element processes
@@ -86,7 +86,7 @@ func (eh EqualityHandler) Handle(handler resourceElementHandler, resourceMap map
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := handler(log.Log, value, eh.pattern, originPattern, currentPath, ac)
+		returnPath, err := handler(logging.GlobalLogger(), value, eh.pattern, originPattern, currentPath, ac)
 		if err != nil {
 			return returnPath, err
 		}
@@ -119,7 +119,7 @@ func (dh DefaultHandler) Handle(handler resourceElementHandler, resourceMap map[
 	} else if dh.pattern == "*" && resourceMap[dh.element] == nil {
 		return dh.path, fmt.Errorf("%s/%s not found", dh.path, dh.element)
 	} else {
-		path, err := handler(log.Log, resourceMap[dh.element], dh.pattern, originPattern, currentPath, ac)
+		path, err := handler(logging.GlobalLogger(), resourceMap[dh.element], dh.pattern, originPattern, currentPath, ac)
 		if err != nil {
 			return path, err
 		}
@@ -150,7 +150,7 @@ func (ch ConditionAnchorHandler) Handle(handler resourceElementHandler, resource
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := handler(log.Log, value, ch.pattern, originPattern, currentPath, ac)
+		returnPath, err := handler(logging.GlobalLogger(), value, ch.pattern, originPattern, currentPath, ac)
 		if err != nil {
 			ac.AnchorError = NewConditionalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
@@ -185,7 +185,7 @@ func (gh GlobalAnchorHandler) Handle(handler resourceElementHandler, resourceMap
 	// check if anchor is present in resource
 	if value, ok := resourceMap[anchorKey]; ok {
 		// validate the values of the pattern
-		returnPath, err := handler(log.Log, value, gh.pattern, originPattern, currentPath, ac)
+		returnPath, err := handler(logging.GlobalLogger(), value, gh.pattern, originPattern, currentPath, ac)
 		if err != nil {
 			ac.AnchorError = NewGlobalAnchorError(err.Error())
 			return returnPath, ac.AnchorError.Error()
@@ -251,7 +251,7 @@ func validateExistenceListResource(handler resourceElementHandler, resourceList 
 	// if non satisfy then throw an error
 	for i, resourceElement := range resourceList {
 		currentPath := path + strconv.Itoa(i) + "/"
-		_, err := handler(log.Log, resourceElement, patternMap, originPattern, currentPath, ac)
+		_, err := handler(logging.GlobalLogger(), resourceElement, patternMap, originPattern, currentPath, ac)
 		if err == nil {
 			// condition is satisfied, dont check further
 			return "", nil

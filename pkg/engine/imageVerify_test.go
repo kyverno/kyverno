@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -564,18 +564,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -596,7 +596,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.isVerified(image), true)
 
-	patches, err := verifiedImages.Patches(false, log.Log)
+	patches, err := verifiedImages.Patches(false, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
@@ -607,7 +607,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[imageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, log.Log)
+	verified, err := isImageVerified(resource, image, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }
