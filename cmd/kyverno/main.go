@@ -393,11 +393,7 @@ func main() {
 		logger.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
-	if err != nil {
-		logger.Error(err, "failed to initialize CertManager")
-		os.Exit(1)
-	}
+	certManager := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
 
 	webhookController := webhookcontroller.NewController(
 		metrics.ObjectClient[*corev1.Secret](
@@ -460,15 +456,6 @@ func main() {
 			logger.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
-		// wait for cache to be synced before use it
-		if !waitForInformersCacheSync(signalCtx,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-		) {
-			// TODO: shall we just exit ?
-			logger.Info("failed to wait for cache sync")
-		}
-
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
