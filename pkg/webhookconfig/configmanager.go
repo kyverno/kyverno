@@ -80,6 +80,7 @@ type manage interface {
 }
 
 func newWebhookConfigManager(
+	ctx context.Context,
 	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
@@ -91,7 +92,6 @@ func newWebhookConfigManager(
 	serverIP string,
 	autoUpdateWebhooks bool,
 	createDefaultWebhook chan<- string,
-	stopCh <-chan struct{},
 	log logr.Logger,
 ) manage {
 	m := &webhookConfigManager{
@@ -112,7 +112,7 @@ func newWebhookConfigManager(
 		serverIP:             serverIP,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
-		stopCh:               stopCh,
+		stopCh:               ctx.Done(),
 		log:                  log,
 	}
 
