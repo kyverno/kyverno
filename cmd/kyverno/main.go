@@ -21,7 +21,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	controllers "github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -93,7 +92,7 @@ var (
 
 func parseFlags() error {
 	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
+	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -122,8 +121,7 @@ func parseFlags() error {
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	if err := flag.Set("v", "2"); err != nil {
-		fmt.Printf("failed to set log level: %s", err.Error())
-		os.Exit(1)
+		return err
 	}
 	flag.Parse()
 	return nil
@@ -463,7 +461,7 @@ func main() {
 			os.Exit(1)
 		}
 		webhookCfg.UpdateWebhookChan <- true
-		go certManager.Run(signalCtx)
+		go certManager.Run(signalCtx, certmanager.Workers)
 		go policyCtrl.Run(signalCtx, 2)
 
 		reportControllers := setupReportControllers(
@@ -482,7 +480,7 @@ func main() {
 		}
 
 		for _, controller := range reportControllers {
-			go controller.Run(signalCtx)
+			go controller.run(signalCtx)
 		}
 	}
 
@@ -520,12 +518,13 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
-	go policyCacheController.Run(signalCtx)
+	go policyCacheController.Run(signalCtx, policycachecontroller.Workers)
 	go urc.Run(signalCtx, genWorkers)
 	go le.Run(signalCtx)
-	go configurationController.Run(signalCtx)
+	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
-	if !debug {
+
+  if !debug {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
@@ -563,8 +562,8 @@ func setupReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-) []controllers.Controller {
-	var ctrls []controllers.Controller
+) []controller {
+	var ctrls []controller
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
@@ -572,30 +571,39 @@ func setupReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 		)
-		ctrls = append(ctrls, resourceReportController)
-		ctrls = append(ctrls, aggregatereportcontroller.NewController(
-			kyvernoClient,
-			metadataFactory,
-			resourceReportController,
-			reportsChunkSize,
-		))
-		if admissionReports {
-			ctrls = append(ctrls, admissionreportcontroller.NewController(
+		ctrls = append(ctrls, controller{resourceReportController, resourcereportcontroller.Workers})
+		ctrls = append(ctrls, controller{
+			aggregatereportcontroller.NewController(
 				kyvernoClient,
 				metadataFactory,
 				resourceReportController,
-			))
+				reportsChunkSize,
+			),
+			aggregatereportcontroller.Workers,
+		})
+		if admissionReports {
+			ctrls = append(ctrls, controller{
+				admissionreportcontroller.NewController(
+					kyvernoClient,
+					metadataFactory,
+					resourceReportController,
+				),
+				admissionreportcontroller.Workers,
+			})
 		}
 		if backgroundScan {
-			ctrls = append(ctrls, backgroundscancontroller.NewController(
-				client,
-				kyvernoClient,
-				metadataFactory,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				kubeInformer.Core().V1().Namespaces(),
-				resourceReportController,
-			))
+			ctrls = append(ctrls, controller{
+				backgroundscancontroller.NewController(
+					client,
+					kyvernoClient,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					kubeInformer.Core().V1().Namespaces(),
+					resourceReportController,
+				),
+				backgroundscancontroller.Workers,
+			})
 		}
 	}
 	return ctrls
