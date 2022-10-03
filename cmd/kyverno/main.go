@@ -55,6 +55,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
+	"k8s.io/client-go/rest"
 )
 
 const (
@@ -140,6 +141,32 @@ func showStartup(logger logr.Logger) {
 	}
 }
 
+func startProfiling(logger logr.Logger) {
+	logger = logger.WithName("profiling")
+	if profile {
+		addr := ":" + profilePort
+		logger.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
+		go func() {
+			if err := http.ListenAndServe(addr, nil); err != nil {
+				logger.Error(err, "Failed to enable profiling")
+				os.Exit(1)
+			}
+		}()
+	}
+}
+
+func createKubeClient() (*rest.Config, *kubernetes.Clientset, error) {
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
+	if err != nil {
+		return nil, nil, err
+	}
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return clientConfig, kubeClient, nil
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
@@ -152,6 +179,14 @@ func main() {
 		os.Exit(1)
 	}
 	logger := logging.WithName("setup")
+	// start profiling
+	startProfiling(logger)
+	// create client config and kube client
+	clientConfig, kubeClient, err := createKubeClient()
+	if err != nil {
+		logger.Error(err, "failed to create kube client")
+		os.Exit(1)
+	}
 	// show startup message
 	showStartup(logger)
 	// os signal handler
@@ -159,19 +194,6 @@ func main() {
 	defer signalCancel()
 
 	debug := serverIP != ""
-
-	// clients
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
-	if err != nil {
-		logger.Error(err, "Failed to build kubeconfig")
-		os.Exit(1)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
 
 	// Metrics Configuration
 	var metricsConfig *metrics.MetricsConfig
@@ -222,17 +244,6 @@ func main() {
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		logger.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
 		os.Exit(1)
-	}
-
-	if profile {
-		addr := ":" + profilePort
-		logger.V(2).Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
-		go func() {
-			if err := http.ListenAndServe(addr, nil); err != nil {
-				logger.Error(err, "Failed to enable profiling")
-				os.Exit(1)
-			}
-		}()
 	}
 
 	// informer factories
