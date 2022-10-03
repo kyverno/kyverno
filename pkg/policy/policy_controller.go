@@ -346,7 +346,7 @@ func (pc *PolicyController) enqueuePolicy(policy kyvernov1.PolicyInterface) {
 }
 
 // Run begins watching and syncing.
-func (pc *PolicyController) Run(workers int /*, reconcileCh <-chan bool*/ /*, cleanupChangeRequest <-chan policyreport.ReconcileInfo*/, stopCh <-chan struct{}) {
+func (pc *PolicyController) Run(ctx context.Context, workers int) {
 	logger := pc.log
 
 	defer utilruntime.HandleCrash()
@@ -355,7 +355,7 @@ func (pc *PolicyController) Run(workers int /*, reconcileCh <-chan bool*/ /*, cl
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForNamedCacheSync("PolicyController", stopCh, pc.informersSynced...) {
+	if !cache.WaitForNamedCacheSync("PolicyController", ctx.Done(), pc.informersSynced...) {
 		return
 	}
 
@@ -372,17 +372,17 @@ func (pc *PolicyController) Run(workers int /*, reconcileCh <-chan bool*/ /*, cl
 	})
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(pc.worker, time.Second, stopCh)
+		go wait.UntilWithContext(ctx, pc.worker, time.Second)
 	}
 
-	go pc.forceReconciliation( /*reconcileCh, */ /* cleanupChangeRequest,*/ stopCh)
+	go pc.forceReconciliation(ctx)
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
-func (pc *PolicyController) worker() {
+func (pc *PolicyController) worker(ctx context.Context) {
 	for pc.processNextWorkItem() {
 	}
 }
