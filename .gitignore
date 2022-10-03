@@ -14,3 +14,4 @@ kubectl-kyverno
 .gopath
 /config/.helm
 /config/.release
+.dist
