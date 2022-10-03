@@ -10,6 +10,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -19,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
@@ -122,11 +122,11 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 			err = fmt.Errorf("not found")
 		}
 
-		log.Log.Error(err, "failed to retrieve CRD", "kind", kind)
+		logging.Error(err, "failed to retrieve CRD", "kind", kind)
 		return false
 	}
 
-	log.Log.V(2).Info("CRD found", "gvr", gvr.String())
+	logging.V(2).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
@@ -345,7 +345,7 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 }
 
 func OverrideRuntimeErrorHandler() {
-	logger := log.Log.WithName("RuntimeErrorHandler")
+	logger := logging.WithName("RuntimeErrorHandler")
 	if len(runtime.ErrorHandlers) > 0 {
 		runtime.ErrorHandlers[0] = func(err error) {
 			logger.V(6).Info("runtime error", "msg", err.Error())
