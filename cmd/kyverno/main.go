@@ -392,11 +392,7 @@ func main() {
 		logger.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
-	if err != nil {
-		logger.Error(err, "failed to initialize CertManager")
-		os.Exit(1)
-	}
+	certManager := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
 
 	webhookController := webhookcontroller.NewController(
 		metrics.ObjectClient[*corev1.Secret](
