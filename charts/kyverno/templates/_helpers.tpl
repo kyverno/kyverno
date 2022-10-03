@@ -113,6 +113,14 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
 
+{{- define "kyverno.testSecurityContext" -}}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
+{{ toYaml (omit .Values.testSecurityContext "seccompProfile") }}
+{{- else }}
+{{ toYaml .Values.testSecurityContext }}
+{{- end }}
+{{- end }}
+
 {{- define "kyverno.imagePullSecret" }}
 {{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
 {{- end }}
