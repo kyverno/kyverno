@@ -23,8 +23,9 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 1
 	maxRetries = 5
-	workers    = 1
 )
 
 type Resource struct {
@@ -84,7 +85,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(ctx context.Context) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 

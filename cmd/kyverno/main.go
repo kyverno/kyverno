@@ -21,7 +21,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	controllers "github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -485,7 +484,7 @@ func main() {
 		}
 
 		for _, controller := range reportControllers {
-			go controller.Run(signalCtx)
+			go controller.run(signalCtx)
 		}
 	}
 
@@ -528,7 +527,6 @@ func main() {
 	go le.Run(signalCtx)
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
-
 	if !debug {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
@@ -567,8 +565,8 @@ func setupReportControllers(
 	metadataFactory metadatainformers.SharedInformerFactory,
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-) []controllers.Controller {
-	var ctrls []controllers.Controller
+) []controller {
+	var ctrls []controller
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	if backgroundScan || admissionReports {
 		resourceReportController := resourcereportcontroller.NewController(
@@ -576,30 +574,39 @@ func setupReportControllers(
 			kyvernoV1.Policies(),
 			kyvernoV1.ClusterPolicies(),
 		)
-		ctrls = append(ctrls, resourceReportController)
-		ctrls = append(ctrls, aggregatereportcontroller.NewController(
-			kyvernoClient,
-			metadataFactory,
-			resourceReportController,
-			reportsChunkSize,
-		))
-		if admissionReports {
-			ctrls = append(ctrls, admissionreportcontroller.NewController(
+		ctrls = append(ctrls, controller{resourceReportController, resourcereportcontroller.Workers})
+		ctrls = append(ctrls, controller{
+			aggregatereportcontroller.NewController(
 				kyvernoClient,
 				metadataFactory,
 				resourceReportController,
-			))
+				reportsChunkSize,
+			),
+			aggregatereportcontroller.Workers,
+		})
+		if admissionReports {
+			ctrls = append(ctrls, controller{
+				admissionreportcontroller.NewController(
+					kyvernoClient,
+					metadataFactory,
+					resourceReportController,
+				),
+				admissionreportcontroller.Workers,
+			})
 		}
 		if backgroundScan {
-			ctrls = append(ctrls, backgroundscancontroller.NewController(
-				client,
-				kyvernoClient,
-				metadataFactory,
-				kyvernoV1.Policies(),
-				kyvernoV1.ClusterPolicies(),
-				kubeInformer.Core().V1().Namespaces(),
-				resourceReportController,
-			))
+			ctrls = append(ctrls, controller{
+				backgroundscancontroller.NewController(
+					client,
+					kyvernoClient,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					kubeInformer.Core().V1().Namespaces(),
+					resourceReportController,
+				),
+				backgroundscancontroller.Workers,
+			})
 		}
 	}
 	return ctrls
