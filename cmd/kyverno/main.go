@@ -390,11 +390,7 @@ func main() {
 		logger.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager, err := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer, webhookCfg.UpdateWebhooksCaBundle)
-	if err != nil {
-		logger.Error(err, "failed to initialize CertManager")
-		os.Exit(1)
-	}
+	certManager := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer, webhookCfg.UpdateWebhooksCaBundle)
 
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(signalCtx, logger, dynamicClient)

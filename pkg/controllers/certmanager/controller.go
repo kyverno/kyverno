@@ -34,7 +34,7 @@ type controller struct {
 	onSecretChanged func() error
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) (Controller, error) {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer, onSecretChanged func() error) Controller {
 	manager := &controller{
 		renewer:         certRenewer,
 		secretLister:    secretInformer.Lister(),
@@ -46,7 +46,7 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer *t
 		AddFunc:    manager.addSecretFunc,
 		UpdateFunc: manager.updateSecretFunc,
 	})
-	return manager, nil
+	return manager
 }
 
 func (m *controller) Run(ctx context.Context, workers int) {
