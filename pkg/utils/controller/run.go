@@ -86,6 +86,6 @@ func reconcile(logger logr.Logger, obj interface{}, r reconcileFunc) error {
 	}
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
 	logger.Info("reconciling ...")
-	defer logger.Info("done", time.Since(start))
+	defer logger.Info("done", "duration", time.Since(start))
 	return r(logger, k, ns, n)
 }
