@@ -8,15 +8,15 @@ metadata:
     "helm.sh/hook": test
 spec:
   restartPolicy: Never
+  {{- if .Values.testSecurityContext }}
+  securityContext: {{ include "kyverno.testSecurityContext" . | nindent 8 }}
+  {{- end }}
   containers:
     - name: wget
       image: {{ .Values.testImage.repository | default "busybox" }}{{- if .Values.testImage.tag }}:{{ .Values.testImage.tag }}{{- end }}
       imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
       {{- with .Values.testResources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- if .Values.testSecurityContext }}
-      securityContext: {{ include "kyverno.testSecurityContext" . | nindent 8 }}
       {{- end }}
       command:
         - /bin/sh
@@ -28,9 +28,6 @@ spec:
       imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
       {{- with .Values.testResources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}
-      {{- end }}
-      {{- if .Values.testSecurityContext }}
-      securityContext: {{ include "kyverno.testSecurityContext" . | nindent 8 }}
       {{- end }}
       command:
         - /bin/sh

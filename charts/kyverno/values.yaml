@@ -83,6 +83,8 @@ securityContext:
 
 # -- Security context for the test containers
 testSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
