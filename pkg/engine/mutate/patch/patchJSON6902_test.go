@@ -7,9 +7,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
 	"github.com/ghodss/yaml"
+	"github.com/kyverno/kyverno/pkg/logging"
 	assert "github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var inputBytes = []byte(`
@@ -51,7 +51,7 @@ func TestTypeConversion(t *testing.T) {
 	jsonPatches, err := yaml.YAMLToJSON(patchesJSON6902)
 	assert.Nil(t, err)
 	// apply patches
-	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, log.Log)
+	resp, _ := ProcessPatchJSON6902("type-conversion", jsonPatches, resource, logging.GlobalLogger())
 	if !assert.Equal(t, response.RuleStatusPass, resp.Status) {
 		t.Fatal(resp.Message)
 	}

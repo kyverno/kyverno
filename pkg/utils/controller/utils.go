@@ -105,7 +105,7 @@ func GetOrNew[T any, R Object[T], G Getter[R]](name string, getter G) (R, error)
 	return obj, nil
 }
 
-func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, getter G, setter S, build func(R) error) (R, error) {
+func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](ctx context.Context, name string, getter G, setter S, build func(R) error) (R, error) {
 	if obj, err := GetOrNew[T, R](name, getter); err != nil {
 		return nil, err
 	} else {
@@ -114,12 +114,12 @@ func CreateOrUpdate[T any, R Object[T], G Getter[R], S Setter[R]](name string, g
 			return nil, err
 		} else {
 			if obj.GetResourceVersion() == "" {
-				return setter.Create(context.TODO(), mutated, metav1.CreateOptions{})
+				return setter.Create(ctx, mutated, metav1.CreateOptions{})
 			} else {
 				if reflect.DeepEqual(obj, mutated) {
 					return mutated, nil
 				} else {
-					return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+					return setter.Update(ctx, mutated, metav1.UpdateOptions{})
 				}
 			}
 		}
@@ -143,19 +143,19 @@ func Update[T interface {
 		if reflect.DeepEqual(obj, mutated) {
 			return mutated, nil
 		} else {
-			return setter.Update(context.TODO(), mutated, metav1.UpdateOptions{})
+			return setter.Update(ctx, mutated, metav1.UpdateOptions{})
 		}
 	}
 }
 
-func Cleanup[T any, R Object[T]](actual []R, expected []R, deleter Deleter) error {
+func Cleanup[T any, R Object[T]](ctx context.Context, actual []R, expected []R, deleter Deleter) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
 		keep.Insert(obj.GetName())
 	}
 	for _, obj := range actual {
 		if !keep.Has(obj.GetName()) {
-			if err := deleter.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+			if err := deleter.Delete(ctx, obj.GetName(), metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}

@@ -97,7 +97,7 @@ var (
 
 func parseFlags() error {
 	logging.Init(nil)
-	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
+	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -126,8 +126,7 @@ func parseFlags() error {
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	if err := flag.Set("v", "2"); err != nil {
-		fmt.Printf("failed to set log level: %s", err.Error())
-		os.Exit(1)
+		return err
 	}
 	flag.Parse()
 	return nil
@@ -161,7 +160,6 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	cleanUp := make(chan struct{})
 	stopCh := signalCtx.Done()
 	debug := serverIP != ""
 
@@ -423,7 +421,7 @@ func main() {
 	)
 
 	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(logger, dynamicClient, stopCh)
+	openAPIController := startOpenAPIController(signalCtx, logger, dynamicClient)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -455,7 +453,6 @@ func main() {
 		configuration,
 		webhookCfg,
 		webhookMonitor,
-		cleanUp,
 	)
 
 	// wrap all controllers that need leaderelection
@@ -485,7 +482,7 @@ func main() {
 			os.Exit(1)
 		}
 		webhookCfg.UpdateWebhookChan <- true
-		go certManager.Run(stopCh)
+		go certManager.Run(signalCtx)
 		go policyCtrl.Run(2, stopCh)
 		go webhookController.Run(stopCh)
 
@@ -503,7 +500,7 @@ func main() {
 		metadataInformer.WaitForCacheSync(stopCh)
 
 		for _, controller := range reportControllers {
-			go controller.Run(stopCh)
+			go controller.Run(signalCtx)
 		}
 	}
 
@@ -538,10 +535,10 @@ func main() {
 
 	// init events handlers
 	// start Kyverno controllers
-	go policyCacheController.Run(stopCh)
+	go policyCacheController.Run(signalCtx)
 	go urc.Run(genWorkers, stopCh)
 	go le.Run(signalCtx)
-	go configurationController.Run(stopCh)
+	go configurationController.Run(signalCtx)
 	go eventGenerator.Run(3, stopCh)
 	if !debug {
 		go webhookMonitor.Run(webhookCfg, certRenewer, eventGenerator, stopCh)
@@ -554,11 +551,11 @@ func main() {
 
 	// resource cleanup
 	// remove webhook configurations
-	<-cleanUp
+	<-server.Cleanup()
 	logger.V(2).Info("Kyverno shutdown successful")
 }
 
-func startOpenAPIController(logger logr.Logger, client dclient.Interface, stopCh <-chan struct{}) *openapi.Controller {
+func startOpenAPIController(ctx context.Context, logger logr.Logger, client dclient.Interface) *openapi.Controller {
 	logger = logger.WithName("open-api")
 	openAPIController, err := openapi.NewOpenAPIController()
 	if err != nil {
@@ -569,7 +566,7 @@ func startOpenAPIController(logger logr.Logger, client dclient.Interface, stopCh
 	openAPISync := openapi.NewCRDSync(client, openAPIController)
 	// start openAPI controller, this is used in admission review
 	// thus is required in each instance
-	openAPISync.Run(1, stopCh)
+	openAPISync.Run(ctx, 1)
 	return openAPIController
 }
 

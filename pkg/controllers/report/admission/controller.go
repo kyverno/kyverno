@@ -62,7 +62,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(stopCh <-chan struct{}) {
+func (c *controller) Run(ctx context.Context) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -72,7 +72,7 @@ func (c *controller) Run(stopCh <-chan struct{}) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, stopCh)
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
@@ -116,23 +116,23 @@ func (c *controller) getMeta(namespace, name string) (metav1.Object, error) {
 	}
 }
 
-func (c *controller) deleteReport(namespace, name string) error {
+func (c *controller) deleteReport(ctx context.Context, namespace, name string) error {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Delete(ctx, name, metav1.DeleteOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(context.TODO(), name, metav1.DeleteOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Delete(ctx, name, metav1.DeleteOptions{})
 	}
 }
 
-func (c *controller) getReport(namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) getReport(ctx context.Context, namespace, name string) (kyvernov1alpha2.ReportInterface, error) {
 	if namespace == "" {
-		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(context.TODO(), name, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().ClusterAdmissionReports().Get(ctx, name, metav1.GetOptions{})
 	} else {
-		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		return c.client.KyvernoV1alpha2().AdmissionReports(namespace).Get(ctx, name, metav1.GetOptions{})
 	}
 }
 
-func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) error {
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	// try to find meta from the cache
 	meta, err := c.getMeta(namespace, name)
 	if err != nil {
@@ -146,12 +146,12 @@ func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) 
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	// set owner if not done yet
 	if exists && len(meta.GetOwnerReferences()) == 0 {
-		report, err := c.getReport(namespace, name)
+		report, err := c.getReport(ctx, namespace, name)
 		if err != nil {
 			return err
 		}
 		controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, resource.Name, uid)
-		_, err = reportutils.UpdateReport(report, c.client)
+		_, err = reportutils.UpdateReport(ctx, report, c.client)
 		return err
 	}
 	// cleanup old reports
@@ -159,7 +159,7 @@ func (c *controller) reconcile(logger logr.Logger, key, namespace, name string) 
 	// and were created more than five minutes ago
 	if !exists || !reportutils.CompareHash(meta, resource.Hash) {
 		if meta.GetCreationTimestamp().Add(time.Minute * 5).Before(time.Now()) {
-			return c.deleteReport(namespace, name)
+			return c.deleteReport(ctx, namespace, name)
 		}
 	}
 	return nil

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	yaml "sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -842,7 +842,7 @@ func Test_preProcessStrategicMergePatch_multipleAnchors(t *testing.T) {
 
 	for i, test := range testCases {
 		t.Logf("Running test %d...", i)
-		preProcessedPolicy, err := preProcessStrategicMergePatch(log.Log, string(test.rawPolicy), string(test.rawResource))
+		preProcessedPolicy, err := preProcessStrategicMergePatch(logging.GlobalLogger(), string(test.rawPolicy), string(test.rawResource))
 		assert.NilError(t, err)
 
 		output, err := preProcessedPolicy.MarshalJSON()
@@ -904,7 +904,7 @@ func Test_CheckConditionAnchor_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(log.Log, pattern, resource)
+	err := checkCondition(logging.GlobalLogger(), pattern, resource)
 	assert.Equal(t, err, nil)
 }
 
@@ -915,7 +915,7 @@ func Test_CheckConditionAnchor_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := checkCondition(log.Log, pattern, resource)
+	err := checkCondition(logging.GlobalLogger(), pattern, resource)
 	assert.Error(t, err, "resource value 'sample' does not match 'value*' at path /key1/")
 }
 
@@ -933,7 +933,7 @@ func Test_ValidateConditions_MapWithOneCondition_Matches(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(log.Log, pattern, resource)
+	err := validateConditions(logging.GlobalLogger(), pattern, resource)
 	assert.NilError(t, err)
 }
 
@@ -951,7 +951,7 @@ func Test_ValidateConditions_MapWithOneCondition_DoesNotMatch(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	resource := yaml.MustParse(string(resourceRaw))
 
-	err := validateConditions(log.Log, pattern, resource)
+	err := validateConditions(logging.GlobalLogger(), pattern, resource)
 	_, ok := err.(ConditionError)
 	assert.Assert(t, ok)
 }
@@ -1088,7 +1088,7 @@ func Test_ConditionCheck_SeveralElementsMatchExceptOne(t *testing.T) {
 	pattern := yaml.MustParse(string(patternRaw))
 	containers := yaml.MustParse(string(containersRaw))
 
-	err := preProcessPattern(log.Log, pattern, containers)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, containers)
 	assert.NilError(t, err)
 
 	patternContainers := pattern.Field("containers")
@@ -1141,7 +1141,7 @@ func Test_NonExistingKeyMustFailPreprocessing(t *testing.T) {
 
 	pattern := yaml.MustParse(string(rawPattern))
 	resource := yaml.MustParse(string(rawResource))
-	err := preProcessPattern(log.Log, pattern, resource)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
 	assert.Error(t, err, "condition failed: could not found \"key1\" key in the resource")
 }
 
@@ -1152,7 +1152,7 @@ func Test_NestedConditionals(t *testing.T) {
 
 	pattern := yaml.MustParse(rawPattern)
 	resource := yaml.MustParse(rawResource)
-	err := preProcessPattern(log.Log, pattern, resource)
+	err := preProcessPattern(logging.GlobalLogger(), pattern, resource)
 	assert.NilError(t, err)
 	resultPattern, _ := pattern.String()
 
