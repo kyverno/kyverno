@@ -12,6 +12,7 @@ import (
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	"github.com/kyverno/kyverno/pkg/controllers/report/utils"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -30,8 +31,9 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 2
 	maxRetries = 10
-	workers    = 2
 )
 
 type controller struct {
@@ -63,7 +65,7 @@ func NewController(
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	nsInformer corev1informers.NamespaceInformer,
 	metadataCache resource.MetadataCache,
-) *controller {
+) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -85,7 +87,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(ctx context.Context) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {

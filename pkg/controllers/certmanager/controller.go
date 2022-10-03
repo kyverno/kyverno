@@ -16,6 +16,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+// Workers is the number of workers for this controller
+const Workers = 1
+
 type Controller interface {
 	controllers.Controller
 	// GetTLSPemPair gets the existing TLSPemPair from the secret
@@ -46,7 +49,7 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer *t
 	return manager, nil
 }
 
-func (m *controller) Run(ctx context.Context) {
+func (m *controller) Run(ctx context.Context, workers int) {
 	logger.Info("start managing certificate")
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()

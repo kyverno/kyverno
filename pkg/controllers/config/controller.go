@@ -15,8 +15,9 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 3
 	maxRetries = 10
-	workers    = 3
 )
 
 type controller struct {
@@ -44,7 +45,7 @@ func NewController(configuration config.Configuration, configmapInformer corev1i
 	return &c
 }
 
-func (c *controller) Run(ctx context.Context) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, c.configmapSynced)
 }
 
