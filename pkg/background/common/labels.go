@@ -7,10 +7,10 @@ import (
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type Object interface {
@@ -76,7 +76,7 @@ func managedBy(labels map[string]string) {
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
+			logging.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
 			return
 		}
 	}
@@ -104,7 +104,7 @@ func checkGeneratedBy(labels map[string]string, key, value string) {
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.V(2).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
+			logging.V(2).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
 			return
 		}
 	}

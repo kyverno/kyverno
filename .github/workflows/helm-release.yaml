@@ -76,6 +76,6 @@ jobs:
           for dir in `find charts-tmp -maxdepth 1 -mindepth 1 -type d -print`; do
             chart=${dir##*/}
             echo "Found chart: ${chart}"
-            helm package charts-tmp/${chart} --destination dist
-            helm push dist/${chart}-*.tgz oci://ghcr.io/${GITHUB_REPOSITORY}
+            helm package charts-tmp/${chart} --destination .dist
+            helm push .dist/${chart}-*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
           done
