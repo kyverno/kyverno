@@ -1,6 +1,7 @@
 package event
 
 import (
+	"context"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -115,7 +116,7 @@ func (gen *Generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
+func (gen *Generator) Run(ctx context.Context, workers int) {
 	logger := gen.log
 	defer utilruntime.HandleCrash()
 
@@ -123,12 +124,12 @@ func (gen *Generator) Run(workers int, stopCh <-chan struct{}) {
 	defer logger.Info("shutting down")
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(gen.runWorker, time.Second, stopCh)
+		go wait.UntilWithContext(ctx, gen.runWorker, time.Second)
 	}
-	<-stopCh
+	<-ctx.Done()
 }
 
-func (gen *Generator) runWorker() {
+func (gen *Generator) runWorker(ctx context.Context) {
 	for gen.processNextWorkItem() {
 	}
 }
