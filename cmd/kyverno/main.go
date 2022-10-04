@@ -131,57 +131,9 @@ func parseFlags() error {
 	return nil
 }
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
-	logger = logger.WithName("metrics")
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
-	if err != nil {
-		return nil, nil, err
-	}
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		logging.WithName("Metrics"),
-	)
-	if err != nil {
-		return nil, nil, err
-	}
-	var cancel context.CancelFunc
-	if otel == "grpc" {
-		cancel = func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			metrics.ShutDownController(ctx, metricsPusher)
-		}
-	}
-	if otel == "prometheus" {
-		go func() {
-			logger.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
-	return metricsConfig, cancel, nil
-}
-
-func showStartup(logger logr.Logger) {
-	logger = logger.WithName("startup")
-	logger.Info("kyverno is staring...")
-	version.PrintVersionInfo(logger)
-	// DEPRECATED: remove in 1.9
-	if splitPolicyReport {
-		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
-	}
-}
-
 func startProfiling(logger logr.Logger) {
 	logger = logger.WithName("profiling")
+	logger.Info("start profiling...", "profile", profile, "port", profilePort)
 	if profile {
 		addr := ":" + profilePort
 		logger.Info("Enable profiling, see details at https://github.com/kyverno/kyverno/wiki/Profiling-Kyverno-on-Kubernetes", "port", profilePort)
@@ -194,7 +146,9 @@ func startProfiling(logger logr.Logger) {
 	}
 }
 
-func createKubeClients() (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
+func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
+	logger = logger.WithName("kube-clients")
+	logger.Info("create kube clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -215,6 +169,107 @@ func createKubeClients() (*rest.Config, *kubernetes.Clientset, metadataclient.In
 	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
 }
 
+func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
+	logger = logger.WithName("metrics")
+	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		return nil, nil, err
+	}
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		logging.WithName("metrics"),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	var cancel context.CancelFunc
+	if otel == "grpc" {
+		cancel = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			metrics.ShutDownController(ctx, metricsPusher)
+		}
+	}
+	if otel == "prometheus" {
+		go func() {
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
+			}
+		}()
+	}
+	return metricsConfig, cancel, nil
+}
+
+func setupTracing(logger logr.Logger, kubeClient kubernetes.Interface) (context.CancelFunc, error) {
+	logger = logger.WithName("tracing")
+	logger.Info("setup tracing...", "enabled", enableTracing, "port", otelCollector, "creds", transportCreds)
+	var cancel context.CancelFunc
+	if enableTracing {
+		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("tracing"))
+		if err != nil {
+			return nil, err
+		}
+		cancel = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			defer tracing.ShutDownController(ctx, tracerProvider)
+		}
+	}
+	return cancel, nil
+}
+
+func setupRegistryClient(logger logr.Logger, kubeClient kubernetes.Interface) error {
+	logger = logger.WithName("registry-client")
+	logger.Info("setup registry client...", "secrets", imagePullSecrets, "insecure", allowInsecureRegistry)
+	var registryOptions []registryclient.Option
+	secrets := strings.Split(imagePullSecrets, ",")
+	if imagePullSecrets != "" && len(secrets) > 0 {
+		registryOptions = append(registryOptions, registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets))
+	}
+	if allowInsecureRegistry {
+		registryOptions = append(registryOptions, registryclient.WithAllowInsecureRegistry())
+	}
+	client, err := registryclient.InitClient(registryOptions...)
+	if err != nil {
+		return err
+	}
+	registryclient.DefaultClient = client
+	return nil
+}
+
+func setupCosign(logger logr.Logger) {
+	logger = logger.WithName("cosign")
+	logger.Info("setup cosign...", "repository", imageSignatureRepository)
+	if imageSignatureRepository != "" {
+		cosign.ImageSignatureRepository = imageSignatureRepository
+	}
+}
+
+func setupSignals() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+}
+
+func showWarnings(logger logr.Logger) {
+	logger = logger.WithName("warnings")
+	// DEPRECATED: remove in 1.9
+	if splitPolicyReport {
+		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
+	}
+}
+
+func showVersion(logger logr.Logger) {
+	logger = logger.WithName("version")
+	version.PrintVersionInfo(logger)
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
@@ -227,20 +282,18 @@ func main() {
 		os.Exit(1)
 	}
 	logger := logging.WithName("setup")
+	// show version
+	showWarnings(logger)
+	// show version
+	showVersion(logger)
 	// start profiling
 	startProfiling(logger)
-	// create client config and kube client
-	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients()
+	// create client config and kube clients
+	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients(logger)
 	if err != nil {
 		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
 	}
-	// show startup message
-	showStartup(logger)
-	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer signalCancel()
-
 	// setup metrics
 	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
 	if err != nil {
@@ -250,20 +303,38 @@ func main() {
 	if metricsShutdown != nil {
 		defer metricsShutdown()
 	}
+	// setup tracing
+	if tracingShutdown, err := setupTracing(logger, kubeClient); err != nil {
+		logger.Error(err, "failed to setup tracing")
+		os.Exit(1)
+	} else if tracingShutdown != nil {
+		defer tracingShutdown()
+	}
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
+	// setup registry client
+	if err := setupRegistryClient(logger, kubeClient); err != nil {
+		logger.Error(err, "failed to setup registry client")
+		os.Exit(1)
+	}
+	// setup cosign
+	setupCosign(logger)
+
 	// instrumented clients
 	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
 	if err != nil {
-		logger.Error(err, "Failed to create client")
+		logger.Error(err, "failed to create client")
 		os.Exit(1)
 	}
 	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
-		logger.Error(err, "Failed to create dynamic client")
+		logger.Error(err, "failed to create dynamic client")
 		os.Exit(1)
 	}
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
-		logger.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
+		logger.Error(fmt.Errorf("CRDs not installed"), "failed to access Kyverno CRDs")
 		os.Exit(1)
 	}
 
@@ -276,37 +347,6 @@ func main() {
 	// utils
 	kyvernoV1 := kyvernoInformer.Kyverno().V1()
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-
-	var registryOptions []registryclient.Option
-
-	// load image registry secrets
-	secrets := strings.Split(imagePullSecrets, ",")
-	if imagePullSecrets != "" && len(secrets) > 0 {
-		logger.V(2).Info("initializing registry credentials", "secrets", secrets)
-		registryOptions = append(
-			registryOptions,
-			registryclient.WithKeychainPullSecrets(kubeClient, config.KyvernoNamespace(), "", secrets),
-		)
-	}
-
-	if allowInsecureRegistry {
-		logger.V(2).Info("initializing registry with allowing insecure connections to registries")
-		registryOptions = append(
-			registryOptions,
-			registryclient.WithAllowInsecureRegistry(),
-		)
-	}
-
-	// initialize default registry client with our settings
-	registryclient.DefaultClient, err = registryclient.InitClient(registryOptions...)
-	if err != nil {
-		logger.Error(err, "failed to initialize registry client")
-		os.Exit(1)
-	}
-
-	if imageSignatureRepository != "" {
-		cosign.ImageSignatureRepository = imageSignatureRepository
-	}
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
@@ -342,19 +382,6 @@ func main() {
 		os.Exit(1)
 	}
 	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
-
-	// Tracing Configuration
-	if enableTracing {
-		logger.V(2).Info("Enabling tracing for Kyverno...")
-		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("Tracing"))
-		if err != nil {
-			logger.Error(err, "Failed to enable tracing for Kyverno")
-			os.Exit(1)
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer tracing.ShutDownController(ctx, tracerProvider)
-		defer cancel()
-	}
 
 	// POLICY CONTROLLER
 	// - reconciliation policy and policy violation
