@@ -131,11 +131,11 @@ func parseFlags() error {
 	return nil
 }
 
-func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, error) {
+func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	metricsAddr := ":" + metricsPort
 	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
@@ -149,13 +149,15 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 		logging.WithName("Metrics"),
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	var cancel context.CancelFunc
 	if otel == "grpc" {
-		// TODO: defer does not work here, must be in main
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(ctx, metricsPusher)
-		defer cancel()
+		cancel = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			metrics.ShutDownController(ctx, metricsPusher)
+		}
 	}
 	if otel == "prometheus" {
 		go func() {
@@ -165,7 +167,7 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 			}
 		}()
 	}
-	return metricsConfig, nil
+	return metricsConfig, cancel, nil
 }
 
 func showStartup(logger logr.Logger) {
@@ -240,10 +242,13 @@ func main() {
 	defer signalCancel()
 
 	// setup metrics
-	metricsConfig, err := setupMetrics(logger, kubeClient)
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
 	if err != nil {
 		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
+	}
+	if metricsShutdown != nil {
+		defer metricsShutdown()
 	}
 	// instrumented clients
 	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
