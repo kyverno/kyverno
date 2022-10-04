@@ -238,7 +238,7 @@ func main() {
 	// show startup message
 	showStartup(logger)
 	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, signalCancel := signal.NotifyContext(logging.IntoBackground(logger), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
 	// setup metrics
