@@ -36,7 +36,7 @@ type Interface interface {
 type config struct {
 	name              string
 	namespace         string
-	startWork         func()
+	startWork         func(context.Context)
 	stopWork          func()
 	kubeClient        kubernetes.Interface
 	lock              resourcelock.Interface
@@ -46,7 +46,7 @@ type config struct {
 	log               logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, id string, startWork, stopWork func(), log logr.Logger) (Interface, error) {
+func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interface, id string, startWork func(context.Context), stopWork func()) (Interface, error) {
 	lock, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
 		namespace,
@@ -80,7 +80,7 @@ func New(name, namespace string, kubeClient kubernetes.Interface, id string, sta
 				atomic.StoreInt64(&e.isLeader, 1)
 				e.log.Info("started leading")
 				if e.startWork != nil {
-					e.startWork()
+					e.startWork(ctx)
 				}
 			},
 			OnStoppedLeading: func() {
