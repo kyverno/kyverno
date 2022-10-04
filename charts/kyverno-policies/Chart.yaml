@@ -1,8 +1,8 @@
 apiVersion: v2
 type: application
 name: kyverno-policies
-version: 2.6.0-rc4
-appVersion: v1.8.0-rc4
+version: 2.6.0-rc5
+appVersion: v1.8.0-rc5
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Pod Security Standards implemented as Kyverno policies
 keywords:
