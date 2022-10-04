@@ -31,7 +31,7 @@ require (
 	github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.20.2
-	github.com/orcaman/concurrent-map v1.0.0
+	github.com/orcaman/concurrent-map/v2 v2.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/sigstore/cosign v1.12.1
 	github.com/sigstore/k8s-manifest-sigstore v0.4.1-0.20220927074341-7a2d417b0f45
