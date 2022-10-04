@@ -143,7 +143,7 @@ func (t *Monitor) Run(ctx context.Context, register *Register, certRenewer *tls.
 				if err := status.failure(); err != nil {
 					logger.Error(err, "failed to annotate deployment webhook status to failure")
 
-					if err := register.Register(); err != nil {
+					if err := register.Register(ctx); err != nil {
 						logger.Error(err, "Failed to register webhooks")
 					}
 				}
@@ -195,7 +195,7 @@ func registerWebhookIfNotPresent(register *Register, logger logr.Logger) error {
 	if err := register.Check(); err != nil {
 		logger.Error(err, "missing webhooks")
 
-		if err := register.Register(); err != nil {
+		if err := register.Register(context.Background()); err != nil {
 			return errors.Wrap(err, "failed to register webhooks")
 		}
 	}

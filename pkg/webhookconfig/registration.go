@@ -55,7 +55,6 @@ type Register struct {
 	metricsConfig metrics.MetricsConfigManager
 
 	// channels
-	stopCh               <-chan struct{}
 	UpdateWebhookChan    chan bool
 	createDefaultWebhook chan string
 
@@ -70,7 +69,6 @@ type Register struct {
 
 // NewRegister creates new Register instance
 func NewRegister(
-	ctx context.Context,
 	clientConfig *rest.Config,
 	client dclient.Interface,
 	kubeClient kubernetes.Interface,
@@ -96,7 +94,6 @@ func NewRegister(
 		metricsConfig:        metricsConfig,
 		UpdateWebhookChan:    make(chan bool),
 		createDefaultWebhook: make(chan string),
-		stopCh:               ctx.Done(),
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
@@ -104,7 +101,6 @@ func NewRegister(
 	}
 
 	register.manage = newWebhookConfigManager(
-		ctx,
 		client.Discovery(),
 		kubeClient,
 		kyvernoClient,
@@ -123,7 +119,7 @@ func NewRegister(
 }
 
 // Register clean up the old webhooks and re-creates admission webhooks configs on cluster
-func (wrc *Register) Register() error {
+func (wrc *Register) Register(ctx context.Context) error {
 	logger := wrc.log
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
@@ -154,7 +150,7 @@ func (wrc *Register) Register() error {
 	if len(errors) > 0 {
 		return fmt.Errorf("%s", strings.Join(errors, ","))
 	}
-	go wrc.manage.start()
+	go wrc.manage.start(ctx)
 	return nil
 }
 
@@ -236,49 +232,53 @@ func (wrc *Register) GetWebhookTimeOut() time.Duration {
 //
 // it currently updates namespaceSelector only, can be extend to update other fields
 // +deprecated
-func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configuration) {
+func (wrc *Register) UpdateWebhookConfigurations(ctx context.Context, configHandler config.Configuration) {
 	logger := wrc.log.WithName("UpdateWebhookConfigurations")
 	for {
-		<-wrc.UpdateWebhookChan
-		logger.V(4).Info("received the signal to update webhook configurations")
+		select {
+		case <-ctx.Done():
+			return
+		case <-wrc.UpdateWebhookChan:
+			logger.V(4).Info("received the signal to update webhook configurations")
 
-		retry := false
-		deploy, err := wrc.GetKubePolicyDeployment()
-		if err != nil {
-			retry = true
-		}
-		if tlsutils.IsKyvernoInRollingUpdate(deploy) {
-			retry = true
-		}
-
-		if !retry {
-			webhookCfgs := configHandler.GetWebhooks()
-			webhookCfg := config.WebhookConfig{}
-			if len(webhookCfgs) > 0 {
-				webhookCfg = webhookCfgs[0]
+			retry := false
+			deploy, err := wrc.GetKubePolicyDeployment()
+			if err != nil {
+				retry = true
 			}
-
-			if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
-				logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+			if tlsutils.IsKyvernoInRollingUpdate(deploy) {
 				retry = true
 			}
 
-			if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
-				logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
-				retry = true
-			}
-		}
-
-		if retry {
-			go func() {
-				time.Sleep(1 * time.Second)
-				select {
-				case wrc.UpdateWebhookChan <- true:
-					return
-				default:
-					return
+			if !retry {
+				webhookCfgs := configHandler.GetWebhooks()
+				webhookCfg := config.WebhookConfig{}
+				if len(webhookCfgs) > 0 {
+					webhookCfg = webhookCfgs[0]
 				}
-			}()
+
+				if err := wrc.updateResourceMutatingWebhookConfiguration(webhookCfg); err != nil {
+					logger.Error(err, "unable to update mutatingWebhookConfigurations", "name", getResourceMutatingWebhookConfigName(wrc.serverIP))
+					retry = true
+				}
+
+				if err := wrc.updateResourceValidatingWebhookConfiguration(webhookCfg); err != nil {
+					logger.Error(err, "unable to update validatingWebhookConfigurations", "name", getResourceValidatingWebhookConfigName(wrc.serverIP))
+					retry = true
+				}
+			}
+
+			if retry {
+				go func() {
+					time.Sleep(1 * time.Second)
+					select {
+					case wrc.UpdateWebhookChan <- true:
+						return
+					default:
+						return
+					}
+				}()
+			}
 		}
 	}
 }

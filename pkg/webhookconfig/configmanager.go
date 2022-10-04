@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
@@ -70,17 +71,14 @@ type webhookConfigManager struct {
 
 	createDefaultWebhook chan<- string
 
-	stopCh <-chan struct{}
-
 	log logr.Logger
 }
 
 type manage interface {
-	start()
+	start(context.Context)
 }
 
 func newWebhookConfigManager(
-	ctx context.Context,
 	discoveryClient dclient.IDiscovery,
 	kubeClient kubernetes.Interface,
 	kyvernoClient versioned.Interface,
@@ -112,7 +110,6 @@ func newWebhookConfigManager(
 		serverIP:             serverIP,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 		createDefaultWebhook: createDefaultWebhook,
-		stopCh:               ctx.Done(),
 		log:                  log,
 	}
 
@@ -250,7 +247,7 @@ func (m *webhookConfigManager) enqueue(policy interface{}) {
 }
 
 // start is a blocking call to configure webhook
-func (m *webhookConfigManager) start() {
+func (m *webhookConfigManager) start(ctx context.Context) {
 	defer utilruntime.HandleCrash()
 	defer m.queue.ShutDown()
 
@@ -277,8 +274,12 @@ func (m *webhookConfigManager) start() {
 		DeleteFunc: m.deleteValidatingWebhook,
 	})
 
-	for m.processNextWorkItem() {
-	}
+	go wait.Until(func() {
+		for m.processNextWorkItem() {
+		}
+	}, time.Second, ctx.Done())
+
+	<-ctx.Done()
 }
 
 func (m *webhookConfigManager) processNextWorkItem() bool {

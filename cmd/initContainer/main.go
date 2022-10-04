@@ -122,7 +122,7 @@ func main() {
 	defer close(done)
 	failure := false
 
-	run := func() {
+	run := func(context.Context) {
 		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
