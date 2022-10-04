@@ -223,7 +223,7 @@ func createNonLeaderControllers(
 	eventGenerator *event.Generator,
 	policyCache policycache.Cache,
 	openapiManager *openapi.Controller,
-) []controller {
+) ([]controller, func() error) {
 	configController := configcontroller.NewController(
 		configuration,
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
@@ -246,11 +246,14 @@ func createNonLeaderControllers(
 	)
 	openApiController := openapi.NewCRDSync(dynamicClient, openapiManager)
 	return []controller{
-		newController(configController, configcontroller.Workers),
-		newController(backgroundController, genWorkers),
-		newController(policyCacheController, policycachecontroller.Workers),
-		newController(openApiController, 1),
-	}
+			newController(configController, configcontroller.Workers),
+			newController(backgroundController, genWorkers),
+			newController(policyCacheController, policycachecontroller.Workers),
+			newController(openApiController, 1),
+		},
+		func() error {
+			return policyCacheController.WarmUp()
+		}
 }
 
 func createLeaderControllers(
@@ -293,8 +296,6 @@ func createLeaderControllers(
 	return append(
 			ctrls,
 			createReportControllers(
-				backgroundScan,
-				admissionReports,
 				dynamicClient,
 				kyvernoClient,
 				metadataInformer,
@@ -307,8 +308,6 @@ func createLeaderControllers(
 }
 
 func createReportControllers(
-	backgroundScan bool,
-	admissionReports bool,
 	client dclient.Interface,
 	kyvernoClient versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
@@ -517,7 +516,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	nonLeaderControllers := createNonLeaderControllers(
+	nonLeaderControllers, bootstrapFunc := createNonLeaderControllers(
 		dynamicClient,
 		kubeClient,
 		kyvernoClient,
@@ -582,25 +581,17 @@ func main() {
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
-	run := func() {
+	start := func() {
 		if err := certRenewer.InitTLSPemPair(); err != nil {
 			logger.Error(err, "tls initialization error")
 			os.Exit(1)
 		}
-		// wait for cache to be synced before use it
-		if !waitForInformersCacheSync(signalCtx,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-		) {
-			// TODO: shall we just exit ?
-			logger.Info("failed to wait for cache sync")
-		}
-
 		// validate the ConfigMap format
 		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
 			os.Exit(1)
 		}
+		// TODO: this should be stopped when loosing the lead
 		if autoUpdateWebhooks {
 			go webhookCfg.UpdateWebhookConfigurations(configuration)
 		}
@@ -609,12 +600,6 @@ func main() {
 			os.Exit(1)
 		}
 		webhookCfg.UpdateWebhookChan <- true
-		startInformers(signalCtx, metadataInformer)
-		if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
-			// TODO: shall we just exit ?
-			logger.Info("failed to wait for cache sync")
-		}
-
 		for _, controller := range leaderControllers {
 			go controller.start(signalCtx)
 		}
@@ -624,47 +609,42 @@ func main() {
 	// No need to exit here, as server.Stop(ctx) closes the cleanUp
 	// chan, thus the main process exits.
 	stop := func() {
-		c, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		server.Stop(c)
+		for _, controller := range leaderControllers {
+			controller.stop()
+		}
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, logging.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), start, stop, logging.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		logger.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
-	// cancel leader election context on shutdown signals
-	go func() {
-		defer signalCancel()
-		<-signalCtx.Done()
-	}()
-
 	// start informers and wait for cache sync
 	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
-		logger.Error(err, "Failed to wait for cache sync")
+		logger.Error(err, "failed to wait for cache sync")
 		os.Exit(1)
 	}
 	startInformers(signalCtx, metadataInformer)
 	if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
-		logger.Error(err, "Failed to wait for cache sync")
+		logger.Error(err, "failed to wait for cache sync")
 		os.Exit(1)
 	}
 
 	// warmup policy cache
-	// TODO
-	// if err := policyCacheController.WarmUp(); err != nil {
-	// 	logger.Error(err, "Failed to warm up policy cache")
-	// 	os.Exit(1)
-	// }
+	if bootstrapFunc != nil {
+		if err := bootstrapFunc(); err != nil {
+			logger.Error(err, "failed to bootstrap non leader controllers")
+			os.Exit(1)
+		}
+	}
 
-	// init events handlers
-	// start Kyverno controllers
+	// start non leader controllers
 	for _, c := range nonLeaderControllers {
 		go c.start(signalCtx)
 	}
 
+	// start leader election
 	go le.Run(signalCtx)
 
 	if serverIP != "" {

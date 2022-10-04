@@ -21,6 +21,8 @@ const (
 	TextFormat = "text"
 )
 
+// var global = log.Log
+
 func Init(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
 	if flag.CommandLine.Lookup("log_dir") != nil {
@@ -36,6 +38,7 @@ func Setup(logFormat string) error {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
 		log.SetLogger(klogr.New())
+		// global = global.WithName("global")
 	case JSONFormat:
 		zapLog, err := zap.NewProduction()
 		if err != nil {
@@ -72,10 +75,10 @@ func V(level int) logr.Logger {
 
 // Info logs a non-error message with the given key/value pairs.
 func Info(msg string, keysAndValues ...interface{}) {
-	GlobalLogger().Info(msg, keysAndValues...)
+	log.Log.Info(msg, keysAndValues...)
 }
 
 // Error logs an error, with the given message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
-	GlobalLogger().Error(err, msg, keysAndValues...)
+	log.Log.Error(err, msg, keysAndValues...)
 }

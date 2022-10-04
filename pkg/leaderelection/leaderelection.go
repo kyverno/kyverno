@@ -131,5 +131,15 @@ func (e *config) GetLeader() string {
 }
 
 func (e *config) Run(ctx context.Context) {
-	e.leaderElector.Run(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			e.log.Info("stop leader election")
+			return
+		default:
+			e.log.Info("starting leader election loop...")
+			e.leaderElector.Run(ctx)
+			e.log.Info("leader election loop terminated")
+		}
+	}
 }
