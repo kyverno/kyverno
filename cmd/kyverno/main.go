@@ -152,6 +152,7 @@ func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics
 		return nil, err
 	}
 	if otel == "grpc" {
+		// TODO: defer does not work here, must be in main
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer metrics.ShutDownController(ctx, metricsPusher)
 		defer cancel()
