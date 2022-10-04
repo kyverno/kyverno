@@ -62,7 +62,6 @@ type Register struct {
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
 	log                logr.Logger
-	debug              bool
 	autoUpdateWebhooks bool
 
 	// manage implements methods to manage webhook configurations
@@ -84,7 +83,6 @@ func NewRegister(
 	metricsConfig metrics.MetricsConfigManager,
 	serverIP string,
 	webhookTimeout int32,
-	debug bool,
 	autoUpdateWebhooks bool,
 	log logr.Logger,
 ) *Register {
@@ -102,7 +100,6 @@ func NewRegister(
 		serverIP:             serverIP,
 		timeoutSeconds:       webhookTimeout,
 		log:                  log.WithName("Register"),
-		debug:                debug,
 		autoUpdateWebhooks:   autoUpdateWebhooks,
 	}
 

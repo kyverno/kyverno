@@ -366,7 +366,6 @@ func main() {
 		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
-		serverIP != "",
 		autoUpdateWebhooks,
 		logging.GlobalLogger(),
 	)
