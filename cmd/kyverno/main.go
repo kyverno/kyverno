@@ -238,7 +238,6 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	debug := serverIP != ""
 	// setup metrics
 	metricsConfig, err := setupMetrics(logger, kubeClient)
 	if err != nil {
@@ -321,7 +320,6 @@ func main() {
 		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
-		debug,
 		autoUpdateWebhooks,
 		logging.GlobalLogger(),
 	)
@@ -553,7 +551,7 @@ func main() {
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
 
-	if !debug {
+	if serverIP != "" {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
