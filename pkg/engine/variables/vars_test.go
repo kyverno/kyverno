@@ -10,8 +10,8 @@ import (
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	ju "github.com/kyverno/kyverno/pkg/engine/jsonutils"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_subVars_success(t *testing.T) {
@@ -70,7 +70,7 @@ func Test_subVars_success(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteAll(log.Log, ctx, pattern); err != nil {
+	if _, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern); err != nil {
 		t.Error(err)
 	}
 }
@@ -131,7 +131,7 @@ func Test_subVars_failed(t *testing.T) {
 		t.Error(err)
 	}
 
-	if _, err := SubstituteAll(log.Log, ctx, pattern); err == nil {
+	if _, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern); err == nil {
 		t.Error("error is expected")
 	}
 }
@@ -223,7 +223,7 @@ func Test_subVars_with_JMESPath_At(t *testing.T) {
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	output, err := SubstituteAll(log.Log, ctx, pattern)
+	output, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
@@ -282,7 +282,7 @@ func Test_subVars_withRegexMatch(t *testing.T) {
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	output, err := SubstituteAll(log.Log, ctx, pattern)
+	output, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
@@ -312,7 +312,7 @@ func Test_subVars_withMerge(t *testing.T) {
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	output, err := SubstituteAll(log.Log, ctx, pattern)
+	output, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
@@ -355,7 +355,7 @@ func Test_subVars_withRegexReplaceAll(t *testing.T) {
 	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
-	output, err := SubstituteAll(log.Log, ctx, pattern)
+	output, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 	out, err := json.Marshal(output)
 	assert.NilError(t, err)
@@ -399,7 +399,7 @@ func Test_ReplacingPathWhenDeleting(t *testing.T) {
 	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
-	pattern, err = SubstituteAll(log.Log, ctx, pattern)
+	pattern, err = SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "bar")
@@ -434,7 +434,7 @@ func Test_ReplacingNestedVariableWhenDeleting(t *testing.T) {
 	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
-	pattern, err = SubstituteAll(log.Log, ctx, pattern)
+	pattern, err = SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "nested_target")
@@ -464,7 +464,7 @@ func Test_SubstituteSuccess(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.annotations.test}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -488,7 +488,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test2}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -501,7 +501,7 @@ func Test_SubstituteRecursiveErrors(t *testing.T) {
 	patternRaw = []byte(`"{{request.object.metadata2.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action = substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+	action = substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
 	results, err = action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -520,7 +520,7 @@ func Test_SubstituteRecursive(t *testing.T) {
 	patternRaw := []byte(`"{{request.object.metadata.{{request.object.metadata.annotations.test}}}}"`)
 	assert.Assert(t, json.Unmarshal(patternRaw, &pattern))
 
-	action := substituteVariablesIfAny(log.Log, ctx, DefaultVariableResolver)
+	action := substituteVariablesIfAny(logging.GlobalLogger(), ctx, DefaultVariableResolver)
 	results, err := action(&ju.ActionData{
 		Document: nil,
 		Element:  string(patternRaw),
@@ -556,7 +556,7 @@ func Test_policyContextValidation(t *testing.T) {
 
 	ctx := context.NewMockContext(nil, "request.object")
 
-	_, err = SubstituteAll(log.Log, ctx, contextMap)
+	_, err = SubstituteAll(logging.GlobalLogger(), ctx, contextMap)
 	assert.Assert(t, err != nil, err)
 }
 
@@ -634,7 +634,7 @@ func Test_variableSubstitution_array(t *testing.T) {
 	ctx := context.NewContextFromRaw(configmapRaw)
 	context.AddResource(ctx, resourceRaw)
 
-	vars, err := SubstituteAllInRule(log.Log, ctx, rule)
+	vars, err := SubstituteAllInRule(logging.GlobalLogger(), ctx, rule)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, vars.Validation.Message, "The animal cow is not in the allowed list of animals: snake\nbear\ncat\ndog.")
@@ -680,7 +680,7 @@ func Test_SubstituteNull(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -709,7 +709,7 @@ func Test_SubstituteNullInString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -738,7 +738,7 @@ func Test_SubstituteArray(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -767,7 +767,7 @@ func Test_SubstituteArrayInString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -796,7 +796,7 @@ func Test_SubstituteInt(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -825,7 +825,7 @@ func Test_SubstituteIntInString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -854,7 +854,7 @@ func Test_SubstituteBool(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -883,7 +883,7 @@ func Test_SubstituteBoolInString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -912,7 +912,7 @@ func Test_SubstituteString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -941,7 +941,7 @@ func Test_SubstituteStringInString(t *testing.T) {
 	ctx := context.NewContext()
 	context.AddResource(ctx, variableObject)
 
-	resolved, err := SubstituteAll(log.Log, ctx, pattern)
+	resolved, err := SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	content := resolved.(map[string]interface{})["spec"].(map[string]interface{})["content"]
@@ -993,7 +993,7 @@ func Test_ReferenceSubstitution(t *testing.T) {
 	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
-	actualDocument, err := SubstituteAll(log.Log, ctx, document)
+	actualDocument, err := SubstituteAll(logging.GlobalLogger(), ctx, document)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedDocument, actualDocument)
@@ -1066,7 +1066,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 
 	// pattern, err := actualizePattern(log.Log, pattern, referencePath, absolutePath)
 
-	pattern, err := resolveReference(log.Log, pattern, referencePath, absolutePath)
+	pattern, err := resolveReference(logging.GlobalLogger(), pattern, referencePath, absolutePath)
 
 	assert.NilError(t, err)
 	assert.DeepEqual(t, resolvedReference, pattern)
@@ -1075,7 +1075,7 @@ func TestActualizePattern_GivenRelativePathThatExists(t *testing.T) {
 func TestFindAndShiftReferences_PositiveCase(t *testing.T) {
 	message := "Message with $(./../../pattern/spec/containers/0/image) reference inside. Or maybe even two $(./../../pattern/spec/containers/0/image), but they are same."
 	expectedMessage := strings.Replace(message, "$(./../../pattern/spec/containers/0/image)", "$(./../../pattern/spec/jobTemplate/spec/containers/0/image)", -1)
-	actualMessage := FindAndShiftReferences(log.Log, message, "spec/jobTemplate", "pattern")
+	actualMessage := FindAndShiftReferences(logging.GlobalLogger(), message, "spec/jobTemplate", "pattern")
 
 	assert.Equal(t, expectedMessage, actualMessage)
 }
@@ -1083,7 +1083,7 @@ func TestFindAndShiftReferences_PositiveCase(t *testing.T) {
 func TestFindAndShiftReferences_AnyPatternPositiveCase(t *testing.T) {
 	message := "Message with $(./../../anyPattern/0/spec/containers/0/image)."
 	expectedMessage := strings.Replace(message, "$(./../../anyPattern/0/spec/containers/0/image)", "$(./../../anyPattern/0/spec/jobTemplate/spec/containers/0/image)", -1)
-	actualMessage := FindAndShiftReferences(log.Log, message, "spec/jobTemplate", "anyPattern")
+	actualMessage := FindAndShiftReferences(logging.GlobalLogger(), message, "spec/jobTemplate", "anyPattern")
 
 	assert.Equal(t, expectedMessage, actualMessage)
 }
@@ -1137,7 +1137,7 @@ func Test_EscpReferenceSubstitution(t *testing.T) {
 	err = context.AddResource(ctx, jsonRaw)
 	assert.NilError(t, err)
 
-	actualDocument, err := SubstituteAll(log.Log, ctx, document)
+	actualDocument, err := SubstituteAll(logging.GlobalLogger(), ctx, document)
 	assert.NilError(t, err)
 
 	assert.DeepEqual(t, expectedDocument, actualDocument)
@@ -1172,7 +1172,7 @@ func Test_ReplacingEscpNestedVariableWhenDeleting(t *testing.T) {
 	ctx := context.NewContextFromRaw(resourceRaw)
 	assert.NilError(t, err)
 
-	pattern, err = SubstituteAll(log.Log, ctx, pattern)
+	pattern, err = SubstituteAll(logging.GlobalLogger(), ctx, pattern)
 	assert.NilError(t, err)
 
 	assert.Equal(t, fmt.Sprintf("%v", pattern), "{{request.object.metadata.annotations.target}}")

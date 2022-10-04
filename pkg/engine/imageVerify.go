@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
@@ -22,7 +23,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
@@ -31,7 +31,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
-	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
+	logger := logging.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	startTime := time.Now()

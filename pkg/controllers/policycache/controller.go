@@ -7,6 +7,7 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	pcache "github.com/kyverno/kyverno/pkg/policycache"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -17,9 +18,15 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 3
 	maxRetries = 10
-	workers    = 3
 )
+
+type Controller interface {
+	controllers.Controller
+	WarmUp() error
+}
 
 type controller struct {
 	cache pcache.Cache
@@ -28,22 +35,15 @@ type controller struct {
 	cpolLister kyvernov1listers.ClusterPolicyLister
 	polLister  kyvernov1listers.PolicyLister
 
-	// cpolSynced returns true if the cluster policy shared informer has synced at least once
-	cpolSynced cache.InformerSynced
-	// polSynced returns true if the policy shared informer has synced at least once
-	polSynced cache.InformerSynced
-
 	// queue
 	queue workqueue.RateLimitingInterface
 }
 
-func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) *controller {
+func NewController(pcache pcache.Cache, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) Controller {
 	c := controller{
 		cache:      pcache,
 		cpolLister: cpolInformer.Lister(),
 		polLister:  polInformer.Lister(),
-		cpolSynced: cpolInformer.Informer().HasSynced,
-		polSynced:  polInformer.Informer().HasSynced,
 		queue:      workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
 	}
 	controllerutils.AddDefaultEventHandlers(logger.V(3), cpolInformer.Informer(), c.queue)
@@ -80,8 +80,8 @@ func (c *controller) WarmUp() error {
 	return nil
 }
 
-func (c *controller) Run(ctx context.Context) {
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile, c.cpolSynced, c.polSynced)
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"go.uber.org/multierr"
@@ -26,16 +28,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
 	kubeconfig           string
-	setupLog             = log.Log.WithName("setup")
+	setupLog             = logging.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
+	logFormat            string
 )
 
 const (
@@ -44,23 +44,31 @@ const (
 	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func main() {
-	// clear flags initialized in static dependencies
-	if flag.CommandLine.Lookup("log_dir") != nil {
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	}
-
-	klog.InitFlags(nil) // add the block above before invoking klog.InitFlags()
-	log.SetLogger(klogr.New())
+func parseFlags() error {
+	logging.Init(nil)
+	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
-		klog.Fatalf("failed to set log level: %v", err)
+		return err
 	}
 
 	flag.Parse()
+	return nil
+}
 
+func main() {
+	// parse flags
+	if err := parseFlags(); err != nil {
+		fmt.Println("failed to parse flags", err)
+		os.Exit(1)
+	}
+	// setup logger
+	if err := logging.Setup(logFormat); err != nil {
+		fmt.Println("could not setup logger", err)
+		os.Exit(1)
+	}
 	// os signal handler
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
@@ -95,7 +103,7 @@ func main() {
 	}
 
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), log.Log, 1, 16, 0) {
+	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
 
@@ -118,7 +126,7 @@ func main() {
 		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
+			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
@@ -127,14 +135,14 @@ func main() {
 		name = tls.GenerateTLSPairSecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
+			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
 		}
 
 		if err = acquireLeader(signalCtx, kubeClient); err != nil {
-			log.Log.V(2).Info("Failed to create lease 'kyvernopre-lock'")
+			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
 			os.Exit(1)
 		}
 
@@ -148,19 +156,19 @@ func main() {
 		for err := range merge(done, stopCh, p1, p2) {
 			if err != nil {
 				failure = true
-				log.Log.Error(err, "failed to cleanup resource")
+				logging.Error(err, "failed to cleanup resource")
 			}
 		}
 		// if there is any failure then we fail process
 		if failure {
-			log.Log.V(2).Info("failed to cleanup prior configurations")
+			logging.V(2).Info("failed to cleanup prior configurations")
 			os.Exit(1)
 		}
 
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, nil, logging.WithName("kyvernopre/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
@@ -172,9 +180,9 @@ func main() {
 func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
 	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
 	if err != nil {
-		log.Log.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+		logging.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
 	} else {
-		log.Log.V(2).Info("Leader was elected, quitting")
+		logging.V(2).Info("Leader was elected, quitting")
 		os.Exit(0)
 	}
 
@@ -231,7 +239,7 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 
 // processes the requests
 func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
-	logger := log.Log.WithName("process")
+	logger := logging.WithName("process")
 	out := make(chan error)
 	go func() {
 		defer close(out)
@@ -252,7 +260,7 @@ func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, do
 
 // waits for all processes to be complete and merges result
 func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan error) <-chan error {
-	logger := log.Log.WithName("merge")
+	logger := logging.WithName("merge")
 	var wg sync.WaitGroup
 	out := make(chan error)
 	// gets the output from each process
@@ -285,7 +293,7 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 }
 
 func convertGR(pclient kyvernoclient.Interface) error {
-	logger := log.Log.WithName("convertGenerateRequest")
+	logger := logging.WithName("convertGenerateRequest")
 
 	var errors []error
 	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})

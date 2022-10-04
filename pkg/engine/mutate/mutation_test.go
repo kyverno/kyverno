@@ -10,9 +10,9 @@ import (
 	types "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"gotest.tools/assert"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kyverno/kyverno/pkg/engine/utils"
 )
@@ -50,7 +50,7 @@ const endpointsDocument string = `{
 }`
 
 func applyPatches(rule *types.Rule, resource unstructured.Unstructured) (*response.RuleResponse, unstructured.Unstructured) {
-	mutateResp := Mutate(rule, context.NewContext(), resource, log.Log)
+	mutateResp := Mutate(rule, context.NewContext(), resource, logging.GlobalLogger())
 
 	if mutateResp.Status != response.RuleStatusPass {
 		return &response.RuleResponse{
