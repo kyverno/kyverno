@@ -279,6 +279,20 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, err
 	}
 
+	payload, err := extractPayload(signatures)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+		return nil, err
+	}
+
+	err = checkAnnotations(payload, opts.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	logger.V(3).Info("verified images", "signatures", len(signatures), "bundleVerified", bundleVerified)
 	inTotoStatements, digest, err := decodeStatements(signatures)
 	if err != nil {
