@@ -38,7 +38,7 @@ const (
 
 type Controller interface {
 	// Run starts workers
-	Run(int, <-chan struct{})
+	Run(context.Context, int)
 }
 
 // controller manages the life-cycle for Generate-Requests and applies generate rule
@@ -107,27 +107,27 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(workers int, stopCh <-chan struct{}) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
 	logger.Info("starting")
 	defer logger.Info("shutting down")
 
-	if !cache.WaitForNamedCacheSync("background", stopCh, c.informersSynced...) {
+	if !cache.WaitForNamedCacheSync("background", ctx.Done(), c.informersSynced...) {
 		return
 	}
 
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.worker, time.Second, stopCh)
+		go wait.UntilWithContext(ctx, c.worker, time.Second)
 	}
 
-	<-stopCh
+	<-ctx.Done()
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
 // It enforces that the syncHandler is never invoked concurrently with the same key.
-func (c *controller) worker() {
+func (c *controller) worker(ctx context.Context) {
 	for c.processNextWorkItem() {
 	}
 }

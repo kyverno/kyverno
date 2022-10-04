@@ -7,6 +7,7 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
@@ -21,8 +22,9 @@ import (
 )
 
 const (
+	// Workers is the number of workers for this controller
+	Workers    = 2
 	maxRetries = 10
-	workers    = 2
 )
 
 type controller struct {
@@ -46,7 +48,7 @@ func NewController(
 	client versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
 	metadataCache resource.MetadataCache,
-) *controller {
+) controllers.Controller {
 	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
@@ -62,7 +64,7 @@ func NewController(
 	return &c
 }
 
-func (c *controller) Run(ctx context.Context) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
