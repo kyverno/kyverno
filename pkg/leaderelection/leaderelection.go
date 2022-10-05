@@ -46,7 +46,7 @@ type config struct {
 	log               logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, id string, startWork func(context.Context), stopWork func(), log logr.Logger) (Interface, error) {
+func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interface, id string, startWork func(context.Context), stopWork func()) (Interface, error) {
 	lock, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
 		namespace,

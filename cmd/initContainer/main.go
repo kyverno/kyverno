@@ -70,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
 	stopCh := signalCtx.Done()
@@ -168,7 +168,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, nil, logging.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New(
+		logging.WithName("kyvernopre/LeaderElection"),
+		"kyvernopre",
+		config.KyvernoNamespace(),
+		kubeClient,
+		config.KyvernoPodName(),
+		run,
+		nil,
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
