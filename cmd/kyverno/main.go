@@ -486,7 +486,7 @@ func main() {
 		metadataInformer.WaitForCacheSync(stopCh)
 
 		for i := range reportControllers {
-			go reportControllers[i].Run(signalCtx.Done())
+			go reportControllers[i].Run(stopCh)
 		}
 	}
 
