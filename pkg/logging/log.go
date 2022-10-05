@@ -37,7 +37,6 @@ func Setup(logFormat string) error {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
 		log.SetLogger(klogr.New())
-		// global = global.WithName("global")
 	case JSONFormat:
 		zapLog, err := zap.NewProduction()
 		if err != nil {
