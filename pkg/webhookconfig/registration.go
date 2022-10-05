@@ -127,6 +127,7 @@ func (wrc *Register) Register() error {
 	logger := wrc.log
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
+	} else {
 		if err := wrc.checkEndpoint(); err != nil {
 			return err
 		}
