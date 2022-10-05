@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"errors"
 	"flag"
 	"os"
@@ -78,4 +79,39 @@ func Info(msg string, keysAndValues ...interface{}) {
 // Error logs an error, with the given message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
 	GlobalLogger().Error(err, msg, keysAndValues...)
+}
+
+// FromContext returns a logger with predefined values from a context.Context.
+func FromContext(ctx context.Context, keysAndValues ...interface{}) (logr.Logger, error) {
+	logger, err := logr.FromContext(ctx)
+	if err != nil {
+		return logger, err
+	}
+	return logger.WithValues(keysAndValues...), nil
+}
+
+// IntoContext takes a context and sets the logger as one of its values.
+// Use FromContext function to retrieve the logger.
+func IntoContext(ctx context.Context, log logr.Logger) context.Context {
+	return logr.NewContext(ctx, log)
+}
+
+// IntoBackground calls IntoContext with the logger and a Background context.
+func IntoBackground(log logr.Logger) context.Context {
+	return IntoContext(context.Background(), log)
+}
+
+// IntoTODO calls IntoContext with the logger and a TODO context.
+func IntoTODO(log logr.Logger) context.Context {
+	return IntoContext(context.TODO(), log)
+}
+
+// Background calls IntoContext with the global logger and a Background context.
+func Background() context.Context {
+	return IntoContext(context.Background(), GlobalLogger())
+}
+
+// TODO calls IntoContext with the global logger and a TODO context.
+func TODO() context.Context {
+	return IntoContext(context.TODO(), GlobalLogger())
 }
