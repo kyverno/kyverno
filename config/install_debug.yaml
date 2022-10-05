@@ -4087,6 +4087,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -9556,6 +9557,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -15875,6 +15877,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -21346,6 +21349,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
