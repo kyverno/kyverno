@@ -131,6 +131,45 @@ func parseFlags() error {
 	return nil
 }
 
+func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
+	logger = logger.WithName("metrics")
+	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	if err != nil {
+		return nil, nil, err
+	}
+	metricsAddr := ":" + metricsPort
+	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
+		disableMetricsExport,
+		otel,
+		metricsAddr,
+		otelCollector,
+		metricsConfigData,
+		transportCreds,
+		kubeClient,
+		logging.WithName("Metrics"),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	var cancel context.CancelFunc
+	if otel == "grpc" {
+		cancel = func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			metrics.ShutDownController(ctx, metricsPusher)
+		}
+	}
+	if otel == "prometheus" {
+		go func() {
+			logger.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
+				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
+			}
+		}()
+	}
+	return metricsConfig, cancel, nil
+}
+
 func showStartup(logger logr.Logger) {
 	logger = logger.WithName("startup")
 	logger.Info("kyverno is staring...")
@@ -155,16 +194,25 @@ func startProfiling(logger logr.Logger) {
 	}
 }
 
-func createKubeClient() (*rest.Config, *kubernetes.Clientset, error) {
+func createKubeClients() (*rest.Config, *kubernetes.Clientset, metadataclient.Interface, kubernetes.Interface, error) {
 	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	kubeClient, err := kubernetes.NewForConfig(clientConfig)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, nil, err
 	}
-	return clientConfig, kubeClient, nil
+	metadataClient, err := metadataclient.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
+	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
 }
 
 func main() {
@@ -182,9 +230,9 @@ func main() {
 	// start profiling
 	startProfiling(logger)
 	// create client config and kube client
-	clientConfig, kubeClient, err := createKubeClient()
+	clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, err := createKubeClients()
 	if err != nil {
-		logger.Error(err, "failed to create kube client")
+		logger.Error(err, "failed to create kubernetes clients")
 		os.Exit(1)
 	}
 	// show startup message
@@ -193,32 +241,16 @@ func main() {
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
-	debug := serverIP != ""
-
-	// Metrics Configuration
-	var metricsConfig *metrics.MetricsConfig
-	metricsConfigData, err := config.NewMetricsConfigData(kubeClient)
+	// setup metrics
+	metricsConfig, metricsShutdown, err := setupMetrics(logger, kubeClient)
 	if err != nil {
-		logger.Error(err, "failed to fetch metrics config")
+		logger.Error(err, "failed to setup metrics")
 		os.Exit(1)
 	}
-
-	metricsAddr := ":" + metricsPort
-	metricsConfig, metricsServerMux, metricsPusher, err := metrics.InitMetrics(
-		disableMetricsExport,
-		otel,
-		metricsAddr,
-		otelCollector,
-		metricsConfigData,
-		transportCreds,
-		kubeClient,
-		logging.WithName("Metrics"),
-	)
-	if err != nil {
-		logger.Error(err, "failed to initialize metrics")
-		os.Exit(1)
+	if metricsShutdown != nil {
+		defer metricsShutdown()
 	}
-
+	// instrumented clients
 	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
 	if err != nil {
 		logger.Error(err, "Failed to create client")
@@ -227,17 +259,6 @@ func main() {
 	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
 	if err != nil {
 		logger.Error(err, "Failed to create dynamic client")
-		os.Exit(1)
-	}
-	metadataClient, err := metadataclient.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create metadata client")
-		os.Exit(1)
-	}
-	// The leader queries/updates the lease object quite frequently. So we use a separate kube-client to eliminate the throttle issue
-	kubeClientLeaderElection, err := kubernetes.NewForConfig(clientConfig)
-	if err != nil {
-		logger.Error(err, "Failed to create kubernetes leader client")
 		os.Exit(1)
 	}
 	// sanity checks
@@ -257,21 +278,6 @@ func main() {
 	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
 
 	var registryOptions []registryclient.Option
-
-	if otel == "grpc" {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		defer metrics.ShutDownController(ctx, metricsPusher)
-		defer cancel()
-	}
-
-	if otel == "prometheus" {
-		go func() {
-			logger.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
-			if err := http.ListenAndServe(metricsAddr, metricsServerMux); err != nil {
-				logger.Error(err, "failed to enable metrics", "address", metricsAddr)
-			}
-		}()
-	}
 
 	// load image registry secrets
 	secrets := strings.Split(imagePullSecrets, ",")
@@ -320,7 +326,6 @@ func main() {
 		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
-		debug,
 		autoUpdateWebhooks,
 		logging.GlobalLogger(),
 	)
@@ -552,7 +557,7 @@ func main() {
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
 
-	if !debug {
+	if serverIP != "" {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
