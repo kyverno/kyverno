@@ -539,8 +539,8 @@ func main() {
 			logger.Info("failed to wait for cache sync")
 		}
 
-		for _, controller := range reportControllers {
-			go controller.run(signalCtx)
+		for i := range reportControllers {
+			go reportControllers[i].run(signalCtx)
 		}
 	}
 
