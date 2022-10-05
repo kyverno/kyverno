@@ -493,7 +493,7 @@ func main() {
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
 	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
-	run := func() {
+	run := func(context.Context) {
 		if err := certRenewer.InitTLSPemPair(); err != nil {
 			logger.Error(err, "tls initialization error")
 			os.Exit(1)
@@ -553,7 +553,15 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, logging.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New(
+		logger.WithName("leader-election"),
+		"kyverno",
+		config.KyvernoNamespace(),
+		kubeClientLeaderElection,
+		config.KyvernoPodName(),
+		run,
+		stop,
+	)
 	if err != nil {
 		logger.Error(err, "failed to elect a leader")
 		os.Exit(1)
