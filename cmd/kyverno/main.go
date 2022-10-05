@@ -631,10 +631,16 @@ func main() {
 			logger.Error(err, "Timeout registering admission control webhooks")
 			os.Exit(1)
 		}
-		webhookCfg.UpdateWebhookChan <- true
-		for _, controller := range leaderControllers {
-			go controller.start(ctx)
+		logger.Info("starting leader controllers...")
+		for i := range leaderControllers {
+			logger.Info("starting leader controller", "i", i)
+			go leaderControllers[i].start(ctx)
 		}
+		logger.Info("webhookCfg.UpdateWebhookChan <- true")
+		webhookCfg.UpdateWebhookChan <- true
+		logger.Info("<-ctx.Done()")
+		<-ctx.Done()
+		logger.Info("shutdown leader controllers")
 	}
 
 	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), start, nil, logging.WithName("kyverno/LeaderElection"))
@@ -658,8 +664,8 @@ func main() {
 	}
 
 	// start non leader controllers
-	for _, c := range nonLeaderControllers {
-		go c.start(signalCtx)
+	for i := range nonLeaderControllers {
+		go nonLeaderControllers[i].start(signalCtx)
 	}
 
 	// start leader election
