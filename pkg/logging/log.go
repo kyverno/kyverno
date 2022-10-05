@@ -22,8 +22,6 @@ const (
 	TextFormat = "text"
 )
 
-// var global = log.Log
-
 func Init(flags *flag.FlagSet) {
 	// clear flags initialized in static dependencies
 	if flag.CommandLine.Lookup("log_dir") != nil {
@@ -76,12 +74,12 @@ func V(level int) logr.Logger {
 
 // Info logs a non-error message with the given key/value pairs.
 func Info(msg string, keysAndValues ...interface{}) {
-	log.Log.Info(msg, keysAndValues...)
+	GlobalLogger().Info(msg, keysAndValues...)
 }
 
 // Error logs an error, with the given message and key/value pairs.
 func Error(err error, msg string, keysAndValues ...interface{}) {
-	log.Log.Error(err, msg, keysAndValues...)
+	GlobalLogger().Error(err, msg, keysAndValues...)
 }
 
 // FromContext returns a logger with predefined values from a context.Context.
