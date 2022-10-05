@@ -122,7 +122,7 @@ func main() {
 	defer close(done)
 	failure := false
 
-	run := func() {
+	run := func(context.Context) {
 		name := tls.GenerateRootCASecretName()
 		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
@@ -168,7 +168,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), run, nil, logging.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New(
+		logging.WithName("kyvernopre/LeaderElection"),
+		"kyvernopre",
+		config.KyvernoNamespace(),
+		kubeClient,
+		config.KyvernoPodName(),
+		run,
+		nil,
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
