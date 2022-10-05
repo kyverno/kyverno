@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/googleapis/gnostic/compiler"
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	"github.com/google/gnostic/compiler"
+	openapiv2 "github.com/google/gnostic/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
