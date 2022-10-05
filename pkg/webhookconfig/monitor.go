@@ -231,8 +231,5 @@ func skipWebhookCheck(register *Register, logger logr.Logger) bool {
 		logger.Info("unable to get Kyverno deployment", "reason", err.Error())
 		return false
 	}
-	if register.debug {
-		return false
-	}
 	return tls.IsKyvernoInRollingUpdate(deploy)
 }
