@@ -121,12 +121,9 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 		if err == nil {
 			err = fmt.Errorf("not found")
 		}
-
 		logging.Error(err, "failed to retrieve CRD", "kind", kind)
 		return false
 	}
-
-	logging.V(2).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
