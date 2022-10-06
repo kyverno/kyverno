@@ -79,14 +79,6 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	}
 }
 
-func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
-	if err != nil {
-		return nil, nil, err
-	}
-	return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
-}
-
 func (m *controller) renewCertificates() error {
 	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
 		return err
