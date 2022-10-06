@@ -2,6 +2,6 @@ package policycache
 
 import "github.com/kyverno/kyverno/pkg/logging"
 
-const controllerName = "policycache-controller"
+const ControllerName = "policycache-controller"
 
-var logger = logging.WithName(controllerName)
+var logger = logging.WithName(ControllerName)

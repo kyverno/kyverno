@@ -24,8 +24,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 1
-	maxRetries = 5
+	Workers        = 1
+	ControllerName = "resource-report-controller"
+	maxRetries     = 5
 )
 
 type Resource struct {
@@ -77,7 +78,7 @@ func NewController(
 		client:          client,
 		polLister:       polInformer.Lister(),
 		cpolLister:      cpolInformer.Lister(),
-		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
 	controllerutils.AddDefaultEventHandlers(logger.V(3), polInformer.Informer(), c.queue)
@@ -86,7 +87,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {

@@ -28,8 +28,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 1
-	maxRetries = 10
+	Workers        = 1
+	ControllerName = "aggregate-report-controller"
+	maxRetries     = 10
 )
 
 type controller struct {
@@ -71,7 +72,7 @@ func NewController(
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
 		cbgscanrLister: cbgscanrInformer.Lister(),
-		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName),
+		queue:          workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		metadataCache:  metadataCache,
 		chunkSize:      chunkSize,
 	}
@@ -84,7 +85,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) listAdmissionReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
