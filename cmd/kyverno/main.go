@@ -748,6 +748,12 @@ func main() {
 		webhookCfg,
 		webhookMonitor,
 	)
+	// start informers and wait for cache sync
+	// we need to call start again because we potentially registered new informers
+	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
 	// start webhooks server
 	server.Run(signalCtx.Done())
 	// wait for termination signal
