@@ -400,10 +400,9 @@ func (wrc *Register) checkEndpoint() error {
 	deploy, err := wrc.GetKubePolicyDeployment()
 	if err != nil {
 		return err
-	} else {
-		if tlsutils.IsKyvernoInRollingUpdate(deploy) {
-			return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
-		}
+	}
+	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+		return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
 	}
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
