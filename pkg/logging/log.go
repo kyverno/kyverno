@@ -22,6 +22,10 @@ const (
 	TextFormat = "text"
 )
 
+// Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
+// When logging.Setup is called, globalLog is switched to the real logger.
+// Call depth of all loggers created before logging.Setup will not work, including package level loggers as they are created before main.
+// All loggers created after logging.Setup won't be subject to the call depth limitation and will work if the underlying sink supports it.
 var globalLog = log.Log
 
 func Init(flags *flag.FlagSet) {
