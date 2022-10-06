@@ -21,6 +21,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -270,6 +271,17 @@ func showVersion(logger logr.Logger) {
 	version.PrintVersionInfo(logger)
 }
 
+func sanityChecks(dynamicClient dclient.Interface) error {
+	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
+		return fmt.Errorf("CRDs not installed")
+	}
+	return nil
+}
+
+func createOpenApiController(manager *openapi.Controller, client dclient.Interface) controllers.Controller {
+	return openapi.NewCRDSync(client, manager)
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
@@ -455,8 +467,12 @@ func main() {
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 	)
 
-	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(signalCtx, logger, dynamicClient)
+	openApiManager, err := openapi.NewOpenAPIController()
+	if err != nil {
+		logger.Error(err, "Failed to create openapi manager")
+		os.Exit(1)
+	}
+	openApiController := createOpenApiController(openApiManager, dynamicClient)
 
 	// WEBHOOK
 	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
@@ -464,7 +480,7 @@ func main() {
 	// -- annotations on resources with update details on mutation JSON patches
 	// -- generate policy violation resource
 	// -- generate events on policy and resource
-	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openApiManager)
 	resourceHandlers := webhooksresource.NewHandlers(
 		dynamicClient,
 		kyvernoClient,
@@ -477,7 +493,7 @@ func main() {
 		kyvernoV1beta1.UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		urgen,
 		eventGenerator,
-		openAPIController,
+		openApiManager,
 		admissionReports,
 	)
 
@@ -591,6 +607,7 @@ func main() {
 	go le.Run(signalCtx)
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
+	go openApiController.Run(signalCtx, 1)
 
 	if serverIP != "" {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
@@ -605,21 +622,6 @@ func main() {
 	// remove webhook configurations
 	<-server.Cleanup()
 	logger.V(2).Info("Kyverno shutdown successful")
-}
-
-func startOpenAPIController(ctx context.Context, logger logr.Logger, client dclient.Interface) *openapi.Controller {
-	logger = logger.WithName("open-api")
-	openAPIController, err := openapi.NewOpenAPIController()
-	if err != nil {
-		logger.Error(err, "Failed to create openAPIController")
-		os.Exit(1)
-	}
-	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
-	// start openAPI controller, this is used in admission review
-	// thus is required in each instance
-	openAPISync.Run(ctx, 1)
-	return openAPIController
 }
 
 func setupReportControllers(
