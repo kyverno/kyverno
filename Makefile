@@ -646,6 +646,14 @@ release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
+#########
+# DEBUG #
+#########
+
+.PHONY: debug-deploy
+debug-deploy: codegen-install ## Install debug manifests
+	@kubectl create -f ./config/install_debug.yaml || kubectl replace -f ./config/install_debug.yaml
+
 ##########
 # GITHUB #
 ##########

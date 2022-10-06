@@ -547,7 +547,8 @@ func main() {
 	go le.Run(signalCtx)
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
-	if !debug {
+
+	if serverIP == "" {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
