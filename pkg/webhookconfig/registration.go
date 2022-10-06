@@ -127,6 +127,7 @@ func (wrc *Register) Register() error {
 	logger := wrc.log
 	if wrc.serverIP != "" {
 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
+	} else {
 		if err := wrc.checkEndpoint(); err != nil {
 			return err
 		}
@@ -243,12 +244,15 @@ func (wrc *Register) UpdateWebhookConfigurations(configHandler config.Configurat
 		logger.V(4).Info("received the signal to update webhook configurations")
 
 		retry := false
-		deploy, err := wrc.GetKubePolicyDeployment()
-		if err != nil {
-			retry = true
-		}
-		if tlsutils.IsKyvernoInRollingUpdate(deploy) {
-			retry = true
+		if wrc.serverIP != "" {
+			deploy, err := wrc.GetKubePolicyDeployment()
+			if err != nil {
+				retry = true
+			} else {
+				if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+					retry = true
+				}
+			}
 		}
 
 		if !retry {

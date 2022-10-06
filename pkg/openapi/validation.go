@@ -7,15 +7,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/googleapis/gnostic/compiler"
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	"github.com/google/gnostic/compiler"
+	openapiv2 "github.com/google/gnostic/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
-	cmap "github.com/orcaman/concurrent-map"
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +24,7 @@ import (
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
 )
 
-type concurrentMap struct{ cmap.ConcurrentMap }
+// type concurrentMap struct{ cmap.ConcurrentMap }
 
 type ValidateInterface interface {
 	ValidateResource(resource unstructured.Unstructured, apiVersion, kind string) error
@@ -33,7 +33,7 @@ type ValidateInterface interface {
 // Controller represents OpenAPIController
 type Controller struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}
-	definitions concurrentMap
+	definitions cmap.ConcurrentMap[*openapiv2.Schema]
 
 	// kindToDefinitionName holds the map of {(group/version/)kind: definitionName}
 	// i.e. with k8s 1.20.2
@@ -41,13 +41,13 @@ type Controller struct {
 	// - networking.k8s.io/v1/Ingress: io.k8s.api.networking.v1.Ingress
 	// - networking.k8s.io/v1beta1/Ingress: io.k8s.api.networking.v1beta1.Ingress
 	// - extension/v1beta1/Ingress: io.k8s.api.extensions.v1beta1.Ingress
-	gvkToDefinitionName concurrentMap
+	gvkToDefinitionName cmap.ConcurrentMap[string]
 
 	crdList []string
 	models  proto.Models
 
 	// kindToAPIVersions stores the Kind and all its available apiVersions, {kind: apiVersions}
-	kindToAPIVersions concurrentMap
+	kindToAPIVersions cmap.ConcurrentMap[apiVersions]
 }
 
 // apiVersions stores all available gvks for a kind, a gvk is "/" separated string
@@ -56,34 +56,12 @@ type apiVersions struct {
 	gvks               []string
 }
 
-func newConcurrentMap() concurrentMap {
-	return concurrentMap{cmap.New()}
-}
-
-func (m concurrentMap) GetKind(key string) string {
-	k, ok := m.Get(key)
-	if !ok {
-		return ""
-	}
-
-	return k.(string)
-}
-
-func (m concurrentMap) GetSchema(key string) *openapiv2.Schema {
-	k, ok := m.Get(key)
-	if !ok {
-		return nil
-	}
-
-	return k.(*openapiv2.Schema)
-}
-
 // NewOpenAPIController initializes a new instance of OpenAPIController
 func NewOpenAPIController() (*Controller, error) {
 	controller := &Controller{
-		definitions:         newConcurrentMap(),
-		gvkToDefinitionName: newConcurrentMap(),
-		kindToAPIVersions:   newConcurrentMap(),
+		definitions:         cmap.New[*openapiv2.Schema](),
+		gvkToDefinitionName: cmap.New[string](),
+		kindToAPIVersions:   cmap.New[apiVersions](),
 	}
 
 	apiResourceLists, preferredAPIResourcesLists, err := getAPIResourceLists()
@@ -115,7 +93,7 @@ func (o *Controller) ValidateResource(patchedResource unstructured.Unstructured,
 		gvk = apiVersion + "/" + kind
 	}
 
-	kind = o.gvkToDefinitionName.GetKind(gvk)
+	kind, _ = o.gvkToDefinitionName.Get(gvk)
 	schema := o.models.LookupModel(kind)
 	if schema == nil {
 		// Check if kind is a CRD
@@ -153,8 +131,9 @@ func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) er
 		newPolicy := policy.CreateDeepCopy()
 		spec := newPolicy.GetSpec()
 		spec.SetRules(rules)
-		k := o.gvkToDefinitionName.GetKind(kind)
-		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
+		k, _ := o.gvkToDefinitionName.Get(kind)
+		d, _ := o.definitions.Get(k)
+		resource, _ := o.generateEmptyResource(d).(map[string]interface{})
 		if len(resource) == 0 {
 			logging.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
@@ -221,22 +200,17 @@ func (o *Controller) getGVKByDefinitionName(definitionName string) (gvk string, 
 		return
 	}
 
-	versionsTyped, ok := versions.(apiVersions)
-	if !ok {
-		return "", preferredGVK, fmt.Errorf("type mismatched, expected apiVersions, got %T", versions)
-	}
-
-	if matchGVK(definitionName, versionsTyped.serverPreferredGVK) {
+	if matchGVK(definitionName, versions.serverPreferredGVK) {
 		preferredGVK = true
 	}
 
-	for _, gvk := range versionsTyped.gvks {
+	for _, gvk := range versions.gvks {
 		if matchGVK(definitionName, gvk) {
 			return gvk, preferredGVK, nil
 		}
 	}
 
-	return "", preferredGVK, fmt.Errorf("gvk not found by the given definition name %s, %v", definitionName, versionsTyped.gvks)
+	return "", preferredGVK, fmt.Errorf("gvk not found by the given definition name %s, %v", definitionName, versions.gvks)
 }
 
 func parseGVK(str string) (group, apiVersion, kind string) {
@@ -300,7 +274,7 @@ func (c *Controller) updateKindToAPIVersions(apiResourceLists, preferredAPIResou
 	tempKindToAPIVersions := getAllAPIVersions(apiResourceLists)
 	tempKindToAPIVersions = setPreferredVersions(tempKindToAPIVersions, preferredAPIResourcesLists)
 
-	c.kindToAPIVersions = newConcurrentMap()
+	c.kindToAPIVersions = cmap.New[apiVersions]()
 	for key, value := range tempKindToAPIVersions {
 		c.kindToAPIVersions.Set(key, value)
 	}
@@ -324,7 +298,7 @@ func (o *Controller) getCRDSchema(kind string) (proto.Schema, error) {
 	}
 
 	path := proto.NewPath(kind)
-	definition := o.definitions.GetSchema(kind)
+	definition, _ := o.definitions.Get(kind)
 	if definition == nil {
 		return nil, errors.New("could not find definition")
 	}
@@ -342,7 +316,8 @@ func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interfa
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
-		return o.generateEmptyResource(o.definitions.GetSchema(strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/")))
+		d, _ := o.definitions.Get(strings.TrimPrefix(kindSchema.GetXRef(), "#/definitions/"))
+		return o.generateEmptyResource(d)
 	}
 
 	if len(types) != 1 {
