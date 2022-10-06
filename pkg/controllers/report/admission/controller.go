@@ -23,8 +23,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 2
-	maxRetries = 10
+	Workers        = 2
+	ControllerName = "admission-report-controller"
+	maxRetries     = 10
 )
 
 type controller struct {
@@ -51,7 +52,7 @@ func NewController(
 ) controllers.Controller {
 	admrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("admissionreports"))
 	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:        client,
 		admrLister:    admrInformer.Lister(),
@@ -74,7 +75,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
