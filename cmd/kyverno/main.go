@@ -437,7 +437,10 @@ func main() {
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	certRenewer, err := tls.NewCertRenewer(
-		kubeClient,
+		metrics.ObjectClient[*corev1.Secret](
+			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
+			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		),
 		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
