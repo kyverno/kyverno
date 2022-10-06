@@ -401,7 +401,7 @@ func createReportControllers(
 	return ctrls
 }
 
-func runLeaderControllers(
+func createrLeaderControllers(
 	kubeInformer kubeinformers.SharedInformerFactory,
 	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
 	kyvernoInformer kyvernoinformer.SharedInformerFactory,
@@ -647,7 +647,7 @@ func main() {
 			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
-			leaderControllers, err := runLeaderControllers(
+			leaderControllers, err := createrLeaderControllers(
 				kubeInformer,
 				kubeKyvernoInformer,
 				kyvernoInformer,
