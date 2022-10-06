@@ -26,7 +26,7 @@ func evaluatePSS(level *api.LevelVersion, pod corev1.Pod) (results []pssutils.PS
 			// Append only if the checkResult is not already in pssCheckResult
 			if !checkResult.Allowed {
 				results = append(results, pssutils.PSSCheckResult{
-					ID:               check.ID,
+					ID:               string(check.ID),
 					CheckResult:      checkResult,
 					RestrictedFields: GetRestrictedFields(check),
 				})
@@ -149,7 +149,7 @@ func GetPodWithMatchingContainers(exclude kyvernov1.PodSecurityStandard, pod *co
 func GetRestrictedFields(check policy.Check) []pssutils.RestrictedField {
 	for _, control := range pssutils.PSS_controls_to_check_id {
 		for _, checkID := range control {
-			if check.ID == checkID {
+			if string(check.ID) == checkID {
 				return pssutils.PSS_controls[checkID]
 			}
 		}

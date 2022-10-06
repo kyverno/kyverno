@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/googleapis/gnostic/compiler"
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	"github.com/google/gnostic/compiler"
+	openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
