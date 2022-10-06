@@ -34,9 +34,10 @@ type controller struct {
 	vwcClient    controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	secretLister corev1listers.SecretLister
-	mwcLister    admissionregistrationv1listers.MutatingWebhookConfigurationLister
-	vwcLister    admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	secretLister    corev1listers.SecretLister
+	configMapLister corev1listers.ConfigMapLister
+	mwcLister       admissionregistrationv1listers.MutatingWebhookConfigurationLister
+	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
 	// queue
 	queue      workqueue.RateLimitingInterface
@@ -49,38 +50,34 @@ func NewController(
 	mwcClient controllerutils.UpdateClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	secretInformer corev1informers.SecretInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
 	c := controller{
-		secretClient: secretClient,
-		mwcClient:    mwcClient,
-		vwcClient:    vwcClient,
-		secretLister: secretInformer.Lister(),
-		mwcLister:    mwcInformer.Lister(),
-		vwcLister:    vwcInformer.Lister(),
-		queue:        queue,
-		mwcEnqueue:   controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue),
-		vwcEnqueue:   controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue),
+		secretClient:    secretClient,
+		mwcClient:       mwcClient,
+		vwcClient:       vwcClient,
+		secretLister:    secretInformer.Lister(),
+		configMapLister: configMapInformer.Lister(),
+		mwcLister:       mwcInformer.Lister(),
+		vwcLister:       vwcInformer.Lister(),
+		queue:           queue,
+		mwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue),
+		vwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue),
 	}
-	controllerutils.AddEventHandlers(
+	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
-		func(obj interface{}) {
-			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
-				logger.Error(err, "failed to enqueue")
-			}
-		},
-		func(_, obj interface{}) {
-			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
-				logger.Error(err, "failed to enqueue")
-			}
-		},
-		func(obj interface{}) {
-			if err := c.enqueue(obj.(*corev1.Secret)); err != nil {
-				logger.Error(err, "failed to enqueue")
-			}
-		},
+		func(obj *corev1.Secret) { c.secretChanged(obj) },
+		func(_, obj *corev1.Secret) { c.secretChanged(obj) },
+		func(obj *corev1.Secret) { c.secretChanged(obj) },
+	)
+	controllerutils.AddEventHandlersT(
+		configMapInformer.Informer(),
+		func(obj *corev1.ConfigMap) { c.configMapChanged(obj) },
+		func(_, obj *corev1.ConfigMap) { c.configMapChanged(obj) },
+		func(obj *corev1.ConfigMap) { c.configMapChanged(obj) },
 	)
 	return &c
 }
@@ -89,36 +86,58 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) enqueue(obj *corev1.Secret) error {
-	if obj.GetName() == tls.GenerateRootCASecretName() && obj.GetNamespace() == config.KyvernoNamespace() {
-		requirement, err := labels.NewRequirement("webhook.kyverno.io/managed-by", selection.Equals, []string{kyvernov1.ValueKyvernoApp})
+func (c *controller) secretChanged(secret *corev1.Secret) {
+	if secret.GetName() == tls.GenerateRootCASecretName() && secret.GetNamespace() == config.KyvernoNamespace() {
+		if err := c.enqueueAll(); err != nil {
+			logger.Error(err, "failed to enqueue on secret change")
+		}
+	}
+}
+
+func (c *controller) configMapChanged(cm *corev1.ConfigMap) {
+	if cm.GetName() == config.KyvernoConfigMapName() && cm.GetNamespace() == config.KyvernoNamespace() {
+		if err := c.enqueueAll(); err != nil {
+			logger.Error(err, "failed to enqueue on configmap change")
+		}
+	}
+}
+
+func (c *controller) enqueueAll() error {
+	requirement, err := labels.NewRequirement("webhook.kyverno.io/managed-by", selection.Equals, []string{kyvernov1.ValueKyvernoApp})
+	if err != nil {
+		return err
+	}
+	selector := labels.Everything().Add(*requirement)
+	mwcs, err := c.mwcLister.List(selector)
+	if err != nil {
+		return err
+	}
+	for _, mwc := range mwcs {
+		err = c.mwcEnqueue(mwc)
 		if err != nil {
-			// TODO: log error
 			return err
 		}
-		selector := labels.Everything().Add(*requirement)
-		mwcs, err := c.mwcLister.List(selector)
+	}
+	vwcs, err := c.vwcLister.List(selector)
+	if err != nil {
+		return err
+	}
+	for _, vwc := range vwcs {
+		err = c.vwcEnqueue(vwc)
 		if err != nil {
 			return err
-		}
-		for _, mwc := range mwcs {
-			err = c.mwcEnqueue(mwc)
-			if err != nil {
-				return err
-			}
-		}
-		vwcs, err := c.vwcLister.List(selector)
-		if err != nil {
-			return err
-		}
-		for _, vwc := range vwcs {
-			err = c.vwcEnqueue(vwc)
-			if err != nil {
-				return err
-			}
 		}
 	}
 	return nil
+}
+
+func (c *controller) loadConfig() config.Configuration {
+	cfg := config.NewDefaultConfiguration(nil)
+	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
+	if err == nil {
+		cfg.Load(cm)
+	}
+	return cfg
 }
 
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, logger logr.Logger, name string) error {
@@ -133,13 +152,21 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
+	cfg := c.loadConfig()
+	webhookCfg := config.WebhookConfig{}
+	webhookCfgs := cfg.GetWebhooks()
+	if len(webhookCfgs) > 0 {
+		webhookCfg = webhookCfgs[0]
+	}
+	caData, err := tls.ReadRootCASecret(c.secretClient)
+	if err != nil {
+		return err
+	}
 	_, err = controllerutils.Update(ctx, w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
-		caData, err := tls.ReadRootCASecret(c.secretClient)
-		if err != nil {
-			return err
-		}
 		for i := range w.Webhooks {
 			w.Webhooks[i].ClientConfig.CABundle = caData
+			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
+			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}
 		return nil
 	})
@@ -158,13 +185,21 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	if labels == nil || labels["webhook.kyverno.io/managed-by"] != kyvernov1.ValueKyvernoApp {
 		return nil
 	}
+	cfg := c.loadConfig()
+	webhookCfg := config.WebhookConfig{}
+	webhookCfgs := cfg.GetWebhooks()
+	if len(webhookCfgs) > 0 {
+		webhookCfg = webhookCfgs[0]
+	}
+	caData, err := tls.ReadRootCASecret(c.secretClient)
+	if err != nil {
+		return err
+	}
 	_, err = controllerutils.Update(ctx, w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
-		caData, err := tls.ReadRootCASecret(c.secretClient)
-		if err != nil {
-			return err
-		}
 		for i := range w.Webhooks {
 			w.Webhooks[i].ClientConfig.CABundle = caData
+			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
+			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}
 		return nil
 	})
