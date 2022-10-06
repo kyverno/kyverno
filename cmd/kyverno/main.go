@@ -505,7 +505,6 @@ func main() {
 				return nil, nil, err
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
-
 		},
 		configuration,
 		webhookCfg,
