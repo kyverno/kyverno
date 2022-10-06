@@ -606,7 +606,7 @@ func main() {
 	go configurationController.Run(signalCtx, configcontroller.Workers)
 	go eventGenerator.Run(signalCtx, 3)
 
-	if serverIP != "" {
+	if serverIP == "" {
 		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
 	}
 
