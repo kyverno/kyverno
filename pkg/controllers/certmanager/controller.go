@@ -19,19 +19,13 @@ import (
 // Workers is the number of workers for this controller
 const Workers = 1
 
-type Controller interface {
-	controllers.Controller
-	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() ([]byte, []byte, error)
-}
-
 type controller struct {
 	renewer      *tls.CertRenewer
 	secretLister corev1listers.SecretLister
 	secretQueue  chan bool
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) Controller {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) controllers.Controller {
 	manager := &controller{
 		renewer:      certRenewer,
 		secretLister: secretInformer.Lister(),
@@ -85,14 +79,6 @@ func (m *controller) updateSecretFunc(oldObj interface{}, newObj interface{}) {
 	}
 }
 
-func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
-	if err != nil {
-		return nil, nil, err
-	}
-	return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
-}
-
 func (m *controller) renewCertificates() error {
 	if err := common.RetryFunc(time.Second, 5*time.Second, m.renewer.RenewCA, "failed to renew CA", logger)(); err != nil {
 		return err
@@ -101,16 +87,4 @@ func (m *controller) renewCertificates() error {
 		return err
 	}
 	return nil
-}
-
-func (m *controller) GetCAPem() ([]byte, error) {
-	secret, err := m.secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateRootCASecretName())
-	if err != nil {
-		return nil, err
-	}
-	result := secret.Data[corev1.TLSCertKey]
-	if len(result) == 0 {
-		result = secret.Data[tls.RootCAKey]
-	}
-	return result, nil
 }
