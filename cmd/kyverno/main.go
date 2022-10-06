@@ -21,7 +21,6 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
@@ -290,10 +289,6 @@ func sanityChecks(dynamicClient dclient.Interface) error {
 		return fmt.Errorf("CRDs not installed")
 	}
 	return nil
-}
-
-func createOpenApiController(manager *openapi.Controller, client dclient.Interface) controllers.Controller {
-	return openapi.NewCRDSync(client, manager)
 }
 
 func createNonLeaderControllers(
