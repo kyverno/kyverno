@@ -358,3 +358,38 @@ func OverrideRuntimeErrorHandler() {
 		}
 	}
 }
+
+func SeperateWildcards(l []string) (lw []string, rl []string) {
+	for _, val := range l {
+		if wildcard.ContainsWildcard(val) {
+			lw = append(lw, val)
+		} else {
+			rl = append(rl, val)
+		}
+	}
+	return lw, rl
+}
+
+func CheckWildcardNamespaces(patterns []string, ns []string) (string, string, bool) {
+	for _, n := range ns {
+		pat, element, boolval := containsNamespaceWithStringReturn(patterns, n)
+		if boolval {
+			return pat, element, true
+		}
+	}
+	return "", "", false
+}
+
+func containsWithStringReturn(list []string, element string, fn func(string, string) bool) (string, string, bool) {
+	for _, e := range list {
+		if fn(e, element) {
+			return e, element, true
+		}
+	}
+	return "", "", false
+}
+
+// containsNamespaceWithStringReturn check if namespace satisfies any list of pattern(regex)
+func containsNamespaceWithStringReturn(patterns []string, ns string) (string, string, bool) {
+	return containsWithStringReturn(patterns, ns, comparePatterns)
+}

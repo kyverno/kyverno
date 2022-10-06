@@ -169,6 +169,20 @@ func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset,
 	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
 }
 
+func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
+	logger = logger.WithName("instrumented-clients")
+	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	if err != nil {
+		return nil, nil, err
+	}
+	return kyvernoClient, dynamicClient, nil
+}
+
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
@@ -270,6 +284,13 @@ func showVersion(logger logr.Logger) {
 	version.PrintVersionInfo(logger)
 }
 
+func sanityChecks(dynamicClient dclient.Interface) error {
+	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
+		return fmt.Errorf("CRDs not installed")
+	}
+	return nil
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
@@ -310,9 +331,6 @@ func main() {
 	} else if tracingShutdown != nil {
 		defer tracingShutdown()
 	}
-	// setup signals
-	signalCtx, signalCancel := setupSignals()
-	defer signalCancel()
 	// setup registry client
 	if err := setupRegistryClient(logger, kubeClient); err != nil {
 		logger.Error(err, "failed to setup registry client")
@@ -320,24 +338,20 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
-
-	// instrumented clients
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
+	// create instrumented clients
+	kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
 	if err != nil {
-		logger.Error(err, "failed to create client")
+		logger.Error(err, "failed to create instrument clients")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
-	if err != nil {
-		logger.Error(err, "failed to create dynamic client")
+	// check we can run
+	if err := sanityChecks(dynamicClient); err != nil {
+		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
-	// sanity checks
-	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
-		logger.Error(fmt.Errorf("CRDs not installed"), "failed to access Kyverno CRDs")
-		os.Exit(1)
-	}
-
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
