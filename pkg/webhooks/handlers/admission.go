@@ -3,21 +3,24 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
+	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
 func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
+		ctx := request.Context()
 		startTime := time.Now()
 		if request.Body == nil {
 			logger.Info("empty body", "req", request.URL.String())
@@ -25,7 +28,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			return
 		}
 		defer request.Body.Close()
-		body, err := ioutil.ReadAll(request.Body)
+		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			logger.Info("failed to read HTTP body", "req", request.URL.String())
 			http.Error(writer, "failed to read HTTP body", http.StatusBadRequest)
@@ -54,7 +57,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(logger, admissionReview.Request)
+		adminssionResponse := inner(logger, admissionReview.Request, startTime)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -63,6 +66,18 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			http.Error(writer, fmt.Sprintf("Could not encode response: %v", err), http.StatusInternalServerError)
 			return
 		}
+
+		// start span from request context
+		attributes := []attribute.KeyValue{
+			attribute.String("kind", admissionReview.Request.Kind.Kind),
+			attribute.String("namespace", admissionReview.Request.Namespace),
+			attribute.String("name", admissionReview.Request.Name),
+			attribute.String("operation", string(admissionReview.Request.Operation)),
+			attribute.String("uid", string(admissionReview.Request.UID)),
+		}
+		span := tracing.StartSpan(ctx, "admission_webhook_operations", string(admissionReview.Request.Operation), attributes)
+		defer span.End()
+
 		writer.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if _, err := writer.Write(responseJSON); err != nil {
 			http.Error(writer, fmt.Sprintf("could not write response: %v", err), http.StatusInternalServerError)
@@ -76,16 +91,16 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 }
 
 func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
-		return inner(logger, request)
+		return inner(logger, request, startTime)
 	}
 }
 
 func Verify(m *webhookconfig.Monitor) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)
 	}

@@ -7,18 +7,19 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
@@ -82,7 +83,7 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
-	return contains(patterns, ns, compareNamespaces)
+	return contains(patterns, ns, comparePatterns)
 }
 
 // ContainsString checks if the string is contained in the list
@@ -90,7 +91,11 @@ func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
 
-func compareNamespaces(pattern, ns string) bool {
+func ContainsWildcardPatterns(patterns []string, key string) bool {
+	return contains(patterns, key, comparePatterns)
+}
+
+func comparePatterns(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
 }
 
@@ -100,7 +105,7 @@ func compareString(str, name string) bool {
 
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
 func CRDsInstalled(discovery dclient.IDiscovery) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
+	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
 			return false
@@ -117,11 +122,11 @@ func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 			err = fmt.Errorf("not found")
 		}
 
-		log.Log.Error(err, "failed to retrieve CRD", "kind", kind)
+		logging.Error(err, "failed to retrieve CRD", "kind", kind)
 		return false
 	}
 
-	log.Log.Info("CRD found", "gvr", gvr.String())
+	logging.V(2).Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
@@ -337,4 +342,19 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoAnyAllConditions, nil
 	}
 	return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+}
+
+func OverrideRuntimeErrorHandler() {
+	logger := logging.WithName("RuntimeErrorHandler")
+	if len(runtime.ErrorHandlers) > 0 {
+		runtime.ErrorHandlers[0] = func(err error) {
+			logger.V(6).Info("runtime error", "msg", err.Error())
+		}
+	} else {
+		runtime.ErrorHandlers = []func(err error){
+			func(err error) {
+				logger.V(6).Info("runtime error", "msg", err.Error())
+			},
+		}
+	}
 }

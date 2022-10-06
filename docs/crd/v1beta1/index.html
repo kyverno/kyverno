@@ -34,7 +34,7 @@ Resource Types:
 <h3 id="kyverno.io/v1beta1.UpdateRequest">UpdateRequest
 </h3>
 <p>
-<p>UpdateRequestStatus is a request to process mutate and generate rules in background.</p>
+<p>UpdateRequest is a request to process mutate and generate rules in background.</p>
 </p>
 <table class="table table-striped">
 <thead class="thead-dark">
@@ -46,7 +46,7 @@ Resource Types:
 <tbody>
 <tr>
 <td>
-<code>apiVersion</code></br>
+<code>apiVersion</code><br/>
 string</td>
 <td>
 <code>
@@ -56,14 +56,14 @@ kyverno.io/v1beta1
 </tr>
 <tr>
 <td>
-<code>kind</code></br>
+<code>kind</code><br/>
 string
 </td>
 <td><code>UpdateRequest</code></td>
 </tr>
 <tr>
 <td>
-<code>metadata</code></br>
+<code>metadata</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
 Kubernetes meta/v1.ObjectMeta
@@ -77,7 +77,7 @@ Refer to the Kubernetes API documentation for the fields of the
 </tr>
 <tr>
 <td>
-<code>spec</code></br>
+<code>spec</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestSpec">
 UpdateRequestSpec
@@ -91,7 +91,7 @@ UpdateRequestSpec
 <table class="table table-striped">
 <tr>
 <td>
-<code>requestType</code></br>
+<code>requestType</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.RequestType">
 RequestType
@@ -104,7 +104,7 @@ RequestType
 </tr>
 <tr>
 <td>
-<code>policy</code></br>
+<code>policy</code><br/>
 <em>
 string
 </em>
@@ -115,7 +115,7 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code></br>
+<code>resource</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ResourceSpec
 </em>
@@ -126,7 +126,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.ResourceSpec
 </tr>
 <tr>
 <td>
-<code>context</code></br>
+<code>context</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestSpecContext">
 UpdateRequestSpecContext
@@ -142,7 +142,7 @@ UpdateRequestSpecContext
 </tr>
 <tr>
 <td>
-<code>status</code></br>
+<code>status</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestStatus">
 UpdateRequestStatus
@@ -176,7 +176,7 @@ UpdateRequestStatus
 <tbody>
 <tr>
 <td>
-<code>admissionRequest</code></br>
+<code>admissionRequest</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#admissionrequest-v1-admission">
 Kubernetes admission/v1.AdmissionRequest
@@ -189,7 +189,7 @@ Kubernetes admission/v1.AdmissionRequest
 </tr>
 <tr>
 <td>
-<code>operation</code></br>
+<code>operation</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#operation-v1-admission">
 Kubernetes admission/v1.Operation
@@ -222,7 +222,7 @@ Kubernetes admission/v1.Operation
 <tbody>
 <tr>
 <td>
-<code>roles</code></br>
+<code>roles</code><br/>
 <em>
 []string
 </em>
@@ -234,7 +234,7 @@ Kubernetes admission/v1.Operation
 </tr>
 <tr>
 <td>
-<code>clusterRoles</code></br>
+<code>clusterRoles</code><br/>
 <em>
 []string
 </em>
@@ -246,7 +246,7 @@ Kubernetes admission/v1.Operation
 </tr>
 <tr>
 <td>
-<code>userInfo</code></br>
+<code>userInfo</code><br/>
 <em>
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#userinfo-v1-authentication">
 Kubernetes authentication/v1.UserInfo
@@ -288,7 +288,7 @@ Kubernetes authentication/v1.UserInfo
 <tbody>
 <tr>
 <td>
-<code>requestType</code></br>
+<code>requestType</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.RequestType">
 RequestType
@@ -301,7 +301,7 @@ RequestType
 </tr>
 <tr>
 <td>
-<code>policy</code></br>
+<code>policy</code><br/>
 <em>
 string
 </em>
@@ -312,7 +312,7 @@ string
 </tr>
 <tr>
 <td>
-<code>resource</code></br>
+<code>resource</code><br/>
 <em>
 github.com/kyverno/kyverno/api/kyverno/v1.ResourceSpec
 </em>
@@ -323,7 +323,7 @@ github.com/kyverno/kyverno/api/kyverno/v1.ResourceSpec
 </tr>
 <tr>
 <td>
-<code>context</code></br>
+<code>context</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestSpecContext">
 UpdateRequestSpecContext
@@ -356,7 +356,7 @@ UpdateRequestSpecContext
 <tbody>
 <tr>
 <td>
-<code>userInfo</code></br>
+<code>userInfo</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.RequestInfo">
 RequestInfo
@@ -369,7 +369,7 @@ RequestInfo
 </tr>
 <tr>
 <td>
-<code>admissionRequestInfo</code></br>
+<code>admissionRequestInfo</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.AdmissionRequestInfoObject">
 AdmissionRequestInfoObject
@@ -411,7 +411,7 @@ AdmissionRequestInfoObject
 <tbody>
 <tr>
 <td>
-<code>handler</code></br>
+<code>handler</code><br/>
 <em>
 string
 </em>
@@ -422,7 +422,7 @@ string
 </tr>
 <tr>
 <td>
-<code>state</code></br>
+<code>state</code><br/>
 <em>
 <a href="#kyverno.io/v1beta1.UpdateRequestState">
 UpdateRequestState
@@ -435,7 +435,7 @@ UpdateRequestState
 </tr>
 <tr>
 <td>
-<code>message</code></br>
+<code>message</code><br/>
 <em>
 string
 </em>
@@ -447,7 +447,7 @@ string
 </tr>
 <tr>
 <td>
-<code>generatedResources</code></br>
+<code>generatedResources</code><br/>
 <em>
 []github.com/kyverno/kyverno/api/kyverno/v1.ResourceSpec
 </em>

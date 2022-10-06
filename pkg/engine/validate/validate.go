@@ -7,8 +7,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"go.uber.org/multierr"
 )
 
 type PatternError struct {
@@ -195,7 +195,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  engineUtils.CombineErrors(skipErrors),
+				Err:  multierr.Combine(skipErrors...),
 				Path: path,
 				Skip: true,
 			}
@@ -229,7 +229,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  engineUtils.CombineErrors(skipErrors),
+			Err:  multierr.Combine(skipErrors...),
 			Path: path,
 			Skip: true,
 		}

@@ -796,3 +796,188 @@ spec:
   - name: large-image
     image: nvidia/cuda:11.6.0-devel-ubi8
 `)
+
+var kyverno_yaml_signing_validate_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-resources
+spec:
+  validationFailureAction: enforce
+  background: false
+  webhookTimeoutSeconds: 30
+  failurePolicy: Fail  
+  rules:
+    - name: validate-resources
+      match:
+        any:
+        - resources:
+            kinds:
+              - Deployment
+              - Pod
+            name: test*
+      exclude:
+        any:
+        - resources:
+            kinds:
+              - Pod
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: replicaset-controller
+        - resources:
+            kinds:
+              - ReplicaSet
+          subjects:
+          - kind: ServiceAccount
+            namespace: kube-system
+            name: deployment-controller
+      validate:
+        manifests:
+          attestors:
+          - entries:
+            - keys: 
+                publicKeys:  |-
+                  -----BEGIN PUBLIC KEY-----
+                  MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyQfmL5YwHbn9xrrgG3vgbU0KJxMY
+                  BibYLJ5L4VSMvGxeMLnBGdM48w5IE//6idUPj3rscigFdHs7GDMH4LLAng==
+                  -----END PUBLIC KEY-----
+`)
+
+var kyverno_yaml_signing_validate_resource_1 = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx
+  name: test-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - image: nginx:1.14.2
+          name: nginx
+          ports:
+            - containerPort: 80
+
+`)
+
+var kyverno_yaml_signing_validate_resource_2 = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    cosign.sigstore.dev/message: H4sIAAAAAAAA/wBaAaX+H4sIAAAAAAAA/+ySz27bMAzGffZT8AUcSf6TpDrvuMMOw64DazOeEP2bxBZtn35wnXhegOW4oYB/F9rg930gQYlnTOIU7EApC/8mlDye7c9xqNk/Stc49902rn1ppZRy9OKr6IOLiXI2fqwYUzW+KXmQDw9tUx8FU+ZqoGjDqyPPu1d0tigm775t3+th371XWc//E12zL1Rbq042XacOhWzquusKkMU/4CkzpkLKdH4awh1dZjyd7vQvuyz1g4DRfKOUTfAaMMYsnlV5Nn7Q8Gk5Y+mIcUBGXQJYfCSbpy+YDBr8aPxLCeDRkYabF1DmSP0kThSt6TFrUCVAJks9hzTHOOT+x+dV7k0yk4sWmS7q1TAT9g/jjRXgOsBEHzyj8ZRW8gqMw5EuFq12qt3VS/e61u+8mRgSr0LmoCX+S0is4SjL/33djY2Njb/zKwAA//+MAMwjAAgAAAEAAP//7NcJ9loBAAA=
+    cosign.sigstore.dev/signature: MEUCICLCfb3LGKXcdKV3gTXl6qba3T2goZMbVX/54gyNR05UAiEAlvPuWVsCPuBx5wVqvtyT7hr/AfR9Fl7cNLDACaNIbx8=
+  labels:
+    app: nginx
+  name: test-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - image: nginx:1.14.2
+        name: nginx
+        ports:
+        - containerPort: 80
+`)
+
+var kyverno_decode_x509_certificate_policy = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: test-x509-decode
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: test-x509-decode
+    match:
+      any:
+      - resources:
+          kinds:
+          - ConfigMap
+    validate:
+      message: "public key modulus mismatch: \"{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}\" != \"{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}\""
+      deny:
+        conditions:
+          any:
+            - key: "{{ x509_decode('{{request.object.data.cert}}').PublicKey.N }}"
+              operator: NotEquals
+              value: "{{ x509_decode('{{base64_decode('{{request.object.data.certB64}}')}}').PublicKey.N }}"
+`)
+
+var kyverno_decode_x509_certificate_resource_fail = []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configmap
+  namespace: test-validate
+data:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQEL
+    BQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNV
+    BAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAw
+    WjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UE
+    ChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+    ANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUop
+    iYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3
+    RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5y
+    n9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRr
+    txqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweq
+    kbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1Ud
+    EwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqG
+    SIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1d
+    huukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi
+    85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIo
+    Q226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAm
+    jwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1F
+    UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
+    -----END CERTIFICATE-----
+  certB64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUM3VENDQWRXZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFZTVJZd0ZBWURWUVFEREEwcUxtdDUKZG1WeWJtOHVjM1pqTUI0WERUSXlNREV4TVRFek1qWTBNMW9YRFRJek1ERXhNVEUwTWpZME0xb3dHREVXTUJRRwpBMVVFQXd3TktpNXJlWFpsY201dkxuTjJZekNDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DCmdnRUJBTXNBejg1K3lpbm8rTW1kS3NWdEh3Tmkzb0FWanVtelhIaUxmVUpLN3hpNUtVOEI3Z29QSEYvVkNlL1YKN1kyYzRhZnlmZ1kyZVB3NEx4U0RrQ1lOZ1l3cWpTd0dJYmNzcXY1WlJhekJkRHhSMDlyaTZQa25OeUJWR0xpNQpSbFBYSXJHUTNwc051ZjU1cXd4SnhMTzMxcUNadXZrdEtZNVl2dUlSNEpQbUJodVNGWE9ubjBaaVF3OHV4TWNRCjBRQTJseitQeFdDVk5rOXErMzFINURIMW9ZWkRMZlUzbWlqSU9BK0FKR1piQmIrWndCbXBWTDArMlRYTHhFNzQKV293ZEtFVitXVHNLb2pOVGQwVndjdVJLUktSLzZ5blhBQWlzMjF5MVg3VWk5RkpFNm1ESXlsVUQ0MFdYT0tHSgoxbFlZNDFrUm5ZaFZodlhZTjlKdE5ZZFkzSHNDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnS2tNQThHCkExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRk9ubEFTVkQ5ZnUzVEFqcHRsVy9nQVhBNHFsK01BMEcKQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNJcHlSaUNoeHA5N2NyS2ZRMjRKdDd6OFArQUdwTGYzc1g0ZUw4N0VTYQo3UVJvVkp0WExtYXV0MXBVRW9ZTFFydUttaC8wWUZ0Wkc5V3hWZ1k2aXVLYldudTdiT2VNQi9JcitWL3lyWDNSCitYdlpPc3VYaUpuRWJKaUJXNmxKekxsZG9XNGYvNzFIK2oxV0Q0dEhwcW1kTXhxL3NMcVhmUEl1YzAvbTB5RkMKbitBREJXR0dCOE5uNjZ2eHR2K2NUNnArUklWb3RYUFFXYk1pbFdwNnBkNXdTdUI2OEZxckR3dFlMTkp0UHdGcwo5TVBWa3VhSmRZWjBlV2Qvck1jS0Q5NEhnZjg5Z3ZBMCtxek1WRmYrM0JlbVhza2pRUll5NkNLc3FveUM2alg0Cm5oWWp1bUFQLzdwc2J6SVRzbnBIdGZDRUVVKzJKWndnTTQwNmFpTWNzZ0xiCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+`)
+
+var kyverno_decode_x509_certificate_resource_pass = []byte(`
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-configmap
+  namespace: test-validate
+data:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIDSjCCAjKgAwIBAgIUWxmj40l+TDVJq98Xy7c6Leo3np8wDQYJKoZIhvcNAQEL
+    BQAwPTELMAkGA1UEBhMCeHgxCjAIBgNVBAgTAXgxCjAIBgNVBAcTAXgxCjAIBgNV
+    BAoTAXgxCjAIBgNVBAsTAXgwHhcNMTgwMjAyMTIzODAwWhcNMjMwMjAxMTIzODAw
+    WjA9MQswCQYDVQQGEwJ4eDEKMAgGA1UECBMBeDEKMAgGA1UEBxMBeDEKMAgGA1UE
+    ChMBeDEKMAgGA1UECxMBeDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEB
+    ANHkqOmVf23KMXdaZU2eFUx1h4wb09JINBB8x/HL7UE0KFJcnOoVnNQB0gRukUop
+    iYCzrzMFyGWWmB/pAEKool+ZiI2uMy6mcYBDtOi4pOm7U0TQQMV6L/5Yfi65xRz3
+    RTMd/tYAoFi4aCZbJAGjxU6UWNYDzTy8E/cP6ZnlNbVHRiA6/wHsoWcXtWTXYP5y
+    n9cf7EWQi1hOBM4BWmOIyB1f6LEgQipZWMOMPPHO3hsuSBn0rk7jovSt5XTlbgRr
+    txqAJiNjJUykWzIF+lLnZCioippGv5vkdGvE83JoACXvZTUwzA+MLu49fkw3bweq
+    kbhrer8kacjfGlw3aJN37eECAwEAAaNCMEAwDgYDVR0PAQH/BAQDAgEGMA8GA1Ud
+    EwEB/wQFMAMBAf8wHQYDVR0OBBYEFKXcb52bv6oqnD+D9fTNFHZL8IWxMA0GCSqG
+    SIb3DQEBCwUAA4IBAQADvKvv3ym0XAYwKxPLLl3Lc6sJYHDbTN0donduG7PXeb1d
+    huukJ2lfufUYp2IGSAxuLecTYeeByOVp1gaMb5LsIGt2BVDmlMMkiH29LUHsvbyi
+    85CpJo7A5RJG6AWW2VBCiDjz5v8JFM6pMkBRFfXH+pwIge65CE+MTSQcfb1/aIIo
+    Q226P7E/3uUGX4k4pDXG/O7GNvykF40v1DB5y7DDBTQ4JWiJfyGkT69TmdOGLFAm
+    jwxUjWyvEey4qJex/EGEm5RQcMv9iy7tba1wK7sykNGn5uDELGPGIIEAa5rIHm1F
+    UFOZZVoELaasWS559wy8og39Eq21dDMynb8Bndn/
+    -----END CERTIFICATE-----
+  certB64: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURTakNDQWpLZ0F3SUJBZ0lVV3htajQwbCtURFZKcTk4WHk3YzZMZW8zbnA4d0RRWUpLb1pJaHZjTkFRRUwKQlFBd1BURUxNQWtHQTFVRUJoTUNlSGd4Q2pBSUJnTlZCQWdUQVhneENqQUlCZ05WQkFjVEFYZ3hDakFJQmdOVgpCQW9UQVhneENqQUlCZ05WQkFzVEFYZ3dIaGNOTVRnd01qQXlNVEl6T0RBd1doY05Nak13TWpBeE1USXpPREF3CldqQTlNUXN3Q1FZRFZRUUdFd0o0ZURFS01BZ0dBMVVFQ0JNQmVERUtNQWdHQTFVRUJ4TUJlREVLTUFnR0ExVUUKQ2hNQmVERUtNQWdHQTFVRUN4TUJlRENDQVNJd0RRWUpLb1pJaHZjTkFRRUJCUUFEZ2dFUEFEQ0NBUW9DZ2dFQgpBTkhrcU9tVmYyM0tNWGRhWlUyZUZVeDFoNHdiMDlKSU5CQjh4L0hMN1VFMEtGSmNuT29Wbk5RQjBnUnVrVW9wCmlZQ3pyek1GeUdXV21CL3BBRUtvb2wrWmlJMnVNeTZtY1lCRHRPaTRwT203VTBUUVFNVjZMLzVZZmk2NXhSejMKUlRNZC90WUFvRmk0YUNaYkpBR2p4VTZVV05ZRHpUeThFL2NQNlpubE5iVkhSaUE2L3dIc29XY1h0V1RYWVA1eQpuOWNmN0VXUWkxaE9CTTRCV21PSXlCMWY2TEVnUWlwWldNT01QUEhPM2hzdVNCbjByazdqb3ZTdDVYVGxiZ1JyCnR4cUFKaU5qSlV5a1d6SUYrbExuWkNpb2lwcEd2NXZrZEd2RTgzSm9BQ1h2WlRVd3pBK01MdTQ5Zmt3M2J3ZXEKa2JocmVyOGthY2pmR2x3M2FKTjM3ZUVDQXdFQUFhTkNNRUF3RGdZRFZSMFBBUUgvQkFRREFnRUdNQThHQTFVZApFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRktYY2I1MmJ2Nm9xbkQrRDlmVE5GSFpMOElXeE1BMEdDU3FHClNJYjNEUUVCQ3dVQUE0SUJBUUFEdkt2djN5bTBYQVl3S3hQTExsM0xjNnNKWUhEYlROMGRvbmR1RzdQWGViMWQKaHV1a0oybGZ1ZlVZcDJJR1NBeHVMZWNUWWVlQnlPVnAxZ2FNYjVMc0lHdDJCVkRtbE1Na2lIMjlMVUhzdmJ5aQo4NUNwSm83QTVSSkc2QVdXMlZCQ2lEano1djhKRk02cE1rQlJGZlhIK3B3SWdlNjVDRStNVFNRY2ZiMS9hSUlvClEyMjZQN0UvM3VVR1g0azRwRFhHL083R052eWtGNDB2MURCNXk3RERCVFE0SldpSmZ5R2tUNjlUbWRPR0xGQW0Kand4VWpXeXZFZXk0cUpleC9FR0VtNVJRY012OWl5N3RiYTF3SzdzeWtOR241dURFTEdQR0lJRUFhNXJJSG0xRgpVRk9aWlZvRUxhYXNXUzU1OXd5OG9nMzlFcTIxZERNeW5iOEJuZG4vCi0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+`)

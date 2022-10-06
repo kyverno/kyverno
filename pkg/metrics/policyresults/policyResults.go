@@ -7,11 +7,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/utils"
-	prom "github.com/prometheus/client_golang/prometheus"
 )
 
 func registerPolicyResultsMetric(
-	pc *metrics.PromConfig,
+	m *metrics.MetricsConfig,
 	policyValidationMode metrics.PolicyValidationMode,
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
@@ -26,35 +25,24 @@ func registerPolicyResultsMetric(
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
-		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
 	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
-		metrics.Logger().Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_results_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
-	pc.Metrics.PolicyResults.With(prom.Labels{
-		"policy_validation_mode":     string(policyValidationMode),
-		"policy_type":                string(policyType),
-		"policy_background_mode":     string(policyBackgroundMode),
-		"policy_namespace":           policyNamespace,
-		"policy_name":                policyName,
-		"resource_kind":              resourceKind,
-		"resource_namespace":         resourceNamespace,
-		"resource_request_operation": string(resourceRequestOperation),
-		"rule_name":                  ruleName,
-		"rule_result":                string(ruleResult),
-		"rule_type":                  string(ruleType),
-		"rule_execution_cause":       string(ruleExecutionCause),
-	}).Inc()
+
+	m.RecordPolicyResults(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause)
+
 	return nil
 }
 
 // policy - policy related data
 // engineResponse - resource and rule related data
-func ProcessEngineResponse(pc *metrics.PromConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -82,7 +70,7 @@ func ProcessEngineResponse(pc *metrics.PromConfig, policy kyvernov1.PolicyInterf
 			ruleResult = metrics.Fail
 		}
 		if err := registerPolicyResultsMetric(
-			pc,
+			m,
 			validationMode,
 			policyType,
 			backgroundMode,

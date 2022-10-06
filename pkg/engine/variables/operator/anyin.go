@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // NewAnyInHandler returns handler to manage AnyIn operations
@@ -40,7 +40,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return anyin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		anyin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		anyin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -48,7 +48,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anyin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -111,7 +111,7 @@ func handleRange(key string, value interface{}, log logr.Logger) bool {
 func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isAnyIn := anySetExistsInArray(key, value, anyin.log, false)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anyin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

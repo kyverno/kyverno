@@ -7,22 +7,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/googleapis/gnostic/compiler"
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/google/gnostic/compiler"
+	openapiv2 "github.com/google/gnostic/openapiv2"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/logging"
+	"github.com/kyverno/kyverno/pkg/metrics"
+	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/client-go/discovery"
 )
 
 type crdSync struct {
 	client     dclient.Interface
 	controller *Controller
 }
+
+const (
+	skipErrorMsg = "Got empty response for"
+)
 
 // crdDefinitionPrior represents CRDs version prior to 1.16
 var crdDefinitionPrior struct {
@@ -63,25 +70,24 @@ func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
 	}
 }
 
-func (c *crdSync) Run(workers int, stopCh <-chan struct{}) {
+func (c *crdSync) Run(ctx context.Context, workers int) {
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		log.Log.Error(err, "failed to update in-cluster api versions")
+		logging.Error(err, "failed to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get OpenAPI schema")
+		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.controller.useOpenAPIDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenAPI document")
+		logging.Error(err, "Could not set custom OpenAPI document")
 	}
 	// Sync CRD before kyverno starts
 	c.sync()
-
 	for i := 0; i < workers; i++ {
-		go wait.Until(c.sync, 15*time.Second, stopCh)
+		go wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
 	}
 }
 
@@ -92,8 +98,10 @@ func (c *crdSync) sync() {
 		Version:  "v1",
 		Resource: "customresourcedefinitions",
 	}).List(context.TODO(), metav1.ListOptions{})
+
+	c.client.RecordClientQuery(metrics.ClientList, metrics.KubeDynamicClient, "CustomResourceDefinition", "")
 	if err != nil {
-		log.Log.Error(err, "could not fetch crd's from server")
+		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
 
@@ -104,28 +112,29 @@ func (c *crdSync) sync() {
 	}
 
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
-		log.Log.Error(err, "sync failed, unable to update in-cluster api versions")
+		logging.Error(err, "sync failed, unable to update in-cluster api versions")
 	}
 
-	newDoc, err := c.client.Discovery().DiscoveryCache().OpenAPISchema()
+	newDoc, err := c.client.Discovery().OpenAPISchema()
 	if err != nil {
-		log.Log.Error(err, "cannot get OpenAPI schema")
+		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
 	err = c.controller.useOpenAPIDocument(newDoc)
 	if err != nil {
-		log.Log.Error(err, "Could not set custom OpenAPI document")
+		logging.Error(err, "Could not set custom OpenAPI document")
 	}
 }
 
 func (c *crdSync) updateInClusterKindToAPIVersions() error {
-	_, apiResourceLists, err := c.client.Discovery().DiscoveryCache().ServerGroupsAndResources()
-	if err != nil {
+	util.OverrideRuntimeErrorHandler()
+	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
+
+	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
 		return errors.Wrapf(err, "fetching API server groups and resources")
 	}
-
-	preferredAPIResourcesLists, err := c.client.Discovery().DiscoveryCache().ServerPreferredResources()
-	if err != nil {
+	preferredAPIResourcesLists, err := discovery.ServerPreferredResources(c.client.Discovery().DiscoveryInterface())
+	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
 		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
 
@@ -164,19 +173,19 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	}
 
 	if openV3schema == nil {
-		log.Log.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
+		logging.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
 		return
 	}
 
 	schemaRaw, _ := json.Marshal(openV3schema)
 	if len(schemaRaw) < 1 {
-		log.Log.V(4).Info("failed to parse crd schema", "name", crdName)
+		logging.V(4).Info("failed to parse crd schema", "name", crdName)
 		return
 	}
 
 	schemaRaw, err = addingDefaultFieldsToSchema(crdName, schemaRaw)
 	if err != nil {
-		log.Log.Error(err, "failed to parse crd schema", "name", crdName)
+		logging.Error(err, "failed to parse crd schema", "name", crdName)
 		return
 	}
 
@@ -187,7 +196,7 @@ func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
 	if err != nil {
 		v3valueFound := isOpenV3Error(err)
 		if !v3valueFound {
-			log.Log.Error(err, "failed to parse crd schema", "name", crdName)
+			logging.Error(err, "failed to parse crd schema", "name", crdName)
 		}
 		return
 	}
@@ -217,7 +226,7 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 	_ = json.Unmarshal(schemaRaw, &schema)
 
 	if len(schema.Properties) < 1 {
-		log.Log.V(6).Info("crd schema has no properties", "name", crdName)
+		logging.V(6).Info("crd schema has no properties", "name", crdName)
 		return schemaRaw, nil
 	}
 
@@ -238,4 +247,19 @@ func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, erro
 	schemaWithDefaultFields, _ := json.Marshal(schema)
 
 	return schemaWithDefaultFields, nil
+}
+
+func (c *crdSync) CheckSync(ctx context.Context) {
+	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
+		Group:    "apiextensions.k8s.io",
+		Version:  "v1",
+		Resource: "customresourcedefinitions",
+	}).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logging.Error(err, "could not fetch crd's from server")
+		return
+	}
+	if len(c.controller.crdList) != len(crds.Items) {
+		c.sync()
+	}
 }

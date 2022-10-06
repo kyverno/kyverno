@@ -29,10 +29,10 @@ rules:
   - generaterequests/status
   - updaterequests
   - updaterequests/status
-  - reportchangerequests
-  - reportchangerequests/status
-  - clusterreportchangerequests
-  - clusterreportchangerequests/status
+  - admissionreports
+  - clusteradmissionreports
+  - backgroundscanreports
+  - clusterbackgroundscanreports
   verbs:
   - create
   - delete
@@ -125,7 +125,8 @@ metadata:
   name: kyverno:events
 rules:
 - apiGroups:
-  - "*"
+  - ""
+  - events.k8s.io
   resources:
   - events
   verbs:

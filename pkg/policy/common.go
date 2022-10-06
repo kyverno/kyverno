@@ -5,20 +5,21 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func transformResource(resource unstructured.Unstructured) []byte {
 	data, err := resource.MarshalJSON()
 	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
+		logging.Error(err, "failed to marshal resource")
 		return nil
 	}
 	return data
@@ -42,13 +43,13 @@ func MergeResources(a, b map[string]unstructured.Unstructured) {
 	}
 }
 
-func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) interface{} {
-	resourceList, err := pc.client.ListResource("", kind, namespace, labelSelector)
+func (pc *PolicyController) getResourceList(kind, namespace string, labelSelector *metav1.LabelSelector, log logr.Logger) *unstructured.UnstructuredList {
+	_, k := kubeutils.GetKindFromGVK(kind)
+	resourceList, err := pc.client.ListResource("", k, namespace, labelSelector)
 	if err != nil {
-		log.Error(err, "failed to list resources", "kind", kind, "namespace", namespace)
+		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
-
 	return resourceList
 }
 
@@ -64,15 +65,8 @@ func (pc *PolicyController) getResourcesPerNamespace(kind string, namespace stri
 	}
 
 	list := pc.getResourceList(kind, namespace, rule.MatchResources.Selector, log)
-	switch typedList := list.(type) {
-	case []*unstructured.Unstructured:
-		for _, r := range typedList {
-			if pc.match(*r, rule) {
-				resourceMap[string(r.GetUID())] = *r
-			}
-		}
-	case *unstructured.UnstructuredList:
-		for _, r := range typedList.Items {
+	if list != nil {
+		for _, r := range list.Items {
 			if pc.match(r, rule) {
 				resourceMap[string(r.GetUID())] = r
 			}

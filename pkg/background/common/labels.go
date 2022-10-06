@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	pkglabels "k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"k8s.io/client-go/tools/cache"
 )
 
 type Object interface {
@@ -35,8 +37,10 @@ func ManageLabels(unstr *unstructured.Unstructured, triggerResource unstructured
 }
 
 func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	_, policyName, _ := cache.SplitMetaNamespaceKey(policyKey)
+
 	set := pkglabels.Set{
-		kyvernov1beta1.URMutatePolicyLabel: policyKey,
+		kyvernov1beta1.URMutatePolicyLabel: policyName,
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
@@ -51,8 +55,10 @@ func MutateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 }
 
 func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
+	_, policyName, _ := cache.SplitMetaNamespaceKey(policyKey)
+
 	set := pkglabels.Set{
-		kyvernov1beta1.URGeneratePolicyLabel: policyKey,
+		kyvernov1beta1.URGeneratePolicyLabel: policyName,
 	}
 	isNil := trigger == nil || (reflect.ValueOf(trigger).Kind() == reflect.Ptr && reflect.ValueOf(trigger).IsNil())
 	if !isNil {
@@ -65,12 +71,12 @@ func GenerateLabelsSet(policyKey string, trigger Object) pkglabels.Set {
 
 func managedBy(labels map[string]string) {
 	// ManagedBy label
-	key := "app.kubernetes.io/managed-by"
-	value := "kyverno"
+	key := kyvernov1.LabelAppManagedBy
+	value := kyvernov1.ValueKyvernoApp
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
+			logging.V(2).Info(fmt.Sprintf("resource managed by %s, kyverno wont over-ride the label", val))
 			return
 		}
 	}
@@ -98,7 +104,7 @@ func checkGeneratedBy(labels map[string]string, key, value string) {
 	val, ok := labels[key]
 	if ok {
 		if val != value {
-			log.Log.Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
+			logging.V(2).Info(fmt.Sprintf("kyverno wont over-ride the label %s", key))
 			return
 		}
 	}

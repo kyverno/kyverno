@@ -6,11 +6,11 @@ import (
 
 	v1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils/api"
 	"github.com/kyverno/kyverno/pkg/utils/image"
 	"gotest.tools/assert"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var scanPredicate = `
@@ -258,7 +258,7 @@ func Test_Conditions(t *testing.T) {
 	err := json.Unmarshal([]byte(scanPredicate), &dataMap)
 	assert.NilError(t, err)
 
-	pass, err := evaluateConditions(conditions, ctx, dataMap, img, log.Log)
+	pass, err := evaluateConditions(conditions, ctx, dataMap, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, pass, true)
 }

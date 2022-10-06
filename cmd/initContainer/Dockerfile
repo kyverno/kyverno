@@ -1,6 +1,6 @@
 # Multi-stage docker build
 # Build stage
-FROM --platform=${BUILDPLATFORM} golang@sha256:724abf4dd44985d060f7aa91af5211eb2052491424bd497ba3ddc31f7cee969d AS base
+FROM --platform=${BUILDPLATFORM} golang@sha256:5540a6a6b3b612c382accc545b3f6702de21e77b15d89ad947116c94b5f42993 AS base
 WORKDIR /src
 LABEL maintainer="Kyverno"
 
@@ -25,13 +25,11 @@ RUN --mount=type=bind,target=. \
     CGO_ENABLED=0 xx-go build -o /output/kyvernopre -ldflags="${LD_FLAGS}" -v ./cmd/initContainer/
 
 # Packaging stage
-FROM scratch
+FROM ghcr.io/distroless/static:latest
 
 LABEL maintainer="Kyverno"
 
 COPY --from=builder /output/kyvernopre /
-COPY --from=builder /etc/passwd /etc/passwd
 
-USER 10001
 
-ENTRYPOINT ["./kyvernopre"]
+ENTRYPOINT ["/kyvernopre"]

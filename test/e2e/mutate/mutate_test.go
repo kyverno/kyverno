@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/test/e2e"
 	commonE2E "github.com/kyverno/kyverno/test/e2e/common"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -216,7 +216,7 @@ func Test_Mutate(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Validating created resource with the expected pattern...")
-		err = validate.MatchPattern(log.Log, actual, expected)
+		err = validate.MatchPattern(logging.GlobalLogger(), actual, expected)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Deleting Cluster Policies...")
@@ -439,7 +439,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Validating created resource with the expected pattern...")
-			err = validate.MatchPattern(log.Log, actual, expected)
+			err = validate.MatchPattern(logging.GlobalLogger(), actual, expected)
 			Expect(err).NotTo(HaveOccurred())
 
 		case deleteTrigger:
@@ -486,7 +486,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Validating created resource with the expected pattern...")
-			err = validate.MatchPattern(log.Log, actual, expected)
+			err = validate.MatchPattern(logging.GlobalLogger(), actual, expected)
 			Expect(err).NotTo(HaveOccurred())
 
 		case createPolicy:
@@ -530,7 +530,7 @@ func Test_Mutate_Existing(t *testing.T) {
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Validating created resource with the expected pattern...")
-			err = validate.MatchPattern(log.Log, actual, expected)
+			err = validate.MatchPattern(logging.GlobalLogger(), actual, expected)
 			Expect(err).NotTo(HaveOccurred())
 		}
 

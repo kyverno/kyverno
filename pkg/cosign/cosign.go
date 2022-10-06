@@ -12,9 +12,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/registryclient"
+	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
@@ -52,6 +53,8 @@ type Response struct {
 	Statements []map[string]interface{}
 }
 
+type CosignError struct{}
+
 func Verify(opts Options) (*Response, error) {
 	if opts.FetchAttestations {
 		return fetchAttestations(opts)
@@ -72,7 +75,15 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	signatures, bundleVerified, err := client.VerifyImageSignatures(context.Background(), ref, cosignOpts)
+	var (
+		signatures     []oci.Signature
+		bundleVerified bool
+	)
+
+	tracing.DoInSpan(context.Background(), "cosign", "verify_image_signatures", func(ctx context.Context) {
+		signatures, bundleVerified, err = client.VerifyImageSignatures(ctx, ref, cosignOpts)
+	})
+
 	if err != nil {
 		logger.Info("image verification failed", "error", err.Error())
 		return nil, err
@@ -84,11 +95,7 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
-		return nil, err
-	}
-
-	if err := matchExtensions(signatures, opts.AdditionalExtensions); err != nil {
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -134,7 +141,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	}
 
 	if opts.Key != "" {
-		if strings.HasPrefix(opts.Key, "-----BEGIN PUBLIC KEY-----") {
+		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
 			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load public key from PEM")
@@ -151,7 +158,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := loadCert([]byte(opts.Cert))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+				return nil, errors.Wrapf(err, "failed to load certificate from %s", opts.Cert)
 			}
 
 			if opts.CertChain == "" {
@@ -255,7 +262,13 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, errors.Wrap(err, "failed to parse image")
 	}
 
-	signatures, bundleVerified, err := client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
+	var signatures []oci.Signature
+	var bundleVerified bool
+
+	tracing.DoInSpan(context.Background(), "cosign_operations", "verify_image_signatures", func(ctx context.Context) {
+		signatures, bundleVerified, err = client.VerifyImageAttestations(context.Background(), ref, cosignOpts)
+	})
+
 	if err != nil {
 		msg := err.Error()
 		logger.Info("failed to fetch attestations", "error", msg)
@@ -263,6 +276,20 @@ func fetchAttestations(opts Options) (*Response, error) {
 			return nil, errors.Wrap(fmt.Errorf("not found"), "")
 		}
 
+		return nil, err
+	}
+
+	payload, err := extractPayload(signatures)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+		return nil, err
+	}
+
+	err = checkAnnotations(payload, opts.Annotations)
+	if err != nil {
 		return nil, err
 	}
 
@@ -412,44 +439,14 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 		if digest := p.Critical.Image.DockerManifestDigest; digest != "" {
 			return digest, nil
 		} else {
-			logger.Info("failed to extract image digest from verification response", "image", imgRef, "payload", p)
-			return "", fmt.Errorf("unknown image response for " + imgRef)
+			return "", fmt.Errorf("failed to extract image digest from signature payload for " + imgRef)
 		}
 	}
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
-	if subject == "" && issuer == "" {
-		return nil
-	}
-	var s string
-	for _, sig := range signatures {
-		cert, err := sig.Cert()
-		if err != nil {
-			return errors.Wrap(err, "failed to read certificate")
-		}
-
-		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
-		}
-
-		s = sigs.CertSubject(cert)
-		i := sigs.CertIssuerExtension(cert)
-		if subject == "" || wildcard.Match(subject, s) {
-			if issuer == "" || (issuer == i) {
-				return nil
-			} else {
-				return fmt.Errorf("issuer mismatch: expected %s, got %s", i, issuer)
-			}
-		}
-	}
-
-	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
-}
-
-func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string) error {
-	if len(requiredExtensions) == 0 {
+func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
 
@@ -463,31 +460,62 @@ func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]s
 			return errors.Wrap(err, "certificate not found")
 		}
 
-		// This will return a map which consists of readable extension-names as keys
-		// or the raw extensionIDs as fallback and its values.
-		certExtensions := sigs.CertExtensions(cert)
-		for requiredKey, requiredValue := range requiredExtensions {
-			certValue, ok := certExtensions[requiredKey]
-			if !ok {
-				// "requiredKey" seems to be an extensionID, try to resolve its human readable name
-				readableName, ok := sigs.CertExtensionMap[requiredKey]
-				if !ok {
-					return fmt.Errorf("key %s not present", requiredKey)
-				}
-
-				certValue, ok = certExtensions[readableName]
-				if !ok {
-					return fmt.Errorf("key %s (%s) not present", requiredKey, readableName)
-				}
+		if subject != "" {
+			s := sigs.CertSubject(cert)
+			if !wildcard.Match(subject, s) {
+				return fmt.Errorf("subject mismatch: expected %s, received %s", s, subject)
 			}
+		}
 
-			if requiredValue != "" && !wildcard.Match(requiredValue, certValue) {
-				return fmt.Errorf("extension mismatch: expected %s for key %s, got %s", requiredValue, requiredKey, certValue)
-			}
+		if err := matchExtensions(cert, issuer, extensions); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func matchExtensions(cert *x509.Certificate, issuer string, extensions map[string]string) error {
+	ce := cosign.CertExtensions{Cert: cert}
+
+	if issuer != "" {
+		val := ce.GetIssuer()
+		if !wildcard.Match(issuer, val) {
+			return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
+		}
+	}
+
+	for requiredKey, requiredValue := range extensions {
+		val, err := extractCertExtensionValue(requiredKey, ce)
+		if err != nil {
+			return err
+		}
+
+		if !wildcard.Match(requiredValue, val) {
+			return fmt.Errorf("extension mismatch: expected %s for key %s, received %s", requiredValue, requiredKey, val)
+		}
+	}
+
+	return nil
+}
+
+func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
+	switch key {
+	case cosign.CertExtensionOIDCIssuer:
+		return ce.GetIssuer(), nil
+	case cosign.CertExtensionGithubWorkflowTrigger:
+		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
+	case cosign.CertExtensionGithubWorkflowSha:
+		return ce.GetExtensionGithubWorkflowSha(), nil
+	case cosign.CertExtensionGithubWorkflowName:
+		return ce.GetCertExtensionGithubWorkflowName(), nil
+	case cosign.CertExtensionGithubWorkflowRepository:
+		return ce.GetCertExtensionGithubWorkflowRepository(), nil
+	case cosign.CertExtensionGithubWorkflowRef:
+		return ce.GetCertExtensionGithubWorkflowRef(), nil
+	default:
+		return "", errors.Errorf("invalid certificate extension %s", key)
+	}
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {

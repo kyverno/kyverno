@@ -6,8 +6,8 @@ import (
 
 	logr "github.com/go-logr/logr"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/common"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -50,6 +50,6 @@ func GetResource(client dclient.Interface, urSpec kyvernov1beta1.UpdateRequestSp
 		return nil, err
 	}
 
-	log.Info("fetched trigger resource", "resourceSpec", resourceSpec)
+	log.V(2).Info("fetched trigger resource", "resourceSpec", resourceSpec)
 	return resource, err
 }

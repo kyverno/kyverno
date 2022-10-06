@@ -36,11 +36,9 @@ const (
 // latestTimestamp is longer than idleCheckInterval, the monitor triggers an
 // annotation update; otherwise lastSeenRequestTime is updated to latestTimestamp.
 //
-//
 // Webhook configurations are checked every tickerInterval across all instances.
 // Currently the check only queries for the expected resource name, and does
 // not compare other details like the webhook settings.
-//
 type Monitor struct {
 	// leaseClient is used to manage Kyverno lease
 	leaseClient coordinationv1.LeaseInterface
@@ -80,7 +78,7 @@ func (t *Monitor) SetTime(tm time.Time) {
 }
 
 // Run runs the checker and verify the resource update
-func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface, stopCh <-chan struct{}) {
+func (t *Monitor) Run(ctx context.Context, register *Register, certRenewer *tls.CertRenewer, eventGen event.Interface) {
 	logger := t.log.WithName("webhookMonitor")
 
 	logger.V(3).Info("starting webhook monitor", "interval", idleCheckInterval.String())
@@ -116,8 +114,12 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 			// update namespaceSelector every 30 seconds
 			go func() {
 				if register.autoUpdateWebhooks {
-					logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
-					register.UpdateWebhookChan <- true
+					select {
+					case register.UpdateWebhookChan <- true:
+						logger.V(4).Info("updating webhook configurations for namespaceSelector with latest kyverno ConfigMap")
+					default:
+						logger.V(4).Info("skipped sending update webhook signal as the channel was blocking")
+					}
 				}
 			}()
 
@@ -176,7 +178,7 @@ func (t *Monitor) Run(register *Register, certRenewer *tls.CertRenewer, eventGen
 				logger.Error(err, "failed to annotate deployment webhook status to success")
 			}
 
-		case <-stopCh:
+		case <-ctx.Done():
 			// handler termination signal
 			logger.V(2).Info("stopping webhook monitor")
 			return
