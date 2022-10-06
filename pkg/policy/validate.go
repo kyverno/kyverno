@@ -123,6 +123,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	if errs := policy.Validate(clusterResources); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
+
+	if !namespaced {
+		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
@@ -1069,5 +1077,63 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 			}
 		}
 	}
+	return nil
+}
+
+func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) error {
+	pat, ns, notOk := utils.CheckWildcardNamespaces(auditW, enforce)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
+	pat, ns, notOk = utils.CheckWildcardNamespaces(enforceW, audit)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
+
+	pat1, pat2, notOk := utils.CheckWildcardNamespaces(auditW, enforceW)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
+	pat1, pat2, notOk = utils.CheckWildcardNamespaces(enforceW, auditW)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
+
+	return nil
+}
+
+func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
+	action := map[string]sets.String{
+		string(kyvernov1.Enforce): sets.NewString(),
+		string(kyvernov1.Audit):   sets.NewString(),
+		"enforceW":                sets.NewString(),
+		"auditW":                  sets.NewString(),
+	}
+
+	for i, vfa := range s.ValidationFailureActionOverrides {
+		patternList, nsList := utils.SeperateWildcards(vfa.Namespaces)
+
+		if vfa.Action == kyvernov1.Audit {
+			if action[string(kyvernov1.Enforce)].HasAny(nsList...) {
+				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
+					strings.Join(action[string(kyvernov1.Enforce)].Intersection(sets.NewString(nsList...)).List(), ", "))
+			}
+			action["auditW"].Insert(patternList...)
+		} else if vfa.Action == kyvernov1.Enforce {
+			if action[string(kyvernov1.Audit)].HasAny(nsList...) {
+				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
+					strings.Join(action[string(kyvernov1.Audit)].Intersection(sets.NewString(nsList...)).List(), ", "))
+			}
+			action["enforceW"].Insert(patternList...)
+		}
+		action[string(vfa.Action)].Insert(nsList...)
+
+		err := validateWildcardsWithNamespaces(action[string(kyvernov1.Enforce)].List(),
+			action[string(kyvernov1.Audit)].List(), action["enforceW"].List(), action["auditW"].List())
+		if err != nil {
+			return fmt.Errorf("path: %s: %s", path.Index(i).Child("namespaces").String(), err.Error())
+		}
+	}
+
 	return nil
 }
