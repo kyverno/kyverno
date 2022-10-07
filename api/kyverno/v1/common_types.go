@@ -350,6 +350,7 @@ type PodSecurityStandard struct {
 	// Images selects matching containers and applies the container level PSS.
 	// Each image is the image name consisting of the registry address, repository, image, and tag.
 	// Empty list matches no containers, PSS checks are applied at the pod level only.
+	// Wildcards ('*' and '?') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.
 	// +optional
 	Images []string `json:"images,omitempty" yaml:"images,omitempty"`
 }
