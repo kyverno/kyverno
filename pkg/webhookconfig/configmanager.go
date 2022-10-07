@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 )
 
-var DefaultWebhookTimeout int32 = 10
+// const DefaultWebhookTimeout int32 = 10
 
 // webhookConfigManager manges the webhook configuration dynamically
 // it is NOT multi-thread safe

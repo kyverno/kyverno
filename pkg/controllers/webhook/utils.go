@@ -2,6 +2,7 @@ package webhook
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/utils"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,24 +43,23 @@ func (wh *webhook) isEmpty() bool {
 	return wh.groups.Len() == 0 || wh.versions.Len() == 0 || wh.resources.Len() == 0
 }
 
-// func webhookKey(webhookKind, failurePolicy string) string {
-// 	return strings.Join([]string{webhookKind, failurePolicy}, "/")
-// }
+func (wh *webhook) setWildcard() {
+	wh.groups = sets.NewString("*")
+	wh.versions = sets.NewString("*")
+	wh.resources = sets.NewString("*/*")
+}
 
-// func hasWildcard(spec *kyvernov1.Spec) bool {
-// 	for _, rule := range spec.Rules {
-// 		if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
-
-// func setWildcardConfig(w *webhook) {
-// 	w.groups = sets.NewString("*")
-// 	w.versions = sets.NewString("*")
-// 	w.resources = sets.NewString("*/*")
-// }
+func hasWildcard(policies ...kyvernov1.PolicyInterface) bool {
+	for _, policy := range policies {
+		spec := policy.GetSpec()
+		for _, rule := range spec.Rules {
+			if kinds := rule.MatchResources.GetKinds(); utils.ContainsString(kinds, "*") {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
