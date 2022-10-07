@@ -16,8 +16,11 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// Workers is the number of workers for this controller
-const Workers = 1
+const (
+	// Workers is the number of workers for this controller
+	Workers        = 1
+	ControllerName = "certmanager-controller"
+)
 
 type controller struct {
 	renewer      *tls.CertRenewer

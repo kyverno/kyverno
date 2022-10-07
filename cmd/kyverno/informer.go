@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"reflect"
-
-	"k8s.io/client-go/tools/cache"
 )
 
 // TODO: eventually move this in an util package
@@ -44,12 +42,4 @@ func checkCacheSync[T comparable](status map[T]bool) bool {
 func startInformersAndWaitForCacheSync(ctx context.Context, informers ...informer) bool {
 	startInformers(ctx, informers...)
 	return waitForCacheSync(ctx, informers...)
-}
-
-func waitForInformersCacheSync(ctx context.Context, informers ...cache.SharedInformer) bool {
-	var hasSynced []cache.InformerSynced
-	for i := range informers {
-		hasSynced = append(hasSynced, informers[i].HasSynced)
-	}
-	return cache.WaitForCacheSync(ctx.Done(), hasSynced...)
 }
