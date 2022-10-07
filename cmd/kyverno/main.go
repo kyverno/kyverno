@@ -339,6 +339,138 @@ func createNonLeaderControllers(
 		}
 }
 
+func createReportControllers(
+	backgroundScan bool,
+	admissionReports bool,
+	client dclient.Interface,
+	kyvernoClient versioned.Interface,
+	metadataFactory metadatainformers.SharedInformerFactory,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+) []controller {
+	var ctrls []controller
+	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	if backgroundScan || admissionReports {
+		resourceReportController := resourcereportcontroller.NewController(
+			client,
+			kyvernoV1.Policies(),
+			kyvernoV1.ClusterPolicies(),
+		)
+		ctrls = append(ctrls, newController(
+			resourcereportcontroller.ControllerName,
+			resourceReportController,
+			resourcereportcontroller.Workers,
+		))
+		ctrls = append(ctrls, newController(
+			aggregatereportcontroller.ControllerName,
+			aggregatereportcontroller.NewController(
+				kyvernoClient,
+				metadataFactory,
+				resourceReportController,
+				reportsChunkSize,
+			),
+			aggregatereportcontroller.Workers,
+		))
+		if admissionReports {
+			ctrls = append(ctrls, newController(
+				admissionreportcontroller.ControllerName,
+				admissionreportcontroller.NewController(
+					kyvernoClient,
+					metadataFactory,
+					resourceReportController,
+				),
+				admissionreportcontroller.Workers,
+			))
+		}
+		if backgroundScan {
+			ctrls = append(ctrls, newController(
+				backgroundscancontroller.ControllerName,
+				backgroundscancontroller.NewController(
+					client,
+					kyvernoClient,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					kubeInformer.Core().V1().Namespaces(),
+					resourceReportController,
+				),
+				backgroundscancontroller.Workers,
+			))
+		}
+	}
+	return ctrls
+}
+
+func createrLeaderControllers(
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	metadataInformer metadatainformers.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
+	kyvernoClient versioned.Interface,
+	dynamicClient dclient.Interface,
+	configuration config.Configuration,
+	metricsConfig *metrics.MetricsConfig,
+	eventGenerator event.Interface,
+	certRenewer *tls.CertRenewer,
+) ([]controller, error) {
+	policyCtrl, err := policy.NewPolicyController(
+		kyvernoClient,
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		configuration,
+		eventGenerator,
+		kubeInformer.Core().V1().Namespaces(),
+		logging.WithName("PolicyController"),
+		time.Hour,
+		metricsConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+	certManager := certmanager.NewController(
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		certRenewer,
+	)
+	webhookController := webhookcontroller.NewController(
+		metrics.ObjectClient[*corev1.Secret](
+			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
+			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		),
+		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		),
+		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		),
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+	)
+	return append(
+			[]controller{
+				newController("policy-controller", policyCtrl, 2),
+				newController(certmanager.ControllerName, certManager, certmanager.Workers),
+				newController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+			},
+			createReportControllers(
+				backgroundScan,
+				admissionReports,
+				dynamicClient,
+				kyvernoClient,
+				metadataInformer,
+				kubeInformer,
+				kyvernoInformer,
+			)...,
+		),
+		nil
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
