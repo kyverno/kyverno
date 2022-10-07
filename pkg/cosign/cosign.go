@@ -457,13 +457,13 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 		}
 
 		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
+			return errors.Errorf("certificate not found")
 		}
 
 		if subject != "" {
 			s := sigs.CertSubject(cert)
 			if !wildcard.Match(subject, s) {
-				return fmt.Errorf("subject mismatch: expected %s, received %s", s, subject)
+				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 			}
 		}
 
@@ -501,17 +501,17 @@ func matchExtensions(cert *x509.Certificate, issuer string, extensions map[strin
 
 func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
 	switch key {
-	case cosign.CertExtensionOIDCIssuer:
+	case cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
 		return ce.GetIssuer(), nil
-	case cosign.CertExtensionGithubWorkflowTrigger:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
 		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
-	case cosign.CertExtensionGithubWorkflowSha:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
 		return ce.GetExtensionGithubWorkflowSha(), nil
-	case cosign.CertExtensionGithubWorkflowName:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
 		return ce.GetCertExtensionGithubWorkflowName(), nil
-	case cosign.CertExtensionGithubWorkflowRepository:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
 		return ce.GetCertExtensionGithubWorkflowRepository(), nil
-	case cosign.CertExtensionGithubWorkflowRef:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
 		return ce.GetCertExtensionGithubWorkflowRef(), nil
 	default:
 		return "", errors.Errorf("invalid certificate extension %s", key)
