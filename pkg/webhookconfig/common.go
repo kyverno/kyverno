@@ -3,8 +3,6 @@ package webhookconfig
 import (
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 	"strings"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -85,124 +83,124 @@ func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
 	return deploy, nil
 }
 
-func (wrc *Register) constructOwner() metav1.OwnerReference {
-	logger := wrc.log
-	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
-	if err != nil {
-		logger.Error(err, "failed to get cluster role")
-		return metav1.OwnerReference{}
-	}
-	return metav1.OwnerReference{
-		APIVersion: config.ClusterRoleAPIVersion,
-		Kind:       config.ClusterRoleKind,
-		Name:       kubeClusterRoleName.GetName(),
-		UID:        kubeClusterRoleName.GetUID(),
-	}
-}
+// func (wrc *Register) constructOwner() metav1.OwnerReference {
+// 	logger := wrc.log
+// 	kubeClusterRoleName, err := wrc.GetKubePolicyClusterRoleName()
+// 	if err != nil {
+// 		logger.Error(err, "failed to get cluster role")
+// 		return metav1.OwnerReference{}
+// 	}
+// 	return metav1.OwnerReference{
+// 		APIVersion: config.ClusterRoleAPIVersion,
+// 		Kind:       config.ClusterRoleKind,
+// 		Name:       kubeClusterRoleName.GetName(),
+// 		UID:        kubeClusterRoleName.GetUID(),
+// 	}
+// }
 
-// webhook utils
+// // webhook utils
 
-func generateRules(rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
-	if !reflect.DeepEqual(rule, admissionregistrationv1.Rule{}) {
-		return []admissionregistrationv1.RuleWithOperations{{Operations: operationTypes, Rule: rule}}
-	}
-	return nil
-}
+// func generateRules(rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType) []admissionregistrationv1.RuleWithOperations {
+// 	if !reflect.DeepEqual(rule, admissionregistrationv1.Rule{}) {
+// 		return []admissionregistrationv1.RuleWithOperations{{Operations: operationTypes, Rule: rule}}
+// 	}
+// 	return nil
+// }
 
-func generateDebugMutatingWebhook(name, url string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.MutatingWebhook {
-	return admissionregistrationv1.MutatingWebhook{
-		ReinvocationPolicy: &never,
-		Name:               name,
-		ClientConfig: admissionregistrationv1.WebhookClientConfig{
-			URL:      &url,
-			CABundle: caData,
-		},
-		SideEffects:             &noneOnDryRun,
-		AdmissionReviewVersions: []string{"v1beta1"},
-		TimeoutSeconds:          &timeoutSeconds,
-		FailurePolicy:           &failurePolicy,
-		Rules:                   generateRules(rule, operationTypes),
-	}
-}
+// func generateDebugMutatingWebhook(name, url string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.MutatingWebhook {
+// 	return admissionregistrationv1.MutatingWebhook{
+// 		ReinvocationPolicy: &never,
+// 		Name:               name,
+// 		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+// 			URL:      &url,
+// 			CABundle: caData,
+// 		},
+// 		SideEffects:             &noneOnDryRun,
+// 		AdmissionReviewVersions: []string{"v1beta1"},
+// 		TimeoutSeconds:          &timeoutSeconds,
+// 		FailurePolicy:           &failurePolicy,
+// 		Rules:                   generateRules(rule, operationTypes),
+// 	}
+// }
 
-func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.MutatingWebhook {
-	return admissionregistrationv1.MutatingWebhook{
-		ReinvocationPolicy: &ifNeeded,
-		Name:               name,
-		ClientConfig: admissionregistrationv1.WebhookClientConfig{
-			Service: &admissionregistrationv1.ServiceReference{
-				Namespace: config.KyvernoNamespace(),
-				Name:      config.KyvernoServiceName(),
-				Path:      &servicePath,
-			},
-			CABundle: caData,
-		},
-		SideEffects:             &noneOnDryRun,
-		AdmissionReviewVersions: []string{"v1beta1"},
-		TimeoutSeconds:          &timeoutSeconds,
-		FailurePolicy:           &failurePolicy,
-		Rules:                   generateRules(rule, operationTypes),
-	}
-}
+// func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.MutatingWebhook {
+// 	return admissionregistrationv1.MutatingWebhook{
+// 		ReinvocationPolicy: &ifNeeded,
+// 		Name:               name,
+// 		ClientConfig: admissionregistrationv1.WebhookClientConfig{
+// 			Service: &admissionregistrationv1.ServiceReference{
+// 				Namespace: config.KyvernoNamespace(),
+// 				Name:      config.KyvernoServiceName(),
+// 				Path:      &servicePath,
+// 			},
+// 			CABundle: caData,
+// 		},
+// 		SideEffects:             &noneOnDryRun,
+// 		AdmissionReviewVersions: []string{"v1beta1"},
+// 		TimeoutSeconds:          &timeoutSeconds,
+// 		FailurePolicy:           &failurePolicy,
+// 		Rules:                   generateRules(rule, operationTypes),
+// 	}
+// }
 
-func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
-		Name: name,
-		Labels: map[string]string{
-			managedByLabel: kyvernov1.ValueKyvernoApp,
-		},
-		OwnerReferences: owner,
-	}
-}
+// func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+// 	return metav1.ObjectMeta{
+// 		Name: name,
+// 		Labels: map[string]string{
+// 			managedByLabel: kyvernov1.ValueKyvernoApp,
+// 		},
+// 		OwnerReferences: owner,
+// 	}
+// }
 
-// resource webhook configuration utils
+// // resource webhook configuration utils
 
-func getResourceMutatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.MutatingWebhookConfigurationDebugName
-	}
-	return config.MutatingWebhookConfigurationName
-}
+// func getResourceMutatingWebhookConfigName(serverIP string) string {
+// 	if serverIP != "" {
+// 		return config.MutatingWebhookConfigurationDebugName
+// 	}
+// 	return config.MutatingWebhookConfigurationName
+// }
 
-func defaultResourceWebhookRule(autoUpdate bool) admissionregistrationv1.Rule {
-	if autoUpdate {
-		return admissionregistrationv1.Rule{}
-	}
-	return admissionregistrationv1.Rule{
-		APIGroups:   []string{"*"},
-		APIVersions: []string{"*"},
-		Resources:   []string{"*/*"},
-	}
-}
+// func defaultResourceWebhookRule(autoUpdate bool) admissionregistrationv1.Rule {
+// 	if autoUpdate {
+// 		return admissionregistrationv1.Rule{}
+// 	}
+// 	return admissionregistrationv1.Rule{
+// 		APIGroups:   []string{"*"},
+// 		APIVersions: []string{"*"},
+// 		Resources:   []string{"*/*"},
+// 	}
+// }
 
-func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, baseUrl := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
-	url := fmt.Sprintf("%s/ignore", baseUrl)
-	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admissionregistrationv1.MutatingWebhook{
-			generateDebugMutatingWebhook(name+"-ignore", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Ignore),
-		},
-	}
-	if autoUpdate {
-		url := fmt.Sprintf("%s/fail", baseUrl)
-		webhook.Webhooks = append(webhook.Webhooks, generateDebugMutatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
-	}
-	return webhook
-}
+// func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
+// 	name, baseUrl := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
+// 	url := fmt.Sprintf("%s/ignore", baseUrl)
+// 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationDebugName, owner),
+// 		Webhooks: []admissionregistrationv1.MutatingWebhook{
+// 			generateDebugMutatingWebhook(name+"-ignore", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Ignore),
+// 		},
+// 	}
+// 	if autoUpdate {
+// 		url := fmt.Sprintf("%s/fail", baseUrl)
+// 		webhook.Webhooks = append(webhook.Webhooks, generateDebugMutatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
+// 	}
+// 	return webhook
+// }
 
-func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, basePath := config.MutatingWebhookName, config.MutatingWebhookServicePath
-	path := fmt.Sprintf("%s/ignore", basePath)
-	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationName, owner),
-		Webhooks: []admissionregistrationv1.MutatingWebhook{
-			generateMutatingWebhook(name+"-ignore", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Ignore),
-		},
-	}
-	if autoUpdate {
-		path := fmt.Sprintf("%s/fail", basePath)
-		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
-	}
-	return webhook
-}
+// func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
+// 	name, basePath := config.MutatingWebhookName, config.MutatingWebhookServicePath
+// 	path := fmt.Sprintf("%s/ignore", basePath)
+// 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
+// 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationName, owner),
+// 		Webhooks: []admissionregistrationv1.MutatingWebhook{
+// 			generateMutatingWebhook(name+"-ignore", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Ignore),
+// 		},
+// 	}
+// 	if autoUpdate {
+// 		path := fmt.Sprintf("%s/fail", basePath)
+// 		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
+// 	}
+// 	return webhook
+// }

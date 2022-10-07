@@ -1,7 +1,9 @@
 package webhook
 
 import (
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -58,3 +60,13 @@ func (wh *webhook) isEmpty() bool {
 // 	w.versions = sets.NewString("*")
 // 	w.resources = sets.NewString("*/*")
 // }
+
+func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name: name,
+		Labels: map[string]string{
+			managedByLabel: kyvernov1.ValueKyvernoApp,
+		},
+		OwnerReferences: owner,
+	}
+}

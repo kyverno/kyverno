@@ -18,8 +18,6 @@ import (
 const (
 	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
-	// MutatingWebhookConfigurationDebugName default resource mutating webhook configuration name for debug mode
-	MutatingWebhookConfigurationDebugName = "kyverno-resource-mutating-webhook-cfg-debug"
 	// MutatingWebhookName default resource mutating webhook name
 	MutatingWebhookName = "mutate.kyverno.svc"
 	// ValidatingWebhookConfigurationName ...

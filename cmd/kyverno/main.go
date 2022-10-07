@@ -455,6 +455,8 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+		serverIP,
+		webhookconfig.DefaultWebhookTimeout,
 	)
 	return append(
 			[]controller{
@@ -686,9 +688,9 @@ func main() {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			}
 			// bootstrap
-			if autoUpdateWebhooks {
-				go webhookCfg.UpdateWebhookConfigurations(configuration)
-			}
+			// if autoUpdateWebhooks {
+			// 	go webhookCfg.UpdateWebhookConfigurations(configuration)
+			// }
 			registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
 			if err := registerWrapperRetry(); err != nil {
 				logger.Error(err, "timeout registering admission control webhooks")

@@ -90,14 +90,8 @@ func (t *Monitor) Run(ctx context.Context, register *Register, certRenewer *tls.
 	createDefaultWebhook := register.createDefaultWebhook
 	for {
 		select {
-		case webhookKind := <-createDefaultWebhook:
+		case <-createDefaultWebhook:
 			logger.Info("received recreation request for resource webhook")
-			if webhookKind == kindMutating {
-				err := register.createResourceMutatingWebhookConfiguration(register.readCaData())
-				if err != nil {
-					logger.Error(err, "failed to create default MutatingWebhookConfiguration for resources, the webhook will be reconciled", "interval", tickerInterval)
-				}
-			}
 
 		case <-ticker.C:
 

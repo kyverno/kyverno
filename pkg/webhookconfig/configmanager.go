@@ -320,15 +320,15 @@ func (m *webhookConfigManager) reconcileWebhook(namespace, name string) error {
 	var updateErr error
 	// build webhook only if auto-update is enabled, otherwise directly update status to ready
 	if m.autoUpdateWebhooks {
-		webhooks, err := m.buildWebhooks(namespace)
+		_, err := m.buildWebhooks(namespace)
 		if err != nil {
 			return err
 		}
 
-		if err := m.updateWebhookConfig(webhooks); err != nil {
-			ready = false
-			updateErr = errors.Wrapf(err, "failed to update webhook configurations for policy")
-		}
+		// if err := m.updateWebhookConfig(webhooks); err != nil {
+		// 	ready = false
+		// 	updateErr = errors.Wrapf(err, "failed to update webhook configurations for policy")
+		// }
 
 		// DELETION of the policy
 		if isDeleted {
@@ -416,59 +416,54 @@ func (m *webhookConfigManager) buildWebhooks(namespace string) (res []*webhook, 
 	return res, nil
 }
 
-func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
-	logger := m.log.WithName("updateWebhookConfig")
+// func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 
-	webhooksMap := map[string]*webhook{}
-	for _, w := range webhooks {
-		webhooksMap[webhookKey(w.kind, string(w.failurePolicy))] = w
-	}
+// 	webhooksMap := map[string]*webhook{}
+// 	for _, w := range webhooks {
+// 		webhooksMap[webhookKey(w.kind, string(w.failurePolicy))] = w
+// 	}
 
-	var errs []string
-	if err := m.updateMutatingWebhookConfiguration(getResourceMutatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
-		logger.V(4).Info("failed to update mutatingwebhookconfigurations", "error", err.Error())
-		errs = append(errs, err.Error())
-	}
+// 	var errs []string
 
-	// if err := m.updateValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
-	// 	logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
-	// 	errs = append(errs, err.Error())
-	// }
+// 	// if err := m.updateValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
+// 	// 	logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
+// 	// 	errs = append(errs, err.Error())
+// 	// }
 
-	if len(errs) != 0 {
-		return errors.New(strings.Join(errs, "\n"))
-	}
+// 	if len(errs) != 0 {
+// 		return errors.New(strings.Join(errs, "\n"))
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName string, webhooksMap map[string]*webhook) error {
-	logger := m.log.WithName("updateMutatingWebhookConfiduration").WithValues("name", webhookName)
-	resourceWebhook, err := m.mutateLister.Get(webhookName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return errors.Wrapf(err, "unable to get %s/%s", kindMutating, webhookName)
-	} else if apierrors.IsNotFound(err) {
-		m.createDefaultWebhook <- kindMutating
-		return err
-	}
-	for i := range resourceWebhook.Webhooks {
-		newWebhook := webhooksMap[webhookKey(kindMutating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
-		if newWebhook == nil || newWebhook.isEmpty() {
-			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
-		} else {
-			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
-			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
-				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete),
-			}
-		}
-	}
-	if _, err := m.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
-		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
-		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
-	}
-	logger.V(4).Info("successfully updated the webhook configuration")
-	return nil
-}
+// func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName string, webhooksMap map[string]*webhook) error {
+// 	logger := m.log.WithName("updateMutatingWebhookConfiduration").WithValues("name", webhookName)
+// 	resourceWebhook, err := m.mutateLister.Get(webhookName)
+// 	if err != nil && !apierrors.IsNotFound(err) {
+// 		return errors.Wrapf(err, "unable to get %s/%s", kindMutating, webhookName)
+// 	} else if apierrors.IsNotFound(err) {
+// 		m.createDefaultWebhook <- kindMutating
+// 		return err
+// 	}
+// 	for i := range resourceWebhook.Webhooks {
+// 		newWebhook := webhooksMap[webhookKey(kindMutating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
+// 		if newWebhook == nil || newWebhook.isEmpty() {
+// 			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
+// 		} else {
+// 			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
+// 			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
+// 				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete),
+// 			}
+// 		}
+// 	}
+// 	if _, err := m.kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+// 		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindMutating, "")
+// 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
+// 	}
+// 	logger.V(4).Info("successfully updated the webhook configuration")
+// 	return nil
+// }
 
 // func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName string, webhooksMap map[string]*webhook) error {
 // 	logger := m.log.WithName("updateMutatingWebhookConfiduration").WithValues("name", webhookName)
