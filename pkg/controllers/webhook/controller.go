@@ -2,6 +2,7 @@ package background
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -27,6 +28,26 @@ const (
 	maxRetries = 10
 )
 
+var path = map[string]map[string]string{
+	config.MutatingWebhookConfigurationName: {
+		config.MutatingWebhookName + "-ignore": config.MutatingWebhookServicePath + "/ignore",
+		config.MutatingWebhookName + "-fail":   config.MutatingWebhookServicePath + "/fail",
+	},
+	config.ValidatingWebhookConfigurationName: {
+		config.ValidatingWebhookName + "-ignore": config.ValidatingWebhookServicePath + "/ignore",
+		config.ValidatingWebhookName + "-fail":   config.ValidatingWebhookServicePath + "/fail",
+	},
+	config.VerifyMutatingWebhookConfigurationName: {
+		config.VerifyMutatingWebhookName: config.VerifyMutatingWebhookServicePath,
+	},
+	config.PolicyValidatingWebhookConfigurationName: {
+		config.PolicyValidatingWebhookName: config.PolicyValidatingWebhookServicePath,
+	},
+	config.PolicyMutatingWebhookConfigurationName: {
+		config.PolicyMutatingWebhookName: config.PolicyMutatingWebhookServicePath,
+	},
+}
+
 type controller struct {
 	// clients
 	secretClient controllerutils.GetClient[*corev1.Secret]
@@ -43,6 +64,9 @@ type controller struct {
 	queue      workqueue.RateLimitingInterface
 	mwcEnqueue controllerutils.EnqueueFunc
 	vwcEnqueue controllerutils.EnqueueFunc
+
+	// config
+	server string
 }
 
 func NewController(
@@ -64,8 +88,8 @@ func NewController(
 		mwcLister:       mwcInformer.Lister(),
 		vwcLister:       vwcInformer.Lister(),
 		queue:           queue,
-		mwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue),
-		vwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue),
+		mwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue),
+		vwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue),
 	}
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
@@ -83,7 +107,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, controllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) secretChanged(secret *corev1.Secret) {
@@ -140,6 +164,27 @@ func (c *controller) loadConfig() config.Configuration {
 	return cfg
 }
 
+func (c *controller) clientConfig(caBundle []byte, name string, webhookName string) admissionregistrationv1.WebhookClientConfig {
+	path := path[name][webhookName]
+	if path == "" {
+		path = "todo"
+	}
+	clientConfig := admissionregistrationv1.WebhookClientConfig{
+		CABundle: caBundle,
+	}
+	if c.server == "" {
+		clientConfig.Service = &admissionregistrationv1.ServiceReference{
+			Namespace: config.KyvernoNamespace(),
+			Name:      config.KyvernoServiceName(),
+			Path:      &path,
+		}
+	} else {
+		url := fmt.Sprintf("https://%s%s", c.server, path)
+		clientConfig.URL = &url
+	}
+	return clientConfig
+}
+
 func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, logger logr.Logger, name string) error {
 	w, err := c.mwcLister.Get(name)
 	if err != nil {
@@ -164,7 +209,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	}
 	_, err = controllerutils.Update(ctx, w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		for i := range w.Webhooks {
-			w.Webhooks[i].ClientConfig.CABundle = caData
+			w.Webhooks[i].ClientConfig = c.clientConfig(caData, w.Name, w.Webhooks[i].Name)
 			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
 			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}
@@ -197,7 +242,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	}
 	_, err = controllerutils.Update(ctx, w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		for i := range w.Webhooks {
-			w.Webhooks[i].ClientConfig.CABundle = caData
+			w.Webhooks[i].ClientConfig = c.clientConfig(caData, w.Name, w.Webhooks[i].Name)
 			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
 			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}

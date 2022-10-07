@@ -232,7 +232,9 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
-		cd.updateWebhookConfigurations <- true
+		if cd.updateWebhookConfigurations != nil {
+			cd.updateWebhookConfigurations <- true
+		}
 	}
 }
 
