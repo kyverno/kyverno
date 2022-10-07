@@ -309,7 +309,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte, cf
 			FailurePolicy:           &failurePolicy,
 			SideEffects:             &noneOnDryRun,
 			ReinvocationPolicy:      &ifNeeded,
-			AdmissionReviewVersions: []string{"v1beta1"},
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 			ObjectSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
