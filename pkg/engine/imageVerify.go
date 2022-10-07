@@ -284,8 +284,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		path := fmt.Sprintf(".attestors[%d]", i)
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify signature")
-			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+			iv.logger.Error(err, "failed to verify image")
+			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 
 			// handle registry network errors as a rule error (instead of a policy failure)
 			var netErr *net.OpError
