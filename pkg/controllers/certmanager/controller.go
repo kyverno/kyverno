@@ -65,7 +65,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			Name:      tls.GenerateRootCASecretName(),
 		},
 	}); err != nil {
-		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateRootCASecretName())
+		logger.Error(err, "failed to enqueue CA secret", "name", tls.GenerateRootCASecretName())
 	}
 	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
