@@ -13,6 +13,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
@@ -27,32 +28,19 @@ const (
 	Workers        = 2
 	ControllerName = "webhook-ca-controller"
 	maxRetries     = 10
+	managedByLabel = "webhook.kyverno.io/managed-by"
 )
 
-var path = map[string]map[string]string{
-	config.MutatingWebhookConfigurationName: {
-		config.MutatingWebhookName + "-ignore": config.MutatingWebhookServicePath + "/ignore",
-		config.MutatingWebhookName + "-fail":   config.MutatingWebhookServicePath + "/fail",
-	},
-	config.ValidatingWebhookConfigurationName: {
-		config.ValidatingWebhookName + "-ignore": config.ValidatingWebhookServicePath + "/ignore",
-		config.ValidatingWebhookName + "-fail":   config.ValidatingWebhookServicePath + "/fail",
-	},
-	config.VerifyMutatingWebhookConfigurationName: {
-		config.VerifyMutatingWebhookName: config.VerifyMutatingWebhookServicePath,
-	},
-	config.PolicyValidatingWebhookConfigurationName: {
-		config.PolicyValidatingWebhookName: config.PolicyValidatingWebhookServicePath,
-	},
-	config.PolicyMutatingWebhookConfigurationName: {
-		config.PolicyMutatingWebhookName: config.PolicyMutatingWebhookServicePath,
-	},
-}
+var (
+	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
+	never        = admissionregistrationv1.NeverReinvocationPolicy
+	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
+)
 
 type controller struct {
 	// clients
 	secretClient controllerutils.GetClient[*corev1.Secret]
-	mwcClient    controllerutils.UpdateClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	mwcClient    controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
 	vwcClient    controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
@@ -72,7 +60,7 @@ type controller struct {
 
 func NewController(
 	secretClient controllerutils.GetClient[*corev1.Secret],
-	mwcClient controllerutils.UpdateClient[*admissionregistrationv1.MutatingWebhookConfiguration],
+	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	secretInformer corev1informers.SecretInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
@@ -108,6 +96,12 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
+	// add our known webhooks to the queue
+	c.queue.Add(config.MutatingWebhookConfigurationName)
+	c.queue.Add(config.ValidatingWebhookConfigurationName)
+	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
+	c.queue.Add(config.PolicyValidatingWebhookConfigurationName)
+	c.queue.Add(config.PolicyMutatingWebhookConfigurationName)
 	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
@@ -165,11 +159,7 @@ func (c *controller) loadConfig() config.Configuration {
 	return cfg
 }
 
-func (c *controller) clientConfig(caBundle []byte, name string, webhookName string) admissionregistrationv1.WebhookClientConfig {
-	path := path[name][webhookName]
-	if path == "" {
-		path = "todo"
-	}
+func (c *controller) clientConfig(caBundle []byte, path string) admissionregistrationv1.WebhookClientConfig {
 	clientConfig := admissionregistrationv1.WebhookClientConfig{
 		CABundle: caBundle,
 	}
@@ -210,7 +200,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	}
 	_, err = controllerutils.Update(ctx, w, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		for i := range w.Webhooks {
-			w.Webhooks[i].ClientConfig = c.clientConfig(caData, w.Name, w.Webhooks[i].Name)
+			w.Webhooks[i].ClientConfig.CABundle = caData
 			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
 			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}
@@ -243,7 +233,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	}
 	_, err = controllerutils.Update(ctx, w, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		for i := range w.Webhooks {
-			w.Webhooks[i].ClientConfig = c.clientConfig(caData, w.Name, w.Webhooks[i].Name)
+			w.Webhooks[i].ClientConfig.CABundle = caData
 			w.Webhooks[i].ObjectSelector = webhookCfg.ObjectSelector
 			w.Webhooks[i].NamespaceSelector = webhookCfg.NamespaceSelector
 		}
@@ -252,12 +242,90 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	return err
 }
 
-func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
-	if err := c.reconcileMutatingWebhookConfiguration(ctx, logger, name); err != nil {
+func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Context) error {
+	cfg := c.loadConfig()
+	webhookCfg := config.WebhookConfig{}
+	webhookCfgs := cfg.GetWebhooks()
+	if len(webhookCfgs) > 0 {
+		webhookCfg = webhookCfgs[0]
+	}
+	caData, err := tls.ReadRootCASecret(c.secretClient)
+	if err != nil {
 		return err
 	}
-	if err := c.reconcileValidatingWebhookConfiguration(ctx, logger, name); err != nil {
+	desired := c.buildVerifyMutatingWebhookConfiguration(caData, webhookCfg)
+	observed, err := c.mwcLister.Get(desired.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err := c.mwcClient.Create(ctx, desired, metav1.CreateOptions{})
+			return err
+		}
 		return err
+	}
+	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
+		*w = *desired
+		return nil
+	})
+	return err
+}
+
+func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
+	switch name {
+	// case config.MutatingWebhookConfigurationName:
+	// case config.ValidatingWebhookConfigurationName:
+	// case config.PolicyValidatingWebhookConfigurationName:
+	// case config.PolicyMutatingWebhookConfigurationName:
+	case config.VerifyMutatingWebhookConfigurationName:
+		return c.reconcileVerifyMutatingWebhookConfiguration(ctx)
+	default:
+		if err := c.reconcileMutatingWebhookConfiguration(ctx, logger, name); err != nil {
+			return err
+		}
+		if err := c.reconcileValidatingWebhookConfiguration(ctx, logger, name); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte, cfg config.WebhookConfig) *admissionregistrationv1.MutatingWebhookConfiguration {
+	failurePolicy := admissionregistrationv1.Ignore
+	return &admissionregistrationv1.MutatingWebhookConfiguration{
+		ObjectMeta: objectMeta(config.VerifyMutatingWebhookConfigurationName),
+		Webhooks: []admissionregistrationv1.MutatingWebhook{{
+			Name:         config.VerifyMutatingWebhookName,
+			ClientConfig: c.clientConfig(caBundle, config.VerifyMutatingWebhookServicePath),
+			Rules: []admissionregistrationv1.RuleWithOperations{
+				{
+					Rule: admissionregistrationv1.Rule{
+						Resources:   []string{"leases"},
+						APIGroups:   []string{"coordination.k8s.io"},
+						APIVersions: []string{"v1"},
+					},
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Update,
+					},
+				},
+			},
+			FailurePolicy:           &failurePolicy,
+			SideEffects:             &noneOnDryRun,
+			ReinvocationPolicy:      &ifNeeded,
+			AdmissionReviewVersions: []string{"v1beta1"},
+			ObjectSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+				},
+			},
+		}},
+	}
+}
+
+func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name: name,
+		Labels: map[string]string{
+			managedByLabel: kyvernov1.ValueKyvernoApp,
+		},
+		OwnerReferences: owner,
+	}
 }

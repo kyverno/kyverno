@@ -31,11 +31,6 @@ var (
 		APIGroups:   []string{"kyverno.io"},
 		APIVersions: []string{"v1", "v2beta1"},
 	}
-	verifyRule = admissionregistrationv1.Rule{
-		Resources:   []string{"leases"},
-		APIGroups:   []string{"coordination.k8s.io"},
-		APIVersions: []string{"v1"},
-	}
 	vertifyObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
@@ -351,33 +346,4 @@ func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32
 		webhook.Webhooks = append(webhook.Webhooks, generateValidatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
-}
-
-// verify webhook configuration utils
-
-func getVerifyMutatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.VerifyMutatingWebhookConfigurationDebugName
-	}
-	return config.VerifyMutatingWebhookConfigurationName
-}
-
-func constructVerifyMutatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, path := config.VerifyMutatingWebhookName, config.VerifyMutatingWebhookServicePath
-	webhook := generateMutatingWebhook(name, path, caData, timeoutSeconds, verifyRule, update, admissionregistrationv1.Ignore)
-	webhook.ObjectSelector = vertifyObjectSelector
-	return &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.VerifyMutatingWebhookConfigurationName, owner),
-		Webhooks:   []admissionregistrationv1.MutatingWebhook{webhook},
-	}
-}
-
-func constructDebugVerifyMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, url := config.VerifyMutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.VerifyMutatingWebhookServicePath)
-	webhook := generateDebugMutatingWebhook(name, url, caData, timeoutSeconds, verifyRule, update, admissionregistrationv1.Ignore)
-	webhook.ObjectSelector = vertifyObjectSelector
-	return &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.VerifyMutatingWebhookConfigurationDebugName, owner),
-		Webhooks:   []admissionregistrationv1.MutatingWebhook{webhook},
-	}
 }

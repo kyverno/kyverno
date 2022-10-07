@@ -137,9 +137,6 @@ func (wrc *Register) Register() error {
 		return errors.New("Unable to extract CA data from configuration")
 	}
 	var errors []string
-	if err := wrc.createVerifyMutatingWebhookConfiguration(caData); err != nil {
-		errors = append(errors, err.Error())
-	}
 	if err := wrc.createPolicyValidatingWebhookConfiguration(caData); err != nil {
 		errors = append(errors, err.Error())
 	}
@@ -161,9 +158,6 @@ func (wrc *Register) Register() error {
 
 // Check returns an error if any of the webhooks are not configured
 func (wrc *Register) Check() error {
-	if _, err := wrc.mwcLister.Get(getVerifyMutatingWebhookConfigName(wrc.serverIP)); err != nil {
-		return err
-	}
 	if _, err := wrc.mwcLister.Get(getResourceMutatingWebhookConfigName(wrc.serverIP)); err != nil {
 		return err
 	}
@@ -380,17 +374,6 @@ func (wrc *Register) createPolicyMutatingWebhookConfiguration(caData []byte) err
 	return wrc.createMutatingWebhookConfiguration(config)
 }
 
-func (wrc *Register) createVerifyMutatingWebhookConfiguration(caData []byte) error {
-	owner := wrc.constructOwner()
-	var config *admissionregistrationv1.MutatingWebhookConfiguration
-	if wrc.serverIP != "" {
-		config = constructDebugVerifyMutatingWebhookConfig(wrc.serverIP, caData, wrc.timeoutSeconds, owner)
-	} else {
-		config = constructVerifyMutatingWebhookConfig(caData, wrc.timeoutSeconds, owner)
-	}
-	return wrc.createMutatingWebhookConfiguration(config)
-}
-
 func (wrc *Register) checkEndpoint() error {
 	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoServiceName(), metav1.GetOptions{})
 	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "EndPoint", config.KyvernoNamespace())
@@ -598,12 +581,11 @@ func (wrc *Register) removeWebhookConfigurations() {
 	wrc.log.V(3).Info("deleting all webhook configurations")
 	defer wrc.log.V(4).Info("removed webhook configurations", "processingTime", time.Since(startTime).String())
 	var wg sync.WaitGroup
-	wg.Add(5)
+	wg.Add(4)
 	go wrc.removeResourceMutatingWebhookConfiguration(&wg)
 	go wrc.removeResourceValidatingWebhookConfiguration(&wg)
 	go wrc.removePolicyMutatingWebhookConfiguration(&wg)
 	go wrc.removePolicyValidatingWebhookConfiguration(&wg)
-	go wrc.removeVerifyWebhookMutatingWebhookConfig(&wg)
 	wg.Wait()
 }
 
@@ -625,11 +607,6 @@ func (wrc *Register) removePolicyMutatingWebhookConfiguration(wg *sync.WaitGroup
 func (wrc *Register) removePolicyValidatingWebhookConfiguration(wg *sync.WaitGroup) {
 	defer wg.Done()
 	wrc.removeValidatingWebhookConfiguration(getPolicyValidatingWebhookConfigName(wrc.serverIP))
-}
-
-func (wrc *Register) removeVerifyWebhookMutatingWebhookConfig(wg *sync.WaitGroup) {
-	defer wg.Done()
-	wrc.removeMutatingWebhookConfiguration(getVerifyMutatingWebhookConfigName(wrc.serverIP))
 }
 
 func (wrc *Register) removeMutatingWebhookConfiguration(name string) {

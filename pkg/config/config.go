@@ -30,8 +30,6 @@ const (
 	ValidatingWebhookName = "validate.kyverno.svc"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	// VerifyMutatingWebhookConfigurationDebugName default verify mutating webhook configuration name for debug mode
-	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
 	// VerifyMutatingWebhookName default verify mutating webhook name
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
