@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -70,7 +69,8 @@ func NewServer(
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
+	// mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(nil))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	return &server{
 		server: &http.Server{
@@ -126,13 +126,13 @@ func (s *server) Cleanup() <-chan struct{} {
 }
 
 func (s *server) cleanup(ctx context.Context) {
-	cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
+	// cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
-	go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
-	wg.Wait()
+	// var wg sync.WaitGroup
+	// wg.Add(2)
+	// go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
+	// go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
+	// wg.Wait()
 	close(s.cleanUp)
 }
 

@@ -1,87 +1,75 @@
 package webhookconfig
 
-import (
-	"context"
-	"errors"
-	"strings"
+// import (
+// 	"context"
+// 	"errors"
+// 	"strings"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/metrics"
-	"github.com/kyverno/kyverno/pkg/tls"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
+// 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+// 	"github.com/kyverno/kyverno/pkg/config"
+// 	"github.com/kyverno/kyverno/pkg/metrics"
+// 	"github.com/kyverno/kyverno/pkg/tls"
+// 	appsv1 "k8s.io/api/apps/v1"
+// 	corev1 "k8s.io/api/core/v1"
+// 	rbacv1 "k8s.io/api/rbac/v1"
+// 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+// )
 
-const (
-	managedByLabel string = "webhook.kyverno.io/managed-by"
-)
+// func (wrc *Register) readCaData() []byte {
+// 	logger := wrc.log.WithName("readCaData")
+// 	var caData []byte
+// 	var err error
+// 	recorder := metrics.NamespacedClientQueryRecorder(wrc.metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient)
+// 	secretsClient := metrics.ObjectClient[*corev1.Secret](recorder, wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()))
+// 	// Check if ca is defined in the secret tls-ca
+// 	// assume the key and signed cert have been defined in secret tls.kyverno
+// 	if caData, err = tls.ReadRootCASecret(secretsClient); err == nil {
+// 		logger.V(4).Info("read CA from secret")
+// 		return caData
+// 	}
 
-var (
-	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
-	never        = admissionregistrationv1.NeverReinvocationPolicy
-	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
-	createUpdate = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
-)
+// 	logger.V(4).Info("failed to read CA from kubeconfig")
+// 	return nil
+// }
 
-func (wrc *Register) readCaData() []byte {
-	logger := wrc.log.WithName("readCaData")
-	var caData []byte
-	var err error
-	recorder := metrics.NamespacedClientQueryRecorder(wrc.metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient)
-	secretsClient := metrics.ObjectClient[*corev1.Secret](recorder, wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()))
-	// Check if ca is defined in the secret tls-ca
-	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(secretsClient); err == nil {
-		logger.V(4).Info("read CA from secret")
-		return caData
-	}
+// func getHealthyPodsIP(pods []corev1.Pod) []string {
+// 	var ips []string
+// 	for _, pod := range pods {
+// 		if pod.Status.Phase == "Running" {
+// 			ips = append(ips, pod.Status.PodIP)
+// 		}
+// 	}
+// 	return ips
+// }
 
-	logger.V(4).Info("failed to read CA from kubeconfig")
-	return nil
-}
+// func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
+// 	selector := &metav1.LabelSelector{
+// 		MatchLabels: map[string]string{
+// 			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+// 		},
+// 	}
+// 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+// 	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "ClusterRole", "")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, cr := range clusterRoles.Items {
+// 		if strings.HasSuffix(cr.GetName(), "webhook") {
+// 			return &cr, nil
+// 		}
+// 	}
+// 	return nil, errors.New("failed to get cluster role with suffix webhook")
+// }
 
-func getHealthyPodsIP(pods []corev1.Pod) []string {
-	var ips []string
-	for _, pod := range pods {
-		if pod.Status.Phase == "Running" {
-			ips = append(ips, pod.Status.PodIP)
-		}
-	}
-	return ips
-}
-
-func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
-		},
-	}
-	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "ClusterRole", "")
-	if err != nil {
-		return nil, err
-	}
-	for _, cr := range clusterRoles.Items {
-		if strings.HasSuffix(cr.GetName(), "webhook") {
-			return &cr, nil
-		}
-	}
-	return nil, errors.New("failed to get cluster role with suffix webhook")
-}
-
-// GetKubePolicyDeployment gets Kyverno deployment using the resource cache
-// it does not initialize any client call
-func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
-	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
-	if err != nil {
-		return nil, err
-	}
-	return deploy, nil
-}
+// // GetKubePolicyDeployment gets Kyverno deployment using the resource cache
+// // it does not initialize any client call
+// func (wrc *Register) GetKubePolicyDeployment() (*appsv1.Deployment, error) {
+// 	deploy, err := wrc.kDeplLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return deploy, nil
+// }
 
 // func (wrc *Register) constructOwner() metav1.OwnerReference {
 // 	logger := wrc.log

@@ -20,7 +20,6 @@ import (
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
-	"github.com/kyverno/kyverno/pkg/common"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
@@ -562,7 +561,6 @@ func main() {
 	)
 	configuration, err := config.NewConfiguration(
 		kubeClient,
-		webhookCfg.UpdateWebhookChan,
 	)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
@@ -691,12 +689,11 @@ func main() {
 			// if autoUpdateWebhooks {
 			// 	go webhookCfg.UpdateWebhookConfigurations(configuration)
 			// }
-			registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
-			if err := registerWrapperRetry(); err != nil {
-				logger.Error(err, "timeout registering admission control webhooks")
-				os.Exit(1)
-			}
-			webhookCfg.UpdateWebhookChan <- true
+			// registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
+			// if err := registerWrapperRetry(); err != nil {
+			// 	logger.Error(err, "timeout registering admission control webhooks")
+			// 	os.Exit(1)
+			// }
 			// wait until we loose the lead (or signal context is canceled)
 			<-ctx.Done()
 		},
@@ -714,10 +711,10 @@ func main() {
 		logger.Error(err, "failed to initialize webhookMonitor")
 		os.Exit(1)
 	}
-	// start monitor (only when running in cluster)
-	if serverIP == "" {
-		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
-	}
+	// // start monitor (only when running in cluster)
+	// if serverIP == "" {
+	// 	go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
+	// }
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		kyvernoClient,

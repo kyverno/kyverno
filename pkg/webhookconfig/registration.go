@@ -3,22 +3,13 @@ package webhookconfig
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"strings"
-	"sync"
-	"time"
 
 	"github.com/go-logr/logr"
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	tlsutils "github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/utils"
-	"github.com/pkg/errors"
-	errorsapi "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -26,11 +17,6 @@ import (
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
 	rest "k8s.io/client-go/rest"
-)
-
-const (
-	kindMutating   string = "MutatingWebhookConfiguration"
-	kindValidating string = "ValidatingWebhookConfiguration"
 )
 
 // Register manages webhook registration. There are five webhooks:
@@ -53,9 +39,9 @@ type Register struct {
 	metricsConfig metrics.MetricsConfigManager
 
 	// channels
-	stopCh               <-chan struct{}
-	UpdateWebhookChan    chan bool
-	createDefaultWebhook chan string
+	stopCh <-chan struct{}
+	// UpdateWebhookChan    chan bool
+	// createDefaultWebhook chan string
 
 	serverIP           string // when running outside a cluster
 	timeoutSeconds     int32
@@ -85,20 +71,20 @@ func NewRegister(
 	log logr.Logger,
 ) *Register {
 	register := &Register{
-		clientConfig:         clientConfig,
-		kubeClient:           kubeClient,
-		kyvernoClient:        kyvernoClient,
-		mwcLister:            mwcInformer.Lister(),
-		vwcLister:            vwcInformer.Lister(),
-		kDeplLister:          kDeplInformer.Lister(),
-		metricsConfig:        metricsConfig,
-		UpdateWebhookChan:    make(chan bool),
-		createDefaultWebhook: make(chan string),
-		stopCh:               ctx.Done(),
-		serverIP:             serverIP,
-		timeoutSeconds:       webhookTimeout,
-		log:                  log.WithName("Register"),
-		autoUpdateWebhooks:   autoUpdateWebhooks,
+		clientConfig:  clientConfig,
+		kubeClient:    kubeClient,
+		kyvernoClient: kyvernoClient,
+		mwcLister:     mwcInformer.Lister(),
+		vwcLister:     vwcInformer.Lister(),
+		kDeplLister:   kDeplInformer.Lister(),
+		metricsConfig: metricsConfig,
+		// UpdateWebhookChan:    make(chan bool),
+		// createDefaultWebhook: make(chan string),
+		stopCh:             ctx.Done(),
+		serverIP:           serverIP,
+		timeoutSeconds:     webhookTimeout,
+		log:                log.WithName("Register"),
+		autoUpdateWebhooks: autoUpdateWebhooks,
 	}
 
 	register.manage = newWebhookConfigManager(
@@ -113,92 +99,92 @@ func NewRegister(
 		metricsConfig,
 		serverIP,
 		register.autoUpdateWebhooks,
-		register.createDefaultWebhook,
+		// register.createDefaultWebhook,
 		log.WithName("WebhookConfigManager"),
 	)
 
 	return register
 }
 
-// Register clean up the old webhooks and re-creates admission webhooks configs on cluster
-func (wrc *Register) Register() error {
-	logger := wrc.log
-	if wrc.serverIP != "" {
-		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
-	} else {
-		if err := wrc.checkEndpoint(); err != nil {
-			return err
-		}
-	}
-	caData := wrc.readCaData()
-	if caData == nil {
-		return errors.New("Unable to extract CA data from configuration")
-	}
-	var errors []string
-	if len(errors) > 0 {
-		return fmt.Errorf("%s", strings.Join(errors, ","))
-	}
-	go wrc.manage.start()
-	return nil
-}
+// // Register clean up the old webhooks and re-creates admission webhooks configs on cluster
+// func (wrc *Register) Register() error {
+// 	logger := wrc.log
+// 	if wrc.serverIP != "" {
+// 		logger.Info("Registering webhook", "url", fmt.Sprintf("https://%s", wrc.serverIP))
+// 	} else {
+// 		if err := wrc.checkEndpoint(); err != nil {
+// 			return err
+// 		}
+// 	}
+// 	caData := wrc.readCaData()
+// 	if caData == nil {
+// 		return errors.New("Unable to extract CA data from configuration")
+// 	}
+// 	var errors []string
+// 	if len(errors) > 0 {
+// 		return fmt.Errorf("%s", strings.Join(errors, ","))
+// 	}
+// 	go wrc.manage.start()
+// 	return nil
+// }
 
-// Check returns an error if any of the webhooks are not configured
-func (wrc *Register) Check() error {
-	return nil
-}
+// // Check returns an error if any of the webhooks are not configured
+// func (wrc *Register) Check() error {
+// 	return nil
+// }
 
-// Remove removes all webhook configurations
-func (wrc *Register) Remove(cleanupKyvernoResource bool, wg *sync.WaitGroup) {
-	defer wg.Done()
-	// delete Lease object to let init container do the cleanup
-	if err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{}); err != nil && errorsapi.IsNotFound(err) {
-		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, metrics.KubeClient, "Lease", config.KyvernoNamespace())
-		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
-	}
-	if cleanupKyvernoResource {
-		// wrc.removeWebhookConfigurations()
-	}
-}
+// // Remove removes all webhook configurations
+// func (wrc *Register) Remove(cleanupKyvernoResource bool, wg *sync.WaitGroup) {
+// 	defer wg.Done()
+// 	// delete Lease object to let init container do the cleanup
+// 	if err := wrc.kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Delete(context.TODO(), "kyvernopre-lock", metav1.DeleteOptions{}); err != nil && errorsapi.IsNotFound(err) {
+// 		wrc.metricsConfig.RecordClientQueries(metrics.ClientDelete, metrics.KubeClient, "Lease", config.KyvernoNamespace())
+// 		wrc.log.WithName("cleanup").Error(err, "failed to clean up Lease lock")
+// 	}
+// 	if cleanupKyvernoResource {
+// 		// wrc.removeWebhookConfigurations()
+// 	}
+// }
 
-func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitGroup) {
-	defer wg.Done()
+// func (wrc *Register) ResetPolicyStatus(kyvernoInTermination bool, wg *sync.WaitGroup) {
+// 	defer wg.Done()
 
-	if !kyvernoInTermination {
-		return
-	}
+// 	if !kyvernoInTermination {
+// 		return
+// 	}
 
-	logger := wrc.log.WithName("ResetPolicyStatus")
-	cpols, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().List(context.TODO(), metav1.ListOptions{})
-	if err == nil {
-		for _, item := range cpols.Items {
-			cpol := item
-			cpol.Status.SetReady(false)
-			if _, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
-				logger.Error(err, "failed to set ClusterPolicy status READY=false", "name", cpol.GetName())
-			}
-		}
-	} else {
-		logger.Error(err, "failed to list clusterpolicies")
-	}
+// 	logger := wrc.log.WithName("ResetPolicyStatus")
+// 	cpols, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().List(context.TODO(), metav1.ListOptions{})
+// 	if err == nil {
+// 		for _, item := range cpols.Items {
+// 			cpol := item
+// 			cpol.Status.SetReady(false)
+// 			if _, err := wrc.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(context.TODO(), &cpol, metav1.UpdateOptions{}); err != nil {
+// 				logger.Error(err, "failed to set ClusterPolicy status READY=false", "name", cpol.GetName())
+// 			}
+// 		}
+// 	} else {
+// 		logger.Error(err, "failed to list clusterpolicies")
+// 	}
 
-	pols, err := wrc.kyvernoClient.KyvernoV1().Policies(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
-	if err == nil {
-		for _, item := range pols.Items {
-			pol := item
-			pol.Status.SetReady(false)
-			if _, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
-				logger.Error(err, "failed to set Policy status READY=false", "namespace", pol.GetNamespace(), "name", pol.GetName())
-			}
-		}
-	} else {
-		logger.Error(err, "failed to list namespaced policies")
-	}
-}
+// 	pols, err := wrc.kyvernoClient.KyvernoV1().Policies(metav1.NamespaceAll).List(context.TODO(), metav1.ListOptions{})
+// 	if err == nil {
+// 		for _, item := range pols.Items {
+// 			pol := item
+// 			pol.Status.SetReady(false)
+// 			if _, err := wrc.kyvernoClient.KyvernoV1().Policies(pol.GetNamespace()).UpdateStatus(context.TODO(), &pol, metav1.UpdateOptions{}); err != nil {
+// 				logger.Error(err, "failed to set Policy status READY=false", "namespace", pol.GetNamespace(), "name", pol.GetName())
+// 			}
+// 		}
+// 	} else {
+// 		logger.Error(err, "failed to list namespaced policies")
+// 	}
+// }
 
-// GetWebhookTimeOut returns the value of webhook timeout
-func (wrc *Register) GetWebhookTimeOut() time.Duration {
-	return time.Duration(wrc.timeoutSeconds)
-}
+// // GetWebhookTimeOut returns the value of webhook timeout
+// func (wrc *Register) GetWebhookTimeOut() time.Duration {
+// 	return time.Duration(wrc.timeoutSeconds)
+// }
 
 // // UpdateWebhookConfigurations updates resource webhook configurations dynamically
 // // based on the UPDATEs of Kyverno ConfigMap defined in INIT_CONFIG env
@@ -310,48 +296,48 @@ func (wrc *Register) ValidateWebhookConfigurations(namespace, name string) error
 // 	return wrc.createMutatingWebhookConfiguration(config)
 // }
 
-func (wrc *Register) checkEndpoint() error {
-	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoServiceName(), metav1.GetOptions{})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "EndPoint", config.KyvernoNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
-	}
-	deploy, err := wrc.GetKubePolicyDeployment()
-	if err != nil {
-		return err
-	}
-	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
-		return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
-	}
-	selector := &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
-		},
-	}
-	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "Pod", config.KyvernoNamespace())
-	if err != nil {
-		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
-	}
-	ips := getHealthyPodsIP(pods.Items)
-	if len(ips) == 0 {
-		return fmt.Errorf("pod is not assigned to any node yet")
-	}
-	for _, subset := range endpoint.Subsets {
-		if len(subset.Addresses) == 0 {
-			continue
-		}
-		for _, addr := range subset.Addresses {
-			if utils.ContainsString(ips, addr.IP) {
-				wrc.log.V(2).Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
-				return nil
-			}
-		}
-	}
-	err = fmt.Errorf("endpoint not ready")
-	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
-	return err
-}
+// func (wrc *Register) checkEndpoint() error {
+// 	endpoint, err := wrc.kubeClient.CoreV1().Endpoints(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoServiceName(), metav1.GetOptions{})
+// 	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "EndPoint", config.KyvernoNamespace())
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get endpoint %s/%s: %v", config.KyvernoNamespace(), config.KyvernoServiceName(), err)
+// 	}
+// 	deploy, err := wrc.GetKubePolicyDeployment()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if tlsutils.IsKyvernoInRollingUpdate(deploy) {
+// 		return errors.New("kyverno is in rolling update, please update the timeout by setting the webhookRegistrationTimeout flag")
+// 	}
+// 	selector := &metav1.LabelSelector{
+// 		MatchLabels: map[string]string{
+// 			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+// 		},
+// 	}
+// 	pods, err := wrc.kubeClient.CoreV1().Pods(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
+// 	wrc.metricsConfig.RecordClientQueries(metrics.ClientList, metrics.KubeClient, "Pod", config.KyvernoNamespace())
+// 	if err != nil {
+// 		return fmt.Errorf("failed to list Kyverno Pod: %v", err)
+// 	}
+// 	ips := getHealthyPodsIP(pods.Items)
+// 	if len(ips) == 0 {
+// 		return fmt.Errorf("pod is not assigned to any node yet")
+// 	}
+// 	for _, subset := range endpoint.Subsets {
+// 		if len(subset.Addresses) == 0 {
+// 			continue
+// 		}
+// 		for _, addr := range subset.Addresses {
+// 			if utils.ContainsString(ips, addr.IP) {
+// 				wrc.log.V(2).Info("Endpoint ready", "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
+// 				return nil
+// 			}
+// 		}
+// 	}
+// 	err = fmt.Errorf("endpoint not ready")
+// 	wrc.log.V(3).Info(err.Error(), "ns", config.KyvernoNamespace(), "name", config.KyvernoServiceName())
+// 	return err
+// }
 
 // func (wrc *Register) updateResourceMutatingWebhookConfiguration(webhookCfg config.WebhookConfig) error {
 // 	resource, err := wrc.mwcLister.Get(getResourceMutatingWebhookConfigName(wrc.serverIP))
@@ -466,29 +452,29 @@ func (wrc *Register) checkEndpoint() error {
 // 	return nil
 // }
 
-func (wrc *Register) ShouldCleanupKyvernoResource() bool {
-	logger := wrc.log.WithName("cleanupKyvernoResource")
-	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
-	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "Deployment", config.KyvernoNamespace())
-	if err != nil {
-		if errorsapi.IsNotFound(err) {
-			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
-			return true
-		}
-		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
-		return false
-	}
-	if deploy.GetDeletionTimestamp() != nil {
-		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
-		return true
-	}
-	if deploy.Spec.Replicas != nil && *deploy.Spec.Replicas == 0 {
-		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
-		return true
-	}
-	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
-	return false
-}
+// func (wrc *Register) ShouldCleanupKyvernoResource() bool {
+// 	logger := wrc.log.WithName("cleanupKyvernoResource")
+// 	deploy, err := wrc.kubeClient.AppsV1().Deployments(config.KyvernoNamespace()).Get(context.TODO(), config.KyvernoDeploymentName(), metav1.GetOptions{})
+// 	wrc.metricsConfig.RecordClientQueries(metrics.ClientGet, metrics.KubeClient, "Deployment", config.KyvernoNamespace())
+// 	if err != nil {
+// 		if errorsapi.IsNotFound(err) {
+// 			logger.Info("Kyverno deployment not found, cleanup Kyverno resources")
+// 			return true
+// 		}
+// 		logger.Error(err, "failed to get deployment, not cleaning up kyverno resources")
+// 		return false
+// 	}
+// 	if deploy.GetDeletionTimestamp() != nil {
+// 		logger.Info("Kyverno is terminating, cleanup Kyverno resources")
+// 		return true
+// 	}
+// 	if deploy.Spec.Replicas != nil && *deploy.Spec.Replicas == 0 {
+// 		logger.Info("Kyverno is scaled to zero, cleanup Kyverno resources")
+// 		return true
+// 	}
+// 	logger.Info("updating Kyverno Pod, won't clean up Kyverno resources")
+// 	return false
+// }
 
 // func (wrc *Register) removeWebhookConfigurations() {
 // 	startTime := time.Now()

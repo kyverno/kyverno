@@ -74,14 +74,15 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 
 	// config
-	server         string
-	defaultTimeout int32
-	autoUpdate     bool
+	server             string
+	defaultTimeout     int32
+	autoUpdateWebhooks bool
 }
 
 // TODO: policy ready
 // TODO: wildcard policy
 // TODO: watchdog
+// TODO: better autoUpdateWebhooks (https://kyverno.io/docs/installation/#container-flags)
 
 func NewController(
 	discoveryClient dclient.IDiscovery,
@@ -96,24 +97,24 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	server string,
 	defaultTimeout int32,
-	autoUpdate bool,
+	autoUpdateWebhooks bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
-		discoveryClient: discoveryClient,
-		secretClient:    secretClient,
-		mwcClient:       mwcClient,
-		vwcClient:       vwcClient,
-		mwcLister:       mwcInformer.Lister(),
-		vwcLister:       vwcInformer.Lister(),
-		cpolLister:      cpolInformer.Lister(),
-		polLister:       polInformer.Lister(),
-		secretLister:    secretInformer.Lister(),
-		configMapLister: configMapInformer.Lister(),
-		queue:           queue,
-		server:          server,
-		defaultTimeout:  defaultTimeout,
-		autoUpdate:      autoUpdate,
+		discoveryClient:    discoveryClient,
+		secretClient:       secretClient,
+		mwcClient:          mwcClient,
+		vwcClient:          vwcClient,
+		mwcLister:          mwcInformer.Lister(),
+		vwcLister:          vwcInformer.Lister(),
+		cpolLister:         cpolInformer.Lister(),
+		polLister:          polInformer.Lister(),
+		secretLister:       secretInformer.Lister(),
+		configMapLister:    configMapInformer.Lister(),
+		queue:              queue,
+		server:             server,
+		defaultTimeout:     defaultTimeout,
+		autoUpdateWebhooks: autoUpdateWebhooks,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
@@ -171,7 +172,7 @@ func (c *controller) enqueueVerifyWebhook() {
 }
 
 func (c *controller) loadConfig() config.Configuration {
-	cfg := config.NewDefaultConfiguration(nil)
+	cfg := config.NewDefaultConfiguration()
 	cm, err := c.configMapLister.ConfigMaps(config.KyvernoNamespace()).Get(config.KyvernoConfigMapName())
 	if err == nil {
 		cfg.Load(cm)
@@ -233,7 +234,7 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
 		w.OwnerReferences = desired.OwnerReferences
-		if c.autoUpdate {
+		if c.autoUpdateWebhooks {
 			w.Webhooks = desired.Webhooks
 		}
 		return nil
@@ -258,7 +259,7 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
 		w.OwnerReferences = desired.OwnerReferences
-		if c.autoUpdate {
+		if c.autoUpdateWebhooks {
 			w.Webhooks = desired.Webhooks
 		}
 		return nil
