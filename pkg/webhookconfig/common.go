@@ -26,11 +26,6 @@ var (
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 	never        = admissionregistrationv1.NeverReinvocationPolicy
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
-	policyRule   = admissionregistrationv1.Rule{
-		Resources:   []string{"clusterpolicies/*", "policies/*"},
-		APIGroups:   []string{"kyverno.io"},
-		APIVersions: []string{"v1", "v2beta1"},
-	}
 	createUpdate = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
 	all          = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect}
 )
@@ -192,62 +187,6 @@ func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.Obje
 			managedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 		OwnerReferences: owner,
-	}
-}
-
-// policy webhook configuration utils
-
-func getPolicyMutatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.PolicyMutatingWebhookConfigurationDebugName
-	}
-	return config.PolicyMutatingWebhookConfigurationName
-}
-
-func getPolicyValidatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.PolicyValidatingWebhookConfigurationDebugName
-	}
-	return config.PolicyValidatingWebhookConfigurationName
-}
-
-func constructPolicyValidatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, path := config.PolicyValidatingWebhookName, config.PolicyValidatingWebhookServicePath
-	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationName, owner),
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
-			generateValidatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admissionregistrationv1.Ignore),
-		},
-	}
-}
-
-func constructDebugPolicyValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, url := config.PolicyValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyValidatingWebhookServicePath)
-	return &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyValidatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
-			generateDebugValidatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admissionregistrationv1.Ignore),
-		},
-	}
-}
-
-func constructPolicyMutatingWebhookConfig(caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, path := config.PolicyMutatingWebhookName, config.PolicyMutatingWebhookServicePath
-	return &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationName, owner),
-		Webhooks: []admissionregistrationv1.MutatingWebhook{
-			generateMutatingWebhook(name, path, caData, timeoutSeconds, policyRule, createUpdate, admissionregistrationv1.Ignore),
-		},
-	}
-}
-
-func constructDebugPolicyMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, url := config.PolicyMutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.PolicyMutatingWebhookServicePath)
-	return &admissionregistrationv1.MutatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.PolicyMutatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admissionregistrationv1.MutatingWebhook{
-			generateDebugMutatingWebhook(name, url, caData, timeoutSeconds, policyRule, createUpdate, admissionregistrationv1.Ignore),
-		},
 	}
 }
 

@@ -34,14 +34,10 @@ const (
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
-	// PolicyValidatingWebhookConfigurationDebugName default policy validating webhook configuration name for debug mode
-	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
 	// PolicyValidatingWebhookName default policy validating webhook name
 	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
 	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
 	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
-	// PolicyMutatingWebhookConfigurationDebugName default policy mutating webhook configuration name for debug mode
-	PolicyMutatingWebhookConfigurationDebugName = "kyverno-policy-mutating-webhook-cfg-debug"
 	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields

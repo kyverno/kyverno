@@ -51,7 +51,7 @@ type controller struct {
 	// clients
 	secretClient controllerutils.GetClient[*corev1.Secret]
 	mwcClient    controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient    controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	vwcClient    controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
 	secretLister    corev1listers.SecretLister
@@ -71,7 +71,7 @@ type controller struct {
 func NewController(
 	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
-	vwcClient controllerutils.UpdateClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	secretInformer corev1informers.SecretInformer,
 	configMapInformer corev1informers.ConfigMapInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
@@ -252,20 +252,39 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	return err
 }
 
+func (c *controller) reconcilePolicyValidatingWebhookConfiguration(ctx context.Context) error {
+	return c.reconcileOneValidatingWebhookConfiguration(ctx, c.buildPolicyValidatingWebhookConfiguration)
+}
+
 func (c *controller) reconcilePolicyMutatingWebhookConfiguration(ctx context.Context) error {
-	cfg := c.loadConfig()
-	webhookCfg := config.WebhookConfig{}
-	webhookCfgs := cfg.GetWebhooks()
-	if len(webhookCfgs) > 0 {
-		webhookCfg = webhookCfgs[0]
-	}
-	return c.reconcileOneMutatingWebhookConfiguration(ctx, func(caBundle []byte) *admissionregistrationv1.MutatingWebhookConfiguration {
-		return c.buildPolicyMutatingWebhookConfiguration(caBundle, webhookCfg)
-	})
+	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildPolicyMutatingWebhookConfiguration)
 }
 
 func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Context) error {
 	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildVerifyMutatingWebhookConfiguration)
+}
+
+func (c *controller) reconcileOneValidatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+	caData, err := tls.ReadRootCASecret(c.secretClient)
+	if err != nil {
+		return err
+	}
+	desired := build(caData)
+	observed, err := c.vwcLister.Get(desired.Name)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			_, err := c.vwcClient.Create(ctx, desired, metav1.CreateOptions{})
+			return err
+		}
+		return err
+	}
+	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+		w.Labels = desired.Labels
+		w.OwnerReferences = desired.OwnerReferences
+		w.Webhooks = desired.Webhooks
+		return nil
+	})
+	return err
 }
 
 func (c *controller) reconcileOneMutatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.MutatingWebhookConfiguration) error {
@@ -295,7 +314,8 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	switch name {
 	// case config.MutatingWebhookConfigurationName:
 	// case config.ValidatingWebhookConfigurationName:
-	// case config.PolicyValidatingWebhookConfigurationName:
+	case config.PolicyValidatingWebhookConfigurationName:
+		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
 	case config.PolicyMutatingWebhookConfigurationName:
 		return c.reconcilePolicyMutatingWebhookConfiguration(ctx)
 	case config.VerifyMutatingWebhookConfigurationName:
@@ -336,7 +356,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) *a
 	}
 }
 
-func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte, cfg config.WebhookConfig) *admissionregistrationv1.MutatingWebhookConfiguration {
+func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte) *admissionregistrationv1.MutatingWebhookConfiguration {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.PolicyMutatingWebhookConfigurationName),
 		Webhooks: []admissionregistrationv1.MutatingWebhook{{
@@ -353,8 +373,26 @@ func (c *controller) buildPolicyMutatingWebhookConfiguration(caBundle []byte, cf
 			SideEffects:             &noneOnDryRun,
 			ReinvocationPolicy:      &ifNeeded,
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
-			ObjectSelector:          cfg.ObjectSelector,
-			NamespaceSelector:       cfg.NamespaceSelector,
+		}},
+	}
+}
+
+func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) *admissionregistrationv1.ValidatingWebhookConfiguration {
+	return &admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: objectMeta(config.PolicyValidatingWebhookConfigurationName),
+		Webhooks: []admissionregistrationv1.ValidatingWebhook{{
+			Name:         config.PolicyValidatingWebhookName,
+			ClientConfig: c.clientConfig(caBundle, config.PolicyValidatingWebhookServicePath),
+			Rules: []admissionregistrationv1.RuleWithOperations{{
+				Rule: policyRule,
+				Operations: []admissionregistrationv1.OperationType{
+					admissionregistrationv1.Create,
+					admissionregistrationv1.Update,
+				},
+			}},
+			FailurePolicy:           &ignore,
+			SideEffects:             &noneOnDryRun,
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 		}},
 	}
 }
