@@ -24,8 +24,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 2
-	maxRetries = 10
+	Workers        = 2
+	ControllerName = "webhook-ca-controller"
+	maxRetries     = 10
 )
 
 var path = map[string]map[string]string{
@@ -78,7 +79,7 @@ func NewController(
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 ) controllers.Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		secretClient:    secretClient,
 		mwcClient:       mwcClient,
@@ -107,7 +108,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, controllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) secretChanged(secret *corev1.Secret) {
