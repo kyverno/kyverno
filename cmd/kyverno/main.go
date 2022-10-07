@@ -679,11 +679,6 @@ func main() {
 			logger := logger.WithName("leader")
 			// when losing the lead we just terminate the pod
 			defer signalCancel()
-			// init tls secret
-			if err := certRenewer.InitTLSPemPair(); err != nil {
-				logger.Error(err, "tls initialization error")
-				os.Exit(1)
-			}
 			// validate config
 			if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 				logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
@@ -722,6 +717,10 @@ func main() {
 				// TODO: shall we just exit ?
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			}
+			// start leader controllers
+			for _, controller := range leaderControllers {
+				go controller.run(signalCtx, logger.WithName("controllers"))
+			}
 			// bootstrap
 			if autoUpdateWebhooks {
 				go webhookCfg.UpdateWebhookConfigurations(configuration)
@@ -732,10 +731,6 @@ func main() {
 				os.Exit(1)
 			}
 			webhookCfg.UpdateWebhookChan <- true
-			// start leader controllers
-			for _, controller := range leaderControllers {
-				go controller.run(signalCtx, logger.WithName("controllers"))
-			}
 			// wait until we loose the lead (or signal context is canceled)
 			<-ctx.Done()
 		},
