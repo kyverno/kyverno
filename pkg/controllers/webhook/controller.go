@@ -242,17 +242,15 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 }
 
 func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Context) error {
-	cfg := c.loadConfig()
-	webhookCfg := config.WebhookConfig{}
-	webhookCfgs := cfg.GetWebhooks()
-	if len(webhookCfgs) > 0 {
-		webhookCfg = webhookCfgs[0]
-	}
+	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildVerifyMutatingWebhookConfiguration)
+}
+
+func (c *controller) reconcileOneMutatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	caData, err := tls.ReadRootCASecret(c.secretClient)
 	if err != nil {
 		return err
 	}
-	desired := c.buildVerifyMutatingWebhookConfiguration(caData, webhookCfg)
+	desired := build(caData)
 	observed, err := c.mwcLister.Get(desired.Name)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -262,7 +260,9 @@ func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Con
 		return err
 	}
 	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
-		*w = *desired
+		w.Labels = desired.Labels
+		w.OwnerReferences = desired.OwnerReferences
+		w.Webhooks = desired.Webhooks
 		return nil
 	})
 	return err
@@ -287,7 +287,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return nil
 }
 
-func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte, cfg config.WebhookConfig) *admissionregistrationv1.MutatingWebhookConfiguration {
+func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) *admissionregistrationv1.MutatingWebhookConfiguration {
 	failurePolicy := admissionregistrationv1.Ignore
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: objectMeta(config.VerifyMutatingWebhookConfigurationName),
