@@ -51,18 +51,22 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	go c.ticker(ctx)
 	// we need to enqueue our secrets in case they don't exist yet in the cluster
 	// this way we ensure the reconcile happens (hence renewal/creation)
-	c.secretEnqueue(&corev1.Secret{
+	if err := c.secretEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateTLSPairSecretName(),
 		},
-	})
-	c.secretEnqueue(&corev1.Secret{
+	}); err != nil {
+		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateTLSPairSecretName())
+	}
+	if err := c.secretEnqueue(&corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.KyvernoNamespace(),
 			Name:      tls.GenerateRootCASecretName(),
 		},
-	})
+	}); err != nil {
+		logger.Error(err, "failed to enqueue secret", "name", tls.GenerateRootCASecretName())
+	}
 	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
