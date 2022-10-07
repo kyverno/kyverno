@@ -3579,6 +3579,12 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -4014,6 +4020,12 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -6436,6 +6448,12 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -6883,6 +6901,12 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -9092,6 +9116,12 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -9512,6 +9542,12 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -11909,6 +11945,12 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -12356,6 +12398,12 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -15375,6 +15423,12 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -15810,6 +15864,12 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -18233,6 +18293,12 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -18680,6 +18746,12 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -20890,6 +20962,12 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -21310,6 +21388,12 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -23707,6 +23791,12 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -24154,6 +24244,12 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
