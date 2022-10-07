@@ -76,9 +76,9 @@ type controller struct {
 	// config
 	server         string
 	defaultTimeout int32
+	autoUpdate     bool
 }
 
-// TODO: auto update
 // TODO: policy ready
 // TODO: wildcard policy
 // TODO: watchdog
@@ -96,6 +96,7 @@ func NewController(
 	configMapInformer corev1informers.ConfigMapInformer,
 	server string,
 	defaultTimeout int32,
+	autoUpdate bool,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -112,6 +113,7 @@ func NewController(
 		queue:           queue,
 		server:          server,
 		defaultTimeout:  defaultTimeout,
+		autoUpdate:      autoUpdate,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
@@ -195,26 +197,26 @@ func (c *controller) clientConfig(caBundle []byte, path string) admissionregistr
 }
 
 func (c *controller) reconcileResourceValidatingWebhookConfiguration(ctx context.Context) error {
-	return c.reconcileOneValidatingWebhookConfiguration(ctx, c.buildResourceValidatingWebhookConfiguration)
+	return c.reconcileValidatingWebhookConfiguration(ctx, c.buildResourceValidatingWebhookConfiguration)
 }
 
 func (c *controller) reconcileResourceMutatingWebhookConfiguration(ctx context.Context) error {
-	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildResourceMutatingWebhookConfiguration)
+	return c.reconcileMutatingWebhookConfiguration(ctx, c.buildResourceMutatingWebhookConfiguration)
 }
 
 func (c *controller) reconcilePolicyValidatingWebhookConfiguration(ctx context.Context) error {
-	return c.reconcileOneValidatingWebhookConfiguration(ctx, c.buildPolicyValidatingWebhookConfiguration)
+	return c.reconcileValidatingWebhookConfiguration(ctx, c.buildPolicyValidatingWebhookConfiguration)
 }
 
 func (c *controller) reconcilePolicyMutatingWebhookConfiguration(ctx context.Context) error {
-	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildPolicyMutatingWebhookConfiguration)
+	return c.reconcileMutatingWebhookConfiguration(ctx, c.buildPolicyMutatingWebhookConfiguration)
 }
 
 func (c *controller) reconcileVerifyMutatingWebhookConfiguration(ctx context.Context) error {
-	return c.reconcileOneMutatingWebhookConfiguration(ctx, c.buildVerifyMutatingWebhookConfiguration)
+	return c.reconcileMutatingWebhookConfiguration(ctx, c.buildVerifyMutatingWebhookConfiguration)
 }
 
-func (c *controller) reconcileOneValidatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.ValidatingWebhookConfiguration) error {
+func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 	caData, err := tls.ReadRootCASecret(c.secretClient)
 	if err != nil {
 		return err
@@ -231,13 +233,15 @@ func (c *controller) reconcileOneValidatingWebhookConfiguration(ctx context.Cont
 	_, err = controllerutils.Update(ctx, observed, c.vwcClient, func(w *admissionregistrationv1.ValidatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
 		w.OwnerReferences = desired.OwnerReferences
-		w.Webhooks = desired.Webhooks
+		if c.autoUpdate {
+			w.Webhooks = desired.Webhooks
+		}
 		return nil
 	})
 	return err
 }
 
-func (c *controller) reconcileOneMutatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.MutatingWebhookConfiguration) error {
+func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, build func([]byte) *admissionregistrationv1.MutatingWebhookConfiguration) error {
 	caData, err := tls.ReadRootCASecret(c.secretClient)
 	if err != nil {
 		return err
@@ -254,7 +258,9 @@ func (c *controller) reconcileOneMutatingWebhookConfiguration(ctx context.Contex
 	_, err = controllerutils.Update(ctx, observed, c.mwcClient, func(w *admissionregistrationv1.MutatingWebhookConfiguration) error {
 		w.Labels = desired.Labels
 		w.OwnerReferences = desired.OwnerReferences
-		w.Webhooks = desired.Webhooks
+		if c.autoUpdate {
+			w.Webhooks = desired.Webhooks
+		}
 		return nil
 	})
 	return err
@@ -379,6 +385,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
+	// TODO: something to do with autoUpdate ?
 	if !ignore.isEmpty() {
 		result.Webhooks = append(
 			result.Webhooks,
@@ -450,6 +457,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
+	// TODO: something to do with autoUpdate ?
 	if !ignore.isEmpty() {
 		result.Webhooks = append(
 			result.Webhooks,

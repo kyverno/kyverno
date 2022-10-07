@@ -457,6 +457,7 @@ func createrLeaderControllers(
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		serverIP,
 		webhookconfig.DefaultWebhookTimeout,
+		autoUpdateWebhooks,
 	)
 	return append(
 			[]controller{
