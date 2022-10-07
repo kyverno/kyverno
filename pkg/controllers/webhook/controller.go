@@ -33,7 +33,6 @@ const (
 
 var (
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
-	never        = admissionregistrationv1.NeverReinvocationPolicy
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 )
 

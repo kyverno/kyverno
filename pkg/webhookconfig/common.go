@@ -31,12 +31,6 @@ var (
 		APIGroups:   []string{"kyverno.io"},
 		APIVersions: []string{"v1", "v2beta1"},
 	}
-	vertifyObjectSelector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
-		},
-	}
-	update       = []admissionregistrationv1.OperationType{admissionregistrationv1.Update}
 	createUpdate = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
 	all          = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect}
 )
