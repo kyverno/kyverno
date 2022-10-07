@@ -2732,9 +2732,9 @@ entries:
       artifacthub.io/prerelease: "false"
     apiVersion: v2
     appVersion: v1.8.0-rc6
-    created: "2022-10-07T08:48:54.870461766Z"
+    created: "2022-10-07T09:06:40.616891031Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
-    digest: 8ece8649eda4034ebea51678888590a878cb3ae76b0bd0c7cd5ac2e61680a433
+    digest: 9dfd79468382932c0eb03d56a9ed616f8049ea9323a0751e8e6c9d86ba340057
     home: https://kyverno.io/policies/
     icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
     keywords:
@@ -4203,4 +4203,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-10-07T08:48:54.868940658Z"
+generated: "2022-10-07T09:06:40.615522129Z"
