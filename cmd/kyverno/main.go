@@ -449,6 +449,7 @@ func createrLeaderControllers(
 			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		),
 		kubeKyvernoInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 	)
