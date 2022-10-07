@@ -143,12 +143,17 @@ type configuration struct {
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, updateWebhookConfigurations chan<- bool) (Configuration, error) {
-	cd := &configuration{
+func NewDefaultConfiguration(updateWebhookConfigurations chan<- bool) *configuration {
+	return &configuration{
 		updateWebhookConfigurations: updateWebhookConfigurations,
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 		excludeGroupRole:            defaultExcludeGroupRole,
 	}
+}
+
+// NewConfiguration ...
+func NewConfiguration(client kubernetes.Interface, updateWebhookConfigurations chan<- bool) (Configuration, error) {
+	cd := NewDefaultConfiguration(updateWebhookConfigurations)
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -227,7 +232,9 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
-		cd.updateWebhookConfigurations <- true
+		if cd.updateWebhookConfigurations != nil {
+			cd.updateWebhookConfigurations <- true
+		}
 	}
 }
 
