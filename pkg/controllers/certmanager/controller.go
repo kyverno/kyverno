@@ -19,15 +19,10 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 1
-	maxRetries = 10
+	Workers        = 1
+	ControllerName = "certmanager-controller"
+	maxRetries     = 10
 )
-
-type Controller interface {
-	controllers.Controller
-	// GetTLSPemPair gets the existing TLSPemPair from the secret
-	GetTLSPemPair() ([]byte, []byte, error)
-}
 
 type controller struct {
 	renewer *tls.CertRenewer
@@ -40,8 +35,8 @@ type controller struct {
 	secretEnqueue controllerutils.EnqueueFunc
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) Controller {
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) controllers.Controller {
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		renewer:       certRenewer,
 		secretLister:  secretInformer.Lister(),
@@ -53,7 +48,7 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer *t
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	go c.ticker(ctx)
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (m *controller) GetTLSPemPair() ([]byte, []byte, error) {
