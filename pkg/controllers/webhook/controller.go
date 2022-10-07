@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -14,8 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
@@ -60,9 +59,7 @@ type controller struct {
 	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
 
 	// queue
-	queue      workqueue.RateLimitingInterface
-	mwcEnqueue controllerutils.EnqueueFunc
-	vwcEnqueue controllerutils.EnqueueFunc
+	queue workqueue.RateLimitingInterface
 
 	// config
 	server string
@@ -72,10 +69,12 @@ func NewController(
 	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
-	secretInformer corev1informers.SecretInformer,
-	configMapInformer corev1informers.ConfigMapInformer,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
+	polInformer kyvernov1informers.PolicyInformer,
+	secretInformer corev1informers.SecretInformer,
+	configMapInformer corev1informers.ConfigMapInformer,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -87,77 +86,60 @@ func NewController(
 		mwcLister:       mwcInformer.Lister(),
 		vwcLister:       vwcInformer.Lister(),
 		queue:           queue,
-		mwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue),
-		vwcEnqueue:      controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue),
 	}
-	controllerutils.AddEventHandlersT(
+	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
+	controllerutils.AddEventHandlers(
 		secretInformer.Informer(),
-		func(obj *corev1.Secret) { c.secretChanged(obj) },
-		func(_, obj *corev1.Secret) { c.secretChanged(obj) },
-		func(obj *corev1.Secret) { c.secretChanged(obj) },
+		func(interface{}) { c.enqueueAll() },
+		func(interface{}, interface{}) { c.enqueueAll() },
+		func(interface{}) { c.enqueueAll() },
 	)
-	controllerutils.AddEventHandlersT(
+	controllerutils.AddEventHandlers(
 		configMapInformer.Informer(),
-		func(obj *corev1.ConfigMap) { c.configMapChanged(obj) },
-		func(_, obj *corev1.ConfigMap) { c.configMapChanged(obj) },
-		func(obj *corev1.ConfigMap) { c.configMapChanged(obj) },
+		func(interface{}) { c.enqueueAll() },
+		func(interface{}, interface{}) { c.enqueueAll() },
+		func(interface{}) { c.enqueueAll() },
+	)
+	controllerutils.AddEventHandlers(
+		cpolInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}) { c.enqueueResourceWebhooks() },
+	)
+	controllerutils.AddEventHandlers(
+		polInformer.Informer(),
+		func(interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}) { c.enqueueResourceWebhooks() },
 	)
 	return &c
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
-	c.queue.Add(config.MutatingWebhookConfigurationName)
-	c.queue.Add(config.ValidatingWebhookConfigurationName)
-	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
-	c.queue.Add(config.PolicyValidatingWebhookConfigurationName)
-	c.queue.Add(config.PolicyMutatingWebhookConfigurationName)
+	c.enqueueAll()
 	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) secretChanged(secret *corev1.Secret) {
-	if secret.GetName() == tls.GenerateRootCASecretName() && secret.GetNamespace() == config.KyvernoNamespace() {
-		if err := c.enqueueAll(); err != nil {
-			logger.Error(err, "failed to enqueue on secret change")
-		}
-	}
+func (c *controller) enqueueAll() {
+	c.enqueuePolicyWebhooks()
+	c.enqueueResourceWebhooks()
+	c.enqueueVerifyWebhook()
 }
 
-func (c *controller) configMapChanged(cm *corev1.ConfigMap) {
-	if cm.GetName() == config.KyvernoConfigMapName() && cm.GetNamespace() == config.KyvernoNamespace() {
-		if err := c.enqueueAll(); err != nil {
-			logger.Error(err, "failed to enqueue on configmap change")
-		}
-	}
+func (c *controller) enqueuePolicyWebhooks() {
+	c.queue.Add(config.PolicyValidatingWebhookConfigurationName)
+	c.queue.Add(config.PolicyMutatingWebhookConfigurationName)
 }
 
-func (c *controller) enqueueAll() error {
-	requirement, err := labels.NewRequirement("webhook.kyverno.io/managed-by", selection.Equals, []string{kyvernov1.ValueKyvernoApp})
-	if err != nil {
-		return err
-	}
-	selector := labels.Everything().Add(*requirement)
-	mwcs, err := c.mwcLister.List(selector)
-	if err != nil {
-		return err
-	}
-	for _, mwc := range mwcs {
-		err = c.mwcEnqueue(mwc)
-		if err != nil {
-			return err
-		}
-	}
-	vwcs, err := c.vwcLister.List(selector)
-	if err != nil {
-		return err
-	}
-	for _, vwc := range vwcs {
-		err = c.vwcEnqueue(vwc)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+func (c *controller) enqueueResourceWebhooks() {
+	c.queue.Add(config.MutatingWebhookConfigurationName)
+	c.queue.Add(config.ValidatingWebhookConfigurationName)
+}
+
+func (c *controller) enqueueVerifyWebhook() {
+	c.queue.Add(config.VerifyMutatingWebhookConfigurationName)
 }
 
 func (c *controller) loadConfig() config.Configuration {

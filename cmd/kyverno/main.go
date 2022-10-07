@@ -448,10 +448,12 @@ func createrLeaderControllers(
 			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
 			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		),
-		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 	)
 	return append(
 			[]controller{
