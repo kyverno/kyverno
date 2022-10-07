@@ -9,14 +9,14 @@ import (
 	policyRuleInfoMetric "github.com/kyverno/kyverno/pkg/metrics/policyruleinfo"
 )
 
-func (pc *PolicyController) registerPolicyRuleInfoMetricAddPolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyRuleInfoMetricAddPolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
 	err := policyRuleInfoMetric.AddPolicy(pc.metricsConfig, p)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_info_total metrics for the above policy's creation", "name", p.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyRuleInfoMetricUpdatePolicy(logger logr.Logger, oldP, curP kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyRuleInfoMetricUpdatePolicy(logger logr.Logger, oldP, curP kyvernov1.PolicyInterface) {
 	// removing the old rules associated metrics
 	err := policyRuleInfoMetric.RemovePolicy(pc.metricsConfig, oldP)
 	if err != nil {
@@ -29,21 +29,21 @@ func (pc *PolicyController) registerPolicyRuleInfoMetricUpdatePolicy(logger logr
 	}
 }
 
-func (pc *PolicyController) registerPolicyRuleInfoMetricDeletePolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyRuleInfoMetricDeletePolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
 	err := policyRuleInfoMetric.RemovePolicy(pc.metricsConfig, p)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_rule_info_total metrics for the above policy's deletion", "name", p.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricAddPolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyChangesMetricAddPolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
 	err := policyChangesMetric.RegisterPolicy(pc.metricsConfig, p, policyChangesMetric.PolicyCreated)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's creation", "name", p.GetName())
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricUpdatePolicy(logger logr.Logger, oldP, curP kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyChangesMetricUpdatePolicy(logger logr.Logger, oldP, curP kyvernov1.PolicyInterface) {
 	oldSpec := oldP.GetSpec()
 	curSpec := curP.GetSpec()
 	if reflect.DeepEqual(oldSpec, curSpec) {
@@ -62,7 +62,7 @@ func (pc *PolicyController) registerPolicyChangesMetricUpdatePolicy(logger logr.
 	}
 }
 
-func (pc *PolicyController) registerPolicyChangesMetricDeletePolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
+func (pc *controller) registerPolicyChangesMetricDeletePolicy(logger logr.Logger, p kyvernov1.PolicyInterface) {
 	err := policyChangesMetric.RegisterPolicy(pc.metricsConfig, p, policyChangesMetric.PolicyDeleted)
 	if err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_changes_total metrics for the above policy's deletion", "name", p.GetName())
