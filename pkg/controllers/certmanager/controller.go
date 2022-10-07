@@ -10,6 +10,8 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
@@ -47,6 +49,20 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer *t
 
 func (c *controller) Run(ctx context.Context, workers int) {
 	go c.ticker(ctx)
+	// we need to enqueue our secrets in case they don't exist yet in the cluster
+	// this way we ensure the reconcile happens (hence renewal/creation)
+	c.secretEnqueue(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.KyvernoNamespace(),
+			Name:      tls.GenerateTLSPairSecretName(),
+		},
+	})
+	c.secretEnqueue(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: config.KyvernoNamespace(),
+			Name:      tls.GenerateRootCASecretName(),
+		},
+	})
 	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
