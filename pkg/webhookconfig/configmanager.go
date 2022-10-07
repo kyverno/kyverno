@@ -430,10 +430,10 @@ func (m *webhookConfigManager) updateWebhookConfig(webhooks []*webhook) error {
 		errs = append(errs, err.Error())
 	}
 
-	if err := m.updateValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
-		logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
-		errs = append(errs, err.Error())
-	}
+	// if err := m.updateValidatingWebhookConfiguration(getResourceValidatingWebhookConfigName(m.serverIP), webhooksMap); err != nil {
+	// 	logger.V(4).Info("failed to update validatingwebhookconfigurations", "error", err.Error())
+	// 	errs = append(errs, err.Error())
+	// }
 
 	if len(errs) != 0 {
 		return errors.New(strings.Join(errs, "\n"))
@@ -470,33 +470,33 @@ func (m *webhookConfigManager) updateMutatingWebhookConfiguration(webhookName st
 	return nil
 }
 
-func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName string, webhooksMap map[string]*webhook) error {
-	logger := m.log.WithName("updateMutatingWebhookConfiduration").WithValues("name", webhookName)
-	resourceWebhook, err := m.validateLister.Get(webhookName)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return errors.Wrapf(err, "unable to get %s/%s", kindValidating, webhookName)
-	} else if apierrors.IsNotFound(err) {
-		m.createDefaultWebhook <- kindValidating
-		return err
-	}
-	for i := range resourceWebhook.Webhooks {
-		newWebhook := webhooksMap[webhookKey(kindValidating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
-		if newWebhook == nil || newWebhook.isEmpty() {
-			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
-		} else {
-			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
-			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
-				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
-			}
-		}
-	}
-	if _, err := m.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
-		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
-		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
-	}
-	logger.V(4).Info("successfully updated the webhook configuration")
-	return nil
-}
+// func (m *webhookConfigManager) updateValidatingWebhookConfiguration(webhookName string, webhooksMap map[string]*webhook) error {
+// 	logger := m.log.WithName("updateMutatingWebhookConfiduration").WithValues("name", webhookName)
+// 	resourceWebhook, err := m.validateLister.Get(webhookName)
+// 	if err != nil && !apierrors.IsNotFound(err) {
+// 		return errors.Wrapf(err, "unable to get %s/%s", kindValidating, webhookName)
+// 	} else if apierrors.IsNotFound(err) {
+// 		m.createDefaultWebhook <- kindValidating
+// 		return err
+// 	}
+// 	for i := range resourceWebhook.Webhooks {
+// 		newWebhook := webhooksMap[webhookKey(kindValidating, string(*resourceWebhook.Webhooks[i].FailurePolicy))]
+// 		if newWebhook == nil || newWebhook.isEmpty() {
+// 			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{}
+// 		} else {
+// 			resourceWebhook.Webhooks[i].TimeoutSeconds = &newWebhook.maxWebhookTimeout
+// 			resourceWebhook.Webhooks[i].Rules = []admissionregistrationv1.RuleWithOperations{
+// 				newWebhook.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+// 			}
+// 		}
+// 	}
+// 	if _, err := m.kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Update(context.TODO(), resourceWebhook, metav1.UpdateOptions{}); err != nil {
+// 		m.metricsConfig.RecordClientQueries(metrics.ClientUpdate, metrics.KubeClient, kindValidating, "")
+// 		return errors.Wrapf(err, "unable to update: %s", resourceWebhook.GetName())
+// 	}
+// 	logger.V(4).Info("successfully updated the webhook configuration")
+// 	return nil
+// }
 
 func (m *webhookConfigManager) updateStatus(namespace, name string, ready bool) error {
 	update := func(meta *metav1.ObjectMeta, p kyvernov1.PolicyInterface, status *kyvernov1.PolicyStatus) bool {

@@ -27,7 +27,6 @@ var (
 	never        = admissionregistrationv1.NeverReinvocationPolicy
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 	createUpdate = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update}
-	all          = []admissionregistrationv1.OperationType{admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect}
 )
 
 func (wrc *Register) readCaData() []byte {
@@ -126,44 +125,10 @@ func generateDebugMutatingWebhook(name, url string, caData []byte, timeoutSecond
 	}
 }
 
-func generateDebugValidatingWebhook(name, url string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.ValidatingWebhook {
-	return admissionregistrationv1.ValidatingWebhook{
-		Name: name,
-		ClientConfig: admissionregistrationv1.WebhookClientConfig{
-			URL:      &url,
-			CABundle: caData,
-		},
-		SideEffects:             &noneOnDryRun,
-		AdmissionReviewVersions: []string{"v1beta1"},
-		TimeoutSeconds:          &timeoutSeconds,
-		FailurePolicy:           &failurePolicy,
-		Rules:                   generateRules(rule, operationTypes),
-	}
-}
-
 func generateMutatingWebhook(name, servicePath string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.MutatingWebhook {
 	return admissionregistrationv1.MutatingWebhook{
 		ReinvocationPolicy: &ifNeeded,
 		Name:               name,
-		ClientConfig: admissionregistrationv1.WebhookClientConfig{
-			Service: &admissionregistrationv1.ServiceReference{
-				Namespace: config.KyvernoNamespace(),
-				Name:      config.KyvernoServiceName(),
-				Path:      &servicePath,
-			},
-			CABundle: caData,
-		},
-		SideEffects:             &noneOnDryRun,
-		AdmissionReviewVersions: []string{"v1beta1"},
-		TimeoutSeconds:          &timeoutSeconds,
-		FailurePolicy:           &failurePolicy,
-		Rules:                   generateRules(rule, operationTypes),
-	}
-}
-
-func generateValidatingWebhook(name, servicePath string, caData []byte, timeoutSeconds int32, rule admissionregistrationv1.Rule, operationTypes []admissionregistrationv1.OperationType, failurePolicy admissionregistrationv1.FailurePolicyType) admissionregistrationv1.ValidatingWebhook {
-	return admissionregistrationv1.ValidatingWebhook{
-		Name: name,
 		ClientConfig: admissionregistrationv1.WebhookClientConfig{
 			Service: &admissionregistrationv1.ServiceReference{
 				Namespace: config.KyvernoNamespace(),
@@ -197,13 +162,6 @@ func getResourceMutatingWebhookConfigName(serverIP string) string {
 		return config.MutatingWebhookConfigurationDebugName
 	}
 	return config.MutatingWebhookConfigurationName
-}
-
-func getResourceValidatingWebhookConfigName(serverIP string) string {
-	if serverIP != "" {
-		return config.ValidatingWebhookConfigurationDebugName
-	}
-	return config.ValidatingWebhookConfigurationName
 }
 
 func defaultResourceWebhookRule(autoUpdate bool) admissionregistrationv1.Rule {
@@ -245,38 +203,6 @@ func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, 
 	if autoUpdate {
 		path := fmt.Sprintf("%s/fail", basePath)
 		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
-	}
-	return webhook
-}
-
-func constructDefaultDebugValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, baseUrl := config.ValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.ValidatingWebhookServicePath)
-	url := fmt.Sprintf("%s/ignore", baseUrl)
-	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationDebugName, owner),
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
-			generateDebugValidatingWebhook(name+"-ignore", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Ignore),
-		},
-	}
-	if autoUpdate {
-		url := fmt.Sprintf("%s/fail", baseUrl)
-		webhook.Webhooks = append(webhook.Webhooks, generateDebugValidatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
-	}
-	return webhook
-}
-
-func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, basePath := config.ValidatingWebhookName, config.ValidatingWebhookServicePath
-	path := fmt.Sprintf("%s/ignore", basePath)
-	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
-		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationName, owner),
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
-			generateValidatingWebhook(name+"-ignore", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Ignore),
-		},
-	}
-	if autoUpdate {
-		path := fmt.Sprintf("%s/fail", basePath)
-		webhook.Webhooks = append(webhook.Webhooks, generateValidatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
 }

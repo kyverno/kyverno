@@ -436,6 +436,7 @@ func createrLeaderControllers(
 		certRenewer,
 	)
 	webhookController := webhookcontroller.NewController(
+		dynamicClient.Discovery(),
 		metrics.ObjectClient[*corev1.Secret](
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),

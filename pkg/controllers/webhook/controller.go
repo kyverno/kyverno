@@ -1,20 +1,28 @@
-package background
+package webhook
 
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 	admissionregistrationv1informers "k8s.io/client-go/informers/admissionregistration/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
@@ -25,7 +33,7 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	Workers        = 2
-	ControllerName = "webhook-ca-controller"
+	ControllerName = "webhook-controller"
 	maxRetries     = 10
 	managedByLabel = "webhook.kyverno.io/managed-by"
 )
@@ -34,6 +42,7 @@ var (
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 	ignore       = admissionregistrationv1.Ignore
+	fail         = admissionregistrationv1.Fail
 	policyRule   = admissionregistrationv1.Rule{
 		Resources:   []string{"clusterpolicies/*", "policies/*"},
 		APIGroups:   []string{"kyverno.io"},
@@ -48,15 +57,18 @@ var (
 
 type controller struct {
 	// clients
-	secretClient controllerutils.GetClient[*corev1.Secret]
-	mwcClient    controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vwcClient    controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	discoveryClient dclient.IDiscovery
+	secretClient    controllerutils.GetClient[*corev1.Secret]
+	mwcClient       controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vwcClient       controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
 
 	// listers
-	secretLister    corev1listers.SecretLister
-	configMapLister corev1listers.ConfigMapLister
 	mwcLister       admissionregistrationv1listers.MutatingWebhookConfigurationLister
 	vwcLister       admissionregistrationv1listers.ValidatingWebhookConfigurationLister
+	cpolLister      kyvernov1listers.ClusterPolicyLister
+	polLister       kyvernov1listers.PolicyLister
+	secretLister    corev1listers.SecretLister
+	configMapLister corev1listers.ConfigMapLister
 
 	// queue
 	queue workqueue.RateLimitingInterface
@@ -66,6 +78,7 @@ type controller struct {
 }
 
 func NewController(
+	discoveryClient dclient.IDiscovery,
 	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
@@ -78,13 +91,16 @@ func NewController(
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
+		discoveryClient: discoveryClient,
 		secretClient:    secretClient,
 		mwcClient:       mwcClient,
 		vwcClient:       vwcClient,
-		secretLister:    secretInformer.Lister(),
-		configMapLister: configMapInformer.Lister(),
 		mwcLister:       mwcInformer.Lister(),
 		vwcLister:       vwcInformer.Lister(),
+		cpolLister:      cpolInformer.Lister(),
+		polLister:       polInformer.Lister(),
+		secretLister:    secretInformer.Lister(),
+		configMapLister: configMapInformer.Lister(),
 		queue:           queue,
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
@@ -234,6 +250,10 @@ func (c *controller) reconcileValidatingWebhookConfiguration(ctx context.Context
 	return err
 }
 
+func (c *controller) reconcileResourceValidatingWebhookConfiguration(ctx context.Context) error {
+	return c.reconcileOneValidatingWebhookConfiguration(ctx, c.buildResourceValidatingWebhookConfiguration)
+}
+
 func (c *controller) reconcilePolicyValidatingWebhookConfiguration(ctx context.Context) error {
 	return c.reconcileOneValidatingWebhookConfiguration(ctx, c.buildPolicyValidatingWebhookConfiguration)
 }
@@ -295,7 +315,8 @@ func (c *controller) reconcileOneMutatingWebhookConfiguration(ctx context.Contex
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	switch name {
 	// case config.MutatingWebhookConfigurationName:
-	// case config.ValidatingWebhookConfigurationName:
+	case config.ValidatingWebhookConfigurationName:
+		return c.reconcileResourceValidatingWebhookConfiguration(ctx)
 	case config.PolicyValidatingWebhookConfigurationName:
 		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
 	case config.PolicyMutatingWebhookConfigurationName:
@@ -376,6 +397,176 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 			SideEffects:             &noneOnDryRun,
 			AdmissionReviewVersions: []string{"v1", "v1beta1"},
 		}},
+	}
+}
+
+var DefaultWebhookTimeout int32 = 10
+
+func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte) *admissionregistrationv1.ValidatingWebhookConfiguration {
+	ignore := newWebhook(DefaultWebhookTimeout, ignore)
+	fail := newWebhook(DefaultWebhookTimeout, fail)
+	policies, err := c.getAllPolicies()
+	if err != nil {
+		// TODO
+		// return nil, errors.Wrap(err, "unable to list current policies")
+		return nil
+	}
+	// TODO: wildcard policies
+	for _, p := range policies {
+		spec := p.GetSpec()
+		if spec.HasValidate() || spec.HasGenerate() || spec.HasMutate() || spec.HasImagesValidationChecks() || spec.HasYAMLSignatureVerify() {
+			if spec.GetFailurePolicy() == kyvernov1.Ignore {
+				c.mergeWebhook(ignore, p, true)
+			} else {
+				c.mergeWebhook(fail, p, true)
+			}
+		}
+	}
+	cfg := c.loadConfig()
+	webhookCfg := config.WebhookConfig{}
+	webhookCfgs := cfg.GetWebhooks()
+	if len(webhookCfgs) > 0 {
+		webhookCfg = webhookCfgs[0]
+	}
+	result := admissionregistrationv1.ValidatingWebhookConfiguration{
+		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
+		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
+	}
+	if !ignore.isEmpty() {
+		result.Webhooks = append(
+			result.Webhooks,
+			admissionregistrationv1.ValidatingWebhook{
+				Name:         config.ValidatingWebhookName + "-ignore",
+				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
+				Rules: []admissionregistrationv1.RuleWithOperations{
+					ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+				},
+				FailurePolicy:           &ignore.failurePolicy,
+				SideEffects:             &noneOnDryRun,
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				NamespaceSelector:       webhookCfg.NamespaceSelector,
+				ObjectSelector:          webhookCfg.ObjectSelector,
+				TimeoutSeconds:          &ignore.maxWebhookTimeout,
+			},
+		)
+	}
+	if !fail.isEmpty() {
+		result.Webhooks = append(
+			result.Webhooks,
+			admissionregistrationv1.ValidatingWebhook{
+				Name:         config.ValidatingWebhookName + "-fail",
+				ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
+				Rules: []admissionregistrationv1.RuleWithOperations{
+					fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
+				},
+				FailurePolicy:           &fail.failurePolicy,
+				SideEffects:             &noneOnDryRun,
+				AdmissionReviewVersions: []string{"v1", "v1beta1"},
+				NamespaceSelector:       webhookCfg.NamespaceSelector,
+				ObjectSelector:          webhookCfg.ObjectSelector,
+				TimeoutSeconds:          &fail.maxWebhookTimeout,
+			},
+		)
+	}
+	return &result
+}
+
+func (c *controller) getAllPolicies() ([]kyvernov1.PolicyInterface, error) {
+	var policies []kyvernov1.PolicyInterface
+	if cpols, err := c.cpolLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, cpol := range cpols {
+			policies = append(policies, cpol)
+		}
+	}
+	if pols, err := c.polLister.List(labels.Everything()); err != nil {
+		return nil, err
+	} else {
+		for _, pol := range pols {
+			policies = append(policies, pol)
+		}
+	}
+	return policies, nil
+}
+
+// mergeWebhook merges the matching kinds of the policy to webhook.rule
+func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface, updateValidate bool) {
+	matchedGVK := make([]string, 0)
+	for _, rule := range autogen.ComputeRules(policy) {
+		// matching kinds in generate policies need to be added to both webhook
+		if rule.HasGenerate() {
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
+			matchedGVK = append(matchedGVK, rule.Generation.ResourceSpec.Kind)
+			continue
+		}
+		if (updateValidate && rule.HasValidate() || rule.HasImagesValidationChecks()) ||
+			(updateValidate && rule.HasMutate() && rule.IsMutateExisting()) ||
+			(!updateValidate && rule.HasMutate()) && !rule.IsMutateExisting() ||
+			(!updateValidate && rule.HasVerifyImages()) || (!updateValidate && rule.HasYAMLSignatureVerify()) {
+			matchedGVK = append(matchedGVK, rule.MatchResources.GetKinds()...)
+		}
+	}
+	gvkMap := make(map[string]int)
+	gvrList := make([]schema.GroupVersionResource, 0)
+	for _, gvk := range matchedGVK {
+		if _, ok := gvkMap[gvk]; !ok {
+			gvkMap[gvk] = 1
+
+			// note: webhook stores GVR in its rules while policy stores GVK in its rules definition
+			gv, k := kubeutils.GetKindFromGVK(gvk)
+			switch k {
+			case "Binding":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/binding"})
+			case "NodeProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "nodes/proxy"})
+			case "PodAttachOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/attach"})
+			case "PodExecOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/exec"})
+			case "PodPortForwardOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/portforward"})
+			case "PodProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods/proxy"})
+			case "ServiceProxyOptions":
+				gvrList = append(gvrList, schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services/proxy"})
+			default:
+				_, gvr, err := c.discoveryClient.FindResource(gv, k)
+				if err != nil {
+					// m.log.Error(err, "unable to convert GVK to GVR", "GVK", gvk)
+					continue
+				}
+				if strings.Contains(gvk, "*") {
+					group := kubeutils.GetGroupFromGVK(gvk)
+					gvrList = append(gvrList, schema.GroupVersionResource{Group: group, Version: "*", Resource: gvr.Resource})
+				} else {
+					// m.log.V(4).Info("configuring webhook", "GVK", gvk, "GVR", gvr)
+					gvrList = append(gvrList, gvr)
+				}
+			}
+		}
+	}
+	for _, gvr := range gvrList {
+		dst.groups.Insert(gvr.Group)
+		if gvr.Version == "*" {
+			dst.versions = sets.NewString()
+			dst.versions.Insert(gvr.Version)
+		} else if !dst.versions.Has("*") {
+			dst.versions.Insert(gvr.Version)
+		}
+		dst.resources.Insert(gvr.Resource)
+	}
+	if dst.resources.Has("pods") {
+		dst.resources.Insert("pods/ephemeralcontainers")
+	}
+	if dst.resources.Has("services") {
+		dst.resources.Insert("services/status")
+	}
+	spec := policy.GetSpec()
+	if spec.WebhookTimeoutSeconds != nil {
+		if dst.maxWebhookTimeout < *spec.WebhookTimeoutSeconds {
+			dst.maxWebhookTimeout = *spec.WebhookTimeoutSeconds
+		}
 	}
 }
 
