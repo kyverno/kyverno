@@ -2660,7 +2660,8 @@ See: <a href="https://kubernetes.io/docs/concepts/security/pod-security-standard
 <em>(Optional)</em>
 <p>Images selects matching containers and applies the container level PSS.
 Each image is the image name consisting of the registry address, repository, image, and tag.
-Empty list matches no containers, PSS checks are applied at the pod level only.</p>
+Empty list matches no containers, PSS checks are applied at the pod level only.
+Wildcards (&lsquo;*&rsquo; and &lsquo;?&rsquo;) are allowed. See: <a href="https://kubernetes.io/docs/concepts/containers/images">https://kubernetes.io/docs/concepts/containers/images</a>.</p>
 </td>
 </tr>
 </tbody>

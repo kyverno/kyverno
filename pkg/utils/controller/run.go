@@ -24,8 +24,10 @@ func Run(ctx context.Context, controllerName string, logger logr.Logger, queue w
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		defer queue.ShutDown()
-		if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), cacheSyncs...) {
-			return
+		if len(cacheSyncs) > 0 {
+			if !cache.WaitForNamedCacheSync(controllerName, ctx.Done(), cacheSyncs...) {
+				return
+			}
 		}
 		for i := 0; i < n; i++ {
 			wg.Add(1)

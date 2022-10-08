@@ -163,11 +163,6 @@ func (pc *PolicyController) addPolicy(obj interface{}) {
 
 	logger.Info("policy created", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
-
 	if !toggle.AutogenInternals.Enabled() {
 		if p.Spec.Background == nil || p.Spec.ValidationFailureAction == "" || missingAutoGenRules(p, logger) {
 			pol, _ := utilscommon.MutatePolicy(p, logger)
@@ -190,11 +185,6 @@ func (pc *PolicyController) updatePolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyvernov1.ClusterPolicy)
 	curP := cur.(*kyvernov1.ClusterPolicy)
-
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if !toggle.AutogenInternals.Enabled() {
 		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
@@ -227,11 +217,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 		return
 	}
 
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
-
 	logger.Info("policy deleted", "uid", p.UID, "kind", "ClusterPolicy", "name", p.Name)
 
 	// do not clean up UR on generate clone (sync=true) policy deletion
@@ -248,11 +233,6 @@ func (pc *PolicyController) deletePolicy(obj interface{}) {
 func (pc *PolicyController) addNsPolicy(obj interface{}) {
 	logger := pc.log
 	p := obj.(*kyvernov1.Policy)
-
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricAddPolicy(logger, p)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricAddPolicy(logger, p)
 
 	logger.Info("policy created", "uid", p.UID, "kind", "Policy", "name", p.Name, "namespaces", p.Namespace)
 
@@ -278,11 +258,6 @@ func (pc *PolicyController) updateNsPolicy(old, cur interface{}) {
 	logger := pc.log
 	oldP := old.(*kyvernov1.Policy)
 	curP := cur.(*kyvernov1.Policy)
-
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
 
 	if !toggle.AutogenInternals.Enabled() {
 		if curP.Spec.Background == nil || curP.Spec.ValidationFailureAction == "" || missingAutoGenRules(curP, logger) {
@@ -314,11 +289,6 @@ func (pc *PolicyController) deleteNsPolicy(obj interface{}) {
 		logger.Info("Failed to get deleted object", "obj", obj)
 		return
 	}
-
-	// register kyverno_policy_rule_info_total metric concurrently
-	go pc.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
-	// register kyverno_policy_changes_total metric concurrently
-	go pc.registerPolicyChangesMetricDeletePolicy(logger, p)
 
 	logger.Info("policy deleted event", "uid", p.UID, "kind", "Policy", "policy_name", p.Name, "namespaces", p.Namespace)
 
