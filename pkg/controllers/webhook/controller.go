@@ -130,17 +130,41 @@ func NewController(
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
-	controllerutils.AddEventHandlers(
+	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
-		func(interface{}) { c.enqueueAll() },
-		func(interface{}, interface{}) { c.enqueueAll() },
-		func(interface{}) { c.enqueueAll() },
+		func(obj *corev1.Secret) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+				c.enqueueAll()
+			}
+		},
+		func(_, obj *corev1.Secret) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+				c.enqueueAll()
+			}
+		},
+		func(obj *corev1.Secret) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == tls.GenerateRootCASecretName() {
+				c.enqueueAll()
+			}
+		},
 	)
-	controllerutils.AddEventHandlers(
+	controllerutils.AddEventHandlersT(
 		configMapInformer.Informer(),
-		func(interface{}) { c.enqueueAll() },
-		func(interface{}, interface{}) { c.enqueueAll() },
-		func(interface{}) { c.enqueueAll() },
+		func(obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueueAll()
+			}
+		},
+		func(_, obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueueAll()
+			}
+		},
+		func(obj *corev1.ConfigMap) {
+			if obj.GetNamespace() == config.KyvernoNamespace() && obj.GetName() == config.KyvernoConfigMapName() {
+				c.enqueueAll()
+			}
+		},
 	)
 	controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
