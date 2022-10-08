@@ -112,7 +112,7 @@ func Test_Mutate_Sets(t *testing.T) {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmRes.GetLabels()["kyverno.key/copy-me"]).To(Equal("sample-value"))
 
-		//CleanUp Resources
+		// CleanUp Resources
 		e2eClient.CleanClusterPolicies(policyGVR)
 
 		// Clear Namespace
