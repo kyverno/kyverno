@@ -448,6 +448,7 @@ func createrLeaderControllers(
 			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
 			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		),
+		kyvernoClient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),

@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -27,6 +29,7 @@ import (
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	admissionregistrationv1listers "k8s.io/client-go/listers/admissionregistration/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
 
@@ -62,6 +65,7 @@ type controller struct {
 	secretClient    controllerutils.GetClient[*corev1.Secret]
 	mwcClient       controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration]
 	vwcClient       controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	kyvernoClient   versioned.Interface
 
 	// listers
 	mwcLister       admissionregistrationv1listers.MutatingWebhookConfigurationLister
@@ -78,9 +82,12 @@ type controller struct {
 	server             string
 	defaultTimeout     int32
 	autoUpdateWebhooks bool
+
+	// state
+	lock        sync.RWMutex
+	policyState map[string]sets.String
 }
 
-// TODO: policy ready
 // TODO: watchdog
 
 func NewController(
@@ -88,6 +95,7 @@ func NewController(
 	secretClient controllerutils.GetClient[*corev1.Secret],
 	mwcClient controllerutils.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	kyvernoClient versioned.Interface,
 	mwcInformer admissionregistrationv1informers.MutatingWebhookConfigurationInformer,
 	vwcInformer admissionregistrationv1informers.ValidatingWebhookConfigurationInformer,
 	cpolInformer kyvernov1informers.ClusterPolicyInformer,
@@ -104,6 +112,7 @@ func NewController(
 		secretClient:       secretClient,
 		mwcClient:          mwcClient,
 		vwcClient:          vwcClient,
+		kyvernoClient:      kyvernoClient,
 		mwcLister:          mwcInformer.Lister(),
 		vwcLister:          vwcInformer.Lister(),
 		cpolLister:         cpolInformer.Lister(),
@@ -114,6 +123,10 @@ func NewController(
 		server:             server,
 		defaultTimeout:     defaultTimeout,
 		autoUpdateWebhooks: autoUpdateWebhooks,
+		policyState: map[string]sets.String{
+			config.MutatingWebhookConfigurationName:   sets.NewString(),
+			config.ValidatingWebhookConfigurationName: sets.NewString(),
+		},
 	}
 	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
 	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
@@ -177,6 +190,22 @@ func (c *controller) loadConfig() config.Configuration {
 		cfg.Load(cm)
 	}
 	return cfg
+}
+
+func (c *controller) recordPolicyState(webhookConfigurationName string, policies ...kyvernov1.PolicyInterface) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	if _, ok := c.policyState[webhookConfigurationName]; !ok {
+		return
+	}
+	c.policyState[webhookConfigurationName] = sets.NewString()
+	for _, policy := range policies {
+		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
+			logger.Error(err, "failed to compute policy key", "policy", policy)
+		}
+		c.policyState[webhookConfigurationName].Insert(policyKey)
+	}
 }
 
 func (c *controller) clientConfig(caBundle []byte, path string) admissionregistrationv1.WebhookClientConfig {
@@ -276,12 +305,60 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 	return err
 }
 
+func (c *controller) updatePolicyStatuses(ctx context.Context) error {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	policies, err := c.getAllPolicies()
+	if err != nil {
+		return err
+	}
+	for _, policy := range policies {
+		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
+		if err != nil {
+			return err
+		}
+		ready := true
+		for _, set := range c.policyState {
+			if !set.Has(policyKey) {
+				ready = false
+			}
+		}
+		if policy.IsReady() != ready {
+			policy = policy.CreateDeepCopy()
+			status := policy.GetStatus()
+			status.SetReady(ready)
+			if policy.GetNamespace() == "" {
+				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).UpdateStatus(ctx, policy.(*kyvernov1.Policy), metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	switch name {
 	case config.MutatingWebhookConfigurationName:
-		return c.reconcileResourceMutatingWebhookConfiguration(ctx)
+		if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+			return err
+		}
+		if err := c.updatePolicyStatuses(ctx); err != nil {
+			return err
+		}
 	case config.ValidatingWebhookConfigurationName:
-		return c.reconcileResourceValidatingWebhookConfiguration(ctx)
+		if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+			return err
+		}
+		if err := c.updatePolicyStatuses(ctx); err != nil {
+			return err
+		}
 	case config.PolicyValidatingWebhookConfigurationName:
 		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
 	case config.PolicyMutatingWebhookConfigurationName:
@@ -394,6 +471,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 		// return nil, errors.Wrap(err, "unable to list current policies")
 		return nil
 	}
+	c.recordPolicyState(config.MutatingWebhookConfigurationName, policies...)
 	// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 	if hasWildcard(policies...) {
 		ignore.setWildcard()
@@ -497,6 +575,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		// return nil, errors.Wrap(err, "unable to list current policies")
 		return nil
 	}
+	c.recordPolicyState(config.ValidatingWebhookConfigurationName, policies...)
 	// TODO: shouldn't be per failure policy, depending of the policy/rules that apply ?
 	if hasWildcard(policies...) {
 		ignore.setWildcard()
