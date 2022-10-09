@@ -1,7 +1,6 @@
 package resource
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -18,12 +17,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policycache"
-	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"github.com/kyverno/kyverno/pkg/webhooks"
-	"github.com/kyverno/kyverno/pkg/webhooks/resource/audit"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/imageverification"
 	"github.com/kyverno/kyverno/pkg/webhooks/resource/mutation"
@@ -53,13 +49,13 @@ type handlers struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
-	prGenerator       policyreport.GeneratorInterface
 	urGenerator       webhookgenerate.Generator
 	eventGen          event.Interface
-	auditHandler      audit.AuditHandler
 	openAPIController openapi.ValidateInterface
 	pcBuilder         webhookutils.PolicyContextBuilder
 	urUpdater         webhookutils.UpdateRequestUpdater
+
+	admissionReports bool
 }
 
 func NewHandlers(
@@ -72,12 +68,11 @@ func NewHandlers(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
-	prGenerator policyreport.GeneratorInterface,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
-	auditHandler audit.AuditHandler,
 	openAPIController openapi.ValidateInterface,
-) webhooks.Handlers {
+	admissionReports bool,
+) webhooks.ResourceHandlers {
 	return &handlers{
 		client:            client,
 		kyvernoClient:     kyvernoClient,
@@ -88,17 +83,16 @@ func NewHandlers(
 		rbLister:          rbLister,
 		crbLister:         crbLister,
 		urLister:          urLister,
-		prGenerator:       prGenerator,
 		urGenerator:       urGenerator,
 		eventGen:          eventGen,
-		auditHandler:      auditHandler,
 		openAPIController: openAPIController,
 		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
 		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
+		admissionReports:  admissionReports,
 	}
 }
 
-func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
@@ -107,10 +101,10 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	logger.V(4).Info("received an admission request in validating webhook")
 
 	// timestamp at which this admission request got triggered
-	policies := h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)
-	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	generatePolicies := h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)
-	imageVerifyValidatePolicies := h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)
+	policies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.ValidateEnforce, kind, request.Namespace)...)
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+	generatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Generate, kind, request.Namespace)...)
+	imageVerifyValidatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesValidate, kind, request.Namespace)...)
 	policies = append(policies, imageVerifyValidatePolicies...)
 
 	if len(policies) == 0 && len(mutatePolicies) == 0 && len(generatePolicies) == 0 {
@@ -134,16 +128,15 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		namespaceLabels = common.GetNamespaceSelectorsFromNamespaceLister(request.Kind.Kind, request.Namespace, h.nsLister, logger)
 	}
 
-	vh := validation.NewValidationHandler(logger, h.eventGen, h.prGenerator)
+	vh := validation.NewValidationHandler(logger, h.kyvernoClient, h.pCache, h.pcBuilder, h.eventGen, h.admissionReports)
 
 	ok, msg, warnings := vh.HandleValidation(h.metricsConfig, request, policies, policyContext, namespaceLabels, startTime)
 	if !ok {
 		logger.Info("admission request denied")
 		return admissionutils.ResponseFailure(msg)
 	}
-	defer func() { h.handleDelete(logger, request) }()
 
-	h.auditHandler.Add(request.DeepCopy())
+	defer h.handleDelete(logger, request)
 	go h.createUpdateRequests(logger, request, policyContext, generatePolicies, mutatePolicies, startTime)
 
 	if warnings != nil {
@@ -154,24 +147,18 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 	return admissionutils.ResponseSuccess()
 }
 
-func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequest, failurePolicy string, startTime time.Time) *admissionv1.AdmissionResponse {
 	if webhookutils.ExcludeKyvernoResources(request.Kind.Kind) {
 		return admissionutils.ResponseSuccess()
 	}
 	if request.Operation == admissionv1.Delete {
-		resource, err := utils.ConvertResource(request.OldObject.Raw, request.Kind.Group, request.Kind.Version, request.Kind.Kind, request.Namespace)
-		if err == nil {
-			h.prGenerator.Add(webhookutils.BuildDeletionPrInfo(resource))
-		} else {
-			logger.Info(fmt.Sprintf("Converting oldObject failed: %v", err))
-		}
 		return admissionutils.ResponseSuccess()
 	}
 	kind := request.Kind.Kind
 	logger = logger.WithValues("kind", kind)
 	logger.V(4).Info("received an admission request in mutating webhook")
-	mutatePolicies := h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)
-	verifyImagesPolicies := h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)
+	mutatePolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.Mutate, kind, request.Namespace)...)
+	verifyImagesPolicies := filterPolicies(failurePolicy, h.pCache.GetPolicies(policycache.VerifyImagesMutate, kind, request.Namespace)...)
 	if len(mutatePolicies) == 0 && len(verifyImagesPolicies) == 0 {
 		logger.V(4).Info("no policies matched mutate admission request")
 		return admissionutils.ResponseSuccess()
@@ -194,7 +181,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseFailure(err.Error())
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
-	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen, h.prGenerator)
+	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
 		logger.Error(err, "image verification failed")
@@ -219,7 +206,7 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 		}
 
 		resLabels := resource.GetLabels()
-		if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+		if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 			urName := resLabels["policy.kyverno.io/gr-name"]
 			ur, err := h.urLister.Get(urName)
 			if err != nil {
@@ -233,4 +220,22 @@ func (h *handlers) handleDelete(logger logr.Logger, request *admissionv1.Admissi
 			h.urUpdater.UpdateAnnotation(logger, ur.GetName())
 		}
 	}
+}
+
+func filterPolicies(failurePolicy string, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+	var results []kyvernov1.PolicyInterface
+	for _, policy := range policies {
+		if failurePolicy == "fail" {
+			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Fail {
+				results = append(results, policy)
+			}
+		} else if failurePolicy == "ignore" {
+			if policy.GetSpec().GetFailurePolicy() == kyvernov1.Ignore {
+				results = append(results, policy)
+			}
+		} else {
+			results = append(results, policy)
+		}
+	}
+	return results
 }

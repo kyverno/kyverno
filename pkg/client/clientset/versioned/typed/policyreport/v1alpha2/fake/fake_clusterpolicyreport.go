@@ -99,7 +99,7 @@ func (c *FakeClusterPolicyReports) Update(ctx context.Context, clusterPolicyRepo
 // Delete takes name of the clusterPolicyReport and deletes it. Returns an error if one occurs.
 func (c *FakeClusterPolicyReports) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(clusterpolicyreportsResource, name), &v1alpha2.ClusterPolicyReport{})
+		Invokes(testing.NewRootDeleteActionWithOptions(clusterpolicyreportsResource, name, opts), &v1alpha2.ClusterPolicyReport{})
 	return err
 }
 

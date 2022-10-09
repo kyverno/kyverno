@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -26,8 +27,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/pod-security-admission/api"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Validate applies validation rules from policy on the resource
@@ -47,7 +46,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func buildLogger(ctx *PolicyContext) logr.Logger {
-	logger := log.Log.WithName("EngineValidate").WithValues("policy", ctx.Policy.GetName())
+	logger := logging.WithName("EngineValidate").WithValues("policy", ctx.Policy.GetName())
 	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		logger = logger.WithValues("kind", ctx.OldResource.GetKind(), "namespace", ctx.OldResource.GetNamespace(), "name", ctx.OldResource.GetName())
 	} else {
@@ -98,6 +97,16 @@ func validateResource(log logr.Logger, ctx *PolicyContext) *response.EngineRespo
 	rules := autogen.ComputeRules(ctx.Policy)
 	matchCount := 0
 	applyRules := ctx.Policy.GetSpec().GetApplyRules()
+
+	if ctx.Policy.IsNamespaced() {
+		polNs := ctx.Policy.GetNamespace()
+		if ctx.NewResource.Object != nil && (ctx.NewResource.GetNamespace() != polNs || ctx.NewResource.GetNamespace() == "") {
+			return resp
+		}
+		if ctx.OldResource.Object != nil && (ctx.OldResource.GetNamespace() != polNs || ctx.OldResource.GetNamespace() == "") {
+			return resp
+		}
+	}
 
 	for i := range rules {
 		rule := &rules[i]
@@ -260,14 +269,15 @@ func (v *validator) validate() *response.RuleResponse {
 
 		return ruleResponse
 	}
-	if v.podSecurity.Exclude != nil {
+
+	if v.podSecurity != nil {
 		if !isDeleteRequest(v.ctx) {
 			ruleResponse := v.validatePodSecurity()
 			return ruleResponse
 		}
 	}
 
-	v.log.V(2).Info("invalid validation rule: either patterns or deny conditions are expected")
+	v.log.V(2).Info("invalid validation rule: podSecurity, patterns, or deny expected")
 	return nil
 }
 
@@ -500,37 +510,20 @@ func (v *validator) validatePodSecurity() *response.RuleResponse {
 	if err != nil {
 		return ruleError(v.rule, response.Validation, "Error while getting new resource", err)
 	}
-	// Get pod security admission version
-	var apiVersion api.Version
 
-	// Version set to "latest" by default
-	if v.podSecurity.Version == "" || v.podSecurity.Version == "latest" {
-		apiVersion = api.LatestVersion()
-	} else {
-		parsedApiVersion, err := api.ParseVersion(v.podSecurity.Version)
-		if err != nil {
-			return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
-		}
-		apiVersion = api.MajorMinorVersion(parsedApiVersion.Major(), parsedApiVersion.Minor())
-	}
-	level := &api.LevelVersion{
-		Level:   v.podSecurity.Level,
-		Version: apiVersion,
-	}
 	pod := &corev1.Pod{
 		Spec:       *podSpec,
 		ObjectMeta: *metadata,
 	}
-	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod, level)
+	allowed, pssChecks, err := pss.EvaluatePod(v.podSecurity, pod)
 	if err != nil {
-		msg := fmt.Sprintf("Failed to evaluate validation rule `%s`: %v", v.rule.Name, err)
-		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusError, nil)
+		return ruleError(v.rule, response.Validation, "failed to parse pod security api version", err)
 	}
 	if allowed {
 		msg := fmt.Sprintf("Validation rule '%s' passed.", v.rule.Name)
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusPass, nil)
 	} else {
-		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, level.Level, level.Version, pss.FormatChecksPrint(pssChecks))
+		msg := fmt.Sprintf(`Validation rule '%s' failed. It violates PodSecurity "%s:%s": %s`, v.rule.Name, v.podSecurity.Level, v.podSecurity.Version, pss.FormatChecksPrint(pssChecks))
 		return ruleResponse(*v.rule, response.Validation, msg, response.RuleStatusFail, nil)
 	}
 }

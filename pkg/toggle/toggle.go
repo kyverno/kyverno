@@ -11,11 +11,6 @@ const (
 	AutogenInternalsDescription = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
 	autogenInternalsEnvVar      = "FLAG_AUTOGEN_INTERNALS"
 	defaultAutogenInternals     = true
-	// split resource
-	SplitPolicyReportFlagName    = "splitPolicyReport"
-	SplitPolicyReportDescription = "Set the flag to 'true', to enable the split-up PolicyReports per policy."
-	splitPolicyReportEnvVar      = "FLAG_SPLIT_POLICY_REPORT"
-	defaultSplitPolicyReport     = false
 	// protect managed resource
 	ProtectManagedResourcesFlagName    = "protectManagedResources"
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
@@ -25,7 +20,6 @@ const (
 
 var (
 	AutogenInternals        = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
-	SplitPolicyReport       = newToggle(defaultSplitPolicyReport, splitPolicyReportEnvVar)
 	ProtectManagedResources = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 )
 

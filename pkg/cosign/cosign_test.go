@@ -71,7 +71,7 @@ func TestCosignKeyless(t *testing.T) {
 	}
 
 	_, err := verifySignature(opts)
-	assert.Error(t, err, "subject mismatch: expected jim@nirmata.com, received jim")
+	assert.Error(t, err, "subject mismatch: expected jim, received jim@nirmata.com")
 
 	opts.Subject = "jim@nirmata.com"
 	_, err = verifySignature(opts)

@@ -12,3 +12,6 @@ kubectl-kyverno
 .DS_Store
 .tools
 .gopath
+/config/.helm
+/config/.release
+.dist

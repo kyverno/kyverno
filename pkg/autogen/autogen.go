@@ -220,12 +220,16 @@ func generateRules(spec *kyvernov1.Spec, controllers string) []kyvernov1.Rule {
 		if genRule := createRule(generateRuleForControllers(&spec.Rules[i], stripCronJob(controllers))); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Pod"); err == nil {
 				rules = append(rules, *convRule)
+			} else {
+				logger.Error(err, "failed to create rule")
 			}
 		}
 		// handle CronJob, it appends an additional rule
 		if genRule := createRule(generateCronJobRule(&spec.Rules[i], controllers)); genRule != nil {
 			if convRule, err := convertRule(*genRule, "Cronjob"); err == nil {
 				rules = append(rules, *convRule)
+			} else {
+				logger.Error(err, "failed to create Cronjob rule")
 			}
 		}
 	}

@@ -59,3 +59,9 @@ results:
     resource: invalid-yaml-test
     kind: ConfigMap
     result: fail
+  - policy: test-x509-decode
+    rule: test-x509-decode
+    resource: test-x509-configmap
+    kind: ConfigMap
+    result: fail
+    

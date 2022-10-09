@@ -139,18 +139,21 @@ type configuration struct {
 	restrictDevelopmentUsername []string
 	webhooks                    []WebhookConfig
 	generateSuccessEvents       bool
-	reconcilePolicyReport       chan<- bool
 	updateWebhookConfigurations chan<- bool
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, reconcilePolicyReport, updateWebhookConfigurations chan<- bool) (Configuration, error) {
-	cd := &configuration{
-		reconcilePolicyReport:       reconcilePolicyReport,
+func NewDefaultConfiguration(updateWebhookConfigurations chan<- bool) *configuration {
+	return &configuration{
 		updateWebhookConfigurations: updateWebhookConfigurations,
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 		excludeGroupRole:            defaultExcludeGroupRole,
 	}
+}
+
+// NewConfiguration ...
+func NewConfiguration(client kubernetes.Interface, updateWebhookConfigurations chan<- bool) (Configuration, error) {
+	cd := NewDefaultConfiguration(updateWebhookConfigurations)
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -219,25 +222,23 @@ func (cd *configuration) GetWebhooks() []WebhookConfig {
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
-	reconcilePolicyReport, updateWebhook := true, true
+	updateWebhook := true
 	if cm != nil {
 		logger.Info("load config", "name", cm.Name, "namespace", cm.Namespace)
-		reconcilePolicyReport, updateWebhook = cd.load(cm)
+		updateWebhook = cd.load(cm)
 	} else {
 		logger.Info("unload config")
 		cd.unload()
 	}
-	if reconcilePolicyReport {
-		logger.Info("resource filters changed, sending reconcile signal to the policy controller")
-		cd.reconcilePolicyReport <- true
-	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
-		cd.updateWebhookConfigurations <- true
+		if cd.updateWebhookConfigurations != nil {
+			cd.updateWebhookConfigurations <- true
+		}
 	}
 }
 
-func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, updateWebhook bool) {
+func (cd *configuration) load(cm *corev1.ConfigMap) (updateWebhook bool) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
 		logger.V(4).Info("configuration: No data defined in ConfigMap")
@@ -255,7 +256,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, upda
 		} else {
 			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
 			cd.filters = newFilters
-			reconcilePolicyReport = true
 		}
 	}
 	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
@@ -269,7 +269,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, upda
 	} else {
 		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
 		cd.excludeGroupRole = newExcludeGroupRoles
-		reconcilePolicyReport = true
 	}
 	excludeUsername, ok := cm.Data["excludeUsername"]
 	if !ok {
@@ -281,7 +280,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, upda
 		} else {
 			logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
 			cd.excludeUsername = excludeUsernames
-			reconcilePolicyReport = true
 		}
 	}
 	webhooks, ok := cm.Data["webhooks"]
@@ -320,7 +318,6 @@ func (cd *configuration) load(cm *corev1.ConfigMap) (reconcilePolicyReport, upda
 		} else {
 			logger.V(2).Info("Updated generateSuccessEvents", "oldGenerateSuccessEvents", cd.generateSuccessEvents, "newGenerateSuccessEvents", generateSuccessEvents)
 			cd.generateSuccessEvents = generateSuccessEvents
-			reconcilePolicyReport = true
 		}
 	}
 	return

@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/julienschmidt/httprouter"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
@@ -25,39 +26,47 @@ type Server interface {
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
 	Stop(context.Context)
+	// Cleanup returns the chanel used to wait for the server to clean up resources
+	Cleanup() <-chan struct{}
 }
 
-type Handlers interface {
+type PolicyHandlers interface {
 	// Mutate performs the mutation of policy resources
 	Mutate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 	// Validate performs the validation check on policy resources
 	Validate(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 }
 
+type ResourceHandlers interface {
+	// Mutate performs the mutation of kube resources
+	Mutate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+	// Validate performs the validation check on kube resources
+	Validate(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse
+}
+
 type server struct {
 	server          *http.Server
 	webhookRegister *webhookconfig.Register
-	cleanUp         chan<- struct{}
+	cleanUp         chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
 
 // NewServer creates new instance of server accordingly to given configuration
 func NewServer(
-	policyHandlers Handlers,
-	resourceHandlers Handlers,
+	policyHandlers PolicyHandlers,
+	resourceHandlers ResourceHandlers,
 	tlsProvider TlsProvider,
 	configuration config.Configuration,
 	register *webhookconfig.Register,
 	monitor *webhookconfig.Monitor,
-	cleanUp chan<- struct{},
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	mux.HandlerFunc("POST", config.MutatingWebhookServicePath, admission(resourceLogger.WithName("mutate"), monitor, filter(configuration, resourceHandlers.Mutate)))
-	mux.HandlerFunc("POST", config.ValidatingWebhookServicePath, admission(resourceLogger.WithName("validate"), monitor, filter(configuration, resourceHandlers.Validate)))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
@@ -86,7 +95,7 @@ func NewServer(
 			ReadHeaderTimeout: 30 * time.Second,
 		},
 		webhookRegister: register,
-		cleanUp:         cleanUp,
+		cleanUp:         make(chan struct{}),
 	}
 }
 
@@ -112,6 +121,10 @@ func (s *server) Stop(ctx context.Context) {
 	}
 }
 
+func (s *server) Cleanup() <-chan struct{} {
+	return s.cleanUp
+}
+
 func (s *server) cleanup(ctx context.Context) {
 	cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
 
@@ -133,7 +146,7 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 			}
 			for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 				resLabels := resource.GetLabels()
-				if resLabels["app.kubernetes.io/managed-by"] == "kyverno" {
+				if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 					if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 						logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
 						return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
@@ -151,4 +164,32 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 
 func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
 	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner)))
+}
+
+func registerWebhookHandlers(
+	logger logr.Logger,
+	mux *httprouter.Router,
+	basePath string,
+	monitor *webhookconfig.Monitor,
+	configuration config.Configuration,
+	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
+) {
+	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "all", startTime)
+		})),
+	)
+	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "fail", startTime)
+		})),
+	)
+	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
+		configuration,
+		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+			return handlerFunc(logger, request, "ignore", startTime)
+		})),
+	)
 }

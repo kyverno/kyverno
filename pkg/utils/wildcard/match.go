@@ -1,7 +1,7 @@
 package wildcard
 
 import (
-	wildcard "github.com/kyverno/go-wildcard"
+	wildcard "github.com/IGLOU-EU/go-wildcard"
 )
 
 func Match(pattern, name string) bool {

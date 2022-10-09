@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -320,7 +320,7 @@ var testSampleResource = `{
 }`
 
 var testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----\n`
-var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyBg8yod24/wIcc5QqlVLtCfL+6Te+nwdPdTvMb1AiZn24zBToHJVZvQdYLgRWAbh0Jd+6JhEwsDmnXRrlV7rfw==\n-----END PUBLIC KEY-----\n`
+var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
@@ -564,18 +564,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -596,7 +596,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.isVerified(image), true)
 
-	patches, err := verifiedImages.Patches(false, log.Log)
+	patches, err := verifiedImages.Patches(false, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
@@ -607,7 +607,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[imageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, log.Log)
+	verified, err := isImageVerified(resource, image, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }

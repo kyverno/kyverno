@@ -49,13 +49,15 @@ metadata:
   labels:
     app: kyverno
     rbac.authorization.k8s.io/aggregate-to-admin: "true"
-  name: kyverno:admin-reportchangerequest
+  name: kyverno:admin-reports
 rules:
 - apiGroups:
-  - kyverno.io
+    - kyverno.io
   resources:
-  - reportchangerequests
-  - clusterreportchangerequests
+    - admissionreports
+    - clusteradmissionreports
+    - backgroundscanreports
+    - clusterbackgroundscanreports
   verbs:
     - create
     - delete

@@ -7,11 +7,11 @@ import (
 	"time"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	log "github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policycache"
 	"gotest.tools/assert"
 	v1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -153,7 +153,7 @@ var pod = `{
 
 func Test_AdmissionResponseValid(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_AdmissionResponseValid")
+	logger := log.WithName("Test_AdmissionResponseValid")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -176,18 +176,18 @@ func Test_AdmissionResponseValid(t *testing.T) {
 		},
 	}
 
-	response := handlers.Mutate(logger, request, time.Now())
+	response := handlers.Mutate(logger, request, "", time.Now())
 	assert.Assert(t, response != nil)
 	assert.Equal(t, response.Allowed, true)
 
-	response = handlers.Validate(logger, request, time.Now())
+	response = handlers.Validate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 
 	validPolicy.Spec.ValidationFailureAction = kyverno.Enforce
 	policyCache.Set(key, &validPolicy)
 
-	response = handlers.Validate(logger, request, time.Now())
+	response = handlers.Validate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -196,7 +196,7 @@ func Test_AdmissionResponseValid(t *testing.T) {
 
 func Test_AdmissionResponseInvalid(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_AdmissionResponseInvalid")
+	logger := log.WithName("Test_AdmissionResponseInvalid")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -220,7 +220,7 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	invalidPolicy.Spec.ValidationFailureAction = kyverno.Enforce
 	policyCache.Set(keyInvalid, &invalidPolicy)
 
-	response := handlers.Validate(logger, request, time.Now())
+	response := handlers.Validate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -228,14 +228,14 @@ func Test_AdmissionResponseInvalid(t *testing.T) {
 	invalidPolicy.Spec.FailurePolicy = &ignore
 	policyCache.Set(keyInvalid, &invalidPolicy)
 
-	response = handlers.Validate(logger, request, time.Now())
+	response = handlers.Validate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 1)
 }
 
 func Test_ImageVerify(t *testing.T) {
 	policyCache := policycache.NewCache()
-	logger := log.Log.WithName("Test_ImageVerify")
+	logger := log.WithName("Test_ImageVerify")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -261,7 +261,7 @@ func Test_ImageVerify(t *testing.T) {
 	policy.Spec.ValidationFailureAction = kyverno.Enforce
 	policyCache.Set(key, &policy)
 
-	response := handlers.Mutate(logger, request, time.Now())
+	response := handlers.Mutate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 
@@ -269,7 +269,7 @@ func Test_ImageVerify(t *testing.T) {
 	policy.Spec.FailurePolicy = &ignore
 	policyCache.Set(key, &policy)
 
-	response = handlers.Mutate(logger, request, time.Now())
+	response = handlers.Mutate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
 	assert.Equal(t, len(response.Warnings), 0)
 }

@@ -47,10 +47,10 @@ rules:
     - generaterequests/status
     - updaterequests
     - updaterequests/status
-    - reportchangerequests
-    - reportchangerequests/status
-    - clusterreportchangerequests
-    - clusterreportchangerequests/status
+    - admissionreports
+    - clusteradmissionreports
+    - backgroundscanreports
+    - clusterbackgroundscanreports
   verbs:
     - create
     - delete

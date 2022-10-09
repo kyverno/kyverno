@@ -44,6 +44,12 @@ initImage:
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
 
+initContainer:
+  # -- Extra arguments to give to the kyvernopre binary.
+  extraArgs:
+    - --loggingFormat=text
+
+
 testImage:
   # -- Image repository
   # Defaults to `busybox` if omitted
@@ -71,6 +77,20 @@ podSecurityContext: {}
 
 # -- Security context for the containers
 securityContext:
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Security context for the test containers
+testSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
@@ -142,6 +162,7 @@ envVars: {}
 # -- Extra arguments to give to the binary.
 extraArgs:
   - --autogenInternals=true
+  - --loggingFormat=text
 
 # -- Array of extra init containers
 extraInitContainers: []
@@ -181,6 +202,16 @@ resources:
     memory: 128Mi
 
 initResources:
+  # -- Pod resource limits
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  # -- Pod resource requests
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+testResources:
   # -- Pod resource limits
   limits:
     cpu: 100m
@@ -250,8 +281,10 @@ config:
   - '[SelfSubjectAccessReview,*,*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
-  - '[ReportChangeRequest,*,*]'
-  - '[ClusterReportChangeRequest,*,*]'
+  - '[AdmissionReport,*,*]'
+  - '[ClusterAdmissionReport,*,*]'
+  - '[BackgroundScanReport,*,*]'
+  - '[ClusterBackgroundScanReport,*,*]'
   # exclude resources from the chart
   - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
   - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'

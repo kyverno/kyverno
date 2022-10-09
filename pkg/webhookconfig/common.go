@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/tls"
@@ -19,7 +20,6 @@ import (
 
 const (
 	managedByLabel string = "webhook.kyverno.io/managed-by"
-	kyvernoValue   string = "kyverno"
 )
 
 var (
@@ -38,7 +38,7 @@ var (
 	}
 	vertifyObjectSelector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernoValue,
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	update       = []admissionregistrationv1.OperationType{admissionregistrationv1.Update}
@@ -50,10 +50,11 @@ func (wrc *Register) readCaData() []byte {
 	logger := wrc.log.WithName("readCaData")
 	var caData []byte
 	var err error
-
+	recorder := metrics.NamespacedClientQueryRecorder(wrc.metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient)
+	secretsClient := metrics.ObjectClient[*corev1.Secret](recorder, wrc.kubeClient.CoreV1().Secrets(config.KyvernoNamespace()))
 	// Check if ca is defined in the secret tls-ca
 	// assume the key and signed cert have been defined in secret tls.kyverno
-	if caData, err = tls.ReadRootCASecret(wrc.kubeClient, wrc.metricsConfig); err == nil {
+	if caData, err = tls.ReadRootCASecret(secretsClient); err == nil {
 		logger.V(4).Info("read CA from secret")
 		return caData
 	}
@@ -75,7 +76,7 @@ func getHealthyPodsIP(pods []corev1.Pod) []string {
 func (wrc *Register) GetKubePolicyClusterRoleName() (*rbacv1.ClusterRole, error) {
 	selector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app.kubernetes.io/name": kyvernoValue,
+			"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 		},
 	}
 	clusterRoles, err := wrc.kubeClient.RbacV1().ClusterRoles().List(context.TODO(), metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)})
@@ -199,7 +200,7 @@ func generateObjectMeta(name string, owner ...metav1.OwnerReference) metav1.Obje
 	return metav1.ObjectMeta{
 		Name: name,
 		Labels: map[string]string{
-			managedByLabel: kyvernoValue,
+			managedByLabel: kyvernov1.ValueKyvernoApp,
 		},
 		OwnerReferences: owner,
 	}
@@ -289,7 +290,8 @@ func defaultResourceWebhookRule(autoUpdate bool) admissionregistrationv1.Rule {
 }
 
 func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, url := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
+	name, baseUrl := config.MutatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.MutatingWebhookServicePath)
+	url := fmt.Sprintf("%s/ignore", baseUrl)
 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationDebugName, owner),
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -297,13 +299,15 @@ func constructDefaultDebugMutatingWebhookConfig(serverIP string, caData []byte, 
 		},
 	}
 	if autoUpdate {
+		url := fmt.Sprintf("%s/fail", baseUrl)
 		webhook.Webhooks = append(webhook.Webhooks, generateDebugMutatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.MutatingWebhookConfiguration {
-	name, path := config.MutatingWebhookName, config.MutatingWebhookServicePath
+	name, basePath := config.MutatingWebhookName, config.MutatingWebhookServicePath
+	path := fmt.Sprintf("%s/ignore", basePath)
 	webhook := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.MutatingWebhookConfigurationName, owner),
 		Webhooks: []admissionregistrationv1.MutatingWebhook{
@@ -311,13 +315,15 @@ func constructDefaultMutatingWebhookConfig(caData []byte, timeoutSeconds int32, 
 		},
 	}
 	if autoUpdate {
+		path := fmt.Sprintf("%s/fail", basePath)
 		webhook.Webhooks = append(webhook.Webhooks, generateMutatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), createUpdate, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultDebugValidatingWebhookConfig(serverIP string, caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, url := config.ValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.ValidatingWebhookServicePath)
+	name, baseUrl := config.ValidatingWebhookName, fmt.Sprintf("https://%s%s", serverIP, config.ValidatingWebhookServicePath)
+	url := fmt.Sprintf("%s/ignore", baseUrl)
 	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationDebugName, owner),
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
@@ -325,13 +331,15 @@ func constructDefaultDebugValidatingWebhookConfig(serverIP string, caData []byte
 		},
 	}
 	if autoUpdate {
+		url := fmt.Sprintf("%s/fail", baseUrl)
 		webhook.Webhooks = append(webhook.Webhooks, generateDebugValidatingWebhook(name+"-fail", url, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
 }
 
 func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32, autoUpdate bool, owner metav1.OwnerReference) *admissionregistrationv1.ValidatingWebhookConfiguration {
-	name, path := config.ValidatingWebhookName, config.ValidatingWebhookServicePath
+	name, basePath := config.ValidatingWebhookName, config.ValidatingWebhookServicePath
+	path := fmt.Sprintf("%s/ignore", basePath)
 	webhook := &admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: generateObjectMeta(config.ValidatingWebhookConfigurationName, owner),
 		Webhooks: []admissionregistrationv1.ValidatingWebhook{
@@ -339,6 +347,7 @@ func constructDefaultValidatingWebhookConfig(caData []byte, timeoutSeconds int32
 		},
 	}
 	if autoUpdate {
+		path := fmt.Sprintf("%s/fail", basePath)
 		webhook.Webhooks = append(webhook.Webhooks, generateValidatingWebhook(name+"-fail", path, caData, timeoutSeconds, defaultResourceWebhookRule(autoUpdate), all, admissionregistrationv1.Fail))
 	}
 	return webhook
