@@ -49,6 +49,7 @@ type Spec struct {
 	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:default=audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction
@@ -60,6 +61,7 @@ type Spec struct {
 	// Optional. Default value is "true". The value must be set to "false" if the policy rule
 	// uses variables that are only available in the admission review request (e.g. user name).
 	// +optional
+	// +kubebuilder:default=true
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
 	// SchemaValidation skips policy validation checks.
@@ -153,6 +155,17 @@ func (s *Spec) HasVerifyImages() bool {
 	return false
 }
 
+// HasYAMLSignatureVerify checks for image verification rules invoked during resource mutation
+func (s *Spec) HasYAMLSignatureVerify() bool {
+	for _, rule := range s.Rules {
+		if rule.HasYAMLSignatureVerify() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // BackgroundProcessingEnabled checks if background is set to true
 func (s *Spec) BackgroundProcessingEnabled() bool {
 	if s.Background == nil {
@@ -221,17 +234,17 @@ func (s *Spec) ValidateRuleNames(path *field.Path) (errs field.ErrorList) {
 }
 
 // ValidateRules implements programmatic validation of Rules
-func (s *Spec) ValidateRules(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
+func (s *Spec) ValidateRules(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
 	errs = append(errs, s.ValidateRuleNames(path)...)
 	for i, rule := range s.Rules {
-		errs = append(errs, rule.Validate(path.Index(i), namespaced, clusterResources)...)
+		errs = append(errs, rule.Validate(path.Index(i), namespaced, policyNamespace, clusterResources)...)
 	}
 	return errs
 }
 
 // Validate implements programmatic validation
-func (s *Spec) Validate(path *field.Path, namespaced bool, clusterResources sets.String) (errs field.ErrorList) {
-	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, clusterResources)...)
+func (s *Spec) Validate(path *field.Path, namespaced bool, policyNamespace string, clusterResources sets.String) (errs field.ErrorList) {
+	errs = append(errs, s.ValidateRules(path.Child("rules"), namespaced, policyNamespace, clusterResources)...)
 	if namespaced && len(s.ValidationFailureActionOverrides) > 0 {
 		errs = append(errs, field.Forbidden(path.Child("validationFailureActionOverrides"), "Use of validationFailureActionOverrides is supported only with ClusterPolicy"))
 	}

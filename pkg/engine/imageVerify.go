@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -17,12 +16,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	apiutils "github.com/kyverno/kyverno/pkg/utils/api"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineResponse, *ImageVerificationMetadata) {
@@ -31,7 +31,7 @@ func VerifyAndPatchImages(policyContext *PolicyContext) (*response.EngineRespons
 
 	policy := policyContext.Policy
 	patchedResource := policyContext.NewResource
-	logger := log.Log.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
+	logger := logging.WithName("EngineVerifyImages").WithValues("policy", policy.GetName(),
 		"kind", patchedResource.GetKind(), "namespace", patchedResource.GetNamespace(), "name", patchedResource.GetName())
 
 	startTime := time.Now()
@@ -197,7 +197,6 @@ func (iv *imageVerifier) verify(imageVerify kyvernov1.ImageVerification, images 
 					ruleResp.Patches = append(ruleResp.Patches, patch)
 					imageInfo.Digest = retrievedDigest
 					image = imageInfo.String()
-					digest = retrievedDigest
 				}
 			}
 
@@ -285,8 +284,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 		path := fmt.Sprintf(".attestors[%d]", i)
 		cosignResponse, err = iv.verifyAttestorSet(attestorSet, imageVerify, imageInfo, path)
 		if err != nil {
-			iv.logger.Error(err, "failed to verify signature")
-			msg := fmt.Sprintf("failed to verify signature for %s: %s", image, err.Error())
+			iv.logger.Error(err, "failed to verify image")
+			msg := fmt.Sprintf("failed to verify image %s: %s", image, err.Error())
 
 			// handle registry network errors as a rule error (instead of a policy failure)
 			var netErr *net.OpError
@@ -307,8 +306,8 @@ func (iv *imageVerifier) verifyImage(imageVerify kyvernov1.ImageVerification, im
 }
 
 func (iv *imageVerifier) verifyAttestorSet(attestorSet kyvernov1.AttestorSet, imageVerify kyvernov1.ImageVerification,
-	imageInfo apiutils.ImageInfo, path string) (*cosign.Response, error) {
-
+	imageInfo apiutils.ImageInfo, path string,
+) (*cosign.Response, error) {
 	var errorList []error
 	verifiedCount := 0
 	attestorSet = expandStaticKeys(attestorSet)
@@ -530,8 +529,8 @@ func evaluateConditions(
 	conditions []kyvernov1.AnyAllConditions,
 	ctx context.Interface,
 	s map[string]interface{},
-	log logr.Logger) (bool, error) {
-
+	log logr.Logger,
+) (bool, error) {
 	predicate, ok := s["predicate"].(map[string]interface{})
 	if !ok {
 		return false, fmt.Errorf("failed to extract predicate from statement: %v", s)

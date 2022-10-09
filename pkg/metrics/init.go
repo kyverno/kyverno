@@ -17,8 +17,8 @@ func InitMetrics(
 	metricsConfigData *config.MetricsConfigData,
 	transportCreds string,
 	kubeClient kubernetes.Interface,
-	log logr.Logger) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
-
+	log logr.Logger,
+) (*MetricsConfig, *http.ServeMux, *controller.Controller, error) {
 	var metricsConfig *MetricsConfig
 	var err error
 	var metricsServerMux *http.ServeMux
@@ -26,7 +26,7 @@ func InitMetrics(
 	if !disableMetricsExport {
 		if otel == "grpc" {
 			// Otlpgrpc metrics will be served on port 4317: default port for otlpgrpcmetrics
-			log.Info("Enabling Metrics for Kyverno", "address", metricsAddr)
+			log.V(2).Info("Enabling Metrics for Kyverno", "address", metricsAddr)
 
 			endpoint := otelCollector + metricsAddr
 			metricsConfig, pusher, err = NewOTLPGRPCConfig(

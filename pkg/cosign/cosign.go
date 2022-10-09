@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
@@ -53,8 +53,7 @@ type Response struct {
 	Statements []map[string]interface{}
 }
 
-type CosignError struct {
-}
+type CosignError struct{}
 
 func Verify(opts Options) (*Response, error) {
 	if opts.FetchAttestations {
@@ -159,7 +158,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := loadCert([]byte(opts.Cert))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+				return nil, errors.Wrapf(err, "failed to load certificate from %s", opts.Cert)
 			}
 
 			if opts.CertChain == "" {
@@ -277,6 +276,20 @@ func fetchAttestations(opts Options) (*Response, error) {
 			return nil, errors.Wrap(fmt.Errorf("not found"), "")
 		}
 
+		return nil, err
+	}
+
+	payload, err := extractPayload(signatures)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+		return nil, err
+	}
+
+	err = checkAnnotations(payload, opts.Annotations)
+	if err != nil {
 		return nil, err
 	}
 
@@ -444,13 +457,13 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 		}
 
 		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
+			return errors.Errorf("certificate not found")
 		}
 
 		if subject != "" {
 			s := sigs.CertSubject(cert)
 			if !wildcard.Match(subject, s) {
-				return fmt.Errorf("subject mismatch: expected %s, received %s", s, subject)
+				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 			}
 		}
 
@@ -488,17 +501,17 @@ func matchExtensions(cert *x509.Certificate, issuer string, extensions map[strin
 
 func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
 	switch key {
-	case cosign.CertExtensionOIDCIssuer:
+	case cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
 		return ce.GetIssuer(), nil
-	case cosign.CertExtensionGithubWorkflowTrigger:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
 		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
-	case cosign.CertExtensionGithubWorkflowSha:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
 		return ce.GetExtensionGithubWorkflowSha(), nil
-	case cosign.CertExtensionGithubWorkflowName:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
 		return ce.GetCertExtensionGithubWorkflowName(), nil
-	case cosign.CertExtensionGithubWorkflowRepository:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
 		return ce.GetCertExtensionGithubWorkflowRepository(), nil
-	case cosign.CertExtensionGithubWorkflowRef:
+	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
 		return ce.GetCertExtensionGithubWorkflowRef(), nil
 	default:
 		return "", errors.Errorf("invalid certificate extension %s", key)

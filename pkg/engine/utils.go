@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
@@ -16,7 +15,9 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // EngineStats stores in the statistics for a single application of resource
@@ -111,7 +111,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	wildcards.ReplaceInSelector(labelSelector, resourceLabels)
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		log.Log.Error(err, "failed to build label selector")
+		logging.Error(err, "failed to build label selector")
 		return false, err
 	}
 
@@ -125,14 +125,18 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 // doesResourceMatchConditionBlock filters the resource with defined conditions
 // for a match / exclude block, it has the following attributes:
 // ResourceDescription:
-// 		Kinds      []string
-// 		Name       string
-// 		Namespaces []string
-// 		Selector
+//
+//	Kinds      []string
+//	Name       string
+//	Namespaces []string
+//	Selector
+//
 // UserInfo:
-// 		Roles        []string
-// 		ClusterRoles []string
-// 		Subjects     []rbacv1.Subject
+//
+//	Roles        []string
+//	ClusterRoles []string
+//	Subjects     []rbacv1.Subject
+//
 // To filter out the targeted resources with ResourceDescription, the check
 // should be: AND across attributes but an OR inside attributes that of type list
 // To filter out the targeted resources with UserInfo, the check

@@ -8,12 +8,13 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/kyverno/kyverno/pkg/logging"
 )
 
 // ApplyBackgroundChecks checks for validity of generate and mutateExisting rules on the resource
 // 1. validate variables to be substitute in the general ruleInfo (match,exclude,condition)
-//    - the caller has to check the ruleResponse to determine whether the path exist
+//   - the caller has to check the ruleResponse to determine whether the path exist
+//
 // 2. returns the list of rules that are applicable on this policy and resource, if 1 succeed
 func ApplyBackgroundChecks(policyContext *PolicyContext) (resp *response.EngineResponse) {
 	policyStartTime := time.Now()
@@ -44,7 +45,7 @@ func filterRules(policyContext *PolicyContext, startTime time.Time) *response.En
 	}
 
 	if policyContext.ExcludeResourceFunc(kind, namespace, name) {
-		log.Log.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
+		logging.WithName("ApplyBackgroundChecks").Info("resource excluded", "kind", kind, "namespace", namespace, "name", name)
 		return resp
 	}
 
@@ -82,7 +83,7 @@ func filterRule(rule kyvernov1.Rule, policyContext *PolicyContext) *response.Rul
 	excludeGroupRole := policyContext.ExcludeGroupRole
 	namespaceLabels := policyContext.NamespaceLabels
 
-	logger := log.Log.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
+	logger := logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
 	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {

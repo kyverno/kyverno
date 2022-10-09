@@ -24,7 +24,7 @@ rbac:
 
 image:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyverno
+  repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
   # -- Image tag
   # Defaults to appVersion in Chart.yaml if omitted
   tag:  # replaced in e2e tests
@@ -36,13 +36,19 @@ image:
 
 initImage:
   # -- Image repository
-  repository: ghcr.io/kyverno/kyvernopre
+  repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
   # -- Image tag
   # If initImage.tag is missing, defaults to image.tag
   tag:  # replaced in e2e tests
   # -- Image pull policy
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
+
+initContainer:
+  # -- Extra arguments to give to the kyvernopre binary.
+  extraArgs:
+    - --loggingFormat=text
+
 
 testImage:
   # -- Image repository
@@ -71,6 +77,20 @@ podSecurityContext: {}
 
 # -- Security context for the containers
 securityContext:
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Security context for the test containers
+testSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
@@ -141,7 +161,8 @@ envVars: {}
 
 # -- Extra arguments to give to the binary.
 extraArgs:
-  - --autogenInternals=false
+  - --autogenInternals=true
+  - --loggingFormat=text
 
 # -- Array of extra init containers
 extraInitContainers: []
@@ -190,6 +211,16 @@ initResources:
     cpu: 10m
     memory: 64Mi
 
+testResources:
+  # -- Pod resource limits
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  # -- Pod resource requests
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -220,9 +251,8 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-# TODO(mbarrien): Should we just list all resources for the
-# generatecontroller in here rather than having defaults hard-coded?
-generatecontrollerExtraResources:
+# -- Additional resources to be added to controller RBAC permissions.
+generatecontrollerExtraResources: []
 # - ResourceA
 # - ResourceB
 
@@ -251,8 +281,10 @@ config:
   - '[SelfSubjectAccessReview,*,*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
-  - '[ReportChangeRequest,*,*]'
-  - '[ClusterReportChangeRequest,*,*]'
+  - '[AdmissionReport,*,*]'
+  - '[ClusterAdmissionReport,*,*]'
+  - '[BackgroundScanReport,*,*]'
+  - '[ClusterBackgroundScanReport,*,*]'
   # exclude resources from the chart
   - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
   - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'

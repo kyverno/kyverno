@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,7 +22,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	engineContext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -30,7 +30,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,7 +105,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 
 		// apply file from a directory is possible only if the path is not HTTP URL
 		if !isHTTPPath && fileDesc.IsDir() {
-			files, err := ioutil.ReadDir(path)
+			files, err := os.ReadDir(path)
 			if err != nil {
 				err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 				errors = append(errors, err)
@@ -147,7 +147,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 					continue
 				}
 
-				fileBytes, err = ioutil.ReadAll(resp.Body)
+				fileBytes, err = io.ReadAll(resp.Body)
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -156,7 +156,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 			} else {
 				path = filepath.Clean(path)
 				// We accept the risk of including a user provided file here.
-				fileBytes, err = ioutil.ReadFile(path) // #nosec G304
+				fileBytes, err = os.ReadFile(path) // #nosec G304
 				if err != nil {
 					err := fmt.Errorf("failed to process %v: %v", path, err.Error())
 					errors = append(errors, err)
@@ -164,7 +164,7 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 				}
 			}
 
-			policiesFromFile, errFromFile := utils.GetPolicy(fileBytes)
+			policiesFromFile, errFromFile := yamlutils.GetPolicy(fileBytes)
 			if errFromFile != nil {
 				err := fmt.Errorf("failed to process %s: %v", path, errFromFile.Error())
 				errors = append(errors, err)
@@ -267,13 +267,13 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			if err != nil {
 				fmt.Printf("Unable to open variable file: %s. error: %s", valuesFile, err)
 			}
-			yamlFile, err = ioutil.ReadAll(filep)
+			yamlFile, err = io.ReadAll(filep)
 			if err != nil {
 				fmt.Printf("Unable to read variable files: %s. error: %s \n", filep, err)
 			}
 		} else {
 			// We accept the risk of including a user provided file here.
-			yamlFile, err = ioutil.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
+			yamlFile, err = os.ReadFile(filepath.Join(policyResourcePath, valuesFile)) // #nosec G304
 			if err != nil {
 				fmt.Printf("\n Unable to open variable file: %s. error: %s \n", valuesFile, err)
 			}
@@ -297,7 +297,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 			values.GlobalValues = make(map[string]string)
 			values.GlobalValues["request.operation"] = "CREATE"
 			log.Log.V(3).Info("Defaulting request.operation to CREATE")
-
 		} else {
 			if val, ok := values.GlobalValues["request.operation"]; ok {
 				if val == "" {
@@ -622,7 +621,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("Error: file not available with path %s: %v", filep.Name(), err.Error())
 				continue
 			}
-			bytes, err := ioutil.ReadAll(filep)
+			bytes, err := io.ReadAll(filep)
 			if err != nil {
 				fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
 				continue
@@ -632,7 +631,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 				fmt.Printf("failed to convert to JSON: %v", err)
 				continue
 			}
-			policiesFromFile, errFromFile := utils.GetPolicy(policyBytes)
+			policiesFromFile, errFromFile := yamlutils.GetPolicy(policyBytes)
 			if errFromFile != nil {
 				fmt.Printf("failed to process : %v", errFromFile.Error())
 				continue
@@ -648,7 +647,7 @@ func GetPoliciesFromPaths(fs billy.Filesystem, dirPath []string, isGit bool, pol
 					policyStr = policyStr + scanner.Text() + "\n"
 				}
 				yamlBytes := []byte(policyStr)
-				policies, err = utils.GetPolicy(yamlBytes)
+				policies, err = yamlutils.GetPolicy(yamlBytes)
 				if err != nil {
 					return nil, sanitizederror.NewWithError("failed to extract the resources", err)
 				}
@@ -704,7 +703,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 					return nil, err
 				}
 				if fileDesc.IsDir() {
-					files, err := ioutil.ReadDir(resourcePaths[0])
+					files, err := os.ReadDir(resourcePaths[0])
 					if err != nil {
 						return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to parse %v", resourcePaths[0]), err)
 					}
@@ -754,7 +753,7 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 
 				case response.RuleStatusFail:
 					ann := policy.GetAnnotations()
-					if scored, ok := ann[policyreport.ScoredLabel]; ok && scored == "false" {
+					if scored, ok := ann[kyvernov1.AnnotationPolicyScored]; ok && scored == "false" {
 						rc.Warn++
 						vrule.Status = policyreportv1alpha2.StatusWarn
 						break
@@ -1003,7 +1002,7 @@ func GetKindsFromPolicy(policy kyvernov1.PolicyInterface) map[string]struct{} {
 	return kindOnwhichPolicyIsApplied
 }
 
-//GetResourceFromPath - get patchedResource and generatedResource from given path
+// GetResourceFromPath - get patchedResource and generatedResource from given path
 func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyResourcePath string, resourceType string) (unstructured.Unstructured, error) {
 	var resourceBytes []byte
 	var resource unstructured.Unstructured
@@ -1014,7 +1013,7 @@ func GetResourceFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 			if fileErr != nil {
 				fmt.Printf("Unable to open %s file: %s. \nerror: %s", resourceType, path, err)
 			}
-			resourceBytes, err = ioutil.ReadAll(filep)
+			resourceBytes, err = io.ReadAll(filep)
 		}
 	} else {
 		resourceBytes, err = getFileBytes(path)
@@ -1049,7 +1048,7 @@ func initializeMockController(objects []runtime.Object) (*generate.GenerateContr
 // handleGeneratePolicy returns a new RuleResponse with the Kyverno generated resource configuration by applying the generate rule.
 func handleGeneratePolicy(generateResponse *response.EngineResponse, policyContext engine.PolicyContext, ruleToCloneSourceResource map[string]string) ([]response.RuleResponse, error) {
 	objects := []runtime.Object{&policyContext.NewResource}
-	var resources = []*unstructured.Unstructured{}
+	resources := []*unstructured.Unstructured{}
 	for _, rule := range generateResponse.PolicyResponse.Rules {
 		if path, ok := ruleToCloneSourceResource[rule.Name]; ok {
 			resourceBytes, err := getFileBytes(path)
@@ -1118,7 +1117,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		if err != nil {
 			fmt.Printf("Unable to open userInfo file: %s. \nerror: %s", path, err)
 		}
-		bytes, err := ioutil.ReadAll(filep)
+		bytes, err := io.ReadAll(filep)
 		if err != nil {
 			fmt.Printf("Error: failed to read file %s: %v", filep.Name(), err.Error())
 		}
@@ -1140,7 +1139,8 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 		}
 	} else {
 		var errors []error
-		bytes, err := ioutil.ReadFile(filepath.Join(policyResourcePath, path))
+		pathname := filepath.Clean(filepath.Join(policyResourcePath, path))
+		bytes, err := os.ReadFile(pathname)
 		if err != nil {
 			errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 		}

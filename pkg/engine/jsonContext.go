@@ -302,51 +302,17 @@ func fetchAPIData(log logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyCont
 	}
 
 	pathStr := path.(string)
-	p, err := NewAPIPath(pathStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build API path for %s %v: %v", entry.Name, entry.APICall, err)
-	}
 
-	var jsonData []byte
-	if p.Name != "" {
-		jsonData, err = loadResource(ctx, p)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add resource with urlPath: %s: %v", p, err)
-		}
-	} else {
-		jsonData, err = loadResourceList(ctx, p)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add resource list with urlPath: %s, error: %v", p, err)
-		}
+	jsonData, err := getResource(ctx, pathStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource with raw url\n: %s: %v", pathStr, err)
 	}
 
 	return jsonData, nil
 }
 
-func loadResourceList(ctx *PolicyContext, p *APIPath) ([]byte, error) {
-	if ctx.Client == nil {
-		return nil, fmt.Errorf("API client is not available")
-	}
-
-	l, err := ctx.Client.ListResource(p.Version, p.ResourceType, p.Namespace, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return l.MarshalJSON()
-}
-
-func loadResource(ctx *PolicyContext, p *APIPath) ([]byte, error) {
-	if ctx.Client == nil {
-		return nil, fmt.Errorf("API client is not available")
-	}
-
-	r, err := ctx.Client.GetResource(p.Version, p.ResourceType, p.Namespace, p.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return r.MarshalJSON()
+func getResource(ctx *PolicyContext, p string) ([]byte, error) {
+	return ctx.Client.RawAbsPath(p)
 }
 
 func loadConfigMap(logger logr.Logger, entry kyvernov1.ContextEntry, ctx *PolicyContext) error {

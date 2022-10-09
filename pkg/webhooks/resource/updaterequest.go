@@ -10,23 +10,26 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
+	"github.com/kyverno/kyverno/pkg/webhooks/resource/generation"
+	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
 // createUpdateRequests applies generate and mutateExisting policies, and creates update requests for background reconcile
-func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts int64) {
+func (h *handlers) createUpdateRequests(logger logr.Logger, request *admissionv1.AdmissionRequest, policyContext *engine.PolicyContext, generatePolicies, mutatePolicies []kyvernov1.PolicyInterface, ts time.Time) {
 	admissionReviewCompletionLatencyChannel := make(chan int64, 1)
 	generateEngineResponsesSenderForAdmissionReviewDurationMetric := make(chan []*response.EngineResponse, 1)
 	generateEngineResponsesSenderForAdmissionRequestsCountMetric := make(chan []*response.EngineResponse, 1)
 
+	gh := generation.NewGenerationHandler(logger, h.client, h.kyvernoClient, h.nsLister, h.urLister, h.urGenerator, h.urUpdater, h.eventGen)
 	go h.handleMutateExisting(logger, request, mutatePolicies, policyContext, ts)
-	go h.handleGenerate(logger, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go gh.Handle(h.metricsConfig, request, generatePolicies, policyContext, ts, &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric, &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 
-	go h.registerAdmissionReviewDurationMetricGenerate(logger, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
-	go h.registerAdmissionRequestsMetricGenerate(logger, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
+	go webhookutils.RegisterAdmissionReviewDurationMetricGenerate(logger, h.metricsConfig, string(request.Operation), &admissionReviewCompletionLatencyChannel, &generateEngineResponsesSenderForAdmissionReviewDurationMetric)
+	go webhookutils.RegisterAdmissionRequestsMetricGenerate(logger, h.metricsConfig, string(request.Operation), &generateEngineResponsesSenderForAdmissionRequestsCountMetric)
 }
 
-func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp int64) {
+func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1.AdmissionRequest, policies []kyvernov1.PolicyInterface, policyContext *engine.PolicyContext, admissionRequestTimestamp time.Time) {
 	logger.V(4).Info("update request")
 
 	if request.Operation == admissionv1.Delete {
@@ -60,9 +63,9 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		}
 
 		// registering the kyverno_policy_results_total metric concurrently
-		go h.registerPolicyResultsMetricMutation(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyResultsMetricMutation(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 		// registering the kyverno_policy_execution_duration_seconds metric concurrently
-		go h.registerPolicyExecutionDurationMetricMutate(logger, string(request.Operation), policy, *engineResponse)
+		go webhookutils.RegisterPolicyExecutionDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), policy, *engineResponse)
 	}
 
 	if failedResponse := applyUpdateRequest(request, kyvernov1beta1.Mutate, h.urGenerator, policyContext.AdmissionInfo, request.Operation, engineResponses...); failedResponse != nil {
@@ -73,7 +76,7 @@ func (h *handlers) handleMutateExisting(logger logr.Logger, request *admissionv1
 		}
 	}
 
-	admissionReviewLatencyDuration := int64(time.Since(time.Unix(admissionRequestTimestamp, 0)))
-	go h.registerAdmissionReviewDurationMetricMutate(logger, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
-	go h.registerAdmissionRequestsMetricMutate(logger, string(request.Operation), engineResponses)
+	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
+	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses, admissionReviewLatencyDuration)
+	go webhookutils.RegisterAdmissionRequestsMetricMutate(logger, h.metricsConfig, string(request.Operation), engineResponses)
 }

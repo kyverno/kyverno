@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	ecr "github.com/awslabs/amazon-ecr-credential-helper/ecr-login"
@@ -48,7 +48,7 @@ func InitClient(options ...Option) (Client, error) {
 	baseKeychain := authn.NewMultiKeychain(
 		authn.DefaultKeychain,
 		google.Keychain,
-		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(ioutil.Discard))),
+		authn.NewKeychainFromHelper(ecr.NewECRHelper(ecr.WithLogger(io.Discard))),
 		authn.NewKeychainFromHelper(credhelper.NewACRCredentialsHelper()),
 		github.Keychain,
 	)
@@ -95,7 +95,7 @@ func WithKeychainPullSecrets(kubClient kubernetes.Interface, namespace, serviceA
 // WithKeychainPullSecrets provides initialize registry client option that allows to use insecure registries.
 func WithAllowInsecureRegistry() Option {
 	return func(c *client) error {
-		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		c.transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec
 		return nil
 	}
 }

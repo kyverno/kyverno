@@ -4,10 +4,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	stringutils "github.com/kyverno/kyverno/pkg/utils/string"
+	"github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"go.uber.org/multierr"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -69,12 +68,18 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 	namespace := target.Namespace
 	name := target.Name
 
+	// if it's namespaced policy, targets has to be loaded only from the policy's namespace
+	if ctx.Policy.IsNamespaced() {
+		namespace = ctx.Policy.GetNamespace()
+	}
+
 	if namespace != "" && name != "" &&
-		!stringutils.ContainsWildcard(namespace) && !stringutils.ContainsWildcard(name) {
+		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
 		obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
 		}
+
 		return []unstructured.Unstructured{*obj}, nil
 	}
 

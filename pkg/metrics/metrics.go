@@ -39,10 +39,21 @@ type MetricsConfig struct {
 	policyExecutionDurationMetric syncfloat64.Histogram
 	admissionRequestsMetric       syncint64.Counter
 	admissionReviewDurationMetric syncfloat64.Histogram
+	clientQueriesMetric           syncint64.Counter
 
 	// config
 	Config *kconfig.MetricsConfigData
 	Log    logr.Logger
+}
+
+type MetricsConfigManager interface {
+	RecordPolicyResults(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause)
+	RecordPolicyChanges(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
+	RecordPolicyRuleInfo(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleType RuleType, status string, metricValue float64)
+	RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation)
+	RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64)
+	RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64)
+	RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
 
 func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
@@ -51,38 +62,44 @@ func initializeMetrics(m *MetricsConfig) (*MetricsConfig, error) {
 
 	m.policyResultsMetric, err = meter.SyncInt64().Counter("kyverno_policy_results_total", instrument.WithDescription("can be used to track the results associated with the policies applied in the user’s cluster, at the level from rule to policy to admission requests"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_results_total")
 		return nil, err
 	}
 
 	m.policyChangesMetric, err = meter.SyncInt64().Counter("kyverno_policy_changes_total", instrument.WithDescription("can be used to track all the changes associated with the Kyverno policies present on the cluster such as creation, updates and deletions"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_changes_total")
 		return nil, err
 	}
 
 	m.admissionRequestsMetric, err = meter.SyncInt64().Counter("kyverno_admission_requests_total", instrument.WithDescription("can be used to track the number of admission requests encountered by Kyverno in the cluster"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_admission_requests_total")
 		return nil, err
 	}
 
 	m.policyExecutionDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_policy_execution_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the execution/processing of the individual rules under Kyverno policies whenever they evaluate incoming resource requests"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_execution_duration_seconds")
 		return nil, err
 	}
 
 	m.admissionReviewDurationMetric, err = meter.SyncFloat64().Histogram("kyverno_admission_review_duration_seconds", instrument.WithDescription("can be used to track the latencies (in seconds) associated with the entire individual admission review. For example, if an incoming request trigger, say, five policies, this metric will track the e2e latency associated with the execution of all those policies"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_admission_review_duration_seconds")
 		return nil, err
 	}
 
 	// Register Async Callbacks
 	m.policyRuleInfoMetric, err = meter.AsyncFloat64().Gauge("kyverno_policy_rule_info_total", instrument.WithDescription("can be used to track the info of the rules or/and policies present in the cluster. 0 means the rule doesn't exist and has been deleted, 1 means the rule is currently existent in the cluster"))
 	if err != nil {
-		m.Log.Error(err, "Failed to create instrument")
+		m.Log.Error(err, "Failed to create instrument, kyverno_policy_rule_info_total")
+		return nil, err
+	}
+
+	m.clientQueriesMetric, err = meter.SyncInt64().Counter("kyverno_client_queries_total", instrument.WithDescription("can be used to track the number of client queries sent from Kyverno to the API-server"))
+	if err != nil {
+		m.Log.Error(err, "Failed to create instrument, kyverno_client_queries_total")
 		return nil, err
 	}
 
@@ -192,6 +209,7 @@ func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
 			processor.WithMemory(true),
 		),
 		controller.WithResource(res),
+		controller.WithCollectPeriod(10*time.Second),
 	)
 
 	exporter, err := prometheus.New(config, c)
@@ -222,7 +240,8 @@ func NewPrometheusConfig(metricsConfigData *kconfig.MetricsConfigData,
 
 func (m *MetricsConfig) RecordPolicyResults(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
 	resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause) {
+	ruleExecutionCause RuleExecutionCause,
+) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
@@ -259,7 +278,8 @@ func (m *MetricsConfig) RecordPolicyChanges(policyValidationMode PolicyValidatio
 }
 
 func (m *MetricsConfig) RecordPolicyRuleInfo(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-	ruleName string, ruleType RuleType, status string, metricValue float64) {
+	ruleName string, ruleType RuleType, status string, metricValue float64,
+) {
 	ctx := context.Background()
 	commonLabels := []attribute.KeyValue{
 		attribute.String("policy_validation_mode", string(policyValidationMode)),
@@ -275,7 +295,7 @@ func (m *MetricsConfig) RecordPolicyRuleInfo(policyValidationMode PolicyValidati
 	m.policyRuleInfoMetric.Observe(ctx, metricValue, commonLabels...)
 }
 
-func (m MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation) {
+func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
@@ -289,7 +309,8 @@ func (m MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceName
 
 func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
 	resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64) {
+	ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64,
+) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
@@ -321,4 +342,17 @@ func (m *MetricsConfig) RecordAdmissionReviewDuration(resourceKind string, resou
 	}
 
 	m.admissionReviewDurationMetric.Record(ctx, admissionRequestLatency, commonLabels...)
+}
+
+func (m *MetricsConfig) RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string) {
+	ctx := context.Background()
+
+	commonLabels := []attribute.KeyValue{
+		attribute.String("operation", string(clientQueryOperation)),
+		attribute.String("client_type", string(clientType)),
+		attribute.String("resource_kind", resourceKind),
+		attribute.String("resource_namespace", resourceNamespace),
+	}
+
+	m.clientQueriesMetric.Add(ctx, 1, commonLabels...)
 }

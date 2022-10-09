@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // NewAllInHandler returns handler to manage AllIn operations
@@ -38,7 +38,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return allin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		allin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		allin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -46,7 +46,7 @@ func (allin AllInHandler) Evaluate(key, value interface{}) bool {
 func (allin AllInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := allKeyExistsInArray(key, value, allin.log)
 	if invalidType {
-		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -98,7 +98,7 @@ func allKeyExistsInArray(key string, value interface{}, log logr.Logger) (invali
 func (allin AllInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isAllIn := allSetExistsInArray(key, value, allin.log, false)
 	if invalidType {
-		allin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		allin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
