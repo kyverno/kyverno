@@ -48,6 +48,7 @@ import (
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
+	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
