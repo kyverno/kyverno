@@ -202,5 +202,182 @@ func Test_ConvertResource(t *testing.T) {
 		assert.Assert(t, resource.GetNamespace() == test.expectedNamespace)
 		break
 	}
+}
 
+func Test_SeperateWildcards(t *testing.T) {
+	testcases := []struct {
+		description string
+		inputList   []string
+		expList1    []string
+		expList2    []string
+	}{
+		{
+			description: "tc1",
+			inputList:   []string{"test*", "default", "default1", "hello"},
+			expList1:    []string{"test*"},
+			expList2:    []string{"default", "default1", "hello"},
+		},
+		{
+			description: "tc2",
+			inputList:   []string{"test*", "default*", "default1?", "hello?"},
+			expList1:    []string{"test*", "default*", "default1?", "hello?"},
+			expList2:    nil,
+		},
+		{
+			description: "tc3",
+			inputList:   []string{"test", "default", "default1", "hello"},
+			expList1:    nil,
+			expList2:    []string{"test", "default", "default1", "hello"},
+		},
+		{
+			description: "tc4",
+			inputList:   nil,
+			expList1:    nil,
+			expList2:    nil,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			list1, list2 := SeperateWildcards(tc.inputList)
+			assert.DeepEqual(t, list1, tc.expList1)
+			assert.DeepEqual(t, list2, tc.expList2)
+		})
+	}
+}
+
+func Test_CheckWildcardNamespaces(t *testing.T) {
+	testcases := []struct {
+		description   string
+		inputPatterns []string
+		inputNs       []string
+		expString1    string
+		expString2    string
+		expBool       bool
+	}{
+		{
+			description:   "tc1",
+			inputPatterns: []string{"default*", "test*"},
+			inputNs:       []string{"default", "default1"},
+			expString1:    "default*",
+			expString2:    "default",
+			expBool:       true,
+		},
+		{
+			description:   "tc2",
+			inputPatterns: []string{"test*"},
+			inputNs:       []string{"default1", "test"},
+			expString1:    "test*",
+			expString2:    "test",
+			expBool:       true,
+		},
+		{
+			description:   "tc3",
+			inputPatterns: []string{"*"},
+			inputNs:       []string{"default1", "test"},
+			expString1:    "*",
+			expString2:    "default1",
+			expBool:       true,
+		},
+		{
+			description:   "tc4",
+			inputPatterns: []string{"a*"},
+			inputNs:       []string{"default1", "test"},
+			expString1:    "",
+			expString2:    "",
+			expBool:       false,
+		},
+		{
+			description:   "tc5",
+			inputPatterns: nil,
+			inputNs:       []string{"default1", "test"},
+			expString1:    "",
+			expString2:    "",
+			expBool:       false,
+		},
+		{
+			description:   "tc6",
+			inputPatterns: []string{"*"},
+			inputNs:       nil,
+			expString1:    "",
+			expString2:    "",
+			expBool:       false,
+		},
+		{
+			description:   "tc7",
+			inputPatterns: nil,
+			inputNs:       nil,
+			expString1:    "",
+			expString2:    "",
+			expBool:       false,
+		},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			str1, str2, actualBool := CheckWildcardNamespaces(tc.inputPatterns, tc.inputNs)
+			assert.Equal(t, str1, tc.expString1)
+			assert.Equal(t, str2, tc.expString2)
+			assert.Equal(t, actualBool, tc.expBool)
+		})
+	}
+}
+
+func Test_containsNamespaceWithStringReturn(t *testing.T) {
+	testcases := []struct {
+		description  string
+		inputPattern []string
+		inputNs      string
+		expStr1      string
+		expStr2      string
+		expBool      bool
+	}{
+		{
+			description:  "tc1",
+			inputPattern: []string{"default*"},
+			inputNs:      "default",
+			expStr1:      "default*",
+			expStr2:      "default",
+			expBool:      true,
+		},
+		{
+			description:  "tc2",
+			inputPattern: []string{"*"},
+			inputNs:      "default",
+			expStr1:      "*",
+			expStr2:      "default",
+			expBool:      true,
+		},
+		{
+			description:  "tc3",
+			inputPattern: []string{"*"},
+			inputNs:      "default",
+			expStr1:      "*",
+			expStr2:      "default",
+			expBool:      true,
+		},
+		{
+			description:  "tc4",
+			inputPattern: nil,
+			inputNs:      "default",
+			expStr1:      "",
+			expStr2:      "",
+			expBool:      false,
+		},
+		{
+			description:  "tc5",
+			inputPattern: nil,
+			inputNs:      "",
+			expStr1:      "",
+			expStr2:      "",
+			expBool:      false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			str1, str2, actualBool := containsNamespaceWithStringReturn(tc.inputPattern, tc.inputNs)
+			assert.Equal(t, str1, tc.expStr1)
+			assert.Equal(t, str2, tc.expStr2)
+			assert.Equal(t, actualBool, tc.expBool)
+		})
+	}
 }

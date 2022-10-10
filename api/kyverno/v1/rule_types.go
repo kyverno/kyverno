@@ -367,7 +367,7 @@ func (r *Rule) ValidateMutationRuleTargetNamespace(path *field.Path, namespaced 
 func (r *Rule) ValidatePSaControlNames(path *field.Path) (errs field.ErrorList) {
 	if r.IsPodSecurity() {
 		podSecurity := r.Validation.PodSecurity
-		forbiddenControls := utils.PSS_baseline_control_names
+		forbiddenControls := []string{}
 		if podSecurity.Level == "baseline" {
 			forbiddenControls = utils.PSS_restricted_control_names
 		}

@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
@@ -30,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var allowedVariables = regexp.MustCompile(`request\.|serviceAccountName|serviceAccountNamespace|element|elementIndex|@|images\.|target\.|([a-z_0-9]+\()[^{}]`)
@@ -123,6 +123,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	if errs := policy.Validate(clusterResources); len(errs) != 0 {
 		return nil, errs.ToAggregate()
 	}
+
+	if !namespaced {
+		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	rules := autogen.ComputeRules(policy)
 	rulesPath := specPath.Child("rules")
 	for i, rule := range rules {
@@ -135,7 +143,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if jsonPatchOnPod(rule) {
 			msg := "Pods managed by workload controllers should not be directly mutated using policies. " +
 				"Use the autogen feature or write policies that match Pod controllers."
-			log.Log.V(1).Info(msg)
+			logging.V(1).Info(msg)
 			return &admissionv1.AdmissionResponse{
 				Allowed:  true,
 				Warnings: []string{msg},
@@ -313,7 +321,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if !mock && rule.Generation.Clone.Name != "" {
 			obj, err := client.GetResource("", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name)
 			if err != nil {
-				log.Log.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
+				logging.Error(err, fmt.Sprintf("source resource %s/%s/%s not found.", rule.Generation.Kind, rule.Generation.Clone.Namespace, rule.Generation.Clone.Name))
 				continue
 			}
 
@@ -338,14 +346,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 
 			if updateSource {
-				log.Log.V(4).Info("updating existing clone source")
+				logging.V(4).Info("updating existing clone source")
 				obj.SetLabels(label)
 				_, err = client.UpdateResource(obj.GetAPIVersion(), rule.Generation.Kind, rule.Generation.Clone.Namespace, obj, false)
 				if err != nil {
-					log.Log.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+					logging.Error(err, "failed to update source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 					continue
 				}
-				log.Log.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
+				logging.V(4).Info("updated source", "kind", obj.GetKind(), "name", obj.GetName(), "namespace", obj.GetNamespace())
 			}
 		}
 	}
@@ -395,7 +403,7 @@ func hasInvalidVariables(policy kyvernov1.PolicyInterface, background bool) erro
 		}
 
 		ctx := buildContext(ruleCopy, background)
-		if _, err := variables.SubstituteAllInRule(log.Log, ctx, *ruleCopy); !checkNotFoundErr(err) {
+		if _, err := variables.SubstituteAllInRule(logging.GlobalLogger(), ctx, *ruleCopy); !checkNotFoundErr(err) {
 			return fmt.Errorf("variable substitution failed for rule %s: %s", ruleCopy.Name, err.Error())
 		}
 	}
@@ -552,7 +560,7 @@ func validateElementInForEach(document apiextensions.JSON) error {
 	if err != nil {
 		return err
 	}
-	_, err = variables.ValidateElementInForEach(log.Log, jsonInterface)
+	_, err = variables.ValidateElementInForEach(logging.GlobalLogger(), jsonInterface)
 	return err
 }
 
@@ -627,7 +635,7 @@ func isLabelAndAnnotationsString(rule kyvernov1.Rule) bool {
 			} else if rule.Validation.GetAnyPattern() != nil {
 				anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 				if err != nil {
-					log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
+					logging.Error(err, "failed to deserialize anyPattern, expect type array")
 					return false
 				}
 
@@ -691,7 +699,7 @@ func ruleOnlyDealsWithResourceMetaData(rule kyvernov1.Rule) bool {
 
 	anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 	if err != nil {
-		log.Log.Error(err, "failed to deserialize anyPattern, expect type array")
+		logging.Error(err, "failed to deserialize anyPattern, expect type array")
 		return false
 	}
 
@@ -1069,5 +1077,63 @@ func validateKinds(kinds []string, mock bool, client dclient.Interface, p kyvern
 			}
 		}
 	}
+	return nil
+}
+
+func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) error {
+	pat, ns, notOk := utils.CheckWildcardNamespaces(auditW, enforce)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
+	pat, ns, notOk = utils.CheckWildcardNamespaces(enforceW, audit)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' matches with namespace '%s'", pat, ns)
+	}
+
+	pat1, pat2, notOk := utils.CheckWildcardNamespaces(auditW, enforceW)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
+	pat1, pat2, notOk = utils.CheckWildcardNamespaces(enforceW, auditW)
+	if notOk {
+		return fmt.Errorf("wildcard pattern '%s' conflicts with the pattern '%s'", pat1, pat2)
+	}
+
+	return nil
+}
+
+func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
+	action := map[string]sets.String{
+		string(kyvernov1.Enforce): sets.NewString(),
+		string(kyvernov1.Audit):   sets.NewString(),
+		"enforceW":                sets.NewString(),
+		"auditW":                  sets.NewString(),
+	}
+
+	for i, vfa := range s.ValidationFailureActionOverrides {
+		patternList, nsList := utils.SeperateWildcards(vfa.Namespaces)
+
+		if vfa.Action == kyvernov1.Audit {
+			if action[string(kyvernov1.Enforce)].HasAny(nsList...) {
+				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
+					strings.Join(action[string(kyvernov1.Enforce)].Intersection(sets.NewString(nsList...)).List(), ", "))
+			}
+			action["auditW"].Insert(patternList...)
+		} else if vfa.Action == kyvernov1.Enforce {
+			if action[string(kyvernov1.Audit)].HasAny(nsList...) {
+				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
+					strings.Join(action[string(kyvernov1.Audit)].Intersection(sets.NewString(nsList...)).List(), ", "))
+			}
+			action["enforceW"].Insert(patternList...)
+		}
+		action[string(vfa.Action)].Insert(nsList...)
+
+		err := validateWildcardsWithNamespaces(action[string(kyvernov1.Enforce)].List(),
+			action[string(kyvernov1.Audit)].List(), action["enforceW"].List(), action["auditW"].List())
+		if err != nil {
+			return fmt.Errorf("path: %s: %s", path.Index(i).Child("namespaces").String(), err.Error())
+		}
+	}
+
 	return nil
 }
