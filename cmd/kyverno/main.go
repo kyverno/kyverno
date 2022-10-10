@@ -13,7 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-logr/zapr"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -32,6 +31,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/cosign"
 	event "github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	"github.com/kyverno/kyverno/pkg/policy"
@@ -48,15 +48,12 @@ import (
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
-	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -90,20 +87,16 @@ var (
 	backgroundScan             bool
 	admissionReports           bool
 	reportsChunkSize           int
-	setupLog                   = log.Log.WithName("setup")
+	setupLog                   = logging.WithName("setup")
 	logFormat                  string
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
 
 func main() {
-	// clear flags initialized in static dependencies
-	if flag.CommandLine.Lookup("log_dir") != nil {
-		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	}
+	logging.Init(nil)
 
-	klog.InitFlags(nil)
-	flag.StringVar(&logFormat, "loggingFormat", "text", "This determines the output format of the logger.")
+	flag.StringVar(&logFormat, "loggingFormat", logging.JSONFormat, "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -138,21 +131,8 @@ func main() {
 	}
 	flag.Parse()
 
-	if logFormat == "text" {
-		// in text mode we use FormatSerialize format
-		log.SetLogger(klogr.New())
-	} else if logFormat == "json" {
-		zapLog, err := zap.NewProduction()
-		if err != nil {
-			fmt.Printf("failed to initialize JSON logger: %s", err.Error())
-			os.Exit(1)
-		}
-		klog.SetLogger(zapr.NewLogger(zapLog))
-
-		// in json mode we use FormatKlog format
-		log.SetLogger(klog.NewKlogr())
-	} else {
-		fmt.Println("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+	if err := logging.Setup(logFormat); err != nil {
+		fmt.Printf("failed to setup logger: %v", err)
 		os.Exit(1)
 	}
 
@@ -160,7 +140,7 @@ func main() {
 		setupLog.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
 	}
 
-	version.PrintVersionInfo(log.Log)
+	version.PrintVersionInfo(logging.GlobalLogger())
 
 	// os signal handler
 	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -200,7 +180,7 @@ func main() {
 		metricsConfigData,
 		transportCreds,
 		kubeClient,
-		log.Log.WithName("Metrics"),
+		logging.WithName("Metrics"),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize metrics")
@@ -303,7 +283,7 @@ func main() {
 
 	// EVENT GENERATOR
 	// - generate event with retry mechanism
-	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, log.Log.WithName("EventGenerator"))
+	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, logging.WithName("EventGenerator"))
 
 	webhookCfg := webhookconfig.NewRegister(
 		clientConfig,
@@ -321,10 +301,10 @@ func main() {
 		debug,
 		autoUpdateWebhooks,
 		stopCh,
-		log.Log,
+		logging.GlobalLogger(),
 	)
 
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, log.Log)
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
 	if err != nil {
 		setupLog.Error(err, "failed to initialize webhookMonitor")
 		os.Exit(1)
@@ -340,7 +320,7 @@ func main() {
 	// Tracing Configuration
 	if enableTracing {
 		setupLog.V(2).Info("Enabling tracing for Kyverno...")
-		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, log.Log.WithName("Tracing"))
+		tracerProvider, err := tracing.NewTraceConfig(otelCollector, transportCreds, kubeClient, logging.WithName("Tracing"))
 		if err != nil {
 			setupLog.Error(err, "Failed to enable tracing for Kyverno")
 			os.Exit(1)
@@ -363,7 +343,7 @@ func main() {
 		configuration,
 		eventGenerator,
 		kubeInformer.Core().V1().Namespaces(),
-		log.Log.WithName("PolicyController"),
+		logging.WithName("PolicyController"),
 		time.Hour,
 		metricsConfig,
 	)
@@ -390,13 +370,16 @@ func main() {
 	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
 
 	certRenewer, err := tls.NewCertRenewer(
-		kubeClient,
+		metrics.ObjectClient[*corev1.Secret](
+			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
+			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		),
 		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
 		serverIP,
-		log.Log.WithName("CertRenewer"),
+		logging.WithName("CertRenewer"),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize CertRenewer")
@@ -501,7 +484,7 @@ func main() {
 		server.Stop(c)
 	}
 
-	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, log.Log.WithName("kyverno/LeaderElection"))
+	le, err := leaderelection.New("kyverno", config.KyvernoNamespace(), kubeClientLeaderElection, config.KyvernoPodName(), run, stop, logging.WithName("kyverno/LeaderElection"))
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)

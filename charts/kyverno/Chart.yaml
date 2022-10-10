@@ -38,3 +38,5 @@ annotations:
       description: Enable autogen internals by default.
     - kind: added
       description: Allow overriding of test security context and resource block.
+    - kind: fixed
+      description: Self signed certificates not using SANs.
