@@ -625,6 +625,56 @@ spec:
               <(path): "*"
 `)
 
+var setImagePullSecret = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-image-pull-secret
+spec:
+  background: false
+  rules:
+  - name: set-image-pull-secret
+    match:
+      resources:
+        kinds:
+          - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+            # match images that are from our registry
+            - <(image): "registry.corp.com/*"
+              # set the imagePullSecrets
+          imagePullSecrets:
+            - name: regcred
+`)
+
+var podWithNoSecrets = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-run
+spec:
+  containers:
+  - name: nginx
+    image: registry.corp.com/nginx:1.14.2
+`)
+
+var podWithNoSecretPattern = []byte(`
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: test-run
+spec:
+  containers:
+  - name: nginx
+    image: registry.corp.com/nginx:1.14.2
+  imagePullSecrets:
+    - name: regcred
+`)
+
 var podWithEmptyDirAsVolume = []byte(`
 apiVersion: v1
 kind: Pod
