@@ -49,7 +49,8 @@ jobs:
     if: contains(needs.scan.outputs.results, 'SchemaVersion')
     needs: scan
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
+
       - name: Download scan
         uses: actions/download-artifact@fb598a63ae348fa914e94cd0ff38f362e927b741 # v3.0.0
         with:
@@ -59,7 +60,7 @@ jobs:
         id: set-scan-output
         run: echo ::set-output name=results::$(cat scan.json)
 
-      - uses: JasonEtco/create-an-issue@v2
+      - uses: JasonEtco/create-an-issue@9e6213aec58987fa7d2f4deb8b256b99e63107a2 # v2.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESULTS: ${{ steps.set-scan-output.outputs.results }}
