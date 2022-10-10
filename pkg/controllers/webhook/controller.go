@@ -249,7 +249,7 @@ func (c *controller) check() bool {
 	if err != nil {
 		return false
 	}
-	return time.Now().After(annTime.Add(idleDeadline))
+	return time.Now().Before(annTime.Add(idleDeadline))
 }
 
 func (c *controller) enqueueAll() {
