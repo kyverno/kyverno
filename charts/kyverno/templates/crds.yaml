@@ -2478,7 +2478,7 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                    description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -4215,7 +4215,7 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                        description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
@@ -5903,7 +5903,7 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                    description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -7615,7 +7615,7 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                        description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
@@ -9899,7 +9899,7 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                    description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -11636,7 +11636,7 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                        description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
@@ -13324,7 +13324,7 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                    description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -15036,7 +15036,7 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only.
+                                        description: 'Images selects matching containers and applies the container level PSS. Each image is the image name consisting of the registry address, repository, image, and tag. Empty list matches no containers, PSS checks are applied at the pod level only. Wildcards (''*'' and ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
