@@ -239,7 +239,7 @@ func (c *controller) watchdog(ctx context.Context) {
 	}
 }
 
-func (c *controller) check() bool {
+func (c *controller) watchdogCheck() bool {
 	lease, err := c.getLease()
 	if err != nil {
 		logger.Error(err, "failed to get lease")
@@ -578,7 +578,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 		ObjectMeta: objectMeta(config.MutatingWebhookConfigurationName),
 		Webhooks:   []admissionregistrationv1.MutatingWebhook{},
 	}
-	if c.check() {
+	if c.watchdogCheck() {
 		ignore := newWebhook(c.defaultTimeout, ignore)
 		fail := newWebhook(c.defaultTimeout, fail)
 		policies, err := c.getAllPolicies()
@@ -685,7 +685,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
 		Webhooks:   []admissionregistrationv1.ValidatingWebhook{},
 	}
-	if c.check() {
+	if c.watchdogCheck() {
 		ignore := newWebhook(c.defaultTimeout, ignore)
 		fail := newWebhook(c.defaultTimeout, fail)
 		policies, err := c.getAllPolicies()
