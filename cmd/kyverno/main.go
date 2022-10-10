@@ -43,6 +43,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/version"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
@@ -413,6 +414,7 @@ func createrLeaderControllers(
 	metricsConfig *metrics.MetricsConfig,
 	eventGenerator event.Interface,
 	certRenewer *tls.CertRenewer,
+	runtime runtimeutils.Runtime,
 ) ([]controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
 		kyvernoClient,
@@ -463,6 +465,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
+		runtime,
 	)
 	return append(
 			[]controller{
@@ -590,6 +593,12 @@ func main() {
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
+	runtime := runtimeutils.NewRuntime(
+		logger.WithName("runtime"),
+		serverIP,
+		kubeKyvernoInformer.Coordination().V1().Leases(),
+		kubeKyvernoInformer.Apps().V1().Deployments(),
+	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
 		kubeInformer,
@@ -655,6 +664,7 @@ func main() {
 				metricsConfig,
 				eventGenerator,
 				certRenewer,
+				runtime,
 			)
 			if err != nil {
 				logger.Error(err, "failed to create leader controllers")

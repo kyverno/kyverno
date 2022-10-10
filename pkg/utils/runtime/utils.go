@@ -5,7 +5,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
-	webhookcontroller "github.com/kyverno/kyverno/pkg/controllers/webhook"
 	appsv1 "k8s.io/api/apps/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
@@ -14,7 +13,14 @@ import (
 	coordinationv1listers "k8s.io/client-go/listers/coordination/v1"
 )
 
+const (
+	AnnotationLastRequestTime = "kyverno.io/last-request-time"
+	IdleDeadline              = tickerInterval * 5
+	tickerInterval            = 30 * time.Second
+)
+
 type Runtime interface {
+	IsDebug() bool
 	IsReady() bool
 	IsLive() bool
 	IsRollingUpdate() bool
@@ -34,51 +40,27 @@ func NewRuntime(
 	deploymentInformer appsv1informers.DeploymentInformer,
 ) Runtime {
 	return &runtime{
-		serverIP:    serverIP,
-		leaseLister: leaseInformer.Lister(),
-		logger:      logger,
+		serverIP:         serverIP,
+		leaseLister:      leaseInformer.Lister(),
+		deploymentLister: deploymentInformer.Lister(),
+		logger:           logger,
 	}
 }
 
-func (c *runtime) getLease() (*coordinationv1.Lease, error) {
-	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno")
-}
-
-func (c *runtime) getDeployment() (*appsv1.Deployment, error) {
-	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get("kyverno")
-}
-
-func (c *runtime) isDebug() bool {
+func (c *runtime) IsDebug() bool {
 	return c.serverIP != ""
 }
 
-func (c *runtime) check() bool {
-	lease, err := c.getLease()
-	if err != nil {
-		c.logger.Error(err, "failed to get lease")
-		return false
-	}
-	annotations := lease.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-	annTime, err := time.Parse(time.RFC3339, annotations[webhookcontroller.AnnotationLastRequestTime])
-	if err != nil {
-		return false
-	}
-	return time.Now().Before(annTime.Add(webhookcontroller.IdleDeadline))
-}
-
 func (c *runtime) IsLive() bool {
-	return c.isDebug() || c.check()
+	return c.IsDebug() || c.check()
 }
 
 func (c *runtime) IsReady() bool {
-	return c.isDebug() || c.check()
+	return c.IsDebug() || c.check()
 }
 
 func (c *runtime) IsRollingUpdate() bool {
-	if c.isDebug() {
+	if c.IsDebug() {
 		return false
 	}
 	deployment, err := c.getDeployment()
@@ -91,8 +73,33 @@ func (c *runtime) IsRollingUpdate() bool {
 	}
 	nonTerminatedReplicas := deployment.Status.Replicas
 	if nonTerminatedReplicas > replicas {
-		// logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
+		c.logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
 		return true
 	}
 	return false
+}
+
+func (c *runtime) getLease() (*coordinationv1.Lease, error) {
+	return c.leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno")
+}
+
+func (c *runtime) getDeployment() (*appsv1.Deployment, error) {
+	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get("kyverno")
+}
+
+func (c *runtime) check() bool {
+	lease, err := c.getLease()
+	if err != nil {
+		c.logger.Error(err, "failed to get lease")
+		return false
+	}
+	annotations := lease.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+	annTime, err := time.Parse(time.RFC3339, annotations[AnnotationLastRequestTime])
+	if err != nil {
+		return false
+	}
+	return time.Now().Before(annTime.Add(IdleDeadline))
 }

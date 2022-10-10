@@ -19,6 +19,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/tls"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -42,11 +43,11 @@ const (
 	Workers                   = 2
 	ControllerName            = "webhook-controller"
 	DefaultWebhookTimeout     = 10
+	AnnotationLastRequestTime = "kyverno.io/last-request-time"
+	IdleDeadline              = tickerInterval * 5
 	maxRetries                = 10
 	managedByLabel            = "webhook.kyverno.io/managed-by"
-	AnnotationLastRequestTime = "kyverno.io/last-request-time"
 	tickerInterval            = 30 * time.Second
-	IdleDeadline              = tickerInterval * 5
 )
 
 var (
@@ -91,6 +92,7 @@ type controller struct {
 	server             string
 	defaultTimeout     int32
 	autoUpdateWebhooks bool
+	runtime            runtimeutils.Runtime
 
 	// state
 	lock        sync.RWMutex
@@ -114,6 +116,7 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	autoUpdateWebhooks bool,
+	runtime runtimeutils.Runtime,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
@@ -134,6 +137,7 @@ func NewController(
 		server:             server,
 		defaultTimeout:     defaultTimeout,
 		autoUpdateWebhooks: autoUpdateWebhooks,
+		runtime:            runtime,
 		policyState: map[string]sets.String{
 			config.MutatingWebhookConfigurationName:   sets.NewString(),
 			config.ValidatingWebhookConfigurationName: sets.NewString(),
@@ -179,15 +183,15 @@ func NewController(
 	)
 	controllerutils.AddEventHandlers(
 		cpolInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks() },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks() },
-		func(interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	)
 	controllerutils.AddEventHandlers(
 		polInformer.Informer(),
-		func(interface{}) { c.enqueueResourceWebhooks() },
-		func(interface{}, interface{}) { c.enqueueResourceWebhooks() },
-		func(interface{}) { c.enqueueResourceWebhooks() },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}, interface{}) { c.enqueueResourceWebhooks(0) },
+		func(interface{}) { c.enqueueResourceWebhooks(0) },
 	)
 	return &c
 }
@@ -230,7 +234,7 @@ func (c *controller) watchdog(ctx context.Context) {
 					logger.Error(err, "failed to get lease")
 				}
 			}
-			c.enqueueResourceWebhooks()
+			c.enqueueResourceWebhooks(0)
 		}
 	}
 }
@@ -254,7 +258,7 @@ func (c *controller) check() bool {
 
 func (c *controller) enqueueAll() {
 	c.enqueuePolicyWebhooks()
-	c.enqueueResourceWebhooks()
+	c.enqueueResourceWebhooks(0)
 	c.enqueueVerifyWebhook()
 }
 
@@ -263,9 +267,9 @@ func (c *controller) enqueuePolicyWebhooks() {
 	c.queue.Add(config.PolicyMutatingWebhookConfigurationName)
 }
 
-func (c *controller) enqueueResourceWebhooks() {
-	c.queue.Add(config.MutatingWebhookConfigurationName)
-	c.queue.Add(config.ValidatingWebhookConfigurationName)
+func (c *controller) enqueueResourceWebhooks(duration time.Duration) {
+	c.queue.AddAfter(config.MutatingWebhookConfigurationName, duration)
+	c.queue.AddAfter(config.ValidatingWebhookConfigurationName, duration)
 }
 
 func (c *controller) enqueueVerifyWebhook() {
@@ -441,18 +445,26 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
 	switch name {
 	case config.MutatingWebhookConfigurationName:
-		if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
-			return err
-		}
-		if err := c.updatePolicyStatuses(ctx); err != nil {
-			return err
+		if c.runtime.IsRollingUpdate() {
+			c.enqueueResourceWebhooks(1 * time.Second)
+		} else {
+			if err := c.reconcileResourceMutatingWebhookConfiguration(ctx); err != nil {
+				return err
+			}
+			if err := c.updatePolicyStatuses(ctx); err != nil {
+				return err
+			}
 		}
 	case config.ValidatingWebhookConfigurationName:
-		if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
-			return err
-		}
-		if err := c.updatePolicyStatuses(ctx); err != nil {
-			return err
+		if c.runtime.IsRollingUpdate() {
+			c.enqueueResourceWebhooks(1 * time.Second)
+		} else {
+			if err := c.reconcileResourceValidatingWebhookConfiguration(ctx); err != nil {
+				return err
+			}
+			if err := c.updatePolicyStatuses(ctx); err != nil {
+				return err
+			}
 		}
 	case config.PolicyValidatingWebhookConfigurationName:
 		return c.reconcilePolicyValidatingWebhookConfiguration(ctx)
