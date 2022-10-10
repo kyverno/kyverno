@@ -51,6 +51,7 @@ import (
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -448,6 +449,10 @@ func createrLeaderControllers(
 			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
 			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
 		),
+		metrics.ObjectClient[*coordinationv1.Lease](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "Lease", metrics.KubeClient),
+			kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
+		),
 		kyvernoClient,
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
@@ -455,6 +460,7 @@ func createrLeaderControllers(
 		kyvernoInformer.Kyverno().V1().Policies(),
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+		kubeKyvernoInformer.Coordination().V1().Leases(),
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
