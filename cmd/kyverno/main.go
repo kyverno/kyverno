@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kyverno/kyverno/pkg/background"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	kyvernoinformer "github.com/kyverno/kyverno/pkg/client/informers/externalversions"
@@ -47,6 +48,7 @@ import (
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
 	_ "go.uber.org/automaxprocs" // #nosec
+	"go.uber.org/zap"
 	kubeinformers "k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	metadataclient "k8s.io/client-go/metadata"
@@ -89,6 +91,7 @@ var (
 	admissionReports           bool
 	reportsChunkSize           int
 	setupLog                   = log.Log.WithName("setup")
+	logFormat                  string
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -100,7 +103,7 @@ func main() {
 	}
 
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	flag.StringVar(&logFormat, "loggingFormat", "text", "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -130,10 +133,28 @@ func main() {
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 
 	if err := flag.Set("v", "2"); err != nil {
-		setupLog.Error(err, "failed to set log level")
+		fmt.Printf("failed to set log level: %s", err.Error())
 		os.Exit(1)
 	}
 	flag.Parse()
+
+	if logFormat == "text" {
+		// in text mode we use FormatSerialize format
+		log.SetLogger(klogr.New())
+	} else if logFormat == "json" {
+		zapLog, err := zap.NewProduction()
+		if err != nil {
+			fmt.Printf("failed to initialize JSON logger: %s", err.Error())
+			os.Exit(1)
+		}
+		klog.SetLogger(zapr.NewLogger(zapLog))
+
+		// in json mode we use FormatKlog format
+		log.SetLogger(klog.NewKlogr())
+	} else {
+		fmt.Println("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
+		os.Exit(1)
+	}
 
 	if splitPolicyReport {
 		setupLog.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
@@ -207,7 +228,6 @@ func main() {
 		setupLog.Error(err, "Failed to create kubernetes leader client")
 		os.Exit(1)
 	}
-
 	// sanity checks
 	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
 		setupLog.Error(fmt.Errorf("CRDs not installed"), "Failed to access Kyverno CRDs")
@@ -388,48 +408,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
-	registerWebhookConfigurations := func() {
-		if err := certRenewer.InitTLSPemPair(); err != nil {
-			setupLog.Error(err, "tls initialization error")
-			os.Exit(1)
-		}
-		// wait for cache to be synced before use it
-		cache.WaitForCacheSync(stopCh,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
-		)
-
-		// validate the ConfigMap format
-		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			os.Exit(1)
-		}
-		if autoUpdateWebhooks {
-			go webhookCfg.UpdateWebhookConfigurations(configuration)
-		}
-		if registrationErr := registerWrapperRetry(); registrationErr != nil {
-			setupLog.Error(err, "Timeout registering admission control webhooks")
-			os.Exit(1)
-		}
-		webhookCfg.UpdateWebhookChan <- true
-	}
-
-	// cancel leader election context on shutdown signals
-	go func() {
-		defer signalCancel()
-		<-stopCh
-	}()
-
-	// webhookconfigurations are registered by the leader only
-	webhookRegisterLeader, err := leaderelection.New("webhook-register", config.KyvernoNamespace(), kubeClient, config.KyvernoPodName(), registerWebhookConfigurations, nil, log.Log.WithName("webhookRegister/LeaderElection"))
-	if err != nil {
-		setupLog.Error(err, "failed to elect a leader")
-		os.Exit(1)
-	}
-
-	go webhookRegisterLeader.Run(signalCtx)
-
 	// the webhook server runs across all instances
 	openAPIController := startOpenAPIController(dynamicClient, stopCh)
 
@@ -468,7 +446,31 @@ func main() {
 
 	// wrap all controllers that need leaderelection
 	// start them once by the leader
+	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", setupLog)
 	run := func() {
+		if err := certRenewer.InitTLSPemPair(); err != nil {
+			setupLog.Error(err, "tls initialization error")
+			os.Exit(1)
+		}
+		// wait for cache to be synced before use it
+		cache.WaitForCacheSync(stopCh,
+			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer().HasSynced,
+			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer().HasSynced,
+		)
+
+		// validate the ConfigMap format
+		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
+			setupLog.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+			os.Exit(1)
+		}
+		if autoUpdateWebhooks {
+			go webhookCfg.UpdateWebhookConfigurations(configuration)
+		}
+		if registrationErr := registerWrapperRetry(); registrationErr != nil {
+			setupLog.Error(err, "Timeout registering admission control webhooks")
+			os.Exit(1)
+		}
+		webhookCfg.UpdateWebhookChan <- true
 		go certManager.Run(stopCh)
 		go policyCtrl.Run(2, stopCh)
 
@@ -504,6 +506,12 @@ func main() {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
+
+	// cancel leader election context on shutdown signals
+	go func() {
+		defer signalCancel()
+		<-stopCh
+	}()
 
 	startInformersAndWaitForCacheSync(stopCh, kyvernoInformer, kubeInformer, kubeKyvernoInformer)
 
