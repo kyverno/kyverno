@@ -548,23 +548,6 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	// webhookCfg := webhookconfig.NewRegister(
-	// 	signalCtx,
-	// 	clientConfig,
-	// 	dynamicClient,
-	// 	kubeClient,
-	// 	kyvernoClient,
-	// 	kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
-	// 	kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-	// 	kubeKyvernoInformer.Apps().V1().Deployments(),
-	// 	kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-	// 	kyvernoInformer.Kyverno().V1().Policies(),
-	// 	metricsConfig,
-	// 	serverIP,
-	// 	int32(webhookTimeout),
-	// 	autoUpdateWebhooks,
-	// 	logging.GlobalLogger(),
-	// )
 	configuration, err := config.NewConfiguration(
 		kubeClient,
 	)
@@ -702,12 +685,6 @@ func main() {
 	}
 	// start leader election
 	go le.Run(signalCtx)
-	// create monitor
-	// webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
-	// if err != nil {
-	// 	logger.Error(err, "failed to initialize webhookMonitor")
-	// 	os.Exit(1)
-	// }
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		kyvernoClient,
@@ -733,9 +710,11 @@ func main() {
 		admissionReports,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
+	leaseLister := kubeKyvernoInformer.Coordination().V1().Leases().Lister()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
+		configuration,
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
@@ -743,9 +722,22 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
-		configuration,
-		// webhookCfg,
-		// webhookMonitor,
+		func() bool {
+			lease, err := leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno")
+			if err != nil {
+				logger.Error(err, "failed to get lease")
+				return false
+			}
+			annotations := lease.GetAnnotations()
+			if annotations == nil {
+				return false
+			}
+			annTime, err := time.Parse(time.RFC3339, annotations[webhookcontroller.AnnotationLastRequestTime])
+			if err != nil {
+				return false
+			}
+			return time.Now().Before(annTime.Add(webhookcontroller.IdleDeadline))
+		},
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

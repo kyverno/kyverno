@@ -39,14 +39,14 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers               = 2
-	ControllerName        = "webhook-controller"
-	DefaultWebhookTimeout = 10
-	maxRetries            = 10
-	managedByLabel        = "webhook.kyverno.io/managed-by"
-	annLastRequestTime    = "kyverno.io/last-request-time"
-	tickerInterval        = 30 * time.Second
-	idleDeadline          = tickerInterval * 5
+	Workers                   = 2
+	ControllerName            = "webhook-controller"
+	DefaultWebhookTimeout     = 10
+	maxRetries                = 10
+	managedByLabel            = "webhook.kyverno.io/managed-by"
+	AnnotationLastRequestTime = "kyverno.io/last-request-time"
+	tickerInterval            = 30 * time.Second
+	IdleDeadline              = tickerInterval * 5
 )
 
 var (
@@ -219,7 +219,7 @@ func (c *controller) watchdog(ctx context.Context) {
 						if lease.Annotations == nil {
 							lease.Annotations = map[string]string{}
 						}
-						lease.Annotations[annLastRequestTime] = time.Now().Format(time.RFC3339)
+						lease.Annotations[AnnotationLastRequestTime] = time.Now().Format(time.RFC3339)
 						if lease.Labels == nil {
 							lease.Labels = map[string]string{}
 						}
@@ -245,11 +245,11 @@ func (c *controller) check() bool {
 	if annotations == nil {
 		return false
 	}
-	annTime, err := time.Parse(time.RFC3339, annotations[annLastRequestTime])
+	annTime, err := time.Parse(time.RFC3339, annotations[AnnotationLastRequestTime])
 	if err != nil {
 		return false
 	}
-	return time.Now().Before(annTime.Add(idleDeadline))
+	return time.Now().Before(annTime.Add(IdleDeadline))
 }
 
 func (c *controller) enqueueAll() {

@@ -54,8 +54,9 @@ type TlsProvider func() ([]byte, []byte, error)
 func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
-	tlsProvider TlsProvider,
 	configuration config.Configuration,
+	tlsProvider TlsProvider,
+	health func() bool,
 	// register *webhookconfig.Register,
 	// monitor *webhookconfig.Monitor,
 ) Server {
@@ -68,9 +69,8 @@ func NewServer(
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate)))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify()))
-	// mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(nil))
-	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(health))
+	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(health))
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
