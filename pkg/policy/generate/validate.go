@@ -183,11 +183,12 @@ func (g *Generate) canIGenerate(kind, namespace string) error {
 }
 
 func (g *Generate) hasForEach() bool {
-	return len(g.rule.ForEachMutation) > 0
+	return len(g.rule.ForEachGeneration) > 0
 }
 
 func (g *Generate) validateForeach() (string, error) {
-	for i, fe = range g.rule.ForEachMutation {
+	rule := g.rule
+	for i, fe = range rule.ForEachGeneration {
 		if fe.GetData() != nil && fe.Clone != (kyvernov1.CloneFrom{}) {
 			return "", fmt.Errorf("only one of data or clone can be specified")
 		}

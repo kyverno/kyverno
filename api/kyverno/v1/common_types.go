@@ -604,6 +604,12 @@ type ForEachGeneration struct {
 	CloneList CloneList `json:"cloneList,omitempty" yaml:"cloneList,omitempty"`
 }
 
+func (g *ForEachGeneration) getData() {
+	return FromJSON(g.RawData)
+}
+
+
+
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {
