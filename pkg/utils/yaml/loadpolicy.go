@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	log "github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // GetPolicy extracts policies from YAML bytes
@@ -25,7 +25,7 @@ func GetPolicy(bytes []byte) (policies []kyvernov1.PolicyInterface, err error) {
 			return nil, fmt.Errorf("failed to decode policy: %v", err)
 		}
 		if policy.TypeMeta.Kind == "" {
-			log.Log.V(3).Info("skipping file as policy.TypeMeta.Kind not found")
+			log.V(3).Info("skipping file as policy.TypeMeta.Kind not found")
 			continue
 		}
 		if policy.TypeMeta.Kind != "ClusterPolicy" && policy.TypeMeta.Kind != "Policy" {

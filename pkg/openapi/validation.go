@@ -13,6 +13,7 @@ import (
 	"github.com/kyverno/kyverno/data"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
 	cmap "github.com/orcaman/concurrent-map"
 	"github.com/pkg/errors"
@@ -21,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/kube-openapi/pkg/util/proto"
 	"k8s.io/kube-openapi/pkg/util/proto/validation"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type concurrentMap struct{ cmap.ConcurrentMap }
@@ -156,7 +156,7 @@ func (o *Controller) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) er
 		k := o.gvkToDefinitionName.GetKind(kind)
 		resource, _ := o.generateEmptyResource(o.definitions.GetSchema(k)).(map[string]interface{})
 		if len(resource) == 0 {
-			log.Log.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
+			logging.V(2).Info("unable to validate resource. OpenApi definition not found", "kind", kind)
 			return nil
 		}
 
@@ -187,7 +187,7 @@ func (o *Controller) useOpenAPIDocument(doc *openapiv2.Document) error {
 
 		gvk, preferredGVK, err := o.getGVKByDefinitionName(definitionName)
 		if err != nil {
-			log.Log.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
+			logging.V(5).Info("unable to cache OpenAPISchema", "definitionName", definitionName, "reason", err.Error())
 			continue
 		}
 
@@ -368,7 +368,7 @@ func (o *Controller) generateEmptyResource(kindSchema *openapiv2.Schema) interfa
 		return getBoolValue(kindSchema)
 	}
 
-	log.Log.V(2).Info("unknown type", types[0])
+	logging.V(2).Info("unknown type", types[0])
 	return nil
 }
 

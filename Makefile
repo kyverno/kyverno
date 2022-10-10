@@ -646,6 +646,14 @@ release-notes:
 	@bash -c 'while IFS= read -r line ; do if [[ "$$line" == "## "* && "$$line" != "## $(VERSION)" ]]; then break ; fi; echo "$$line"; done < "CHANGELOG.md"' \
 	true
 
+#########
+# DEBUG #
+#########
+
+.PHONY: debug-deploy
+debug-deploy: codegen-install ## Install debug manifests
+	@kubectl create -f ./config/install_debug.yaml || kubectl replace -f ./config/install_debug.yaml
+
 ##########
 # GITHUB #
 ##########
@@ -693,6 +701,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
+		--set initContainer.extraArgs={--loggingFormat=text}
 		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno
