@@ -44,7 +44,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/kyverno/kyverno/pkg/version"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks"
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
@@ -549,23 +548,23 @@ func main() {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	webhookCfg := webhookconfig.NewRegister(
-		signalCtx,
-		clientConfig,
-		dynamicClient,
-		kubeClient,
-		kyvernoClient,
-		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
-		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
-		kyvernoInformer.Kyverno().V1().Policies(),
-		metricsConfig,
-		serverIP,
-		int32(webhookTimeout),
-		autoUpdateWebhooks,
-		logging.GlobalLogger(),
-	)
+	// webhookCfg := webhookconfig.NewRegister(
+	// 	signalCtx,
+	// 	clientConfig,
+	// 	dynamicClient,
+	// 	kubeClient,
+	// 	kyvernoClient,
+	// 	kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+	// 	kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+	// 	kubeKyvernoInformer.Apps().V1().Deployments(),
+	// 	kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+	// 	kyvernoInformer.Kyverno().V1().Policies(),
+	// 	metricsConfig,
+	// 	serverIP,
+	// 	int32(webhookTimeout),
+	// 	autoUpdateWebhooks,
+	// 	logging.GlobalLogger(),
+	// )
 	configuration, err := config.NewConfiguration(
 		kubeClient,
 	)
@@ -602,7 +601,7 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
-	// This controller only subscribe to events, nothing is returned...
+	// this controller only subscribe to events, nothing is returned...
 	policymetricscontroller.NewController(
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
@@ -651,10 +650,10 @@ func main() {
 			// when losing the lead we just terminate the pod
 			defer signalCancel()
 			// validate config
-			if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-				logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-				os.Exit(1)
-			}
+			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
+			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+			// 	os.Exit(1)
+			// }
 			// create leader factories
 			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
@@ -692,15 +691,6 @@ func main() {
 			for _, controller := range leaderControllers {
 				go controller.run(signalCtx, logger.WithName("controllers"))
 			}
-			// bootstrap
-			// if autoUpdateWebhooks {
-			// 	go webhookCfg.UpdateWebhookConfigurations(configuration)
-			// }
-			// registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
-			// if err := registerWrapperRetry(); err != nil {
-			// 	logger.Error(err, "timeout registering admission control webhooks")
-			// 	os.Exit(1)
-			// }
 			// wait until we loose the lead (or signal context is canceled)
 			<-ctx.Done()
 		},
@@ -713,14 +703,10 @@ func main() {
 	// start leader election
 	go le.Run(signalCtx)
 	// create monitor
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
-	if err != nil {
-		logger.Error(err, "failed to initialize webhookMonitor")
-		os.Exit(1)
-	}
-	// // start monitor (only when running in cluster)
-	// if serverIP == "" {
-	// 	go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
+	// webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
+	// if err != nil {
+	// 	logger.Error(err, "failed to initialize webhookMonitor")
+	// 	os.Exit(1)
 	// }
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
@@ -758,8 +744,8 @@ func main() {
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
 		configuration,
-		webhookCfg,
-		webhookMonitor,
+		// webhookCfg,
+		// webhookMonitor,
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

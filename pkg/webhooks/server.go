@@ -14,7 +14,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -44,9 +43,9 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server          *http.Server
-	webhookRegister *webhookconfig.Register
-	cleanUp         chan struct{}
+	server *http.Server
+	// webhookRegister *webhookconfig.Register
+	cleanUp chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -57,18 +56,18 @@ func NewServer(
 	resourceHandlers ResourceHandlers,
 	tlsProvider TlsProvider,
 	configuration config.Configuration,
-	register *webhookconfig.Register,
-	monitor *webhookconfig.Monitor,
+	// register *webhookconfig.Register,
+	// monitor *webhookconfig.Monitor,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, resourceHandlers.Mutate)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, resourceHandlers.Validate)
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate)))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate)))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify()))
 	// mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(nil))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
@@ -94,8 +93,8 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 		},
-		webhookRegister: register,
-		cleanUp:         make(chan struct{}),
+		// webhookRegister: register,
+		cleanUp: make(chan struct{}),
 	}
 }
 
@@ -162,31 +161,30 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 	return handlers.Filter(configuration, inner)
 }
 
-func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner)))
+func admission(logger logr.Logger, inner handlers.AdmissionHandler) http.HandlerFunc {
+	return handlers.Admission(logger, protect(inner))
 }
 
 func registerWebhookHandlers(
 	logger logr.Logger,
 	mux *httprouter.Router,
 	basePath string,
-	monitor *webhookconfig.Monitor,
 	configuration config.Configuration,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
 ) {
-	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath, admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "all", startTime)
 		})),
 	)
-	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "fail", startTime)
 		})),
 	)
-	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "ignore", startTime)
