@@ -43,8 +43,7 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server *http.Server
-	// webhookRegister *webhookconfig.Register
+	server  *http.Server
 	cleanUp chan struct{}
 }
 
@@ -57,8 +56,6 @@ func NewServer(
 	configuration config.Configuration,
 	tlsProvider TlsProvider,
 	health func() bool,
-	// register *webhookconfig.Register,
-	// monitor *webhookconfig.Monitor,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -93,7 +90,6 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 		},
-		// webhookRegister: register,
 		cleanUp: make(chan struct{}),
 	}
 }
