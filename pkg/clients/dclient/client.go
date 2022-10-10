@@ -145,7 +145,7 @@ func (c *client) RawAbsPath(path string) ([]byte, error) {
 	if c.restClient == nil {
 		return nil, errors.New("rest client not supported")
 	}
-	return c.restClient.Get().AbsPath(path).DoRaw(context.TODO())
+	return c.restClient.Get().RequestURI(path).DoRaw(context.TODO())
 }
 
 // PatchResource patches the resource
