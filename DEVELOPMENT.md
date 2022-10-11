@@ -27,6 +27,7 @@ It contains instructions to build, run, and test Kyverno.
   - [Generating API docs](#generating-api-docs)
   - [Generating helm charts CRDs](#generating-helm-charts-crds)
   - [Generating helm charts docs](#generating-helm-charts-docs)
+- [Debugging local code](#debugging-local-code)
 
 ## Tools
 
@@ -505,69 +506,23 @@ This will output docs in helm charts respective `README.md`:
 
 > **Note**: You can run `make codegen-helm-all` to generate CRDs and docs at once.
 
-## Building and publishing an image locally
+## Debugging local code
 
-First, make sure you [install `ko`](https://github.com/google/ko#install)
+Running Kyverno on a local machine without deploying it in a remote cluster can be useful, especially for debugging purpose.
+You can run Kyverno locally or in your IDE of choice with a few steps:
 
-### Publishing to your local Docker daemon
+1. Create a local cluster
+    - You can create a simple cluster with [KinD](https://kind.sigs.k8s.io/) with `make kind-create-cluster`
+1. Deploy Kyverno manifests except the Kyverno `Deployment`
+    - Kyverno is going to run on your local machine so it should not run in cluster at the same time
+    - You can deploy the manifests by running `make debug-deploy`
+1. To run Kyverno locally against the remote cluster you will need to provide `--kubeconfig` and `--serverIP` arguments:
+    - `--kubeconfig` must point to your kubeconfig file (usually `~/.kube/config`)
+    - `--serverIP` must be set to `<local ip>:9443` (`<local ip>` is the private ip adress of your local machine)
 
-Set the `KO_DOCKER_REPO` environment variable to `ko.local`:
-
-```
-KO_DOCKER_REPO=ko.local
-```
-
-Then build and publish an image:
-
-```
-ko build ./cmd/kyverno --preserve-import-paths
-```
-
-The image will be available locally as `ko.local/github.com/kyverno/kyverno/cmd/kyverno`.
-
-### Publishing to a local [KinD](https://kind.sigs.k8s.io/) cluster
-
-First, create your KinD cluster:
-
-```
-kind create cluster
+Once you are ready with the steps above, Kyverno can be started locally with:
+```console
+go run ./cmd/kyverno/ --kubeconfig ~/.kube/config --serverIP=<local-ip>:9443
 ```
 
-Set the `KO_DOCKER_REPO` environment variable to `kind.local`:
-
-```
-KO_DOCKER_REPO=kind.local
-```
-
-Then build and publish an image:
-
-```
-ko build ./cmd/kyverno --preserve-import-paths
-```
-
-This will build and load the image into your KinD cluster as:
-
-```
-kind.local/github.com/kyverno/kyverno/cmd/kyverno
-```
-
-If you have multiple KinD clusters, or created them with a non-default name, set `KIND_CLUSTER_NAME=<your-cluster-name>`.
-
-### Publishing to a remote registry
-
-Set the `KO_DOCKER_REPO` environment variable to the registry you'd like to push to:
-For example:
-
-```
-KO_DOCKER_REPO=gcr.io/my-project/kyverno
-KO_DOCKER_REPO=my-dockerhub-user/my-dockerhub-repo
-KO_DOCKER_REPO=<ACCOUNTID>.dkr.ecr.<REGION>.amazonaws.com
-```
-
-Then build and publish an image:
-
-```
-ko build ./cmd/kyverno
-```
-
-The output will tell you the image name and digest of the image you just built.
+You will need to adapt those steps to run debug sessions in your IDE of choice, but the general idea remains the same.

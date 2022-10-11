@@ -3,6 +3,7 @@ package main
 // We currently accept the risk of exposing pprof and rely on users to protect the endpoint.
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
+	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -169,6 +171,20 @@ func createKubeClients(logger logr.Logger) (*rest.Config, *kubernetes.Clientset,
 	return clientConfig, kubeClient, metadataClient, kubeClientLeaderElection, nil
 }
 
+func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientConfig *rest.Config, kubeClient *kubernetes.Clientset, metricsConfig *metrics.MetricsConfig) (versioned.Interface, dclient.Interface, error) {
+	logger = logger.WithName("instrumented-clients")
+	logger.Info("create instrumented clients...", "kubeconfig", kubeconfig, "qps", clientRateLimitQPS, "burst", clientRateLimitBurst)
+	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	if err != nil {
+		return nil, nil, err
+	}
+	return kyvernoClient, dynamicClient, nil
+}
+
 func setupMetrics(logger logr.Logger, kubeClient kubernetes.Interface) (*metrics.MetricsConfig, context.CancelFunc, error) {
 	logger = logger.WithName("metrics")
 	logger.Info("setup metrics...", "otel", otel, "port", metricsPort, "collector", otelCollector, "creds", transportCreds)
@@ -270,6 +286,192 @@ func showVersion(logger logr.Logger) {
 	version.PrintVersionInfo(logger)
 }
 
+func sanityChecks(dynamicClient dclient.Interface) error {
+	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
+		return fmt.Errorf("CRDs not installed")
+	}
+	return nil
+}
+
+func createNonLeaderControllers(
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
+	kyvernoClient versioned.Interface,
+	dynamicClient dclient.Interface,
+	configuration config.Configuration,
+	policyCache policycache.Cache,
+	eventGenerator event.Interface,
+	manager *openapi.Controller,
+) ([]controller, func() error) {
+	policyCacheController := policycachecontroller.NewController(
+		policyCache,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+	)
+	openApiController := openapi.NewCRDSync(
+		dynamicClient,
+		manager,
+	)
+	configurationController := configcontroller.NewController(
+		configuration,
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+	)
+	updateRequestController := background.NewController(
+		kyvernoClient,
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		kubeInformer.Core().V1().Namespaces(),
+		kubeKyvernoInformer.Core().V1().Pods(),
+		eventGenerator,
+		configuration,
+	)
+	return []controller{
+			newController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
+			newController("openapi-controller", openApiController, 1),
+			newController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
+			newController("update-request-controller", updateRequestController, genWorkers),
+		},
+		func() error {
+			return policyCacheController.WarmUp()
+		}
+}
+
+func createReportControllers(
+	backgroundScan bool,
+	admissionReports bool,
+	client dclient.Interface,
+	kyvernoClient versioned.Interface,
+	metadataFactory metadatainformers.SharedInformerFactory,
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+) []controller {
+	var ctrls []controller
+	kyvernoV1 := kyvernoInformer.Kyverno().V1()
+	if backgroundScan || admissionReports {
+		resourceReportController := resourcereportcontroller.NewController(
+			client,
+			kyvernoV1.Policies(),
+			kyvernoV1.ClusterPolicies(),
+		)
+		ctrls = append(ctrls, newController(
+			resourcereportcontroller.ControllerName,
+			resourceReportController,
+			resourcereportcontroller.Workers,
+		))
+		ctrls = append(ctrls, newController(
+			aggregatereportcontroller.ControllerName,
+			aggregatereportcontroller.NewController(
+				kyvernoClient,
+				metadataFactory,
+				resourceReportController,
+				reportsChunkSize,
+			),
+			aggregatereportcontroller.Workers,
+		))
+		if admissionReports {
+			ctrls = append(ctrls, newController(
+				admissionreportcontroller.ControllerName,
+				admissionreportcontroller.NewController(
+					kyvernoClient,
+					metadataFactory,
+					resourceReportController,
+				),
+				admissionreportcontroller.Workers,
+			))
+		}
+		if backgroundScan {
+			ctrls = append(ctrls, newController(
+				backgroundscancontroller.ControllerName,
+				backgroundscancontroller.NewController(
+					client,
+					kyvernoClient,
+					metadataFactory,
+					kyvernoV1.Policies(),
+					kyvernoV1.ClusterPolicies(),
+					kubeInformer.Core().V1().Namespaces(),
+					resourceReportController,
+				),
+				backgroundscancontroller.Workers,
+			))
+		}
+	}
+	return ctrls
+}
+
+func createrLeaderControllers(
+	kubeInformer kubeinformers.SharedInformerFactory,
+	kubeKyvernoInformer kubeinformers.SharedInformerFactory,
+	kyvernoInformer kyvernoinformer.SharedInformerFactory,
+	metadataInformer metadatainformers.SharedInformerFactory,
+	kubeClient kubernetes.Interface,
+	kyvernoClient versioned.Interface,
+	dynamicClient dclient.Interface,
+	configuration config.Configuration,
+	metricsConfig *metrics.MetricsConfig,
+	eventGenerator event.Interface,
+	certRenewer *tls.CertRenewer,
+) ([]controller, error) {
+	policyCtrl, err := policy.NewPolicyController(
+		kyvernoClient,
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+		configuration,
+		eventGenerator,
+		kubeInformer.Core().V1().Namespaces(),
+		logging.WithName("PolicyController"),
+		time.Hour,
+		metricsConfig,
+	)
+	if err != nil {
+		return nil, err
+	}
+	certManager := certmanager.NewController(
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		certRenewer,
+	)
+	webhookController := webhookcontroller.NewController(
+		metrics.ObjectClient[*corev1.Secret](
+			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
+			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
+		),
+		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		),
+		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		),
+		kubeKyvernoInformer.Core().V1().Secrets(),
+		kubeKyvernoInformer.Core().V1().ConfigMaps(),
+		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
+		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+	)
+	return append(
+			[]controller{
+				newController("policy-controller", policyCtrl, 2),
+				newController(certmanager.ControllerName, certManager, certmanager.Workers),
+				newController(webhookcontroller.ControllerName, webhookController, webhookcontroller.Workers),
+			},
+			createReportControllers(
+				backgroundScan,
+				admissionReports,
+				dynamicClient,
+				kyvernoClient,
+				metadataInformer,
+				kubeInformer,
+				kyvernoInformer,
+			)...,
+		),
+		nil
+}
+
 func main() {
 	// parse flags
 	if err := parseFlags(); err != nil {
@@ -310,9 +512,6 @@ func main() {
 	} else if tracingShutdown != nil {
 		defer tracingShutdown()
 	}
-	// setup signals
-	signalCtx, signalCancel := setupSignals()
-	defer signalCancel()
 	// setup registry client
 	if err := setupRegistryClient(logger, kubeClient); err != nil {
 		logger.Error(err, "failed to setup registry client")
@@ -320,38 +519,24 @@ func main() {
 	}
 	// setup cosign
 	setupCosign(logger)
-
-	// instrumented clients
-	kyvernoClient, err := kyvernoclient.NewForConfig(clientConfig, metricsConfig)
+	// setup signals
+	signalCtx, signalCancel := setupSignals()
+	defer signalCancel()
+	// create instrumented clients
+	kyvernoClient, dynamicClient, err := createInstrumentedClients(signalCtx, logger, clientConfig, kubeClient, metricsConfig)
 	if err != nil {
-		logger.Error(err, "failed to create client")
+		logger.Error(err, "failed to create instrument clients")
 		os.Exit(1)
 	}
-	dynamicClient, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
-	if err != nil {
-		logger.Error(err, "failed to create dynamic client")
+	// check we can run
+	if err := sanityChecks(dynamicClient); err != nil {
+		logger.Error(err, "sanity checks failed")
 		os.Exit(1)
 	}
-	// sanity checks
-	if !utils.CRDsInstalled(dynamicClient.Discovery()) {
-		logger.Error(fmt.Errorf("CRDs not installed"), "failed to access Kyverno CRDs")
-		os.Exit(1)
-	}
-
 	// informer factories
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
 	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
 	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
-	metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
-
-	// utils
-	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	kyvernoV1beta1 := kyvernoInformer.Kyverno().V1beta1()
-
-	// EVENT GENERATOR
-	// - generate event with retry mechanism
-	eventGenerator := event.NewEventGenerator(dynamicClient, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies(), maxQueuedEvents, logging.WithName("EventGenerator"))
-
 	webhookCfg := webhookconfig.NewRegister(
 		signalCtx,
 		clientConfig,
@@ -361,68 +546,27 @@ func main() {
 		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
 		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
 		metricsConfig,
 		serverIP,
 		int32(webhookTimeout),
-		serverIP != "",
 		autoUpdateWebhooks,
 		logging.GlobalLogger(),
 	)
-
-	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
-	if err != nil {
-		logger.Error(err, "failed to initialize webhookMonitor")
-		os.Exit(1)
-	}
-
-	configuration, err := config.NewConfiguration(kubeClient, webhookCfg.UpdateWebhookChan)
+	configuration, err := config.NewConfiguration(
+		kubeClient,
+		webhookCfg.UpdateWebhookChan,
+	)
 	if err != nil {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	configurationController := configcontroller.NewController(configuration, kubeKyvernoInformer.Core().V1().ConfigMaps())
-
-	// POLICY CONTROLLER
-	// - reconciliation policy and policy violation
-	// - process policy on existing resources
-	// - status aggregator: receives stats when a policy is applied & updates the policy status
-	policyCtrl, err := policy.NewPolicyController(
-		kyvernoClient,
-		dynamicClient,
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		kyvernoV1beta1.UpdateRequests(),
-		configuration,
-		eventGenerator,
-		kubeInformer.Core().V1().Namespaces(),
-		logging.WithName("PolicyController"),
-		time.Hour,
-		metricsConfig,
-	)
+	openApiManager, err := openapi.NewOpenAPIController()
 	if err != nil {
-		logger.Error(err, "Failed to create policy controller")
+		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
-
-	urgen := webhookgenerate.NewGenerator(kyvernoClient, kyvernoV1beta1.UpdateRequests())
-
-	urc := background.NewController(
-		kyvernoClient,
-		dynamicClient,
-		kyvernoV1.ClusterPolicies(),
-		kyvernoV1.Policies(),
-		kyvernoV1beta1.UpdateRequests(),
-		kubeInformer.Core().V1().Namespaces(),
-		kubeKyvernoInformer.Core().V1().Pods(),
-		eventGenerator,
-		configuration,
-	)
-
-	policyCache := policycache.NewCache()
-	policyCacheController := policycachecontroller.NewController(policyCache, kyvernoV1.ClusterPolicies(), kyvernoV1.Policies())
-
 	certRenewer, err := tls.NewCertRenewer(
 		metrics.ObjectClient[*corev1.Secret](
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
@@ -439,36 +583,144 @@ func main() {
 		logger.Error(err, "failed to initialize CertRenewer")
 		os.Exit(1)
 	}
-	certManager := certmanager.NewController(kubeKyvernoInformer.Core().V1().Secrets(), certRenewer)
-
-	webhookController := webhookcontroller.NewController(
-		metrics.ObjectClient[*corev1.Secret](
-			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
-			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
-		),
-		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-		),
-		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
-			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
-			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
-		),
-		kubeKyvernoInformer.Core().V1().Secrets(),
-		kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations(),
-		kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations(),
+	policyCache := policycache.NewCache()
+	eventGenerator := event.NewEventGenerator(
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+		maxQueuedEvents,
+		logging.WithName("EventGenerator"),
 	)
-
-	// the webhook server runs across all instances
-	openAPIController := startOpenAPIController(signalCtx, logger, dynamicClient)
-
-	// WEBHOOK
-	// - https server to provide endpoints called based on rules defined in Mutating & Validation webhook configuration
-	// - reports the results based on the response from the policy engine:
-	// -- annotations on resources with update details on mutation JSON patches
-	// -- generate policy violation resource
-	// -- generate events on policy and resource
-	policyHandlers := webhookspolicy.NewHandlers(dynamicClient, openAPIController)
+	// This controller only subscribe to events, nothing is returned...
+	policymetricscontroller.NewController(
+		metricsConfig,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+	)
+	// create non leader controllers
+	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
+		kubeInformer,
+		kubeKyvernoInformer,
+		kyvernoInformer,
+		kubeClient,
+		kyvernoClient,
+		dynamicClient,
+		configuration,
+		policyCache,
+		eventGenerator,
+		openApiManager,
+	)
+	// start informers and wait for cache sync
+	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+		os.Exit(1)
+	}
+	// bootstrap non leader controllers
+	if nonLeaderBootstrap != nil {
+		if err := nonLeaderBootstrap(); err != nil {
+			logger.Error(err, "failed to bootstrap non leader controllers")
+			os.Exit(1)
+		}
+	}
+	// start event generator
+	go eventGenerator.Run(signalCtx, 3)
+	// start non leader controllers
+	for _, controller := range nonLeaderControllers {
+		go controller.run(signalCtx, logger.WithName("controllers"))
+	}
+	// setup leader election
+	le, err := leaderelection.New(
+		logger.WithName("leader-election"),
+		"kyverno",
+		config.KyvernoNamespace(),
+		kubeClientLeaderElection,
+		config.KyvernoPodName(),
+		func(ctx context.Context) {
+			logger := logger.WithName("leader")
+			// when losing the lead we just terminate the pod
+			defer signalCancel()
+			// validate config
+			if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
+				logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
+				os.Exit(1)
+			}
+			// create leader factories
+			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
+			// create leader controllers
+			leaderControllers, err := createrLeaderControllers(
+				kubeInformer,
+				kubeKyvernoInformer,
+				kyvernoInformer,
+				metadataInformer,
+				kubeClient,
+				kyvernoClient,
+				dynamicClient,
+				configuration,
+				metricsConfig,
+				eventGenerator,
+				certRenewer,
+			)
+			if err != nil {
+				logger.Error(err, "failed to create leader controllers")
+				os.Exit(1)
+			}
+			// start informers and wait for cache sync
+			if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
+				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+				os.Exit(1)
+			}
+			startInformers(signalCtx, metadataInformer)
+			if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
+				// TODO: shall we just exit ?
+				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
+			}
+			// start leader controllers
+			for _, controller := range leaderControllers {
+				go controller.run(signalCtx, logger.WithName("controllers"))
+			}
+			// bootstrap
+			if autoUpdateWebhooks {
+				go webhookCfg.UpdateWebhookConfigurations(configuration)
+			}
+			registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
+			if err := registerWrapperRetry(); err != nil {
+				logger.Error(err, "timeout registering admission control webhooks")
+				os.Exit(1)
+			}
+			webhookCfg.UpdateWebhookChan <- true
+			// wait until we loose the lead (or signal context is canceled)
+			<-ctx.Done()
+		},
+		nil,
+	)
+	if err != nil {
+		logger.Error(err, "failed to initialize leader election")
+		os.Exit(1)
+	}
+	// start leader election
+	go le.Run(signalCtx)
+	// create monitor
+	webhookMonitor, err := webhookconfig.NewMonitor(kubeClient, logging.GlobalLogger())
+	if err != nil {
+		logger.Error(err, "failed to initialize webhookMonitor")
+		os.Exit(1)
+	}
+	// start monitor (only when running in cluster)
+	if serverIP == "" {
+		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
+	}
+	// create webhooks server
+	urgen := webhookgenerate.NewGenerator(
+		kyvernoClient,
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests(),
+	)
+	policyHandlers := webhookspolicy.NewHandlers(
+		dynamicClient,
+		openApiManager,
+	)
 	resourceHandlers := webhooksresource.NewHandlers(
 		dynamicClient,
 		kyvernoClient,
@@ -478,205 +730,39 @@ func main() {
 		kubeInformer.Core().V1().Namespaces().Lister(),
 		kubeInformer.Rbac().V1().RoleBindings().Lister(),
 		kubeInformer.Rbac().V1().ClusterRoleBindings().Lister(),
-		kyvernoV1beta1.UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
+		kyvernoInformer.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace()),
 		urgen,
 		eventGenerator,
-		openAPIController,
+		openApiManager,
 		admissionReports,
 	)
-
+	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
-		certManager.GetTLSPemPair,
+		func() ([]byte, []byte, error) {
+			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
+			if err != nil {
+				return nil, nil, err
+			}
+			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
+		},
 		configuration,
 		webhookCfg,
 		webhookMonitor,
 	)
-
-	// wrap all controllers that need leaderelection
-	// start them once by the leader
-	registerWrapperRetry := common.RetryFunc(time.Second, webhookRegistrationTimeout, webhookCfg.Register, "failed to register webhook", logger)
-	run := func(context.Context) {
-		if err := certRenewer.InitTLSPemPair(); err != nil {
-			logger.Error(err, "tls initialization error")
-			os.Exit(1)
-		}
-		// wait for cache to be synced before use it
-		if !waitForInformersCacheSync(signalCtx,
-			kubeInformer.Admissionregistration().V1().MutatingWebhookConfigurations().Informer(),
-			kubeInformer.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer(),
-		) {
-			// TODO: shall we just exit ?
-			logger.Info("failed to wait for cache sync")
-		}
-
-		// validate the ConfigMap format
-		if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
-			logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
-			os.Exit(1)
-		}
-		if autoUpdateWebhooks {
-			go webhookCfg.UpdateWebhookConfigurations(configuration)
-		}
-		if registrationErr := registerWrapperRetry(); registrationErr != nil {
-			logger.Error(err, "Timeout registering admission control webhooks")
-			os.Exit(1)
-		}
-		webhookCfg.UpdateWebhookChan <- true
-		go certManager.Run(signalCtx, certmanager.Workers)
-		go policyCtrl.Run(signalCtx, 2)
-		go webhookController.Run(signalCtx, webhookcontroller.Workers)
-
-		reportControllers := setupReportControllers(
-			backgroundScan,
-			admissionReports,
-			dynamicClient,
-			kyvernoClient,
-			metadataInformer,
-			kubeInformer,
-			kyvernoInformer,
-		)
-		startInformers(signalCtx, metadataInformer)
-		if !checkCacheSync(metadataInformer.WaitForCacheSync(signalCtx.Done())) {
-			// TODO: shall we just exit ?
-			logger.Info("failed to wait for cache sync")
-		}
-
-		for _, controller := range reportControllers {
-			go controller.run(signalCtx)
-		}
-	}
-
-	// cleanup Kyverno managed resources followed by webhook shutdown
-	// No need to exit here, as server.Stop(ctx) closes the cleanUp
-	// chan, thus the main process exits.
-	stop := func() {
-		c, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		server.Stop(c)
-	}
-
-	le, err := leaderelection.New(
-		logger.WithName("leader-election"),
-		"kyverno",
-		config.KyvernoNamespace(),
-		kubeClientLeaderElection,
-		config.KyvernoPodName(),
-		run,
-		stop,
-	)
-	if err != nil {
-		logger.Error(err, "failed to elect a leader")
-		os.Exit(1)
-	}
-
-	// cancel leader election context on shutdown signals
-	go func() {
-		defer signalCancel()
-		<-signalCtx.Done()
-	}()
-
+	// start informers and wait for cache sync
+	// we need to call start again because we potentially registered new informers
 	if !startInformersAndWaitForCacheSync(signalCtx, kyvernoInformer, kubeInformer, kubeKyvernoInformer) {
-		logger.Error(err, "Failed to wait for cache sync")
+		logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 		os.Exit(1)
 	}
-
-	// warmup policy cache
-	if err := policyCacheController.WarmUp(); err != nil {
-		logger.Error(err, "Failed to warm up policy cache")
-		os.Exit(1)
-	}
-
-	// init events handlers
-	// start Kyverno controllers
-	go policyCacheController.Run(signalCtx, policycachecontroller.Workers)
-	go urc.Run(signalCtx, genWorkers)
-	go le.Run(signalCtx)
-	go configurationController.Run(signalCtx, configcontroller.Workers)
-	go eventGenerator.Run(signalCtx, 3)
-
-	if serverIP == "" {
-		go webhookMonitor.Run(signalCtx, webhookCfg, certRenewer, eventGenerator)
-	}
-
-	// verifies if the admission control is enabled and active
+	// start webhooks server
 	server.Run(signalCtx.Done())
-
+	// wait for termination signal
 	<-signalCtx.Done()
-
-	// resource cleanup
-	// remove webhook configurations
+	// wait for server cleanup
 	<-server.Cleanup()
+	// say goodbye...
 	logger.V(2).Info("Kyverno shutdown successful")
-}
-
-func startOpenAPIController(ctx context.Context, logger logr.Logger, client dclient.Interface) *openapi.Controller {
-	logger = logger.WithName("open-api")
-	openAPIController, err := openapi.NewOpenAPIController()
-	if err != nil {
-		logger.Error(err, "Failed to create openAPIController")
-		os.Exit(1)
-	}
-	// Sync openAPI definitions of resources
-	openAPISync := openapi.NewCRDSync(client, openAPIController)
-	// start openAPI controller, this is used in admission review
-	// thus is required in each instance
-	openAPISync.Run(ctx, 1)
-	return openAPIController
-}
-
-func setupReportControllers(
-	backgroundScan bool,
-	admissionReports bool,
-	client dclient.Interface,
-	kyvernoClient versioned.Interface,
-	metadataFactory metadatainformers.SharedInformerFactory,
-	kubeInformer kubeinformers.SharedInformerFactory,
-	kyvernoInformer kyvernoinformer.SharedInformerFactory,
-) []controller {
-	var ctrls []controller
-	kyvernoV1 := kyvernoInformer.Kyverno().V1()
-	if backgroundScan || admissionReports {
-		resourceReportController := resourcereportcontroller.NewController(
-			client,
-			kyvernoV1.Policies(),
-			kyvernoV1.ClusterPolicies(),
-		)
-		ctrls = append(ctrls, controller{resourceReportController, resourcereportcontroller.Workers})
-		ctrls = append(ctrls, controller{
-			aggregatereportcontroller.NewController(
-				kyvernoClient,
-				metadataFactory,
-				resourceReportController,
-				reportsChunkSize,
-			),
-			aggregatereportcontroller.Workers,
-		})
-		if admissionReports {
-			ctrls = append(ctrls, controller{
-				admissionreportcontroller.NewController(
-					kyvernoClient,
-					metadataFactory,
-					resourceReportController,
-				),
-				admissionreportcontroller.Workers,
-			})
-		}
-		if backgroundScan {
-			ctrls = append(ctrls, controller{
-				backgroundscancontroller.NewController(
-					client,
-					kyvernoClient,
-					metadataFactory,
-					kyvernoV1.Policies(),
-					kyvernoV1.ClusterPolicies(),
-					kubeInformer.Core().V1().Namespaces(),
-					resourceReportController,
-				),
-				backgroundscancontroller.Workers,
-			})
-		}
-	}
-	return ctrls
 }
