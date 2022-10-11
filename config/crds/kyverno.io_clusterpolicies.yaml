@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -280,6 +280,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -345,6 +346,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -388,6 +390,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -495,6 +498,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -560,6 +564,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -603,6 +608,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -699,6 +705,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -758,6 +765,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -800,6 +808,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     generate:
@@ -990,6 +999,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -1055,6 +1065,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -1098,6 +1109,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -1205,6 +1217,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -1270,6 +1283,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -1313,6 +1327,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -1409,6 +1424,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -1468,6 +1484,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -1510,6 +1527,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     mutate:
