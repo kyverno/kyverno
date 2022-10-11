@@ -9,7 +9,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/test"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/version"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"k8s.io/klog/v2/klogr"
 	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -38,8 +38,13 @@ func main() {
 }
 
 func configurelog(cli *cobra.Command) {
+	// clear flags initialized in static dependencies
+	if flag.CommandLine.Lookup("log_dir") != nil {
+		flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	}
+
 	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
+	log.SetLogger(klogr.New().WithCallDepth(1))
 
 	cli.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 	_ = cli.PersistentFlags().MarkHidden("alsologtostderr")
