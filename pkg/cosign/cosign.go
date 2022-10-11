@@ -85,11 +85,7 @@ func verifySignature(opts Options) (*Response, error) {
 		return nil, err
 	}
 
-	if err := matchSubjectAndIssuer(signatures, opts.Subject, opts.Issuer); err != nil {
-		return nil, err
-	}
-
-	if err := matchExtensions(signatures, opts.AdditionalExtensions); err != nil {
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
 		return nil, err
 	}
 
@@ -182,7 +178,10 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 		} else {
 			// if key, cert, and roots are not provided, default to Fulcio roots
 			if cosignOpts.RootCerts == nil {
-				cosignOpts.RootCerts = fulcio.GetRoots()
+				cosignOpts.RootCerts, err = fulcio.GetRoots()
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to initialize roots")
+				}
 				if cosignOpts.RootCerts == nil {
 					return nil, fmt.Errorf("failed to initialize roots")
 				}
@@ -417,37 +416,8 @@ func extractDigest(imgRef string, payload []payload.SimpleContainerImage) (strin
 	return "", fmt.Errorf("digest not found for " + imgRef)
 }
 
-func matchSubjectAndIssuer(signatures []oci.Signature, subject, issuer string) error {
-	if subject == "" && issuer == "" {
-		return nil
-	}
-	var s string
-	for _, sig := range signatures {
-		cert, err := sig.Cert()
-		if err != nil {
-			return errors.Wrap(err, "failed to read certificate")
-		}
-
-		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
-		}
-
-		s = sigs.CertSubject(cert)
-		i := sigs.CertIssuerExtension(cert)
-		if subject == "" || wildcard.Match(subject, s) {
-			if issuer == "" || (issuer == i) {
-				return nil
-			} else {
-				return fmt.Errorf("issuer mismatch: expected %s, got %s", i, issuer)
-			}
-		}
-	}
-
-	return fmt.Errorf("subject mismatch: expected %s, got %s", s, subject)
-}
-
-func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]string) error {
-	if len(requiredExtensions) == 0 {
+func matchCertificate(signatures []oci.Signature, subject, issuer string, extensions map[string]string) error {
+	if subject == "" && issuer == "" && len(extensions) == 0 {
 		return nil
 	}
 
@@ -458,34 +428,65 @@ func matchExtensions(signatures []oci.Signature, requiredExtensions map[string]s
 		}
 
 		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
+			return errors.Errorf("certificate not found")
 		}
 
-		// This will return a map which consists of readable extension-names as keys
-		// or the raw extensionIDs as fallback and its values.
-		certExtensions := sigs.CertExtensions(cert)
-		for requiredKey, requiredValue := range requiredExtensions {
-			certValue, ok := certExtensions[requiredKey]
-			if !ok {
-				// "requiredKey" seems to be an extensionID, try to resolve its human readable name
-				readableName, ok := sigs.CertExtensionMap[requiredKey]
-				if !ok {
-					return fmt.Errorf("key %s not present", requiredKey)
-				}
-
-				certValue, ok = certExtensions[readableName]
-				if !ok {
-					return fmt.Errorf("key %s (%s) not present", requiredKey, readableName)
-				}
+		if subject != "" {
+			s := sigs.CertSubject(cert)
+			if !wildcard.Match(subject, s) {
+				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 			}
+		}
 
-			if requiredValue != "" && !wildcard.Match(requiredValue, certValue) {
-				return fmt.Errorf("extension mismatch: expected %s for key %s, got %s", requiredValue, requiredKey, certValue)
-			}
+		if err := matchExtensions(cert, issuer, extensions); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func matchExtensions(cert *x509.Certificate, issuer string, extensions map[string]string) error {
+	ce := cosign.CertExtensions{Cert: cert}
+
+	if issuer != "" {
+		val := ce.GetIssuer()
+		if !wildcard.Match(issuer, val) {
+			return fmt.Errorf("issuer mismatch: expected %s, received %s", issuer, val)
+		}
+	}
+
+	for requiredKey, requiredValue := range extensions {
+		val, err := extractCertExtensionValue(requiredKey, ce)
+		if err != nil {
+			return err
+		}
+
+		if !wildcard.Match(requiredValue, val) {
+			return fmt.Errorf("extension mismatch: expected %s for key %s, received %s", requiredValue, requiredKey, val)
+		}
+	}
+
+	return nil
+}
+
+func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
+	switch key {
+	case cosign.CertExtensionOIDCIssuer, cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
+		return ce.GetIssuer(), nil
+	case cosign.CertExtensionGithubWorkflowTrigger, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
+		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
+	case cosign.CertExtensionGithubWorkflowSha, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
+		return ce.GetExtensionGithubWorkflowSha(), nil
+	case cosign.CertExtensionGithubWorkflowName, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
+		return ce.GetCertExtensionGithubWorkflowName(), nil
+	case cosign.CertExtensionGithubWorkflowRepository, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
+		return ce.GetCertExtensionGithubWorkflowRepository(), nil
+	case cosign.CertExtensionGithubWorkflowRef, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
+		return ce.GetCertExtensionGithubWorkflowRef(), nil
+	default:
+		return "", errors.Errorf("invalid certificate extension %s", key)
+	}
 }
 
 func checkAnnotations(payload []payload.SimpleContainerImage, annotations map[string]string) error {
