@@ -13,7 +13,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -295,6 +295,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -360,6 +361,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -403,6 +405,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -510,6 +513,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -575,6 +579,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -618,6 +623,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -714,6 +720,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -773,6 +780,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -815,6 +823,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     generate:
@@ -1005,6 +1014,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -1070,6 +1080,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -1113,6 +1124,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -1220,6 +1232,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -1285,6 +1298,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -1328,6 +1342,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -1424,6 +1439,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -1483,6 +1499,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -1525,6 +1542,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     mutate:
@@ -2576,18 +2594,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -2721,6 +2733,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource
                     checked by the policy and rule
@@ -2784,6 +2797,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -2872,6 +2886,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes
               (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
@@ -2915,6 +2930,7 @@ spec:
                   contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -2943,18 +2959,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3088,6 +3098,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource
                     checked by the policy and rule
@@ -3151,6 +3162,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -3239,6 +3251,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes
               (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
@@ -3282,6 +3295,7 @@ spec:
                   contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -3310,18 +3324,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3505,18 +3513,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3799,6 +3801,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -3864,6 +3867,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -3907,6 +3911,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -4014,6 +4019,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -4079,6 +4085,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -4122,6 +4129,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -4218,6 +4226,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -4277,6 +4286,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -4319,6 +4329,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     generate:
@@ -4509,6 +4520,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -4574,6 +4586,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -4617,6 +4630,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -4724,6 +4738,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces
                                       names. Each name supports wildcard characters
@@ -4789,6 +4804,7 @@ spec:
                                           "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role
@@ -4832,6 +4848,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -4928,6 +4945,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names.
                                 Each name supports wildcard characters "*" (matches
@@ -4987,6 +5005,7 @@ spec:
                                     requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names
@@ -5029,6 +5048,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     mutate:
@@ -6081,18 +6101,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6225,6 +6239,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource
                     checked by the policy and rule
@@ -6288,6 +6303,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -6376,6 +6392,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes
               (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
@@ -6419,6 +6436,7 @@ spec:
                   contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -6447,18 +6465,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6592,6 +6604,7 @@ spec:
                         are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource
                     checked by the policy and rule
@@ -6655,6 +6668,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -6743,6 +6757,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes
               (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector
@@ -6786,6 +6801,7 @@ spec:
                   contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -6814,18 +6830,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -6931,10 +6941,12 @@ spec:
                           object:
                             description: Object is the object from the incoming request.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           oldObject:
                             description: OldObject is the existing object. Only populated
                               for DELETE and UPDATE requests.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           operation:
                             description: Operation is the operation being performed.
                               This may be different than the operation requested.
@@ -6950,6 +6962,7 @@ spec:
                               which case the Options will a `meta.k8s.io/v1.CreateOptions`
                               even though the caller provided `meta.k8s.io/v1.PatchOptions`.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           requestKind:
                             description: "RequestKind is the fully-qualified type
                               of the original API request (for example, v1.Pod or
@@ -7207,12 +7220,6 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount

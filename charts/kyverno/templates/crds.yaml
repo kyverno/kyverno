@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '1'
     internal.config.kubernetes.io/index: '1'
   creationTimestamp: null
@@ -198,6 +198,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -233,6 +234,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -260,6 +262,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -324,6 +327,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -359,6 +363,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -386,6 +391,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -445,6 +451,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
@@ -480,6 +487,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names for the user.
@@ -507,6 +515,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     generate:
@@ -627,6 +636,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -662,6 +672,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -689,6 +700,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -753,6 +765,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -788,6 +801,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -815,6 +829,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -874,6 +889,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
@@ -909,6 +925,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names for the user.
@@ -936,6 +953,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     mutate:
@@ -1611,18 +1629,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '2'
     internal.config.kubernetes.io/index: '2'
   creationTimestamp: null
@@ -1733,6 +1745,7 @@ spec:
                       description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
@@ -1760,6 +1773,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -1830,6 +1844,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
             properties:
@@ -1860,6 +1875,7 @@ spec:
                 description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -1883,18 +1899,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '3'
     internal.config.kubernetes.io/index: '3'
   creationTimestamp: null
@@ -2005,6 +2015,7 @@ spec:
                       description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
@@ -2032,6 +2043,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -2102,6 +2114,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
             properties:
@@ -2132,6 +2145,7 @@ spec:
                 description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -2155,18 +2169,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '4'
     internal.config.kubernetes.io/index: '4'
   creationTimestamp: null
@@ -2336,18 +2344,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '5'
     internal.config.kubernetes.io/index: '5'
   creationTimestamp: null
@@ -2542,6 +2544,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -2577,6 +2580,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -2604,6 +2608,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -2668,6 +2673,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -2703,6 +2709,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -2730,6 +2737,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -2789,6 +2797,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
@@ -2824,6 +2833,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names for the user.
@@ -2851,6 +2861,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     generate:
@@ -2971,6 +2982,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -3006,6 +3018,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -3033,6 +3046,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -3097,6 +3111,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                   namespaces:
                                     description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                                     items:
@@ -3132,6 +3147,7 @@ spec:
                                         description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                         type: object
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               roles:
                                 description: Roles is the list of namespaced role names for the user.
@@ -3159,6 +3175,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                             type: object
                           type: array
@@ -3218,6 +3235,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               description: Namespaces is a list of namespaces names. Each name supports wildcard characters "*" (matches zero or many characters) and "?" (at least one character).
                               items:
@@ -3253,6 +3271,7 @@ spec:
                                   description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         roles:
                           description: Roles is the list of namespaced role names for the user.
@@ -3280,6 +3299,7 @@ spec:
                             - kind
                             - name
                             type: object
+                            x-kubernetes-map-type: atomic
                           type: array
                       type: object
                     mutate:
@@ -3955,18 +3975,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '6'
     internal.config.kubernetes.io/index: '6'
   creationTimestamp: null
@@ -4077,6 +4091,7 @@ spec:
                       description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
@@ -4104,6 +4119,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -4174,6 +4190,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
             properties:
@@ -4204,6 +4221,7 @@ spec:
                 description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -4227,18 +4245,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '7'
     internal.config.kubernetes.io/index: '7'
   creationTimestamp: null
@@ -4349,6 +4361,7 @@ spec:
                       description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                       type: object
                   type: object
+                  x-kubernetes-map-type: atomic
                 resources:
                   description: Resources is an optional reference to the resource checked by the policy and rule
                   items:
@@ -4376,6 +4389,7 @@ spec:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                         type: string
                     type: object
+                    x-kubernetes-map-type: atomic
                   type: array
                 result:
                   description: Result indicates the outcome of the policy rule execution
@@ -4446,6 +4460,7 @@ spec:
                 description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                 type: string
             type: object
+            x-kubernetes-map-type: atomic
           scopeSelector:
             description: ScopeSelector is an optional selector for multiple scopes (e.g. Pods). Either one of, or none of, but not both of, Scope or ScopeSelector should be specified.
             properties:
@@ -4476,6 +4491,7 @@ spec:
                 description: matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value". The requirements are ANDed.
                 type: object
             type: object
+            x-kubernetes-map-type: atomic
           summary:
             description: PolicyReportSummary provides a summary of results
             properties:
@@ -4499,18 +4515,12 @@ spec:
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.8.0
+    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
     config.kubernetes.io/index: '8'
     internal.config.kubernetes.io/index: '8'
   creationTimestamp: null
@@ -4605,15 +4615,18 @@ spec:
                           object:
                             description: Object is the object from the incoming request.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           oldObject:
                             description: OldObject is the existing object. Only populated for DELETE and UPDATE requests.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           operation:
                             description: Operation is the operation being performed. This may be different than the operation requested. e.g. a patch can result in either a CREATE or UPDATE Operation.
                             type: string
                           options:
                             description: Options is the operation option structure of the operation being performed. e.g. `meta.k8s.io/v1.DeleteOptions` or `meta.k8s.io/v1.CreateOptions`. This may be different than the options the caller provided. e.g. for a patch request the performed Operation might be a CREATE, in which case the Options will a `meta.k8s.io/v1.CreateOptions` even though the caller provided `meta.k8s.io/v1.PatchOptions`.
                             type: object
+                            x-kubernetes-preserve-unknown-fields: true
                           requestKind:
                             description: "RequestKind is the fully-qualified type of the original API request (for example, v1.Pod or autoscaling.v1.Scale). If this is specified and differs from the value in \"kind\", an equivalent match and conversion was performed. \n For example, if deployments can be modified via apps/v1 and apps/v1beta1, and a webhook registered a rule of `apiGroups:[\"apps\"], apiVersions:[\"v1\"], resources: [\"deployments\"]` and `matchPolicy: Equivalent`, an API request to apps/v1beta1 deployments would be converted and sent to the webhook with `kind: {group:\"apps\", version:\"v1\", kind:\"Deployment\"}` (matching the rule the webhook registered for), and `requestKind: {group:\"apps\", version:\"v1beta1\", kind:\"Deployment\"}` (indicating the kind of the original API request). \n See documentation for the \"matchPolicy\" field in the webhook configuration type for more details."
                             properties:
@@ -4807,10 +4820,4 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
 {{- end }}
