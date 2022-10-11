@@ -1,6 +1,6 @@
 module github.com/kyverno/kyverno
 
-go 1.17
+go 1.18
 
 require (
 	github.com/aquilax/truncate v1.0.0
