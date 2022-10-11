@@ -101,7 +101,7 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 	if verifyRule.DryRunOption.Namespace != "" {
 		vo.DryRunNamespace = verifyRule.DryRunOption.Namespace
 	} else {
-		vo.DryRunNamespace = config.KyvernoNamespace()
+		vo.DryRunNamespace = config.KyvernoDryRunNamespace()
 	}
 	if !vo.DisableDryRun {
 		// check if kyverno can 'create' dryrun resource
