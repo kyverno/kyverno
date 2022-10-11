@@ -2576,6 +2576,12 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -2937,6 +2943,12 @@ spec:
     served: true
     storage: true
     subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -3298,6 +3310,12 @@ spec:
     served: true
     storage: true
     subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -3487,6 +3505,12 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6057,6 +6081,12 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6417,6 +6447,12 @@ spec:
     served: true
     storage: true
     subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6778,6 +6814,12 @@ spec:
     served: true
     storage: true
     subresources: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -6889,12 +6931,10 @@ spec:
                           object:
                             description: Object is the object from the incoming request.
                             type: object
-                            x-kubernetes-preserve-unknown-fields: true
                           oldObject:
                             description: OldObject is the existing object. Only populated
                               for DELETE and UPDATE requests.
                             type: object
-                            x-kubernetes-preserve-unknown-fields: true
                           operation:
                             description: Operation is the operation being performed.
                               This may be different than the operation requested.
@@ -6910,7 +6950,6 @@ spec:
                               which case the Options will a `meta.k8s.io/v1.CreateOptions`
                               even though the caller provided `meta.k8s.io/v1.PatchOptions`.
                             type: object
-                            x-kubernetes-preserve-unknown-fields: true
                           requestKind:
                             description: "RequestKind is the fully-qualified type
                               of the original API request (for example, v1.Pod or
@@ -7168,6 +7207,12 @@ spec:
     storage: true
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
 ---
 apiVersion: v1
 kind: ServiceAccount
