@@ -3096,19 +3096,13 @@ entries:
           description: Fix Kyverno version check when image tag contains registry port number
         - kind: fixed
           description: Ensure preconditions are present with default values
-        - kind: added
-          description: Support for failurePolicy setting in kyverno-policies helm chart
-        - kind: added
-          description: Add posibility to set validationFailureAction by Policy
-        - kind: added
-          description: Added ability to get additional policies from restricted
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
-    appVersion: v1.7.3
-    created: "2022-09-01T06:37:46.519609227Z"
+    appVersion: v1.7.5
+    created: "2022-10-11T12:58:30.289525954Z"
     description: Kubernetes Pod Security Standards implemented as Kyverno policies
-    digest: 9cfe978c81f1c208614ead70a5f090d80b89ba7c1bbbdee1f4d79a92ab69aa87
+    digest: b7121bfedae551a06e7035188673f78fa80add5d70c9c23b9eb075f8c1255a8e
     home: https://kyverno.io/policies/
     icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
     keywords:
@@ -4327,4 +4321,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-10-10T08:34:58.369393697Z"
+generated: "2022-10-11T12:58:30.288037166Z"
