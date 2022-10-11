@@ -132,6 +132,8 @@ func (c *controller) updateDynamicWatchers(ctx context.Context) error {
 		apiResource, gvr, err := c.client.Discovery().FindResource(apiVersion, kind)
 		if err != nil {
 			logger.Error(err, "failed to get gvr from kind", "kind", kind)
+		} else if apiVersion == "" && kind == "Event" {
+			logger.Info("Event cannot be an owner, skipping", "apiVersion", apiVersion, "kind", kind)
 		} else {
 			if pkgutils.ContainsString(apiResource.Verbs, "list") && pkgutils.ContainsString(apiResource.Verbs, "watch") {
 				gvrs[kind] = gvr
