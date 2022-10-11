@@ -7,6 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	appsv1 "k8s.io/api/apps/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	appsv1informers "k8s.io/client-go/informers/apps/v1"
 	coordinationv1informers "k8s.io/client-go/informers/coordination/v1"
 	appsv1listers "k8s.io/client-go/listers/apps/v1"
@@ -24,6 +25,7 @@ type Runtime interface {
 	IsReady() bool
 	IsLive() bool
 	IsRollingUpdate() bool
+	IsGoingDown() bool
 }
 
 type runtime struct {
@@ -75,6 +77,20 @@ func (c *runtime) IsRollingUpdate() bool {
 	if nonTerminatedReplicas > replicas {
 		c.logger.Info("detect Kyverno is in rolling update, won't trigger the update again")
 		return true
+	}
+	return false
+}
+
+func (c *runtime) IsGoingDown() bool {
+	if c.IsDebug() {
+		return false
+	}
+	deployment, err := c.getDeployment()
+	if err != nil {
+		return apierrors.IsNotFound(err)
+	}
+	if deployment.Spec.Replicas != nil {
+		return *deployment.Spec.Replicas == 0
 	}
 	return false
 }

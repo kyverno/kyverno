@@ -720,7 +720,6 @@ func main() {
 		admissionReports,
 	)
 	secretLister := kubeKyvernoInformer.Core().V1().Secrets().Lister()
-	leaseLister := kubeKyvernoInformer.Coordination().V1().Leases().Lister()
 	server := webhooks.NewServer(
 		policyHandlers,
 		resourceHandlers,
@@ -732,22 +731,19 @@ func main() {
 			}
 			return secret.Data[corev1.TLSCertKey], secret.Data[corev1.TLSPrivateKeyKey], nil
 		},
-		func() bool {
-			lease, err := leaseLister.Leases(config.KyvernoNamespace()).Get("kyverno")
-			if err != nil {
-				logger.Error(err, "failed to get lease")
-				return false
-			}
-			annotations := lease.GetAnnotations()
-			if annotations == nil {
-				return false
-			}
-			annTime, err := time.Parse(time.RFC3339, annotations[webhookcontroller.AnnotationLastRequestTime])
-			if err != nil {
-				return false
-			}
-			return time.Now().Before(annTime.Add(webhookcontroller.IdleDeadline))
-		},
+		metrics.ObjectClient[*admissionregistrationv1.MutatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "MutatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations(),
+		),
+		metrics.ObjectClient[*admissionregistrationv1.ValidatingWebhookConfiguration](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "ValidatingWebhookConfiguration", metrics.KubeClient),
+			kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations(),
+		),
+		metrics.ObjectClient[*coordinationv1.Lease](
+			metrics.ClusteredClientQueryRecorder(metricsConfig, "Lease", metrics.KubeClient),
+			kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
+		),
+		runtime,
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

@@ -14,8 +14,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -43,8 +49,12 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server  *http.Server
-	cleanUp chan struct{}
+	server      *http.Server
+	runtime     runtimeutils.Runtime
+	mwcClient   controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vwcClient   controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	cleanUp     chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -55,7 +65,10 @@ func NewServer(
 	resourceHandlers ResourceHandlers,
 	configuration config.Configuration,
 	tlsProvider TlsProvider,
-	health func() bool,
+	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
+	vwcClient controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
+	runtime runtimeutils.Runtime,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -66,8 +79,8 @@ func NewServer(
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate)))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate)))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify()))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(health))
-	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(health))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
+	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
@@ -90,7 +103,11 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 		},
-		cleanUp: make(chan struct{}),
+		mwcClient:   mwcClient,
+		vwcClient:   vwcClient,
+		leaseClient: leaseClient,
+		runtime:     runtime,
+		cleanUp:     make(chan struct{}),
 	}
 }
 
@@ -121,13 +138,29 @@ func (s *server) Cleanup() <-chan struct{} {
 }
 
 func (s *server) cleanup(ctx context.Context) {
-	// cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
-
-	// var wg sync.WaitGroup
-	// wg.Add(2)
-	// go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
-	// go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
-	// wg.Wait()
+	if s.runtime.IsGoingDown() {
+		deleteLease := func(name string) {
+			if err := s.leaseClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up lease", "name", name)
+			}
+		}
+		deleteVwc := func(name string) {
+			if err := s.vwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up validating webhook configuration", "name", name)
+			}
+		}
+		deleteMwc := func(name string) {
+			if err := s.mwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up mutating webhook configuration", "name", name)
+			}
+		}
+		deleteLease("kyvernopre-lock")
+		deleteVwc(config.ValidatingWebhookConfigurationName)
+		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
+		deleteMwc(config.MutatingWebhookConfigurationName)
+		deleteMwc(config.PolicyMutatingWebhookConfigurationName)
+		deleteMwc(config.VerifyMutatingWebhookConfigurationName)
+	}
 	close(s.cleanUp)
 }
 
