@@ -10,11 +10,15 @@ import (
 )
 
 type (
-	addFunc     func(interface{})
-	updateFunc  func(interface{}, interface{})
-	deleteFunc  func(interface{})
-	keyFunc     func(interface{}) (interface{}, error)
-	EnqueueFunc func(interface{}) error
+	addFunc             func(interface{})
+	updateFunc          func(interface{}, interface{})
+	deleteFunc          func(interface{})
+	addFuncT[T any]     func(T)
+	updateFuncT[T any]  func(T, T)
+	deleteFuncT[T any]  func(T)
+	keyFunc             func(interface{}) (interface{}, error)
+	EnqueueFunc         func(interface{}) error
+	EnqueueFuncT[T any] func(T) error
 )
 
 func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d deleteFunc) {
@@ -22,6 +26,14 @@ func AddEventHandlers(informer cache.SharedInformer, a addFunc, u updateFunc, d 
 		AddFunc:    a,
 		UpdateFunc: u,
 		DeleteFunc: d,
+	})
+}
+
+func AddEventHandlersT[T any](informer cache.SharedInformer, a addFuncT[T], u updateFuncT[T], d deleteFuncT[T]) {
+	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj interface{}) { a(obj.(T)) },
+		UpdateFunc: func(old, obj interface{}) { u(old.(T), obj.(T)) },
+		DeleteFunc: func(obj interface{}) { d(obj.(T)) },
 	})
 }
 

@@ -32,8 +32,9 @@ import (
 
 const (
 	// Workers is the number of workers for this controller
-	Workers    = 2
-	maxRetries = 10
+	Workers        = 2
+	ControllerName = "background-scan-controller"
+	maxRetries     = 10
 )
 
 type controller struct {
@@ -68,7 +69,7 @@ func NewController(
 ) controllers.Controller {
 	bgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanr := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
-	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), controllerName)
+	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		client:         client,
 		kyvernoClient:  kyvernoClient,
@@ -102,7 +103,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(ctx, controllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) addPolicy(obj interface{}) {

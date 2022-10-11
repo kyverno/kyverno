@@ -70,7 +70,7 @@ func main() {
 		os.Exit(1)
 	}
 	// os signal handler
-	signalCtx, signalCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
 	defer signalCancel()
 
 	stopCh := signalCtx.Done()
