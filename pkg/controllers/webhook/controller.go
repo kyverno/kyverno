@@ -560,7 +560,6 @@ func (c *controller) buildDefaultResourceMutatingWebhookConfiguration(caBundle [
 					Operations: []admissionregistrationv1.OperationType{
 						admissionregistrationv1.Create,
 						admissionregistrationv1.Update,
-						admissionregistrationv1.Delete,
 					},
 				}},
 				FailurePolicy:           &ignore,
@@ -615,7 +614,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 					Name:         config.MutatingWebhookName + "-ignore",
 					ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
-						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete),
+						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					},
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
@@ -634,7 +633,7 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 					Name:         config.MutatingWebhookName + "-fail",
 					ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
 					Rules: []admissionregistrationv1.RuleWithOperations{
-						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete),
+						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					},
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
