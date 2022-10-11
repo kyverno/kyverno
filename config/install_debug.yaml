@@ -25134,7 +25134,6 @@ metadata:
     app.kubernetes.io/name: kyverno
     app.kubernetes.io/part-of: kyverno
   name: kyverno
-rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
