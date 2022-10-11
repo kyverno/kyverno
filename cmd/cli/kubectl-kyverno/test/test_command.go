@@ -1126,7 +1126,7 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				} else {
 					log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
 					if !removeColor {
-						res.Result = boldGreen.Sprintf("Fail")
+						res.Result = boldRed.Sprintf("Fail")
 					} else {
 						res.Result = "Fail"
 					}
