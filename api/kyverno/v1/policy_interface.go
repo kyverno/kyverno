@@ -14,6 +14,7 @@ type PolicyInterface interface {
 	HasAutoGenAnnotation() bool
 	IsNamespaced() bool
 	GetSpec() *Spec
+	GetStatus() *PolicyStatus
 	Validate(sets.String) field.ErrorList
 	GetKind() string
 	CreateDeepCopy() PolicyInterface
