@@ -170,9 +170,9 @@ func Test_Ingress(t *testing.T) {
 
 	versions, ok := o.kindToAPIVersions.Get("Ingress")
 	assert.Equal(t, true, ok)
-	versionsTyped := versions.(apiVersions)
-	assert.Equal(t, versionsTyped.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
-	assert.Equal(t, len(versionsTyped.gvks), 3)
+
+	assert.Equal(t, versions.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
+	assert.Equal(t, len(versions.gvks), 3)
 
 	definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
 	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")

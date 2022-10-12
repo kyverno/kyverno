@@ -2,15 +2,17 @@ package policy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"gotest.tools/assert"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
@@ -983,7 +985,7 @@ func Test_checkAutoGenRules(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		res := missingAutoGenRules(&policy, log.Log)
+		res := missingAutoGenRules(&policy, logging.GlobalLogger())
 		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
 	}
 }
@@ -1476,4 +1478,435 @@ func Test_ValidateJSON6902Value(t *testing.T) {
   value: "nginx"`
 	err = validateJSONPatchValue(patch)
 	assert.NilError(t, err)
+}
+
+func Test_ValidateNamespace(t *testing.T) {
+	testcases := []struct {
+		description   string
+		spec          *kyverno.Spec
+		expectedError error
+	}{
+		{
+			description: "tc1",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("conflicting namespaces found in path: spec.validationFailureActionOverrides[1].namespaces: default"),
+		},
+		{
+			description: "tc2",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Mutation: kyverno.Mutation{
+							RawPatchStrategicMerge: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app-name": "{{request.object.metadata.name}}"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("conflicting namespaces found in path: spec.validationFailureActionOverrides[1].namespaces: default"),
+		},
+		{
+			description: "tc3",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'default*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc4",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc5",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc6",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default?",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default1",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'default?' matches with namespace 'default1'"),
+		},
+		{
+			description: "tc7",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' matches with namespace 'test'"),
+		},
+		{
+			description: "tc8",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"*",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' conflicts with the pattern '*'"),
+		},
+		{
+			description: "tc9",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+							"test*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'test*' matches with namespace 'test'"),
+		},
+		{
+			description: "tc10",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"*efault",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '*efault' matches with namespace 'default'"),
+		},
+		{
+			description: "tc11",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default-*",
+							"test",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "tc12",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default*?",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+							"test*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "tc13",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: kyverno.Enforce,
+						Namespaces: []string{
+							"default?",
+						},
+					},
+					{
+						Action: kyverno.Audit,
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := validateNamespaces(tc.spec, field.NewPath("spec").Child("validationFailureActionOverrides"))
+			if tc.expectedError != nil {
+				assert.Error(t, err, tc.expectedError.Error())
+			} else {
+				assert.NilError(t, err)
+			}
+		})
+	}
 }

@@ -460,11 +460,6 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 					}
 				}
 			}`),
-			errors: func(r *Rule) (errs field.ErrorList) {
-				return append(errs,
-					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "/proc Mount Type", "Invalid control name defined at the given level"),
-				)
-			},
 		},
 		{
 			description: "restricted_with_restricted_control_name",
@@ -695,6 +690,72 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 				}
 			}`),
 		},
+		{
+			description: "baseline_policy_with_restricted_control",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "baseline",
+						"version": "v1.24",
+						"exclude": [
+							{
+								"controlName": "Volume Types"
+							}
+						]
+					}
+				}
+			}`),
+			errors: func(r *Rule) (errs field.ErrorList) {
+				return append(errs,
+					field.Invalid(path.Child("podSecurity").Child("exclude").Index(0).Child("controlName"), "Volume Types", "Invalid control name defined at the given level"),
+				)
+			},
+		},
+		{
+			description: "baseline_policy_with_restricted_control",
+			rule: []byte(`
+			{
+				"name": "enforce-baseline-exclude-all-hostProcesses-all-containers-nginx",
+				"match": {
+					"any": [
+						{
+							"resources": {
+								"kinds": [
+									"Pod"
+								]
+							}
+						}
+					]
+				},
+				"validate": {
+					"podSecurity": {
+						"level": "restricted",
+						"version": "latest",
+						"exclude": [
+							{
+								"controlName": "Privileged Containers",
+								"images": [
+									"dummyimagename*"
+								]
+							}
+						]
+					}
+				}
+			}`),
+		},
 	}
 
 	for _, testcase := range testcases {
@@ -706,7 +767,7 @@ func Test_ValidatePSaControlNames(t *testing.T) {
 		if testcase.errors != nil {
 			expectedErrs = testcase.errors(&rule)
 		}
-		fmt.Println("====errs", errs)
+		fmt.Println("errs", errs)
 		assert.Equal(t, len(errs), len(expectedErrs))
 		for i := range errs {
 			assert.Equal(t, errs[i].Error(), expectedErrs[i].Error())

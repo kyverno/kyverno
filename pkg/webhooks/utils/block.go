@@ -51,7 +51,9 @@ func GetBlockedMessages(engineResponses []*response.EngineResponse) string {
 				}
 			}
 		}
-		failures[er.PolicyResponse.Policy.Name] = ruleToReason
+		if len(ruleToReason) != 0 {
+			failures[er.PolicyResponse.Policy.Name] = ruleToReason
+		}
 	}
 	if len(failures) == 0 {
 		return ""

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	log "sigs.k8s.io/controller-runtime/pkg/log"
+	log "github.com/kyverno/kyverno/pkg/logging"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -540,7 +540,7 @@ func TestValidate_failure_action_overrides(t *testing.T) {
 			}
 
 			failurePolicy := kyvernov1.Fail
-			blocked := webhookutils.BlockRequest([]*response.EngineResponse{er}, failurePolicy, log.Log.WithName("WebhookServer"))
+			blocked := webhookutils.BlockRequest([]*response.EngineResponse{er}, failurePolicy, log.WithName("WebhookServer"))
 			assert.Assert(t, tc.blocked == blocked)
 		})
 	}
@@ -594,7 +594,7 @@ func Test_RuleSelector(t *testing.T) {
 	assert.Assert(t, resp.PolicyResponse.RulesAppliedCount == 2)
 	assert.Assert(t, resp.PolicyResponse.RulesErrorCount == 0)
 
-	log := log.Log.WithName("Test_RuleSelector")
+	log := log.WithName("Test_RuleSelector")
 	blocked := webhookutils.BlockRequest([]*response.EngineResponse{resp}, kyvernov1.Fail, log)
 	assert.Assert(t, blocked == true)
 
