@@ -185,7 +185,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, err
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewOpenAPIManager()
 	if err != nil {
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
@@ -322,7 +322,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {

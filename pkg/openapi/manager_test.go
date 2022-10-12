@@ -41,7 +41,7 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		},
 	}
 
-	o, _ := NewOpenAPIController()
+	o, _ := NewOpenAPIManager()
 
 	for i, tc := range tcs {
 		policy := v1.ClusterPolicy{}
@@ -165,7 +165,7 @@ func Test_matchGVK(t *testing.T) {
 // networking.k8s.io/v1beta1/Ingress
 // extensions/v1beta1/Ingress
 func Test_Ingress(t *testing.T) {
-	o, err := NewOpenAPIController()
+	o, err := NewOpenAPIManager()
 	assert.NilError(t, err)
 
 	versions, ok := o.kindToAPIVersions.Get("Ingress")
