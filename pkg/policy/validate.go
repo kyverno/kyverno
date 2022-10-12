@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -85,7 +86,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
-		openapi.NewController(client, openApiManager).CheckSync(context.TODO())
+		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
 
 	var errs field.ErrorList
