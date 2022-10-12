@@ -143,8 +143,8 @@ func NewController(
 			config.ValidatingWebhookConfigurationName: sets.NewString(),
 		},
 	}
-	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
@@ -200,7 +200,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
 	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) watchdog(ctx context.Context) {
