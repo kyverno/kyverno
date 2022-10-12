@@ -20,8 +20,8 @@ const (
 	LabelResourceHash = "audit.kyverno.io/resource.hash"
 	LabelResourceUid  = "audit.kyverno.io/resource.uid"
 	//	policy labels
-	LabelDomainClusterPolicy = "pol.kyverno.io"
-	LabelDomainPolicy        = "cpol.kyverno.io"
+	LabelDomainClusterPolicy = "cpol.kyverno.io"
+	LabelDomainPolicy        = "pol.kyverno.io"
 	LabelPrefixClusterPolicy = LabelDomainClusterPolicy + "/"
 	LabelPrefixPolicy        = LabelDomainPolicy + "/"
 )
