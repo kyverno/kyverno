@@ -83,6 +83,11 @@ func (p *ClusterPolicy) GetSpec() *Spec {
 	return &p.Spec
 }
 
+// GetStatus returns the policy status
+func (p *ClusterPolicy) GetStatus() *PolicyStatus {
+	return &p.Status
+}
+
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *ClusterPolicy) IsNamespaced() bool {
 	return p.GetNamespace() != ""
