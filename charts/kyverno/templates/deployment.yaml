@@ -150,6 +150,9 @@ spec:
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
+        {{- with .Values.startupProbe }}
+          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
+        {{- end }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}

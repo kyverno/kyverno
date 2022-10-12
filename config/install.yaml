@@ -25708,6 +25708,14 @@ spec:
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 12
+          httpGet:
+            path: /health/liveness
+            port: 9443
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 10
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore

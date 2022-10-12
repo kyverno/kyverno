@@ -147,6 +147,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | testResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | testResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
