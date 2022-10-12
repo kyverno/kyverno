@@ -20,7 +20,7 @@ import (
 const (
 	// Workers is the number of workers for this controller
 	Workers        = 1
-	ControllerName = "openapi"
+	ControllerName = "openapi-controller"
 )
 
 type Controller interface {
