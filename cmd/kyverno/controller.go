@@ -22,6 +22,6 @@ func newController(name string, c controllers.Controller, w int) controller {
 }
 
 func (c controller) run(ctx context.Context, logger logr.Logger) {
-	logger.Info("start controller...", "name", c.name)
+	logger.Info("start controller...", "name", c.name, "workers", c.workers)
 	c.controller.Run(ctx, c.workers)
 }

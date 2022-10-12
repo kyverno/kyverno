@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -303,14 +304,14 @@ func createNonLeaderControllers(
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
-	manager *openapi.Controller,
+	manager openapi.Manager,
 ) ([]controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		policyCache,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	openApiController := openapi.NewCRDSync(
+	openApiController := openapicontroller.NewController(
 		dynamicClient,
 		manager,
 	)
@@ -558,7 +559,7 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
@@ -568,12 +569,10 @@ func main() {
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		),
-		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
 		serverIP,
-		logging.WithName("CertRenewer"),
 	)
 	if err != nil {
 		logger.Error(err, "failed to initialize CertRenewer")
