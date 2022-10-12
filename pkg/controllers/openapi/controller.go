@@ -11,11 +11,16 @@ import (
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
-	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
+)
+
+const (
+	// Workers is the number of workers for this controller
+	Workers        = 1
+	ControllerName = "openapi-controller"
 )
 
 type Controller interface {
@@ -103,15 +108,27 @@ func (c *controller) sync() {
 func (c *controller) updateInClusterKindToAPIVersions() error {
 	util.OverrideRuntimeErrorHandler()
 	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
-
-	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
-		return errors.Wrapf(err, "fetching API server groups and resources")
+	if err != nil {
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			err := err.(*discovery.ErrGroupDiscoveryFailed)
+			for gv, err := range err.Groups {
+				logger.Error(err, "failed to list api resources", "group", gv)
+			}
+		} else if !strings.Contains(err.Error(), skipErrorMsg) {
+			return err
+		}
 	}
 	preferredAPIResourcesLists, err := discovery.ServerPreferredResources(c.client.Discovery().DiscoveryInterface())
-	if err != nil && !strings.Contains(err.Error(), skipErrorMsg) {
-		return errors.Wrapf(err, "fetching API server preferreds resources")
+	if err != nil {
+		if discovery.IsGroupDiscoveryFailedError(err) {
+			err := err.(*discovery.ErrGroupDiscoveryFailed)
+			for gv, err := range err.Groups {
+				logger.Error(err, "failed to list api resources", "group", gv)
+			}
+		} else if !strings.Contains(err.Error(), skipErrorMsg) {
+			return err
+		}
 	}
-
 	c.manager.UpdateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 	return nil
 }
