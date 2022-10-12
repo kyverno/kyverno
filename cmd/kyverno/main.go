@@ -413,7 +413,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig *metrics.MetricsConfig,
 	eventGenerator event.Interface,
-	certRenewer *tls.CertRenewer,
+	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 ) ([]controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
@@ -563,7 +563,7 @@ func main() {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
-	certRenewer, err := tls.NewCertRenewer(
+	certRenewer := tls.NewCertRenewer(
 		metrics.ObjectClient[*corev1.Secret](
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
@@ -573,10 +573,6 @@ func main() {
 		tls.TLSValidityDuration,
 		serverIP,
 	)
-	if err != nil {
-		logger.Error(err, "failed to initialize CertRenewer")
-		os.Exit(1)
-	}
 	policyCache := policycache.NewCache()
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
