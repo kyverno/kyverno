@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Kyverno",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/kyverno",
+            "args": [
+                "--kubeconfig=${userHome}/.kube/config",
+                "--serverIP=<local ip>:9443",
+            ],
+        }
+    ]
+}
