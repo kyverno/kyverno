@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
@@ -17,55 +18,33 @@ import (
 	"k8s.io/client-go/discovery"
 )
 
-type crdSync struct {
+type Controller interface {
+	controllers.Controller
+	CheckSync(context.Context)
+}
+
+type controller struct {
 	client  dclient.Interface
-	manager *Manager
+	manager Manager
 }
 
 const (
 	skipErrorMsg = "Got empty response for"
 )
 
-// crdDefinitionPrior represents CRDs version prior to 1.16
-var crdDefinitionPrior struct {
-	Spec struct {
-		Names struct {
-			Kind string `json:"kind"`
-		} `json:"names"`
-		Validation struct {
-			OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
-		} `json:"validation"`
-	} `json:"spec"`
-}
-
-// crdDefinitionNew represents CRDs version 1.16+
-var crdDefinitionNew struct {
-	Spec struct {
-		Names struct {
-			Kind string `json:"kind"`
-		} `json:"names"`
-		Versions []struct {
-			Schema struct {
-				OpenAPIV3Schema interface{} `json:"openAPIV3Schema"`
-			} `json:"schema"`
-			Storage bool `json:"storage"`
-		} `json:"versions"`
-	} `json:"spec"`
-}
-
-// NewCRDSync ...
-func NewCRDSync(client dclient.Interface, mgr *Manager) *crdSync {
+// NewController ...
+func NewController(client dclient.Interface, mgr Manager) Controller {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
 
-	return &crdSync{
+	return &controller{
 		manager: mgr,
 		client:  client,
 	}
 }
 
-func (c *crdSync) Run(ctx context.Context, workers int) {
+func (c *controller) Run(ctx context.Context, workers int) {
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
 		logging.Error(err, "failed to update in-cluster api versions")
 	}
@@ -75,7 +54,7 @@ func (c *crdSync) Run(ctx context.Context, workers int) {
 		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
-	err = c.manager.useOpenAPIDocument(newDoc)
+	err = c.manager.UseOpenAPIDocument(newDoc)
 	if err != nil {
 		logging.Error(err, "Could not set custom OpenAPI document")
 	}
@@ -86,7 +65,7 @@ func (c *crdSync) Run(ctx context.Context, workers int) {
 	}
 }
 
-func (c *crdSync) sync() {
+func (c *controller) sync() {
 	c.client.Discovery().DiscoveryCache().Invalidate()
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
@@ -100,7 +79,7 @@ func (c *crdSync) sync() {
 		return
 	}
 
-	c.manager.deleteCRDFromPreviousSync()
+	c.manager.DeleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
 		c.manager.ParseCRD(crd)
@@ -115,13 +94,13 @@ func (c *crdSync) sync() {
 		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
-	err = c.manager.useOpenAPIDocument(newDoc)
+	err = c.manager.UseOpenAPIDocument(newDoc)
 	if err != nil {
 		logging.Error(err, "Could not set custom OpenAPI document")
 	}
 }
 
-func (c *crdSync) updateInClusterKindToAPIVersions() error {
+func (c *controller) updateInClusterKindToAPIVersions() error {
 	util.OverrideRuntimeErrorHandler()
 	_, apiResourceLists, err := discovery.ServerGroupsAndResources(c.client.Discovery().DiscoveryInterface())
 
@@ -133,11 +112,11 @@ func (c *crdSync) updateInClusterKindToAPIVersions() error {
 		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
 
-	c.manager.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
+	c.manager.UpdateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 	return nil
 }
 
-func (c *crdSync) CheckSync(ctx context.Context) {
+func (c *controller) CheckSync(ctx context.Context) {
 	crds, err := c.client.GetDynamicInterface().Resource(runtimeSchema.GroupVersionResource{
 		Group:    "apiextensions.k8s.io",
 		Version:  "v1",
@@ -147,7 +126,7 @@ func (c *crdSync) CheckSync(ctx context.Context) {
 		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
-	if len(c.manager.crdList) != len(crds.Items) {
+	if len(c.manager.GetCrdList()) != len(crds.Items) {
 		c.sync()
 	}
 }

@@ -36,18 +36,18 @@ func NewFakeHandlers(ctx context.Context, policyCache policycache.Cache) webhook
 	urLister := kyvernoInformers.Kyverno().V1beta1().UpdateRequests().Lister().UpdateRequests(config.KyvernoNamespace())
 
 	return &handlers{
-		client:            dclient,
-		configuration:     configuration,
-		metricsConfig:     metricsConfig,
-		pCache:            policyCache,
-		nsLister:          informers.Core().V1().Namespaces().Lister(),
-		rbLister:          rbLister,
-		crbLister:         crbLister,
-		urLister:          urLister,
-		urGenerator:       updaterequest.NewFake(),
-		eventGen:          event.NewFake(),
-		openAPIController: openapi.NewFake(),
-		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
-		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
+		client:         dclient,
+		configuration:  configuration,
+		metricsConfig:  metricsConfig,
+		pCache:         policyCache,
+		nsLister:       informers.Core().V1().Namespaces().Lister(),
+		rbLister:       rbLister,
+		crbLister:      crbLister,
+		urLister:       urLister,
+		urGenerator:    updaterequest.NewFake(),
+		eventGen:       event.NewFake(),
+		openApiManager: openapi.NewFake(),
+		pcBuilder:      webhookutils.NewPolicyContextBuilder(configuration, dclient, rbLister, crbLister),
+		urUpdater:      webhookutils.NewUpdateRequestUpdater(kyvernoclient, urLister),
 	}
 }
