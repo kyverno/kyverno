@@ -7,14 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -37,24 +35,18 @@ type CertRenewer struct {
 	certRenewalInterval time.Duration
 	caValidityDuration  time.Duration
 	tlsValidityDuration time.Duration
-	certProps           *certificateProps
 
 	// IP address where Kyverno controller runs. Only required if out-of-cluster.
 	serverIP string
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client controllerutils.ObjectClient[*corev1.Secret], clientConfig *rest.Config, certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, serverIP string, log logr.Logger) (*CertRenewer, error) {
-	certProps, err := newCertificateProps(clientConfig)
-	if err != nil {
-		return nil, err
-	}
+func NewCertRenewer(client controllerutils.ObjectClient[*corev1.Secret], certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, serverIP string) (*CertRenewer, error) {
 	return &CertRenewer{
 		client:              client,
 		certRenewalInterval: certRenewalInterval,
 		caValidityDuration:  caValidityDuration,
 		tlsValidityDuration: tlsValidityDuration,
-		certProps:           certProps,
 		serverIP:            serverIP,
 	}, nil
 }
@@ -125,7 +117,7 @@ func (c *CertRenewer) RenewTLS() error {
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		return err
 	}
-	tlsKey, tlsCert, err := generateTLS(c.certProps, c.serverIP, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration)
+	tlsKey, tlsCert, err := generateTLS(c.serverIP, caCerts[len(caCerts)-1], caKey, c.tlsValidityDuration)
 	if err != nil {
 		logger.Error(err, "failed to generate TLS")
 		return err

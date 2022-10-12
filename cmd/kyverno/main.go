@@ -568,12 +568,10 @@ func main() {
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		),
-		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
 		serverIP,
-		logging.WithName("CertRenewer"),
 	)
 	if err != nil {
 		logger.Error(err, "failed to initialize CertRenewer")
