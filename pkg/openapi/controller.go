@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
@@ -16,6 +17,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 )
+
+type Controller interface {
+	controllers.Controller
+	CheckSync(context.Context)
+}
 
 type crdSync struct {
 	client  dclient.Interface
@@ -54,7 +60,7 @@ var crdDefinitionNew struct {
 }
 
 // NewCRDSync ...
-func NewCRDSync(client dclient.Interface, mgr Manager) *crdSync {
+func NewCRDSync(client dclient.Interface, mgr Manager) Controller {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
