@@ -18,13 +18,13 @@ import (
 
 type handlers struct {
 	client         dclient.Interface
-	openApiManager *openapi.Manager
+	openApiManager openapi.Manager
 }
 
-func NewHandlers(client dclient.Interface, openAPIController *openapi.Manager) webhooks.PolicyHandlers {
+func NewHandlers(client dclient.Interface, openApiManager openapi.Manager) webhooks.PolicyHandlers {
 	return &handlers{
 		client:         client,
-		openApiManager: openAPIController,
+		openApiManager: openApiManager,
 	}
 }
 
