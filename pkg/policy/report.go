@@ -91,6 +91,8 @@ func generateFailEventsPerEr(log logr.Logger, er *response.EngineResponse) []eve
 	for i, rule := range er.PolicyResponse.Rules {
 		if rule.Status == response.RuleStatusPass {
 			continue
+		} else if rule.Status == response.RuleStatusSkip {
+			continue
 		} else {
 			eventResource := event.NewResourceViolationEvent(event.PolicyController, event.PolicyViolation, er, &er.PolicyResponse.Rules[i])
 			eventInfos = append(eventInfos, eventResource)
