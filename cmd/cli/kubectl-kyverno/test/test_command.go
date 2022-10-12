@@ -480,7 +480,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openApiManager *openapi.Manager, tf *testFilter, failOnly, removeColor bool) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) []error {
 	var errors []error
 
 	files, err := os.ReadDir(path)
@@ -819,7 +819,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Manager, tf *testFilter, failOnly, removeColor bool) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController openapi.Manager, tf *testFilter, failOnly, removeColor bool) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &Test{}

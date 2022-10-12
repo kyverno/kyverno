@@ -81,7 +81,7 @@ func getSchemaDocument() (*openapiv2.Document, error) {
 	return openapiv2.NewDocument(root, compiler.NewContext("$root", root, nil))
 }
 
-func getArrayValue(kindSchema *openapiv2.Schema, o *Manager) interface{} {
+func getArrayValue(kindSchema *openapiv2.Schema, o *manager) interface{} {
 	var array []interface{}
 	for _, schema := range kindSchema.GetItems().GetSchema() {
 		array = append(array, o.generateEmptyResource(schema))
@@ -90,7 +90,7 @@ func getArrayValue(kindSchema *openapiv2.Schema, o *Manager) interface{} {
 	return array
 }
 
-func getObjectValue(kindSchema *openapiv2.Schema, o *Manager) interface{} {
+func getObjectValue(kindSchema *openapiv2.Schema, o *manager) interface{} {
 	props := make(map[string]interface{})
 	properties := kindSchema.GetProperties().GetAdditionalProperties()
 	if len(properties) == 0 {

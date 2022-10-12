@@ -79,7 +79,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager *openapi.Manager) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()

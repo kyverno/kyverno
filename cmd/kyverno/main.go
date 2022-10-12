@@ -303,7 +303,7 @@ func createNonLeaderControllers(
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
-	manager *openapi.Manager,
+	manager openapi.Manager,
 ) ([]controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		policyCache,

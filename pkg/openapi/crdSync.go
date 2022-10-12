@@ -19,7 +19,7 @@ import (
 
 type crdSync struct {
 	client  dclient.Interface
-	manager *Manager
+	manager Manager
 }
 
 const (
@@ -54,7 +54,7 @@ var crdDefinitionNew struct {
 }
 
 // NewCRDSync ...
-func NewCRDSync(client dclient.Interface, mgr *Manager) *crdSync {
+func NewCRDSync(client dclient.Interface, mgr Manager) *crdSync {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
@@ -103,7 +103,7 @@ func (c *crdSync) sync() {
 	c.manager.deleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
-		c.manager.ParseCRD(crd)
+		c.manager.parseCRD(crd)
 	}
 
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
@@ -147,7 +147,7 @@ func (c *crdSync) CheckSync(ctx context.Context) {
 		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
-	if len(c.manager.crdList) != len(crds.Items) {
+	if len(c.manager.getCrdList()) != len(crds.Items) {
 		c.sync()
 	}
 }
