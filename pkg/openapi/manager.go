@@ -9,6 +9,7 @@ import (
 	openapiv2 "github.com/google/gnostic/openapiv2"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/logging"
 	cmap "github.com/orcaman/concurrent-map/v2"
@@ -21,10 +22,16 @@ import (
 )
 
 type ValidateInterface interface {
-	ValidateResource(resource unstructured.Unstructured, apiVersion, kind string) error
+	ValidateResource(unstructured.Unstructured, string, string) error
+	ValidatePolicyMutation(kyvernov1.PolicyInterface) error
 }
 
-type Manager struct {
+type Manager interface {
+	ValidateInterface
+	openapicontroller.Manager
+}
+
+type manager struct {
 	// definitions holds the map of {definitionName: *openapiv2.Schema}
 	definitions cmap.ConcurrentMap[*openapiv2.Schema]
 
@@ -49,9 +56,9 @@ type apiVersions struct {
 	gvks               []string
 }
 
-// NewOpenAPIManager initializes a new instance of openapi schema manager
-func NewOpenAPIManager() (*Manager, error) {
-	mgr := &Manager{
+// NewManager initializes a new instance of openapi schema manager
+func NewManager() (*manager, error) {
+	mgr := &manager{
 		definitions:         cmap.New[*openapiv2.Schema](),
 		gvkToDefinitionName: cmap.New[string](),
 		kindToAPIVersions:   cmap.New[apiVersions](),
@@ -62,14 +69,14 @@ func NewOpenAPIManager() (*Manager, error) {
 		return nil, err
 	}
 
-	mgr.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
+	mgr.UpdateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 
 	defaultDoc, err := getSchemaDocument()
 	if err != nil {
 		return nil, err
 	}
 
-	err = mgr.useOpenAPIDocument(defaultDoc)
+	err = mgr.UseOpenAPIDocument(defaultDoc)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +85,7 @@ func NewOpenAPIManager() (*Manager, error) {
 }
 
 // ValidateResource ...
-func (o *Manager) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
+func (o *manager) ValidateResource(patchedResource unstructured.Unstructured, apiVersion, kind string) error {
 	var err error
 
 	gvk := kind
@@ -110,7 +117,7 @@ func (o *Manager) ValidateResource(patchedResource unstructured.Unstructured, ap
 }
 
 // ValidatePolicyMutation ...
-func (o *Manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
+func (o *manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error {
 	kindToRules := make(map[string][]kyvernov1.Rule)
 	for _, rule := range autogen.ComputeRules(policy) {
 		if rule.HasMutate() {
@@ -151,7 +158,7 @@ func (o *Manager) ValidatePolicyMutation(policy kyvernov1.PolicyInterface) error
 	return nil
 }
 
-func (o *Manager) useOpenAPIDocument(doc *openapiv2.Document) error {
+func (o *manager) UseOpenAPIDocument(doc *openapiv2.Document) error {
 	for _, definition := range doc.GetDefinitions().AdditionalProperties {
 		definitionName := definition.GetName()
 
@@ -183,7 +190,7 @@ func (o *Manager) useOpenAPIDocument(doc *openapiv2.Document) error {
 	return nil
 }
 
-func (o *Manager) getGVKByDefinitionName(definitionName string) (gvk string, preferredGVK bool, err error) {
+func (o *manager) getGVKByDefinitionName(definitionName string) (gvk string, preferredGVK bool, err error) {
 	paths := strings.Split(definitionName, ".")
 	kind := paths[len(paths)-1]
 	versions, ok := o.kindToAPIVersions.Get(kind)
@@ -206,8 +213,12 @@ func (o *Manager) getGVKByDefinitionName(definitionName string) (gvk string, pre
 	return "", preferredGVK, fmt.Errorf("gvk not found by the given definition name %s, %v", definitionName, versions.gvks)
 }
 
-// updateKindToAPIVersions sets kindToAPIVersions with static manifests
-func (c *Manager) updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists []*metav1.APIResourceList) {
+func (c *manager) GetCrdList() []string {
+	return c.crdList
+}
+
+// UpdateKindToAPIVersions sets kindToAPIVersions with static manifests
+func (c *manager) UpdateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists []*metav1.APIResourceList) {
 	tempKindToAPIVersions := getAllAPIVersions(apiResourceLists)
 	tempKindToAPIVersions = setPreferredVersions(tempKindToAPIVersions, preferredAPIResourcesLists)
 
@@ -218,7 +229,7 @@ func (c *Manager) updateKindToAPIVersions(apiResourceLists, preferredAPIResource
 }
 
 // For crd, we do not store definition in document
-func (o *Manager) getCRDSchema(kind string) (proto.Schema, error) {
+func (o *manager) getCRDSchema(kind string) (proto.Schema, error) {
 	if kind == "" {
 		return nil, errors.New("invalid kind")
 	}
@@ -238,7 +249,7 @@ func (o *Manager) getCRDSchema(kind string) (proto.Schema, error) {
 	return (existingDefinitions).ParseSchema(definition, &path)
 }
 
-func (o *Manager) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
+func (o *manager) generateEmptyResource(kindSchema *openapiv2.Schema) interface{} {
 	types := kindSchema.GetType().GetValue()
 
 	if kindSchema.GetXRef() != "" {
@@ -273,7 +284,7 @@ func (o *Manager) generateEmptyResource(kindSchema *openapiv2.Schema) interface{
 	return nil
 }
 
-func (o *Manager) deleteCRDFromPreviousSync() {
+func (o *manager) DeleteCRDFromPreviousSync() {
 	for _, crd := range o.crdList {
 		o.gvkToDefinitionName.Remove(crd)
 		o.definitions.Remove(crd)
@@ -283,7 +294,7 @@ func (o *Manager) deleteCRDFromPreviousSync() {
 }
 
 // ParseCRD loads CRD to the cache
-func (o *Manager) ParseCRD(crd unstructured.Unstructured) {
+func (o *manager) ParseCRD(crd unstructured.Unstructured) {
 	var err error
 
 	crdRaw, _ := json.Marshal(crd.Object)
