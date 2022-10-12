@@ -17,14 +17,14 @@ import (
 )
 
 type handlers struct {
-	client            dclient.Interface
-	openAPIController *openapi.Controller
+	client         dclient.Interface
+	openApiManager *openapi.Manager
 }
 
-func NewHandlers(client dclient.Interface, openAPIController *openapi.Controller) webhooks.PolicyHandlers {
+func NewHandlers(client dclient.Interface, openAPIController *openapi.Manager) webhooks.PolicyHandlers {
 	return &handlers{
-		client:            client,
-		openAPIController: openAPIController,
+		client:         client,
+		openApiManager: openAPIController,
 	}
 }
 
@@ -38,7 +38,7 @@ func (h *handlers) Validate(logger logr.Logger, request *admissionv1.AdmissionRe
 		logger.Error(err, "failed to unmarshal policies from admission request")
 		return admissionutils.ResponseWithMessage(true, fmt.Sprintf("failed to validate policy, check kyverno controller logs for details: %v", err))
 	}
-	response, err := policyvalidate.Validate(policy, h.client, false, h.openAPIController)
+	response, err := policyvalidate.Validate(policy, h.client, false, h.openApiManager)
 	if err != nil {
 		logger.Error(err, "policy validation errors")
 		return admissionutils.ResponseWithMessage(false, err.Error())
