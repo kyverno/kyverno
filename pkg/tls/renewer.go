@@ -17,14 +17,14 @@ import (
 
 const (
 	// CertRenewalInterval is the renewal interval for rootCA
-	CertRenewalInterval time.Duration = 12 * time.Hour
+	CertRenewalInterval = 12 * time.Hour
 	// CAValidityDuration is the valid duration for CA certificates
-	CAValidityDuration time.Duration = 365 * 24 * time.Hour
+	CAValidityDuration = 365 * 24 * time.Hour
 	// TLSValidityDuration is the valid duration for TLS certificates
-	TLSValidityDuration time.Duration = 150 * 24 * time.Hour
-	// ManagedByLabel is added to Kyverno managed secrets
-	ManagedByLabel string = "cert.kyverno.io/managed-by"
-	RootCAKey      string = "rootCA.crt"
+	TLSValidityDuration = 150 * 24 * time.Hour
+	// managedByLabel is added to Kyverno managed secrets
+	managedByLabel = "cert.kyverno.io/managed-by"
+	rootCAKey      = "rootCA.crt"
 )
 
 type CertRenewer interface {
@@ -156,7 +156,7 @@ func (c *certRenewer) decodeSecret(name string) (*corev1.Secret, *rsa.PrivateKey
 		keyBytes = secret.Data[corev1.TLSPrivateKeyKey]
 		certBytes = secret.Data[corev1.TLSCertKey]
 		if len(certBytes) == 0 {
-			certBytes = secret.Data[RootCAKey]
+			certBytes = secret.Data[rootCAKey]
 		}
 	}
 	var key *rsa.PrivateKey
@@ -201,7 +201,7 @@ func (c *certRenewer) writeSecret(name string, key *rsa.PrivateKey, certs ...*x5
 				Name:      name,
 				Namespace: config.KyvernoNamespace(),
 				Labels: map[string]string{
-					ManagedByLabel: kyvernov1.ValueKyvernoApp,
+					managedByLabel: kyvernov1.ValueKyvernoApp,
 				},
 			},
 			Type: corev1.SecretTypeTLS,
