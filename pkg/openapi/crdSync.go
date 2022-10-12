@@ -2,29 +2,24 @@ package openapi
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/google/gnostic/compiler"
-	openapiv2 "github.com/google/gnostic/openapiv2"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	runtimeSchema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 )
 
 type crdSync struct {
-	client     dclient.Interface
-	controller *Controller
+	client  dclient.Interface
+	manager *Manager
 }
 
 const (
@@ -59,14 +54,14 @@ var crdDefinitionNew struct {
 }
 
 // NewCRDSync ...
-func NewCRDSync(client dclient.Interface, controller *Controller) *crdSync {
-	if controller == nil {
-		panic(fmt.Errorf("nil controller sent into crd sync"))
+func NewCRDSync(client dclient.Interface, mgr *Manager) *crdSync {
+	if mgr == nil {
+		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
 
 	return &crdSync{
-		controller: controller,
-		client:     client,
+		manager: mgr,
+		client:  client,
 	}
 }
 
@@ -80,7 +75,7 @@ func (c *crdSync) Run(ctx context.Context, workers int) {
 		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
-	err = c.controller.useOpenAPIDocument(newDoc)
+	err = c.manager.useOpenAPIDocument(newDoc)
 	if err != nil {
 		logging.Error(err, "Could not set custom OpenAPI document")
 	}
@@ -105,10 +100,10 @@ func (c *crdSync) sync() {
 		return
 	}
 
-	c.controller.deleteCRDFromPreviousSync()
+	c.manager.deleteCRDFromPreviousSync()
 
 	for _, crd := range crds.Items {
-		c.controller.ParseCRD(crd)
+		c.manager.ParseCRD(crd)
 	}
 
 	if err := c.updateInClusterKindToAPIVersions(); err != nil {
@@ -120,7 +115,7 @@ func (c *crdSync) sync() {
 		logging.Error(err, "cannot get OpenAPI schema")
 	}
 
-	err = c.controller.useOpenAPIDocument(newDoc)
+	err = c.manager.useOpenAPIDocument(newDoc)
 	if err != nil {
 		logging.Error(err, "Could not set custom OpenAPI document")
 	}
@@ -138,115 +133,8 @@ func (c *crdSync) updateInClusterKindToAPIVersions() error {
 		return errors.Wrapf(err, "fetching API server preferreds resources")
 	}
 
-	c.controller.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
+	c.manager.updateKindToAPIVersions(apiResourceLists, preferredAPIResourcesLists)
 	return nil
-}
-
-func (o *Controller) deleteCRDFromPreviousSync() {
-	for _, crd := range o.crdList {
-		o.gvkToDefinitionName.Remove(crd)
-		o.definitions.Remove(crd)
-	}
-
-	o.crdList = make([]string, 0)
-}
-
-// ParseCRD loads CRD to the cache
-func (o *Controller) ParseCRD(crd unstructured.Unstructured) {
-	var err error
-
-	crdRaw, _ := json.Marshal(crd.Object)
-	_ = json.Unmarshal(crdRaw, &crdDefinitionPrior)
-
-	openV3schema := crdDefinitionPrior.Spec.Validation.OpenAPIV3Schema
-	crdName := crdDefinitionPrior.Spec.Names.Kind
-
-	if openV3schema == nil {
-		_ = json.Unmarshal(crdRaw, &crdDefinitionNew)
-		for _, crdVersion := range crdDefinitionNew.Spec.Versions {
-			if crdVersion.Storage {
-				openV3schema = crdVersion.Schema.OpenAPIV3Schema
-				crdName = crdDefinitionNew.Spec.Names.Kind
-				break
-			}
-		}
-	}
-
-	if openV3schema == nil {
-		logging.V(4).Info("skip adding schema, CRD has no properties", "name", crdName)
-		return
-	}
-
-	schemaRaw, _ := json.Marshal(openV3schema)
-	if len(schemaRaw) < 1 {
-		logging.V(4).Info("failed to parse crd schema", "name", crdName)
-		return
-	}
-
-	schemaRaw, err = addingDefaultFieldsToSchema(crdName, schemaRaw)
-	if err != nil {
-		logging.Error(err, "failed to parse crd schema", "name", crdName)
-		return
-	}
-
-	var schema yaml.Node
-	_ = yaml.Unmarshal(schemaRaw, &schema)
-
-	parsedSchema, err := openapiv2.NewSchema(&schema, compiler.NewContext("schema", &schema, nil))
-	if err != nil {
-		v3valueFound := isOpenV3Error(err)
-		if !v3valueFound {
-			logging.Error(err, "failed to parse crd schema", "name", crdName)
-		}
-		return
-	}
-
-	o.crdList = append(o.crdList, crdName)
-	o.gvkToDefinitionName.Set(crdName, crdName)
-	o.definitions.Set(crdName, parsedSchema)
-}
-
-func isOpenV3Error(err error) bool {
-	unsupportedValues := []string{"anyOf", "allOf", "not"}
-	v3valueFound := false
-	for _, value := range unsupportedValues {
-		if !strings.Contains(err.Error(), fmt.Sprintf("has invalid property: %s", value)) {
-			v3valueFound = true
-			break
-		}
-	}
-	return v3valueFound
-}
-
-// addingDefaultFieldsToSchema will add any default missing fields like apiVersion, metadata
-func addingDefaultFieldsToSchema(crdName string, schemaRaw []byte) ([]byte, error) {
-	var schema struct {
-		Properties map[string]interface{} `json:"properties"`
-	}
-	_ = json.Unmarshal(schemaRaw, &schema)
-
-	if len(schema.Properties) < 1 {
-		logging.V(6).Info("crd schema has no properties", "name", crdName)
-		return schemaRaw, nil
-	}
-
-	if schema.Properties["apiVersion"] == nil {
-		apiVersionDefRaw := `{"description":"APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources","type":"string"}`
-		apiVersionDef := make(map[string]interface{})
-		_ = json.Unmarshal([]byte(apiVersionDefRaw), &apiVersionDef)
-		schema.Properties["apiVersion"] = apiVersionDef
-	}
-
-	if schema.Properties["metadata"] == nil {
-		metadataDefRaw := `{"$ref":"#/definitions/io.k8s.apimachinery.pkg.apis.meta.v1.ObjectMeta","description":"Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata"}`
-		metadataDef := make(map[string]interface{})
-		_ = json.Unmarshal([]byte(metadataDefRaw), &metadataDef)
-		schema.Properties["metadata"] = metadataDef
-	}
-
-	schemaWithDefaultFields, _ := json.Marshal(schema)
-
-	return schemaWithDefaultFields, nil
 }
 
 func (c *crdSync) CheckSync(ctx context.Context) {
@@ -259,7 +147,7 @@ func (c *crdSync) CheckSync(ctx context.Context) {
 		logging.Error(err, "could not fetch crd's from server")
 		return
 	}
-	if len(c.controller.crdList) != len(crds.Items) {
+	if len(c.manager.crdList) != len(crds.Items) {
 		c.sync()
 	}
 }

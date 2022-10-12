@@ -303,7 +303,7 @@ func createNonLeaderControllers(
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
-	manager *openapi.Controller,
+	manager *openapi.Manager,
 ) ([]controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		policyCache,
@@ -558,7 +558,7 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewOpenAPIManager()
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
@@ -568,12 +568,10 @@ func main() {
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		),
-		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
 		serverIP,
-		logging.WithName("CertRenewer"),
 	)
 	if err != nil {
 		logger.Error(err, "failed to initialize CertRenewer")

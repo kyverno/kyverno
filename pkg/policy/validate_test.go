@@ -345,7 +345,7 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
@@ -496,7 +496,7 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
@@ -898,7 +898,7 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
@@ -947,7 +947,7 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
@@ -1075,7 +1075,7 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
@@ -1125,7 +1125,7 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.Assert(t, err != nil)
 }
@@ -1173,7 +1173,7 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
@@ -1221,7 +1221,7 @@ func Test_deny_exec(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
@@ -1266,7 +1266,7 @@ func Test_existing_resource_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	_, err = Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 }
@@ -1322,7 +1322,7 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	res, err := Validate(policy, nil, true, openAPIController)
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
@@ -1379,7 +1379,7 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	res, err := Validate(policy, nil, true, openAPIController)
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)
@@ -1438,7 +1438,7 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openAPIController, _ := openapi.NewOpenAPIManager()
 	res, err := Validate(policy, nil, true, openAPIController)
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)

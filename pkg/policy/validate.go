@@ -79,13 +79,13 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager *openapi.Manager) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
-		openapi.NewCRDSync(client, openAPIController).CheckSync(context.TODO())
+		openapi.NewCRDSync(client, openApiManager).CheckSync(context.TODO())
 	}
 
 	var errs field.ErrorList
@@ -359,7 +359,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	if spec.SchemaValidation == nil || *spec.SchemaValidation {
-		if err := openAPIController.ValidatePolicyMutation(policy); err != nil {
+		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
 			return nil, err
 		}
 	}
