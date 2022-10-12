@@ -50,7 +50,7 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 
 // generateTLS takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func generateTLS(props *certificateProps, serverIP string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateTLS(serverIP string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
