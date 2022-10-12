@@ -25148,7 +25148,6 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno
-rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
