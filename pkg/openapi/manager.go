@@ -61,8 +61,8 @@ type apiVersions struct {
 	gvks               []string
 }
 
-// NewOpenAPIManager initializes a new instance of openapi schema manager
-func NewOpenAPIManager() (*manager, error) {
+// NewManager initializes a new instance of openapi schema manager
+func NewManager() (*manager, error) {
 	mgr := &manager{
 		definitions:         cmap.New[*openapiv2.Schema](),
 		gvkToDefinitionName: cmap.New[string](),

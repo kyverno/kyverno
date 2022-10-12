@@ -310,7 +310,7 @@ func createNonLeaderControllers(
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	openApiController := openapi.NewCRDSync(
+	openApiController := openapi.NewController(
 		dynamicClient,
 		manager,
 	)
@@ -558,7 +558,7 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewOpenAPIManager()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)

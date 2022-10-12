@@ -59,8 +59,8 @@ var crdDefinitionNew struct {
 	} `json:"spec"`
 }
 
-// NewCRDSync ...
-func NewCRDSync(client dclient.Interface, mgr Manager) Controller {
+// NewController ...
+func NewController(client dclient.Interface, mgr Manager) Controller {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
