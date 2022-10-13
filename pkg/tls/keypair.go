@@ -50,7 +50,7 @@ func generateCA(key *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.P
 
 // generateTLS takes the results of GenerateCACert and uses it to create the
 // PEM-encoded public certificate and private key, respectively
-func generateTLS(props *certificateProps, serverIP string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
+func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey, certValidityDuration time.Duration) (*rsa.PrivateKey, *x509.Certificate, error) {
 	now := time.Now()
 	begin, end := now.Add(-1*time.Hour), now.Add(certValidityDuration)
 	dnsNames := []string{
@@ -59,13 +59,23 @@ func generateTLS(props *certificateProps, serverIP string, caCert *x509.Certific
 		InClusterServiceName(),
 	}
 	var ips []net.IP
-	if serverIP != "" {
-		if strings.Contains(serverIP, ":") {
-			host, _, _ := net.SplitHostPort(serverIP)
-			serverIP = host
+	if server != "" {
+		serverHost := ""
+		if strings.Contains(server, ":") {
+			host, _, err := net.SplitHostPort(server)
+			if err != nil {
+				logger.Error(err, "failed to split server host/port", "server", server)
+			}
+			serverHost = host
 		}
-		ip := net.ParseIP(serverIP)
-		ips = append(ips, ip)
+		if serverHost != "" {
+			ip := net.ParseIP(serverHost)
+			if ip == nil || ip.IsUnspecified() {
+				dnsNames = append(dnsNames, serverHost)
+			} else {
+				ips = append(ips, ip)
+			}
+		}
 	}
 	templ := &x509.Certificate{
 		SerialNumber: big.NewInt(1),

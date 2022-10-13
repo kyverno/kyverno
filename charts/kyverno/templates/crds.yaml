@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '1'
     internal.config.kubernetes.io/index: '1'
   creationTimestamp: null
@@ -257,7 +257,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '2'
     internal.config.kubernetes.io/index: '2'
   creationTimestamp: null
@@ -481,7 +481,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '3'
     internal.config.kubernetes.io/index: '3'
   creationTimestamp: null
@@ -735,7 +735,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '4'
     internal.config.kubernetes.io/index: '4'
   creationTimestamp: null
@@ -959,7 +959,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '5'
     internal.config.kubernetes.io/index: '5'
   creationTimestamp: null
@@ -7933,7 +7933,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '6'
     internal.config.kubernetes.io/index: '6'
   creationTimestamp: null
@@ -8205,7 +8205,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '7'
     internal.config.kubernetes.io/index: '7'
   creationTimestamp: null
@@ -8380,7 +8380,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '8'
     internal.config.kubernetes.io/index: '8'
   creationTimestamp: null
@@ -15354,7 +15354,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '9'
     internal.config.kubernetes.io/index: '9'
   creationTimestamp: null
@@ -15626,7 +15626,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
     config.kubernetes.io/index: '10'
     internal.config.kubernetes.io/index: '10'
   creationTimestamp: null

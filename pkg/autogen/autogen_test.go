@@ -72,6 +72,11 @@ func Test_CanAutoGen(t *testing.T) {
 			expectedControllers: "none",
 		},
 		{
+			name:                "rule-with-exclude-names",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"names":["test"]}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
 			name:                "rule-with-exclude-selector",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"selector":{"matchLabels":{"foo":"bar"}}}}}]}}`),
 			expectedControllers: "none",
