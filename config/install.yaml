@@ -35,11 +35,11 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .owner.kind
+    - jsonPath: .spec.owner.kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .owner.name
+    - jsonPath: .spec.owner.name
       name: Subject
       priority: 1
       type: string
@@ -673,11 +673,11 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .scope.kind
+    - jsonPath: .spec.owner.kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .scope.name
+    - jsonPath: .spec.owner.name
       name: Subject
       priority: 1
       type: string
