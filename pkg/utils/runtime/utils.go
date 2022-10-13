@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +33,7 @@ type runtime struct {
 	serverIP         string
 	leaseLister      coordinationv1listers.LeaseLister
 	deploymentLister appsv1listers.DeploymentLister
+	certValidator    tls.CertValidator
 	logger           logr.Logger
 }
 
@@ -40,12 +42,14 @@ func NewRuntime(
 	serverIP string,
 	leaseInformer coordinationv1informers.LeaseInformer,
 	deploymentInformer appsv1informers.DeploymentInformer,
+	certValidator tls.CertValidator,
 ) Runtime {
 	return &runtime{
+		logger:           logger,
 		serverIP:         serverIP,
 		leaseLister:      leaseInformer.Lister(),
 		deploymentLister: deploymentInformer.Lister(),
-		logger:           logger,
+		certValidator:    certValidator,
 	}
 }
 
@@ -58,7 +62,10 @@ func (c *runtime) IsLive() bool {
 }
 
 func (c *runtime) IsReady() bool {
-	return c.IsDebug() || c.check()
+	if c.IsDebug() {
+		return true
+	}
+	return c.check() && c.validateCertificates()
 }
 
 func (c *runtime) IsRollingUpdate() bool {
@@ -118,4 +125,13 @@ func (c *runtime) check() bool {
 		return false
 	}
 	return time.Now().Before(annTime.Add(IdleDeadline))
+}
+
+func (c *runtime) validateCertificates() bool {
+	validity, err := c.certValidator.ValidateCert()
+	if err != nil {
+		c.logger.Error(err, "failed to validate certificates")
+		return false
+	}
+	return validity
 }
