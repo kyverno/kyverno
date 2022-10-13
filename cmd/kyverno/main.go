@@ -332,7 +332,7 @@ func createNonLeaderControllers(
 	)
 	return []controller{
 			newController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-			newController("openapi-controller", openApiController, 1),
+			newController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 			newController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
 			newController("update-request-controller", updateRequestController, genWorkers),
 		},
