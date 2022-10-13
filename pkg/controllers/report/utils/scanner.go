@@ -47,15 +47,16 @@ func (s *scanner) ScanResource(resource unstructured.Unstructured, nsLabels map[
 
 func (s *scanner) scan(resource unstructured.Unstructured, nsLabels map[string]string, policy kyvernov1.PolicyInterface) (*response.EngineResponse, error) {
 	ctx := context.NewContext()
-	err := ctx.AddResource(resource.Object)
-	if err != nil {
+	if err := ctx.AddResource(resource.Object); err != nil {
 		return nil, err
 	}
-	err = ctx.AddNamespace(resource.GetNamespace())
-	if err != nil {
+	if err := ctx.AddNamespace(resource.GetNamespace()); err != nil {
 		return nil, err
 	}
 	if err := ctx.AddImageInfos(&resource); err != nil {
+		return nil, err
+	}
+	if err := ctx.AddOperation("CREATE"); err != nil {
 		return nil, err
 	}
 	policyCtx := &engine.PolicyContext{
