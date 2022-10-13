@@ -223,13 +223,20 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	// reset
+	cd.filters = []filter{}
 	cd.excludeGroupRole = []string{}
+	cd.excludeUsername = []string{}
+	cd.generateSuccessEvents = false
+	cd.webhooks = nil
+	// load filters
+	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	// load excludeGroupRole
 	cd.excludeGroupRole = append(cd.excludeGroupRole, parseRbac(cm.Data["excludeGroupRole"])...)
 	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
-	cd.excludeUsername = []string{}
+	// load excludeUsername
 	cd.excludeUsername = append(cd.excludeUsername, parseRbac(cm.Data["excludeUsername"])...)
-	cd.generateSuccessEvents = false
+	// load generateSuccessEvents
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
 	if ok {
 		generateSuccessEvents, err := strconv.ParseBool(generateSuccessEvents)
@@ -239,7 +246,7 @@ func (cd *configuration) load(cm *corev1.ConfigMap) {
 			cd.generateSuccessEvents = generateSuccessEvents
 		}
 	}
-	cd.webhooks = nil
+	// load webhooks
 	webhooks, ok := cm.Data["webhooks"]
 	if ok {
 		webhooks, err := parseWebhooks(webhooks)
@@ -256,7 +263,8 @@ func (cd *configuration) unload() {
 	defer cd.mux.Unlock()
 	cd.filters = []filter{}
 	cd.excludeGroupRole = []string{}
-	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 	cd.excludeUsername = []string{}
 	cd.generateSuccessEvents = false
+	cd.webhooks = nil
+	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
 }
