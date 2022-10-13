@@ -1923,6 +1923,15 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to exclude a specific
+                            action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least
@@ -2703,6 +2712,15 @@ spec:
                             names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to exclude a specific
+                            action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
@@ -13722,6 +13740,15 @@ spec:
                           items:
                             type: string
                           type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to exclude a specific
+                            action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
+                          type: array
                         resources:
                           description: ResourceDescription contains information about
                             the resource being created or modified. Requires at least
@@ -14502,6 +14529,15 @@ spec:
                             names for the user.
                           items:
                             type: string
+                          type: array
+                        requestTypes:
+                          description: RequestTypes can contain values ["CREATE, "UPDATE",
+                            "CONNECT", "DELETE"], which are used to exclude a specific
+                            action.
+                          items:
+                            type: string
+                          maxItems: 3
+                          minItems: 1
                           type: array
                         resources:
                           description: ResourceDescription contains information about
