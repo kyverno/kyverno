@@ -30,16 +30,9 @@ func GenerateEvents(engineResponses []*response.EngineResponse, blocked bool) []
 					events = append(events, e)
 				}
 			}
-		} else {
-			if er.IsSkipped() {
-				for i := range er.PolicyResponse.Rules {
-					e := event.NewPolicySkippedEvent(event.AdmissionController, event.PolicySkipped, er, &er.PolicyResponse.Rules[i])
-					events = append(events, e)
-				}
-			} else {
-				e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
-				events = append(events, e)
-			}
+		} else if !er.IsSkipped() {
+			e := event.NewPolicyAppliedEvent(event.AdmissionController, er)
+			events = append(events, e)
 		}
 	}
 
