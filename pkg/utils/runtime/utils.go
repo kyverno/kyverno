@@ -58,13 +58,10 @@ func (c *runtime) IsDebug() bool {
 }
 
 func (c *runtime) IsLive() bool {
-	return c.IsDebug() || c.check()
+	return c.check()
 }
 
 func (c *runtime) IsReady() bool {
-	if c.IsDebug() {
-		return true
-	}
 	return c.check() && c.validateCertificates()
 }
 
