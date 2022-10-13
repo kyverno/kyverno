@@ -2,7 +2,6 @@ package config
 
 import (
 	"context"
-	"reflect"
 	"strconv"
 	"sync"
 
@@ -210,102 +209,46 @@ func (cd *configuration) GetWebhooks() []WebhookConfig {
 }
 
 func (cd *configuration) Load(cm *corev1.ConfigMap) {
-	updateWebhook := true
 	if cm != nil {
-		logger.Info("load config", "name", cm.Name, "namespace", cm.Namespace)
-		updateWebhook = cd.load(cm)
+		cd.load(cm)
 	} else {
-		logger.Info("unload config")
 		cd.unload()
-	}
-	if updateWebhook {
-		logger.Info("webhook configurations changed, updating webhook configurations")
 	}
 }
 
-func (cd *configuration) load(cm *corev1.ConfigMap) (updateWebhook bool) {
+func (cd *configuration) load(cm *corev1.ConfigMap) {
 	logger := logger.WithValues("name", cm.Name, "namespace", cm.Namespace)
 	if cm.Data == nil {
-		logger.V(4).Info("configuration: No data defined in ConfigMap")
 		return
 	}
 	cd.mux.Lock()
 	defer cd.mux.Unlock()
-	filters, ok := cm.Data["resourceFilters"]
-	if !ok {
-		logger.V(4).Info("configuration: No resourceFilters defined in ConfigMap")
-	} else {
-		newFilters := parseKinds(filters)
-		if reflect.DeepEqual(newFilters, cd.filters) {
-			logger.V(4).Info("resourceFilters did not change")
-		} else {
-			logger.V(2).Info("Updated resource filters", "oldFilters", cd.filters, "newFilters", newFilters)
-			cd.filters = newFilters
-		}
-	}
-	excludeGroupRole, ok := cm.Data["excludeGroupRole"]
-	if !ok {
-		logger.V(4).Info("configuration: No excludeGroupRole defined in ConfigMap")
-	}
-	newExcludeGroupRoles := parseRbac(excludeGroupRole)
-	newExcludeGroupRoles = append(newExcludeGroupRoles, defaultExcludeGroupRole...)
-	if reflect.DeepEqual(newExcludeGroupRoles, cd.excludeGroupRole) {
-		logger.V(4).Info("excludeGroupRole did not change")
-	} else {
-		logger.V(2).Info("Updated resource excludeGroupRoles", "oldExcludeGroupRole", cd.excludeGroupRole, "newExcludeGroupRole", newExcludeGroupRoles)
-		cd.excludeGroupRole = newExcludeGroupRoles
-	}
-	excludeUsername, ok := cm.Data["excludeUsername"]
-	if !ok {
-		logger.V(4).Info("configuration: No excludeUsername defined in ConfigMap")
-	} else {
-		excludeUsernames := parseRbac(excludeUsername)
-		if reflect.DeepEqual(excludeUsernames, cd.excludeUsername) {
-			logger.V(4).Info("excludeGroupRole did not change")
-		} else {
-			logger.V(2).Info("Updated resource excludeUsernames", "oldExcludeUsername", cd.excludeUsername, "newExcludeUsername", excludeUsernames)
-			cd.excludeUsername = excludeUsernames
-		}
-	}
-	webhooks, ok := cm.Data["webhooks"]
-	if !ok {
-		if len(cd.webhooks) > 0 {
-			cd.webhooks = nil
-			updateWebhook = true
-			logger.V(4).Info("configuration: Setting namespaceSelector to empty in the webhook configurations")
-		} else {
-			logger.V(4).Info("configuration: No webhook configurations defined in ConfigMap")
-		}
-	} else {
-		cfgs, err := parseWebhooks(webhooks)
-		if err != nil {
-			logger.Error(err, "unable to parse webhooks configurations")
-			return
-		}
-
-		if reflect.DeepEqual(cfgs, cd.webhooks) {
-			logger.V(4).Info("webhooks did not change")
-		} else {
-			logger.Info("Updated webhooks configurations", "oldWebhooks", cd.webhooks, "newWebhookd", cfgs)
-			cd.webhooks = cfgs
-			updateWebhook = true
-		}
-	}
+	cd.filters = parseKinds(cm.Data["resourceFilters"])
+	cd.excludeGroupRole = []string{}
+	cd.excludeGroupRole = append(cd.excludeGroupRole, parseRbac(cm.Data["excludeGroupRole"])...)
+	cd.excludeGroupRole = append(cd.excludeGroupRole, defaultExcludeGroupRole...)
+	cd.excludeUsername = []string{}
+	cd.excludeUsername = append(cd.excludeUsername, parseRbac(cm.Data["excludeUsername"])...)
+	cd.generateSuccessEvents = false
 	generateSuccessEvents, ok := cm.Data["generateSuccessEvents"]
-	if !ok {
-		logger.V(4).Info("configuration: No generateSuccessEvents defined in ConfigMap")
-	} else {
+	if ok {
 		generateSuccessEvents, err := strconv.ParseBool(generateSuccessEvents)
 		if err != nil {
-			logger.V(4).Info("configuration: generateSuccessEvents must be either true/false")
-		} else if generateSuccessEvents == cd.generateSuccessEvents {
-			logger.V(4).Info("generateSuccessEvents did not change")
+			logger.Error(err, "failed to parse generateSuccessEvents")
 		} else {
-			logger.V(2).Info("Updated generateSuccessEvents", "oldGenerateSuccessEvents", cd.generateSuccessEvents, "newGenerateSuccessEvents", generateSuccessEvents)
 			cd.generateSuccessEvents = generateSuccessEvents
 		}
 	}
-	return
+	cd.webhooks = nil
+	webhooks, ok := cm.Data["webhooks"]
+	if ok {
+		webhooks, err := parseWebhooks(webhooks)
+		if err != nil {
+			logger.Error(err, "failed to parse webhooks")
+		} else {
+			cd.webhooks = webhooks
+		}
+	}
 }
 
 func (cd *configuration) unload() {
