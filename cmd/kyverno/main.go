@@ -70,7 +70,7 @@ var (
 	// TODO: this has been added to backward support command line arguments
 	// will be removed in future and the configuration will be set only via configmaps
 	kubeconfig                 string
-	serverIP                   string
+	serverAdress               string
 	profilePort                string
 	metricsPort                string
 	webhookTimeout             int
@@ -104,7 +104,7 @@ func parseFlags() error {
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.StringVar(&serverIP, "serverIP", "", "IP address where Kyverno controller runs. Only required if out-of-cluster.")
+	flag.StringVar(&serverAdress, "serverAdress", "", "IP address or Server name where Kyverno controller runs. Only required if out-of-cluster.")
 	flag.BoolVar(&profile, "profile", false, "Set this flag to 'true', to enable profiling.")
 	flag.StringVar(&profilePort, "profilePort", "6060", "Enable profiling at given port, defaults to 6060.")
 	flag.BoolVar(&disableMetricsExport, "disableMetrics", false, "Set this flag to 'true' to disable metrics.")
@@ -463,7 +463,7 @@ func createrLeaderControllers(
 		kubeKyvernoInformer.Core().V1().Secrets(),
 		kubeKyvernoInformer.Core().V1().ConfigMaps(),
 		kubeKyvernoInformer.Coordination().V1().Leases(),
-		serverIP,
+		serverAdress,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
 		runtime,
@@ -572,7 +572,7 @@ func main() {
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
-		serverIP,
+		serverAdress,
 	)
 	policyCache := policycache.NewCache()
 	eventGenerator := event.NewEventGenerator(
@@ -590,7 +590,7 @@ func main() {
 	)
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime"),
-		serverIP,
+		serverAdress,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 	)
