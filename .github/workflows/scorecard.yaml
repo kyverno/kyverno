@@ -31,7 +31,7 @@ jobs:
         with:
           results_file: results.sarif
           results_format: sarif
-          repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}.
+          repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
           publish_results: true
 
       # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
