@@ -34,6 +34,8 @@ annotations:
     - kind: added
       description: Support for failurePolicy setting in kyverno-policies helm chart
     - kind: added
-      description: Add posibility to set validationFailureAction by Policy
+      description: Add possibility to set validationFailureAction by Policy
     - kind: added
       description: Added ability to get additional policies from restricted
+    - kind: fixed
+      description: Applied fix in preconditions for background mode
