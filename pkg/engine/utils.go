@@ -150,8 +150,13 @@ func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescriptio
 		}
 	}
 
+	resourceName := resource.GetName()
+	if resourceName == "" {
+		resourceName = resource.GetGenerateName()
+	}
+
 	if conditionBlock.Name != "" {
-		if !checkName(conditionBlock.Name, resource.GetName()) {
+		if !checkName(conditionBlock.Name, resourceName) {
 			errs = append(errs, fmt.Errorf("name does not match"))
 		}
 	}
@@ -159,7 +164,7 @@ func doesResourceMatchConditionBlock(conditionBlock kyvernov1.ResourceDescriptio
 	if len(conditionBlock.Names) > 0 {
 		noneMatch := true
 		for i := range conditionBlock.Names {
-			if checkName(conditionBlock.Names[i], resource.GetName()) {
+			if checkName(conditionBlock.Names[i], resourceName) {
 				noneMatch = false
 				break
 			}
