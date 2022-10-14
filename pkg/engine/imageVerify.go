@@ -425,7 +425,14 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 
 	if attestor.Keys != nil {
 		path = path + ".keys"
-		opts.Key = attestor.Keys.PublicKeys
+		if attestor.Keys.PublicKeys != "" {
+			opts.Key = attestor.Keys.PublicKeys
+		} else if attestor.Keys.Secret != nil {
+			opts.Key = fmt.Sprintf("k8s://%s/%s", attestor.Keys.Secret.Namespace,
+				attestor.Keys.Secret.Name)
+		} else if attestor.Keys.KMS != "" {
+			opts.Key = attestor.Keys.KMS
+		}
 		if attestor.Keys.Rekor != nil {
 			opts.RekorURL = attestor.Keys.Rekor.URL
 		}
