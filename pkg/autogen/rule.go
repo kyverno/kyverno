@@ -242,7 +242,14 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	if controllers == "all" {
 		skipAutoGeneration = true
 	} else if controllers != "none" && controllers != "all" {
-		controllersList := map[string]int{"DaemonSet": 1, "Deployment": 1, "Job": 1, "StatefulSet": 1}
+		controllersList := map[string]int{
+			"DaemonSet":             1,
+			"Deployment":            1,
+			"Job":                   1,
+			"StatefulSet":           1,
+			"ReplicaSet":            1,
+			"ReplicationController": 1,
+		}
 		for _, value := range strings.Split(controllers, ",") {
 			if _, ok := controllersList[value]; ok {
 				controllersValidated = append(controllersValidated, value)
@@ -254,7 +261,7 @@ func generateRuleForControllers(rule *kyvernov1.Rule, controllers string) *kyver
 	}
 	if skipAutoGeneration {
 		if controllers == "all" {
-			controllers = "DaemonSet,Deployment,Job,StatefulSet"
+			controllers = "DaemonSet,Deployment,Job,StatefulSet,ReplicaSet,ReplicationController"
 		} else {
 			controllers = strings.Join(controllersValidated, ",")
 		}

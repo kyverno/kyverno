@@ -3,6 +3,7 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
@@ -423,22 +424,20 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 				ready = false
 			}
 		}
-		if policy.IsReady() != ready {
+		var statusRules []kyvernov1.Rule
+		if toggle.AutogenInternals.Enabled() {
+			for _, rule := range autogen.ComputeRules(policy) {
+				if strings.HasPrefix(rule.Name, "autogen-") {
+					statusRules = append(statusRules, rule)
+				}
+			}
+		}
+		// TODO: we definitely need an UpdateStatus helper
+		if policy.IsReady() != ready || !reflect.DeepEqual(statusRules, policy.GetStatus().Autogen.Rules) {
 			policy = policy.CreateDeepCopy()
 			status := policy.GetStatus()
 			status.SetReady(ready)
-			status.SetReady(ready)
-			if toggle.AutogenInternals.Enabled() {
-				var rules []kyvernov1.Rule
-				for _, rule := range autogen.ComputeRules(policy) {
-					if strings.HasPrefix(rule.Name, "autogen-") {
-						rules = append(rules, rule)
-					}
-				}
-				status.Autogen.Rules = rules
-			} else {
-				status.Autogen.Rules = nil
-			}
+			status.Autogen.Rules = statusRules
 			if policy.GetNamespace() == "" {
 				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
 				if err != nil {
