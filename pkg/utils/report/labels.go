@@ -64,7 +64,7 @@ func SetManagedByKyvernoLabel(obj metav1.Object) {
 	controllerutils.SetLabel(obj, kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp)
 }
 
-func SetResourceLabels(report kyvernov1alpha2.ReportInterface, namespace, name string, uid types.UID) {
+func SetResourceLabels(report kyvernov1alpha2.ReportInterface, uid types.UID) {
 	controllerutils.SetLabel(report, LabelResourceUid, string(uid))
 }
 
