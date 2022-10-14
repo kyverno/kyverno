@@ -18,32 +18,22 @@ import (
 const (
 	// MutatingWebhookConfigurationName default resource mutating webhook configuration name
 	MutatingWebhookConfigurationName = "kyverno-resource-mutating-webhook-cfg"
-	// MutatingWebhookConfigurationDebugName default resource mutating webhook configuration name for debug mode
-	MutatingWebhookConfigurationDebugName = "kyverno-resource-mutating-webhook-cfg-debug"
 	// MutatingWebhookName default resource mutating webhook name
 	MutatingWebhookName = "mutate.kyverno.svc"
 	// ValidatingWebhookConfigurationName ...
 	ValidatingWebhookConfigurationName = "kyverno-resource-validating-webhook-cfg"
-	// ValidatingWebhookConfigurationDebugName ...
-	ValidatingWebhookConfigurationDebugName = "kyverno-resource-validating-webhook-cfg-debug"
 	// ValidatingWebhookName ...
 	ValidatingWebhookName = "validate.kyverno.svc"
 	// VerifyMutatingWebhookConfigurationName default verify mutating webhook configuration name
 	VerifyMutatingWebhookConfigurationName = "kyverno-verify-mutating-webhook-cfg"
-	// VerifyMutatingWebhookConfigurationDebugName default verify mutating webhook configuration name for debug mode
-	VerifyMutatingWebhookConfigurationDebugName = "kyverno-verify-mutating-webhook-cfg-debug"
 	// VerifyMutatingWebhookName default verify mutating webhook name
 	VerifyMutatingWebhookName = "monitor-webhooks.kyverno.svc"
 	// PolicyValidatingWebhookConfigurationName default policy validating webhook configuration name
 	PolicyValidatingWebhookConfigurationName = "kyverno-policy-validating-webhook-cfg"
-	// PolicyValidatingWebhookConfigurationDebugName default policy validating webhook configuration name for debug mode
-	PolicyValidatingWebhookConfigurationDebugName = "kyverno-policy-validating-webhook-cfg-debug"
 	// PolicyValidatingWebhookName default policy validating webhook name
 	PolicyValidatingWebhookName = "validate-policy.kyverno.svc"
 	// PolicyMutatingWebhookConfigurationName default policy mutating webhook configuration name
 	PolicyMutatingWebhookConfigurationName = "kyverno-policy-mutating-webhook-cfg"
-	// PolicyMutatingWebhookConfigurationDebugName default policy mutating webhook configuration name for debug mode
-	PolicyMutatingWebhookConfigurationDebugName = "kyverno-policy-mutating-webhook-cfg-debug"
 	// PolicyMutatingWebhookName default policy mutating webhook name
 	PolicyMutatingWebhookName = "mutate-policy.kyverno.svc"
 	// Due to kubernetes issue, we must use next literal constants instead of deployment TypeMeta fields
@@ -139,16 +129,19 @@ type configuration struct {
 	restrictDevelopmentUsername []string
 	webhooks                    []WebhookConfig
 	generateSuccessEvents       bool
-	updateWebhookConfigurations chan<- bool
 }
 
 // NewConfiguration ...
-func NewConfiguration(client kubernetes.Interface, updateWebhookConfigurations chan<- bool) (Configuration, error) {
-	cd := &configuration{
-		updateWebhookConfigurations: updateWebhookConfigurations,
+func NewDefaultConfiguration() *configuration {
+	return &configuration{
 		restrictDevelopmentUsername: []string{"minikube-user", "kubernetes-admin"},
 		excludeGroupRole:            defaultExcludeGroupRole,
 	}
+}
+
+// NewConfiguration ...
+func NewConfiguration(client kubernetes.Interface) (Configuration, error) {
+	cd := NewDefaultConfiguration()
 	if cm, err := client.CoreV1().ConfigMaps(kyvernoNamespace).Get(context.TODO(), kyvernoConfigMapName, metav1.GetOptions{}); err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err
@@ -227,7 +220,6 @@ func (cd *configuration) Load(cm *corev1.ConfigMap) {
 	}
 	if updateWebhook {
 		logger.Info("webhook configurations changed, updating webhook configurations")
-		cd.updateWebhookConfigurations <- true
 	}
 }
 

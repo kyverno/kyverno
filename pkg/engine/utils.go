@@ -15,6 +15,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
 	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // EngineStats stores in the statistics for a single application of resource
@@ -111,7 +111,7 @@ func checkSelector(labelSelector *metav1.LabelSelector, resourceLabels map[strin
 	wildcards.ReplaceInSelector(labelSelector, resourceLabels)
 	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
-		log.Log.Error(err, "failed to build label selector")
+		logging.Error(err, "failed to build label selector")
 		return false, err
 	}
 

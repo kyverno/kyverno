@@ -1,5 +1,7 @@
 package certmanager
 
-import "sigs.k8s.io/controller-runtime/pkg/log"
+import "github.com/kyverno/kyverno/pkg/logging"
 
-var logger = log.Log.WithName("certmanager-controller")
+const controllerName = "certmanager-controller"
+
+var logger = logging.WithName(controllerName)

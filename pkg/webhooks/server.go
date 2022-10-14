@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -15,9 +14,14 @@ import (
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
@@ -26,6 +30,8 @@ type Server interface {
 	Run(<-chan struct{})
 	// Stop TLS server and returns control after the server is shut down
 	Stop(context.Context)
+	// Cleanup returns the chanel used to wait for the server to clean up resources
+	Cleanup() <-chan struct{}
 }
 
 type PolicyHandlers interface {
@@ -43,9 +49,12 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server          *http.Server
-	webhookRegister *webhookconfig.Register
-	cleanUp         chan<- struct{}
+	server      *http.Server
+	runtime     runtimeutils.Runtime
+	mwcClient   controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vwcClient   controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	cleanUp     chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -54,23 +63,24 @@ type TlsProvider func() ([]byte, []byte, error)
 func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
-	tlsProvider TlsProvider,
 	configuration config.Configuration,
-	register *webhookconfig.Register,
-	monitor *webhookconfig.Monitor,
-	cleanUp chan<- struct{},
+	tlsProvider TlsProvider,
+	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
+	vwcClient controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
+	runtime runtimeutils.Runtime,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
-	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, resourceHandlers.Mutate)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, resourceHandlers.Validate)
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate)))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate)))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify()))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
+	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
@@ -93,8 +103,11 @@ func NewServer(
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
 		},
-		webhookRegister: register,
-		cleanUp:         cleanUp,
+		mwcClient:   mwcClient,
+		vwcClient:   vwcClient,
+		leaseClient: leaseClient,
+		runtime:     runtime,
+		cleanUp:     make(chan struct{}),
 	}
 }
 
@@ -120,14 +133,34 @@ func (s *server) Stop(ctx context.Context) {
 	}
 }
 
-func (s *server) cleanup(ctx context.Context) {
-	cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
+func (s *server) Cleanup() <-chan struct{} {
+	return s.cleanUp
+}
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
-	go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
-	wg.Wait()
+func (s *server) cleanup(ctx context.Context) {
+	if s.runtime.IsGoingDown() {
+		deleteLease := func(name string) {
+			if err := s.leaseClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up lease", "name", name)
+			}
+		}
+		deleteVwc := func(name string) {
+			if err := s.vwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up validating webhook configuration", "name", name)
+			}
+		}
+		deleteMwc := func(name string) {
+			if err := s.mwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up mutating webhook configuration", "name", name)
+			}
+		}
+		deleteLease("kyvernopre-lock")
+		deleteVwc(config.ValidatingWebhookConfigurationName)
+		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
+		deleteMwc(config.MutatingWebhookConfigurationName)
+		deleteMwc(config.PolicyMutatingWebhookConfigurationName)
+		deleteMwc(config.VerifyMutatingWebhookConfigurationName)
+	}
 	close(s.cleanUp)
 }
 
@@ -157,31 +190,30 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 	return handlers.Filter(configuration, inner)
 }
 
-func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner)))
+func admission(logger logr.Logger, inner handlers.AdmissionHandler) http.HandlerFunc {
+	return handlers.Admission(logger, protect(inner))
 }
 
 func registerWebhookHandlers(
 	logger logr.Logger,
 	mux *httprouter.Router,
 	basePath string,
-	monitor *webhookconfig.Monitor,
 	configuration config.Configuration,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
 ) {
-	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath, admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "all", startTime)
 		})),
 	)
-	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "fail", startTime)
 		})),
 	)
-	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "ignore", startTime)

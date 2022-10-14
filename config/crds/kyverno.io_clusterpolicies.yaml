@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   name: clusterpolicies.kyverno.io
 spec:
@@ -2385,12 +2385,13 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers
+                                    description: 'Images selects matching containers
                                       and applies the container level PSS. Each image
                                       is the image name consisting of the registry
                                       address, repository, image, and tag. Empty list
                                       matches no containers, PSS checks are applied
-                                      at the pod level only.
+                                      at the pod level only. Wildcards (''*'' and
+                                      ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -2807,6 +2808,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -5242,12 +5244,14 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers
+                                        description: 'Images selects matching containers
                                           and applies the container level PSS. Each
                                           image is the image name consisting of the
                                           registry address, repository, image, and
                                           tag. Empty list matches no containers, PSS
                                           checks are applied at the pod level only.
+                                          Wildcards (''*'' and ''?'') are allowed.
+                                          See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
@@ -5677,8 +5681,8 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
@@ -7894,12 +7898,13 @@ spec:
                                     - Running as Non-root user
                                     type: string
                                   images:
-                                    description: Images selects matching containers
+                                    description: 'Images selects matching containers
                                       and applies the container level PSS. Each image
                                       is the image name consisting of the registry
                                       address, repository, image, and tag. Empty list
                                       matches no containers, PSS checks are applied
-                                      at the pod level only.
+                                      at the pod level only. Wildcards (''*'' and
+                                      ''?'') are allowed. See: https://kubernetes.io/docs/concepts/containers/images.'
                                     items:
                                       type: string
                                     type: array
@@ -8276,6 +8281,7 @@ spec:
                   disable the validation checks.
                 type: boolean
               validationFailureAction:
+                default: audit
                 description: ValidationFailureAction defines if a validation policy
                   rule violation should block the admission review request (enforce),
                   or allow (audit) the admission review request and report an error
@@ -10711,12 +10717,14 @@ spec:
                                         - Running as Non-root user
                                         type: string
                                       images:
-                                        description: Images selects matching containers
+                                        description: 'Images selects matching containers
                                           and applies the container level PSS. Each
                                           image is the image name consisting of the
                                           registry address, repository, image, and
                                           tag. Empty list matches no containers, PSS
                                           checks are applied at the pod level only.
+                                          Wildcards (''*'' and ''?'') are allowed.
+                                          See: https://kubernetes.io/docs/concepts/containers/images.'
                                         items:
                                           type: string
                                         type: array
@@ -11146,8 +11154,8 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{ // Represents the observations of a foo's
-                    current state. // Known .status.conditions.type are: \"Available\",
+                    \n type FooStatus struct{ // Represents the observations of a
+                    foo's current state. // Known .status.conditions.type are: \"Available\",
                     \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
                     // +listType=map // +listMapKey=type Conditions []metav1.Condition
                     `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"

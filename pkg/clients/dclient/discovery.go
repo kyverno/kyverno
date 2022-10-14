@@ -1,11 +1,12 @@
 package dclient
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
-	openapiv2 "github.com/googleapis/gnostic/openapiv2"
+	openapiv2 "github.com/google/gnostic/openapiv2"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -40,7 +41,7 @@ func (c serverPreferredResources) DiscoveryInterface() discovery.DiscoveryInterf
 }
 
 // Poll will keep invalidate the local cache
-func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struct{}) {
+func (c serverPreferredResources) Poll(ctx context.Context, resync time.Duration) {
 	logger := logger.WithName("Poll")
 	// start a ticker
 	ticker := time.NewTicker(resync)
@@ -48,7 +49,7 @@ func (c serverPreferredResources) Poll(resync time.Duration, stopCh <-chan struc
 	logger.V(4).Info("starting registered resources sync", "period", resync)
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			logger.Info("stopping registered resources sync")
 			return
 		case <-ticker.C:

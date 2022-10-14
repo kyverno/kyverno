@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/pss"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
@@ -26,7 +27,6 @@ import (
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Validate applies validation rules from policy on the resource
@@ -46,7 +46,7 @@ func Validate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 }
 
 func buildLogger(ctx *PolicyContext) logr.Logger {
-	logger := log.Log.WithName("EngineValidate").WithValues("policy", ctx.Policy.GetName())
+	logger := logging.WithName("EngineValidate").WithValues("policy", ctx.Policy.GetName())
 	if reflect.DeepEqual(ctx.NewResource, unstructured.Unstructured{}) {
 		logger = logger.WithValues("kind", ctx.OldResource.GetKind(), "namespace", ctx.OldResource.GetNamespace(), "name", ctx.OldResource.GetName())
 	} else {
@@ -703,19 +703,18 @@ func (v *validator) buildErrorMessage(err error, path string) string {
 
 	msgRaw, sErr := variables.SubstituteAll(v.log, v.ctx.JSONContext, v.rule.Validation.Message)
 	if sErr != nil {
-		v.log.V(2).Info("failed to substitute variables in message: %v", sErr)
+		v.log.V(2).Info("failed to substitute variables in message", "error", sErr)
+		return fmt.Sprintf("validation error: variables substitution error in rule %s execution error: %s", v.rule.Name, err.Error())
+	} else {
+		msg := msgRaw.(string)
+		if !strings.HasSuffix(msg, ".") {
+			msg = msg + "."
+		}
+		if path != "" {
+			return fmt.Sprintf("validation error: %s rule %s failed at path %s", msg, v.rule.Name, path)
+		}
+		return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 	}
-
-	msg := msgRaw.(string)
-	if !strings.HasSuffix(msg, ".") {
-		msg = msg + "."
-	}
-
-	if path != "" {
-		return fmt.Sprintf("validation error: %s rule %s failed at path %s", msg, v.rule.Name, path)
-	}
-
-	return fmt.Sprintf("validation error: %s rule %s execution error: %s", msg, v.rule.Name, err.Error())
 }
 
 func buildAnyPatternErrorMessage(rule *kyvernov1.Rule, errors []string) string {

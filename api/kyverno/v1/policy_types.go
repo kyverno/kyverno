@@ -84,6 +84,11 @@ func (p *Policy) GetSpec() *Spec {
 	return &p.Spec
 }
 
+// GetStatus returns the policy status
+func (p *Policy) GetStatus() *PolicyStatus {
+	return &p.Status
+}
+
 // IsNamespaced indicates if the policy is namespace scoped
 func (p *Policy) IsNamespaced() bool {
 	return true

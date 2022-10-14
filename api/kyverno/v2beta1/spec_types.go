@@ -33,6 +33,7 @@ type Spec struct {
 	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
 	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:default=audit
 	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
 	// ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction

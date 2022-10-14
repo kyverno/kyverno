@@ -33,7 +33,7 @@ func isKindOtherthanPod(kinds []string) bool {
 
 func checkAutogenSupport(needed *bool, subjects ...kyvernov1.ResourceDescription) bool {
 	for _, subject := range subjects {
-		if subject.Name != "" || subject.Selector != nil || subject.Annotations != nil || isKindOtherthanPod(subject.Kinds) {
+		if subject.Name != "" || len(subject.Names) > 0 || subject.Selector != nil || subject.Annotations != nil || isKindOtherthanPod(subject.Kinds) {
 			return false
 		}
 		if needed != nil {

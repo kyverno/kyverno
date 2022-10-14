@@ -41,22 +41,22 @@ type MutationHandler interface {
 func NewMutationHandler(
 	log logr.Logger,
 	eventGen event.Interface,
-	openAPIController openapi.ValidateInterface,
+	openApiManager openapi.ValidateInterface,
 	nsLister corev1listers.NamespaceLister,
 ) MutationHandler {
 	return &mutationHandler{
-		log:               log,
-		eventGen:          eventGen,
-		openAPIController: openAPIController,
-		nsLister:          nsLister,
+		log:            log,
+		eventGen:       eventGen,
+		openApiManager: openApiManager,
+		nsLister:       nsLister,
 	}
 }
 
 type mutationHandler struct {
-	log               logr.Logger
-	eventGen          event.Interface
-	openAPIController openapi.ValidateInterface
-	nsLister          corev1listers.NamespaceLister
+	log            logr.Logger
+	eventGen       event.Interface
+	openApiManager openapi.ValidateInterface
+	nsLister       corev1listers.NamespaceLister
 }
 
 func (h *mutationHandler) HandleMutation(
@@ -157,7 +157,7 @@ func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, p
 	}
 
 	if engineResponse.PatchedResource.GetKind() != "*" {
-		err := h.openAPIController.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
+		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
 		}

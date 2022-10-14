@@ -41,7 +41,7 @@ func Test_ValidateMutationPolicy(t *testing.T) {
 		},
 	}
 
-	o, _ := NewOpenAPIController()
+	o, _ := NewManager()
 
 	for i, tc := range tcs {
 		policy := v1.ClusterPolicy{}
@@ -165,14 +165,14 @@ func Test_matchGVK(t *testing.T) {
 // networking.k8s.io/v1beta1/Ingress
 // extensions/v1beta1/Ingress
 func Test_Ingress(t *testing.T) {
-	o, err := NewOpenAPIController()
+	o, err := NewManager()
 	assert.NilError(t, err)
 
 	versions, ok := o.kindToAPIVersions.Get("Ingress")
 	assert.Equal(t, true, ok)
-	versionsTyped := versions.(apiVersions)
-	assert.Equal(t, versionsTyped.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
-	assert.Equal(t, len(versionsTyped.gvks), 3)
+
+	assert.Equal(t, versions.serverPreferredGVK, "networking.k8s.io/v1/Ingress")
+	assert.Equal(t, len(versions.gvks), 3)
 
 	definitionName, _ := o.gvkToDefinitionName.Get("Ingress")
 	assert.Equal(t, definitionName, "io.k8s.api.networking.v1.Ingress")
