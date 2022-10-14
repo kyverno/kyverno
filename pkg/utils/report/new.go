@@ -43,7 +43,7 @@ func NewAdmissionReport(resource unstructured.Unstructured, request *admissionv1
 	}
 	report.SetName(name)
 	report.SetNamespace(namespace)
-	SetResourceLabels(report, namespace, owner, uid)
+	SetResourceLabels(report, uid)
 	SetResourceVersionLabels(report, &resource)
 	SetResponses(report, responses...)
 	SetManagedByKyvernoLabel(report)
@@ -60,7 +60,7 @@ func NewBackgroundScanReport(namespace, name string, gvk schema.GroupVersionKind
 	report.SetName(name)
 	report.SetNamespace(namespace)
 	controllerutils.SetOwner(report, gvk.GroupVersion().String(), gvk.Kind, owner, uid)
-	SetResourceLabels(report, namespace, owner, uid)
+	SetResourceLabels(report, uid)
 	SetManagedByKyvernoLabel(report)
 	return report
 }
