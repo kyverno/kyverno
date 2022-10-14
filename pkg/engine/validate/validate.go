@@ -145,6 +145,10 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 		handler := anchor.CreateElementHandler(key, resources[key], path)
 		handlerPath, err := handler.Handle(validateResourceElement, resourceMap, origPattern, ac)
 		if err != nil {
+			// if it's a global anchor, no need to return an error we can just stop the processing
+			if anchor.IsGlobalAnchorError(err.Error()) {
+				return "", nil
+			}
 			return handlerPath, err
 		}
 	}
