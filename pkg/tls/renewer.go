@@ -27,6 +27,11 @@ const (
 	rootCAKey      = "rootCA.crt"
 )
 
+type CertValidator interface {
+	// ValidateCert checks the certificates validity
+	ValidateCert() (bool, error)
+}
+
 type CertRenewer interface {
 	// RenewCA renews the CA certificate if needed
 	RenewCA() error
@@ -48,7 +53,7 @@ type certRenewer struct {
 }
 
 // NewCertRenewer returns an instance of CertRenewer
-func NewCertRenewer(client controllerutils.ObjectClient[*corev1.Secret], certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, server string) CertRenewer {
+func NewCertRenewer(client controllerutils.ObjectClient[*corev1.Secret], certRenewalInterval, caValidityDuration, tlsValidityDuration time.Duration, server string) *certRenewer {
 	return &certRenewer{
 		client:              client,
 		certRenewalInterval: certRenewalInterval,
@@ -71,7 +76,7 @@ func (c *certRenewer) RenewCA() error {
 		logger.V(4).Info("CA certificate does not need to be renewed")
 		return nil
 	}
-	if !IsSecretManagedByKyverno(secret) {
+	if !isSecretManagedByKyverno(secret) {
 		err := fmt.Errorf("tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		return err
@@ -107,7 +112,7 @@ func (c *certRenewer) RenewTLS() error {
 		logger.V(4).Info("TLS certificate does not need to be renewed")
 		return nil
 	}
-	if !IsSecretManagedByKyverno(secret) {
+	if !isSecretManagedByKyverno(secret) {
 		err := fmt.Errorf("tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		logger.Error(err, "tls is not valid but certificates are not managed by kyverno, we can't renew them")
 		return err
