@@ -183,8 +183,10 @@ func (v *validationHandler) handleAudit(
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
 		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
 	}
-	_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-	if err != nil {
-		v.log.Error(err, "failed to create report")
+	if len(report.GetResults()) > 0 {
+		_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+		if err != nil {
+			v.log.Error(err, "failed to create report")
+		}
 	}
 }
