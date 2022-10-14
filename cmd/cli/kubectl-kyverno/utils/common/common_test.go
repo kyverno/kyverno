@@ -113,3 +113,67 @@ func Test_NamespaceSelector(t *testing.T) {
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}
 }
+
+func Test_IsGitPath(t *testing.T) {
+	type TestCase struct {
+		path    []string
+		actual  bool
+		desired bool
+	}
+	testcases := []TestCase{
+		{
+			path:    []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			desired: true,
+		},
+		{
+			path:    []string{"/kyverno/policies/openshift/team-validate-ns-name/"},
+			desired: false,
+		},
+	}
+	for _, tc := range testcases {
+		tc.actual = IsGitPath(tc.path)
+		if tc.actual != tc.desired {
+			t.Errorf("%s is not a git URL", tc.path)
+		}
+	}
+}
+
+func Test_GetGitBranchOrPolicyPaths(t *testing.T) {
+	type TestCase struct {
+		gitBranch                             string
+		repoURL                               string
+		policyPath                            []string
+		desiredBranch, actualBranch           string
+		desiredPathToYAMLs, actualPathToYAMLs string
+	}
+	testcases := []TestCase{
+		{
+			gitBranch:          "main",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/openshift/team-validate-ns-name/",
+		},
+		{
+			gitBranch:          "",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies/"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/",
+		},
+		{
+			gitBranch:          "",
+			repoURL:            "https://github.com/kyverno/policies",
+			policyPath:         []string{"https://github.com/kyverno/policies"},
+			desiredBranch:      "main",
+			desiredPathToYAMLs: "/",
+		},
+	}
+
+	for _, tc := range testcases {
+		tc.actualBranch, tc.actualPathToYAMLs = GetGitBranchOrPolicyPaths(tc.gitBranch, tc.repoURL, tc.policyPath)
+		if tc.actualBranch != tc.desiredBranch || tc.actualPathToYAMLs != tc.desiredPathToYAMLs {
+			t.Errorf("Want %q got %q  OR Want %q got %q", tc.desiredBranch, tc.actualBranch, tc.desiredPathToYAMLs, tc.actualPathToYAMLs)
+		}
+	}
+}

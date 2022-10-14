@@ -72,6 +72,25 @@ func Test_Apply(t *testing.T) {
 				},
 			},
 		},
+		{
+			config: ApplyCommandConfig{
+				PolicyPaths:  []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
+				GitBranch:    "main",
+				PolicyReport: true,
+				Cluster:      true,
+			},
+			expectedPolicyReports: []preport.PolicyReport{
+				{
+					Summary: preport.PolicyReportSummary{
+						Pass:  7,
+						Fail:  0,
+						Skip:  0,
+						Error: 0,
+						Warn:  0,
+					},
+				},
+			},
+		},
 	}
 
 	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
@@ -88,47 +107,5 @@ func Test_Apply(t *testing.T) {
 		for i, resp := range resps {
 			compareSummary(tc.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
 		}
-	}
-}
-
-func Test_Apply_GitURL(t *testing.T) {
-	type TestCases struct {
-		PolicyPaths           []string
-		GitBranch             string
-		expectedPolicyReports []preport.PolicyReport
-		config                ApplyCommandConfig
-	}
-
-	testcases := TestCases{
-		config: ApplyCommandConfig{
-			PolicyPaths:  []string{"https://github.com/kyverno/policies/openshift/team-validate-ns-name/"},
-			GitBranch:    "main",
-			PolicyReport: true,
-		},
-		expectedPolicyReports: []preport.PolicyReport{
-			{
-				Summary: preport.PolicyReportSummary{
-					Pass:  7,
-					Fail:  0,
-					Skip:  0,
-					Error: 0,
-					Warn:  0,
-				},
-			},
-		},
-	}
-
-	compareSummary := func(expected preport.PolicyReportSummary, actual map[string]interface{}) {
-		assert.Equal(t, actual[preport.StatusPass].(int64), int64(expected.Pass))
-		assert.Equal(t, actual[preport.StatusFail].(int64), int64(expected.Fail))
-		assert.Equal(t, actual[preport.StatusSkip].(int64), int64(expected.Skip))
-		assert.Equal(t, actual[preport.StatusWarn].(int64), int64(expected.Warn))
-		assert.Equal(t, actual[preport.StatusError].(int64), int64(expected.Error))
-	}
-
-	_, _, _, info, _ := testcases.config.applyCommandHelper()
-	resps := buildPolicyReports(info)
-	for i, resp := range resps {
-		compareSummary(testcases.expectedPolicyReports[i].Summary, resp.UnstructuredContent()["summary"].(map[string]interface{}))
 	}
 }
