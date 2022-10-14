@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -426,6 +427,18 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 			policy = policy.CreateDeepCopy()
 			status := policy.GetStatus()
 			status.SetReady(ready)
+			status.SetReady(ready)
+			if toggle.AutogenInternals.Enabled() {
+				var rules []kyvernov1.Rule
+				for _, rule := range autogen.ComputeRules(policy) {
+					if strings.HasPrefix(rule.Name, "autogen-") {
+						rules = append(rules, rule)
+					}
+				}
+				status.Autogen.Rules = rules
+			} else {
+				status.Autogen.Rules = nil
+			}
 			if policy.GetNamespace() == "" {
 				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
 				if err != nil {
