@@ -589,10 +589,11 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
 	runtime := runtimeutils.NewRuntime(
-		logger.WithName("runtime"),
+		logger.WithName("runtime-checks"),
 		serverIP,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
+		certRenewer,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
