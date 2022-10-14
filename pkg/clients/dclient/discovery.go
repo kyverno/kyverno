@@ -152,7 +152,13 @@ func (c serverPreferredResources) findResource(apiVersion string, kind string) (
 					logger.Error(err, "failed to parse GV", "groupVersion", serverResource.GroupVersion)
 					return nil, schema.GroupVersionResource{}, err
 				}
-
+				// We potentially need to fix Group and Version with what the list is for
+				if resource.Group == "" {
+					resource.Group = gv.Group
+				}
+				if resource.Version == "" {
+					resource.Version = gv.Version
+				}
 				return &resource, gv.WithResource(resource.Name), nil
 			}
 		}
