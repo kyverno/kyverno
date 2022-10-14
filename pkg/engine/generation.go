@@ -3,7 +3,6 @@ package engine
 import (
 	"time"
 
-	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -58,8 +57,4 @@ func filterGenerateRules(rclient registryclient.Client, policyContext *PolicyCon
 	}
 
 	return resp
-}
-
-func generateForEach(rule *kyvernov1.Rule) *response.RuleResponse {
-	// Have to implement.
 }
