@@ -535,26 +535,62 @@ func Test_NestedAttestors(t *testing.T) {
 }
 
 func Test_ExpandKeys(t *testing.T) {
-	as := expandStaticKeys(createStaticKeyAttestorSet(""))
+	as := expandStaticKeys(createStaticKeyAttestorSet("", true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey))
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey, true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey + testOtherKey + testOtherKey))
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey, true, false, false))
 	assert.Equal(t, 3, len(as.Entries))
+
+	as = expandStaticKeys(createStaticKeyAttestorSet("", false, true, false))
+	assert.Equal(t, 1, len(as.Entries))
+	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
+		as.Entries[0].Keys.Secret)
+
+	as = expandStaticKeys(createStaticKeyAttestorSet("", false, false, true))
+	assert.Equal(t, 1, len(as.Entries))
+	assert.DeepEqual(t, "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1", as.Entries[0].Keys.KMS)
+
+	as = expandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
+	assert.Equal(t, 2, len(as.Entries))
+	assert.DeepEqual(t, testOtherKey, as.Entries[0].Keys.PublicKeys)
+	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
+		as.Entries[1].Keys.Secret)
 }
 
-func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
-	return kyverno.AttestorSet{
-		Entries: []kyverno.Attestor{
-			{
-				Keys: &kyverno.StaticKeyAttestor{
-					PublicKeys: s,
+func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS bool) kyverno.AttestorSet {
+	var entries []kyverno.Attestor
+	if withPublicKey {
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				PublicKeys: s,
+			},
+		}
+		entries = append(entries, attestor)
+	}
+	if withSecret {
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				Secret: &kyverno.SecretReference{
+					Name:      "testsecret",
+					Namespace: "default",
 				},
 			},
-		},
+		}
+		entries = append(entries, attestor)
 	}
+	if withKMS {
+		kmsKey := "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1"
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				KMS: kmsKey,
+			},
+		}
+		entries = append(entries, attestor)
+	}
+	return kyverno.AttestorSet{Entries: entries}
 }
 
 func Test_ChangedAnnotation(t *testing.T) {
