@@ -429,6 +429,7 @@ func (iv *imageVerifier) buildOptionsAndPath(attestor kyvernov1.Attestor, imageV
 		if attestor.Keys.Rekor != nil {
 			opts.RekorURL = attestor.Keys.Rekor.URL
 		}
+		opts.SignatureAlgorithm = attestor.Keys.SignatureAlgorithm
 	} else if attestor.Certificates != nil {
 		path = path + ".certificates"
 		opts.Cert = attestor.Certificates.Certificate
