@@ -427,7 +427,6 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 			policy = policy.CreateDeepCopy()
 			status := policy.GetStatus()
 			status.SetReady(ready)
-			status.SetReady(ready)
 			if toggle.AutogenInternals.Enabled() {
 				var rules []kyvernov1.Rule
 				for _, rule := range autogen.ComputeRules(policy) {
