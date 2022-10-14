@@ -56,7 +56,7 @@ func generateTLS(server string, caCert *x509.Certificate, caKey *rsa.PrivateKey,
 	dnsNames := []string{
 		config.KyvernoServiceName(),
 		fmt.Sprintf("%s.%s", config.KyvernoServiceName(), config.KyvernoNamespace()),
-		InClusterServiceName(),
+		inClusterServiceName(),
 	}
 	var ips []net.IP
 	if server != "" {
