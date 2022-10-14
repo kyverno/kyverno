@@ -1169,7 +1169,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 }
 
 func IsGitPath(policyPaths []string) bool {
-	return strings.Contains(string(policyPaths[0]), "https://")
+	return strings.Contains(policyPaths[0], "https://")
 }
 
 func GetGitBranchOrPolicyPaths(gitBranch, repoURL string, policyPaths []string) (string, string) {
