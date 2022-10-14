@@ -132,6 +132,10 @@ type StaticKeyAttestor struct {
 	// attestors and the count is applied across the keys.
 	PublicKeys string `json:"publicKeys,omitempty" yaml:"publicKeys,omitempty"`
 
+	// Specify signature algorithm for public keys. Supported values are sha256 and sha512
+	// +kubebuilder:default=sha256
+	SignatureAlgorithm string `json:"signatureAlgorithm,omitempty" yaml:"signatureAlgorithm,omitempty"`
+
 	// Rekor provides configuration for the Rekor transparency log service. If the value is nil,
 	// Rekor is not checked. If an empty object is provided the public instance of
 	// Rekor (https://rekor.sigstore.dev) is used.
@@ -305,7 +309,9 @@ func (ska *StaticKeyAttestor) Validate(path *field.Path) (errs field.ErrorList) 
 	if ska.PublicKeys == "" {
 		errs = append(errs, field.Invalid(path, ska, "A key is required"))
 	}
-
+	if ska.PublicKeys != "" && ska.SignatureAlgorithm != "" && ska.SignatureAlgorithm != "sha256" && ska.SignatureAlgorithm != "sha512" {
+		errs = append(errs, field.Invalid(path, ska, "Invalid signature algorithm provided"))
+	}
 	return errs
 }
 
