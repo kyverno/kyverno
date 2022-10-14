@@ -52,6 +52,10 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # needed to write releases
+      id-token: write # needed for keyless signing
+      packages: write # needed for ghcr access  
     needs:
       - release-init-kyverno
       - release-kyverno
@@ -70,6 +74,16 @@ jobs:
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
         with:
           go-version: ~1.18.6
+
+      - name: Setup Flux CLI
+        uses: fluxcd/flux2/action@1fa48bf916fa5ce5800190f8a0c9fdf7ae86559b # v0.35.0
+        with:
+          version: 0.35.0
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
+        with:
+          cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
         uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
@@ -110,6 +124,24 @@ jobs:
           file: config/.release/install.yaml
           asset_name: install.yaml
           tag: ${{ github.ref }}
+      
+      - name: Push manifests to GHCR with Flux
+        run: |
+            set -e
+            cd config/.release/ && \
+            flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD) \
+              --path="." \
+              --source="$(git config --get remote.origin.url)" \
+              --revision="(git tag --points-at HEAD)/$(git rev-parse HEAD)"
+              --creds flux:${{ secrets.CR_PAT_ARTIFACTS }}
+      
+      - name: Sign manifests in GHCR with Cosign
+        env:
+          COSIGN_EXPERIMENTAL: 1
+        run: |
+            set -e
+            cosign login --username ${GITHUB_ACTOR} --password ${{ secrets.CR_PAT_ARTIFACTS }} ghcr.io
+            cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD)
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
