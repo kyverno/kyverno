@@ -9,6 +9,12 @@ import (
 // MatchResources is used to specify resource and admission review request data for
 // which a policy rule is applicable.
 type MatchResources struct {
+	// RequestTypes can contain values ["CREATE, "UPDATE", "CONNECT", "DELETE"], which are used to match a specific action.
+	// +kubebuilder:validation:MaxItems=3
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:Optional
+	RequestTypes []string `json:"requestTypes,omitempty" yaml:"requestTypes,omitempty"`
+	// Any allows specifying resources which will be ORed
 	// Any allows specifying resources which will be ORed
 	// +optional
 	Any kyvernov1.ResourceFilters `json:"any,omitempty" yaml:"any,omitempty"`
