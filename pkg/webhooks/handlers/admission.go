@@ -51,6 +51,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
+			"user", admissionReview.Request.UserInfo,
 		)
 		admissionReview.Response = &admissionv1.AdmissionResponse{
 			Allowed: true,
