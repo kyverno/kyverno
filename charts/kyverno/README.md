@@ -60,7 +60,7 @@ Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuber
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Finally, we introduced new CRDs in 1.8.0 to manage resource level reports, hose reports are attached to their underlying resource using owner reference.
+Finally, we introduced new CRDs in 1.8.0 to manage resource level reports, those reports are attached to their underlying resource using owner reference.
 
 ArgoCD will show those reports in the UI and as they are managed dynamically by Kyverno it can pollute your dashboard.
 
