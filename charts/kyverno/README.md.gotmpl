@@ -60,8 +60,28 @@ Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuber
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Below is an example of ArgoCD application manifest that should work with this chart:
+Finally, we introduced new CRDs in 1.8.0 to manage resource level reports, hose reports are attached to their underlying resource using owner reference.
+
+ArgoCD will show those reports in the UI and as they are managed dynamically by Kyverno it can pollute your dashboard.
+
+You can tell ArgoCD to ignore them globally by adding them under `resource.exclusions` stanza in ArgoCD config map:
+
+```yaml
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
 ```
+
+Below is an example of ArgoCD application manifest that should work with this chart:
+
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
