@@ -306,7 +306,7 @@ config:
   # -- Name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
   # -- Additional annotations to add to the configmap
-  configMapAnnotations: {}
+  annotations: {}
     # example.com/annotation: foo
   # -- Exclude group role
   excludeGroupRole:
@@ -338,7 +338,7 @@ config:
   # -- Metrics config.
   metricsConfig:
     # -- Additional annotations to add to the metricsconfigmap
-    metricsConfigMapAnnotations: {}
+    annotations: {}
       # example.com/annotation: foo
     namespaces: {
       "include": [],

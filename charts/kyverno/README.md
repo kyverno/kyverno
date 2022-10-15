@@ -154,13 +154,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.existingConfig | string | `""` | Name of an existing config map (ignores default/provided resourceFilters) |
-| config.configMapAnnotations | object | `{}` | Additional annotations to add to configmap |
+| config.annotations | object | `{}` | Additional annotations to add to the configmap |
 | config.excludeGroupRole | string | `nil` | Exclude group role |
 | config.excludeUsername | string | `nil` | Exclude username |
 | config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
-| config.metricsConfig | object | `{"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
-| config.metricsConfig.metricsConfigMapAnnotations | object | `{}` | Additional annotations to add to metrics configmap |
+| config.metricsConfig | object | `{"annotations":{},"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
+| config.metricsConfig.annotations | object | `{}` | Additional annotations to add to the metricsconfigmap |
 | updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | service.port | int | `443` | Service port. |
 | service.type | string | `"ClusterIP"` | Service type. |
