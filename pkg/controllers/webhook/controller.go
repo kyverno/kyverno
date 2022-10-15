@@ -623,11 +623,9 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.MutatingWebhook{
-					Name:         config.MutatingWebhookName + "-ignore",
-					ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
-					},
+					Name:                    config.MutatingWebhookName + "-ignore",
+					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/ignore"),
+					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -642,11 +640,9 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.MutatingWebhook{
-					Name:         config.MutatingWebhookName + "-fail",
-					ClientConfig: c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
-					},
+					Name:                    config.MutatingWebhookName + "-fail",
+					ClientConfig:            c.clientConfig(caBundle, config.MutatingWebhookServicePath+"/fail"),
+					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -730,11 +726,9 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.ValidatingWebhook{
-					Name:         config.ValidatingWebhookName + "-ignore",
-					ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
-					},
+					Name:                    config.ValidatingWebhookName + "-ignore",
+					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
+					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &ignore.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -748,11 +742,9 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 			result.Webhooks = append(
 				result.Webhooks,
 				admissionregistrationv1.ValidatingWebhook{
-					Name:         config.ValidatingWebhookName + "-fail",
-					ClientConfig: c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
-					Rules: []admissionregistrationv1.RuleWithOperations{
-						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
-					},
+					Name:                    config.ValidatingWebhookName + "-fail",
+					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
+					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &fail.failurePolicy,
 					SideEffects:             &noneOnDryRun,
 					AdmissionReviewVersions: []string{"v1beta1"},
@@ -847,20 +839,7 @@ func (c *controller) mergeWebhook(dst *webhook, policy kyvernov1.PolicyInterface
 		}
 	}
 	for _, gvr := range gvrList {
-		dst.groups.Insert(gvr.Group)
-		if gvr.Version == "*" {
-			dst.versions = sets.NewString()
-			dst.versions.Insert(gvr.Version)
-		} else if !dst.versions.Has("*") {
-			dst.versions.Insert(gvr.Version)
-		}
-		dst.resources.Insert(gvr.Resource)
-	}
-	if dst.resources.Has("pods") {
-		dst.resources.Insert("pods/ephemeralcontainers")
-	}
-	if dst.resources.Has("services") {
-		dst.resources.Insert("services/status")
+		dst.set(gvr)
 	}
 	spec := policy.GetSpec()
 	if spec.WebhookTimeoutSeconds != nil {
