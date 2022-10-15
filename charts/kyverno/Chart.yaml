@@ -43,4 +43,6 @@ annotations:
     - kind: added
       description: Allow overriding of test security context and resource block.
     - kind: added
+      description: Added possibility to define custom image registries
+    - kind: added
       description: Enable adding optional annotations to configmaps
