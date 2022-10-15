@@ -12,7 +12,7 @@ This lab sets up the following components:
 
 Run the command below to install the lab:
 
-```shell
+```console
 ./kind-argo.sh
 ```
 
