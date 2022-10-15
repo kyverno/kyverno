@@ -107,15 +107,18 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| image.registry | string | `nil` | Image registry |
 | image.repository | string | `"ghcr.io/kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.pullSecrets | list | `[]` | Image pull secrets |
+| initImage.registry | string | `nil` | Image registry |
 | initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
-| testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
+| testImage.registry | string | `nil` | Image registry |
+| testImage.repository | string | `"busybox"` | Image repository |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |

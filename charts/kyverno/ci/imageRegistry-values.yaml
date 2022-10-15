@@ -1,0 +1,9 @@
+testImage:
+  registry: docker.io
+  repository: busybox
+image:
+  registry: ko.local
+  repository: github.com/kyverno/kyverno/cmd/kyverno
+initImage:
+  registry: ko.local
+  repository: github.com/kyverno/kyverno/cmd/initcontainer
