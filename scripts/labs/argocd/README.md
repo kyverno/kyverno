@@ -6,6 +6,7 @@ This lab sets up the following components:
 - ArgoCD
 - ArgoCD application to deploy kyverno
 - ArgoCD application to deploy kyverno-policies
+- ArgoCD application to deploy policy-reporter
 
 ## Accessing ArgoCD
 
