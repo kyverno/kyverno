@@ -720,9 +720,6 @@ func validateResources(path *field.Path, rule kyvernov1.Rule) (string, error) {
 		return fmt.Sprintf("resources.%s", path), err
 	}
 
-	if path, err := validateExcludeRequestTypes(rule.ExcludeResources); err != nil {
-		return fmt.Sprintf("resources.%s", path), err
-	}
 	// validate userInfo in match and exclude
 	if errs := rule.ExcludeResources.UserInfo.Validate(path.Child("exclude")); len(errs) != 0 {
 		return "exclude", errs.ToAggregate()
