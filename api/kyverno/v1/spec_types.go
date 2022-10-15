@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 
+	"github.com/kyverno/kyverno/pkg/toggle"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
@@ -197,7 +198,9 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 
 // GetFailurePolicy returns the failure policy to be applied
 func (s *Spec) GetFailurePolicy() FailurePolicyType {
-	if s.FailurePolicy == nil {
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
+		return Ignore
+	} else if s.FailurePolicy == nil || !toggle.ForceFailurePolicyIgnore.Enabled() {
 		return Fail
 	}
 	return *s.FailurePolicy

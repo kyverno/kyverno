@@ -123,6 +123,7 @@ func parseFlags() error {
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
+    flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	// DEPRECATED: remove in 1.9
@@ -575,6 +576,7 @@ func main() {
 		serverIP,
 	)
 	policyCache := policycache.NewCache()
+    // fmt.Printf("\n\npolicyCache-------------------------------------------%+v\n\n", kyvernoInformer.Kyverno().V1().ClusterPolicies())
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
