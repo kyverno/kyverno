@@ -2,7 +2,7 @@
 
 This lab sets up the following components:
 - A [kind](https://kind.sigs.k8s.io) cluster
-- [nginx-ingress](https://github.com/kubernetes/ingress-nginx)
+- [ingress-nginx](https://github.com/kubernetes/ingress-nginx)
 - [ArgoCD](https://argo-cd.readthedocs.io)
 - ArgoCD application to deploy [kyverno](https://kyverno.io)
 - ArgoCD application to deploy [kyverno-policies](https://artifacthub.io/packages/helm/kyverno/kyverno-policies)
