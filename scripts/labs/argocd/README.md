@@ -1,12 +1,12 @@
 # ArgoCD lab
 
 This lab sets up the following components:
-- A kind cluster
-- nginx-ingress
-- ArgoCD
-- ArgoCD application to deploy kyverno
-- ArgoCD application to deploy kyverno-policies
-- ArgoCD application to deploy policy-reporter
+- A [kind](https://kind.sigs.k8s.io) cluster
+- [nginx-ingress](https://github.com/kubernetes/ingress-nginx)
+- [ArgoCD](https://argo-cd.readthedocs.io)
+- ArgoCD application to deploy [kyverno](https://kyverno.io)
+- ArgoCD application to deploy [kyverno-policies](https://artifacthub.io/packages/helm/kyverno/kyverno-policies)
+- ArgoCD application to deploy [policy-reporter](https://kyverno.github.io/policy-reporter)
 
 ## Install
 
