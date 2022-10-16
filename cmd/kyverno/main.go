@@ -576,7 +576,6 @@ func main() {
 		serverIP,
 	)
 	policyCache := policycache.NewCache()
-    // fmt.Printf("\n\npolicyCache-------------------------------------------%+v\n\n", kyvernoInformer.Kyverno().V1().ClusterPolicies())
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
