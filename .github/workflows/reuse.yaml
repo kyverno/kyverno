@@ -107,6 +107,8 @@ jobs:
 
       - name: ko build dev image
         id: ko-publish-dev
+        env:
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
           set -e

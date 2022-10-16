@@ -20,6 +20,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ValidationHandler interface {
@@ -163,8 +164,12 @@ func (v *validationHandler) handleAudit(
 	if !v.admissionReports {
 		return
 	}
-	//	we don't need reports for deletions and when it's about sub resources
+	// we don't need reports for deletions and when it's about sub resources
 	if request.Operation == admissionv1.Delete || request.SubResource != "" {
+		return
+	}
+	// check if the resource supports reporting
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
 		return
 	}
 	responses, err := v.buildAuditResponses(resource, request, namespaceLabels)
@@ -173,13 +178,15 @@ func (v *validationHandler) handleAudit(
 	}
 	responses = append(responses, engineResponses...)
 	report := reportutils.NewAdmissionReport(resource, request, request.Kind, responses...)
-	//	if it's not a creation, the resource already exists, we can set the owner
+	// if it's not a creation, the resource already exists, we can set the owner
 	if request.Operation != admissionv1.Create {
 		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
 		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
 	}
-	_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
-	if err != nil {
-		v.log.Error(err, "failed to create report")
+	if len(report.GetResults()) > 0 {
+		_, err = reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+		if err != nil {
+			v.log.Error(err, "failed to create report")
+		}
 	}
 }
