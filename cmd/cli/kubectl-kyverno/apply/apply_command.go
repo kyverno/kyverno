@@ -76,7 +76,7 @@ To apply on a folder of resources:
 To apply on a cluster:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
-To apply policies from a gitURL on a cluster:
+To apply policies from a gitSourceURL on a cluster:
 		kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
 
 To apply policy with variables:
@@ -222,23 +222,23 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("a stdin pipe can be used for either policies or resources, not both", err)
 	}
 
-	isGit := common.IsGitPath(c.PolicyPaths)
+	isGit := common.IsGitSourcePath(c.PolicyPaths)
 	var policies []kyvernov1.PolicyInterface
-	gitURL, err := url.Parse(c.PolicyPaths[0])
+	gitSourceURL, err := url.Parse(c.PolicyPaths[0])
 	if err != nil {
 		fmt.Printf("Error: failed to load policies\nCause: %s\n", err)
 		os.Exit(1)
 	}
 
-	pathElems := strings.Split(gitURL.Path[1:], "/")
+	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 	if len(pathElems) <= 1 {
-		err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitURL.Path)
+		err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
 		fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 		os.Exit(1)
 	}
 
-	gitURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
-	repoURL := gitURL.String()
+	gitSourceURL.Path = strings.Join([]string{pathElems[0], pathElems[1]}, "/")
+	repoURL := gitSourceURL.String()
 	var gitPathToYamls string
 	if isGit {
 		c.GitBranch, gitPathToYamls = common.GetGitBranchOrPolicyPaths(c.GitBranch, repoURL, c.PolicyPaths)

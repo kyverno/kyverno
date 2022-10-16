@@ -1168,7 +1168,7 @@ func GetUserInfoFromPath(fs billy.Filesystem, path string, isGit bool, policyRes
 	return *userInfo, *subjectInfo, nil
 }
 
-func IsGitPath(policyPaths []string) bool {
+func IsGitSourcePath(policyPaths []string) bool {
 	return strings.Contains(policyPaths[0], "https://")
 }
 
