@@ -77,6 +77,7 @@ To apply on a cluster:
         kyverno apply /path/to/policy.yaml /path/to/folderOfPolicies --cluster
 
 To apply policies from a gitSourceURL on a cluster:
+	Example: Taking github.com as a gitSourceURL here. Some other standards  gitSourceURL are: gitlab.com , bitbucket.org , etc.
 		kyverno apply https://github.com/kyverno/policies/openshift/ --git-branch main --cluster
 
 To apply policy with variables:
@@ -171,7 +172,7 @@ func Command() *cobra.Command {
 	cmd.Flags().BoolVarP(&applyCommandConfig.RegistryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().StringVarP(&applyCommandConfig.KubeConfig, "kubeconfig", "", "", "path to kubeconfig file with authorization and master location information")
 	cmd.Flags().StringVarP(&applyCommandConfig.Context, "context", "", "", "The name of the kubeconfig context to use")
-	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test github repository branch")
+	cmd.Flags().StringVarP(&applyCommandConfig.GitBranch, "git-branch", "b", "", "test git repository branch")
 	return cmd
 }
 
@@ -232,7 +233,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 
 	pathElems := strings.Split(gitSourceURL.Path[1:], "/")
 	if len(pathElems) <= 1 {
-		err := fmt.Errorf("invalid URL path %s - expected https://github.com/:owner/:repository/:branch (without --git-branch flag) OR https://github.com/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
+		err := fmt.Errorf("invalid URL path %s - expected https://<any_git_source_domain>/:owner/:repository/:branch (without --git-branch flag) OR https://<any_git_source_domain>/:owner/:repository/:directory (with --git-branch flag)", gitSourceURL.Path)
 		fmt.Printf("Error: failed to parse URL \nCause: %s\n", err)
 		os.Exit(1)
 	}
