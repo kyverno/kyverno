@@ -125,6 +125,13 @@ maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
 {{- end }}
 
+{{- define "kyverno.image" -}}
+  {{- if .image.registry -}}
+{{ .image.registry }}/{{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
+  {{- else -}}
+{{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
+  {{- end -}}
+{{- end }}
 
 {{- define "kyverno.resourceFilters" -}}
 {{- $resourceFilters := .Values.config.resourceFilters }}
