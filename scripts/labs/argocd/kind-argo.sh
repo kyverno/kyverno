@@ -265,7 +265,7 @@ spec:
       - CreateNamespace=true
 EOF
 
-# CREATE REPORTER-UI APP
+# CREATE POLICY-REPORTER APP
 
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
