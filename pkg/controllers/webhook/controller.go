@@ -511,7 +511,7 @@ func (c *controller) buildVerifyMutatingWebhookConfiguration(caBundle []byte) (*
 				},
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
+						"app.kubernetes.io/name": config.KyvernoNamespace(),
 					},
 				},
 			}},
