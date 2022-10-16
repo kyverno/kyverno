@@ -42,3 +42,7 @@ annotations:
       description: Extra args support for init container.
     - kind: added
       description: Allow overriding of test security context and resource block.
+    - kind: added
+      description: Add startup probes support
+    - kind: added
+      description: Added possibility to define custom image registries
