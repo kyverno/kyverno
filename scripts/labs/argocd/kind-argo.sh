@@ -135,7 +135,7 @@ spec:
       selfHeal: true
 EOF
 
-# CREATE KUBE-PROMETHEUS-STASK APP
+# CREATE KUBE-PROMETHEUS-STACK APP
 
 kubectl apply -f - <<EOF
 apiVersion: argoproj.io/v1alpha1
