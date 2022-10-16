@@ -60,11 +60,11 @@ Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuber
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Finally, we introduced new CRDs in 1.8.0 to manage resource level reports, those reports are attached to their underlying resource using owner reference.
+Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those reports are associated with parent resources using an `ownerReference` object.
 
-ArgoCD will show those reports in the UI and as they are managed dynamically by Kyverno it can pollute your dashboard.
+As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
 
-You can tell ArgoCD to ignore them globally by adding them under `resource.exclusions` stanza in ArgoCD config map:
+You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
 
 ```yaml
     resource.exclusions: |
@@ -79,7 +79,7 @@ You can tell ArgoCD to ignore them globally by adding them under `resource.exclu
           - '*'
 ```
 
-Below is an example of ArgoCD application manifest that should work with this chart:
+Below is an example of ArgoCD Application manifest that should work with this chart.
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
