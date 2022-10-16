@@ -42,3 +42,7 @@ annotations:
       description: Self signed certificates not using SANs.
     - kind: added
       description: Extra args support for init container.
+    - kind: added
+      description: Add startup probes support
+    - kind: added
+      description: Added possibility to define custom image registries
