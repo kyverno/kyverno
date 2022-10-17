@@ -92,7 +92,6 @@ func TestGetWarningMessages(t *testing.T) {
 			"policy test.rule-warn: message warn",
 			"policy test.rule-fail: message fail",
 			"policy test.rule-error: message error",
-			"policy test.rule-skip: message skip",
 		},
 	}}
 	for _, tt := range tests {
