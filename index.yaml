@@ -4,6 +4,57 @@ entries:
   - annotations:
       artifacthub.io/changes: |
         - kind: added
+          description: Added possibility to define additional init and sidecar container.
+        - kind: added
+          description: Added ability to remove namespaces from default resourceFilters list.
+        - kind: added
+          description: Prevent installing Kyverno in namespace kube-system.
+        - kind: fixed
+          description: Docs for generatecontrollerExtraResources.
+        - kind: changed
+          description: Enable autogen internals by default.
+        - kind: added
+          description: Allow overriding of test security context and resource block.
+        - kind: fixed
+          description: Self signed certificates not using SANs.
+        - kind: added
+          description: Extra args support for init container.
+        - kind: added
+          description: Add startup probes support
+        - kind: added
+          description: Added possibility to define custom image registries
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.8.1-rc1
+    created: "2022-10-17T16:05:13.206275756Z"
+    description: Kubernetes Native Policy Management
+    digest: 4eef6f9ad60a2f51fb0c3d0d13bc3089d1333837ef8fae04b84ad9cf762c44f8
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.6.1-rc1.tgz
+    version: 2.6.1-rc1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
           description: Added possibility to define additional init and sidecar container
         - kind: added
           description: Added ability to remove namespaces from default resourceFilters list
@@ -4400,4 +4451,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-10-17T16:05:01.926217911Z"
+generated: "2022-10-17T16:05:13.19850069Z"
