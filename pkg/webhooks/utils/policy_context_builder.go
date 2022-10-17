@@ -1,6 +1,9 @@
 package utils
 
 import (
+	"encoding/json"
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -49,6 +52,14 @@ func checkForRBACInfo(rule kyvernov1.Rule) bool {
 			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
 				return true
 			}
+		}
+	}
+
+	if bytes, err := json.Marshal(rule); err != nil {
+		return false
+	} else {
+		if strings.Contains(string(bytes), "request.roles") || strings.Contains(string(bytes), "request.clusterRoles") {
+			return true
 		}
 	}
 	return false
