@@ -96,7 +96,7 @@ type controller struct {
 	runtime            runtimeutils.Runtime
 
 	// state
-	lock        sync.RWMutex
+	lock        sync.Mutex
 	policyState map[string]sets.String
 }
 
@@ -201,7 +201,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
 	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) watchdog(ctx context.Context) {
@@ -297,8 +297,9 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			logger.Error(err, "failed to compute policy key", "policy", policy)
+		} else {
+			c.policyState[webhookConfigurationName].Insert(policyKey)
 		}
-		c.policyState[webhookConfigurationName].Insert(policyKey)
 	}
 }
 
@@ -406,8 +407,8 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 }
 
 func (c *controller) updatePolicyStatuses(ctx context.Context) error {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
 	if err != nil {
 		return err
@@ -446,7 +447,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 					return updateStatusFunc(policy)
 				},
 			)
-			return err
+			if err != nil {
+				return err
+			}
 		} else {
 			_, err := controllerutils.UpdateStatus(
 				ctx,
@@ -456,7 +459,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 					return updateStatusFunc(policy)
 				},
 			)
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
