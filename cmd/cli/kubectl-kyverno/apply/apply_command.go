@@ -171,7 +171,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 		return rc, resources, skipInvalidPolicies, pvInfos, err
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
@@ -308,7 +308,7 @@ func applyCommandHelper(resourcePaths []string, userInfoPath string, cluster boo
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {

@@ -49,11 +49,11 @@ type handlers struct {
 	crbLister rbacv1listers.ClusterRoleBindingLister
 	urLister  kyvernov1beta1listers.UpdateRequestNamespaceLister
 
-	urGenerator       webhookgenerate.Generator
-	eventGen          event.Interface
-	openAPIController openapi.ValidateInterface
-	pcBuilder         webhookutils.PolicyContextBuilder
-	urUpdater         webhookutils.UpdateRequestUpdater
+	urGenerator    webhookgenerate.Generator
+	eventGen       event.Interface
+	openApiManager openapi.ValidateInterface
+	pcBuilder      webhookutils.PolicyContextBuilder
+	urUpdater      webhookutils.UpdateRequestUpdater
 
 	admissionReports bool
 }
@@ -70,25 +70,25 @@ func NewHandlers(
 	urLister kyvernov1beta1listers.UpdateRequestNamespaceLister,
 	urGenerator webhookgenerate.Generator,
 	eventGen event.Interface,
-	openAPIController openapi.ValidateInterface,
+	openApiManager openapi.ValidateInterface,
 	admissionReports bool,
 ) webhooks.ResourceHandlers {
 	return &handlers{
-		client:            client,
-		kyvernoClient:     kyvernoClient,
-		configuration:     configuration,
-		metricsConfig:     metricsConfig,
-		pCache:            pCache,
-		nsLister:          nsLister,
-		rbLister:          rbLister,
-		crbLister:         crbLister,
-		urLister:          urLister,
-		urGenerator:       urGenerator,
-		eventGen:          eventGen,
-		openAPIController: openAPIController,
-		pcBuilder:         webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
-		urUpdater:         webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
-		admissionReports:  admissionReports,
+		client:           client,
+		kyvernoClient:    kyvernoClient,
+		configuration:    configuration,
+		metricsConfig:    metricsConfig,
+		pCache:           pCache,
+		nsLister:         nsLister,
+		rbLister:         rbLister,
+		crbLister:        crbLister,
+		urLister:         urLister,
+		urGenerator:      urGenerator,
+		eventGen:         eventGen,
+		openApiManager:   openApiManager,
+		pcBuilder:        webhookutils.NewPolicyContextBuilder(configuration, client, rbLister, crbLister),
+		urUpdater:        webhookutils.NewUpdateRequestUpdater(kyvernoClient, urLister),
+		admissionReports: admissionReports,
 	}
 }
 
@@ -174,7 +174,7 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		logger.Error(err, "failed to patch images info to resource, policies that mutate images may be impacted")
 	}
 
-	mh := mutation.NewMutationHandler(logger, h.eventGen, h.openAPIController, h.nsLister)
+	mh := mutation.NewMutationHandler(logger, h.eventGen, h.openApiManager, h.nsLister)
 	mutatePatches, mutateWarnings, err := mh.HandleMutation(h.metricsConfig, request, mutatePolicies, policyContext, startTime)
 	if err != nil {
 		logger.Error(err, "mutation failed")
