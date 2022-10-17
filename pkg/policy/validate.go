@@ -165,20 +165,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return nil, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if namespaced {
-			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
-		}
-
-		// validate rule actions
-		// - Mutate
-		// - Validate
-		// - Generate
-		if err := validateActions(i, &rules[i], client, mock); err != nil {
-			return nil, err
-		}
-
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
 		if len(rule.MatchResources.Any) > 0 {
@@ -197,6 +183,20 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if len(rule.MatchResources.Kinds) == 0 {
 				return nil, validateMatchKindHelper(rule)
 			}
+		}
+
+		// validate Cluster Resources in namespaced policy
+		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
+		if namespaced {
+			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
+		}
+
+		// validate rule actions
+		// - Mutate
+		// - Validate
+		// - Generate
+		if err := validateActions(i, &rules[i], client, mock); err != nil {
+			return nil, err
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
