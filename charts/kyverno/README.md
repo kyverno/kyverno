@@ -60,8 +60,28 @@ Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuber
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Below is an example of ArgoCD application manifest that should work with this chart:
+Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those reports are associated with parent resources using an `ownerReference` object.
+
+As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
+
+You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
+
+```yaml
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
 ```
+
+Below is an example of ArgoCD Application manifest that should work with this chart.
+
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -150,6 +170,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | testResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | testResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
