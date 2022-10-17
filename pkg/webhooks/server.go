@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,43 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
+
+var (
+	dumpPayload bool
+	// dumpPayloadTimer time.Duration
+	dumpPayloadOps   []string
+	dumpPayloadKinds []string
+)
+
+func splitString(s string) []string {
+	return strings.Split(s, " ")
+}
+
+func dumpOperation(op string) bool {
+	for _, o := range dumpPayloadOps {
+		if strings.EqualFold(o, op) {
+			return true
+		}
+	}
+	return false
+}
+
+func dumpKind(kind string) bool {
+	for _, k := range dumpPayloadKinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func SetDumpFlags(dumpPl bool, dumpPlOpts ...string) {
+	dumpPayload = dumpPl
+	// duration := dumpPlOpts[0][:len(dumpPlOpts[0])-1]
+	// dumpPayloadTimer = time.Second * time.Duration(60)
+	dumpPayloadOps = splitString(dumpPlOpts[1])
+	dumpPayloadKinds = splitString(dumpPlOpts[2])
+}
 
 type Server interface {
 	// Run TLS server in separate thread and returns control immediately
@@ -158,12 +196,30 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	}
 }
 
+func logAdmission(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		resp := inner(logger, request, startTime)
+		if dumpPayload {
+			rq := request.DeepCopy()
+			if dumpOperation(string(request.Operation)) && dumpKind(request.Kind.Kind) {
+				if strings.EqualFold(request.Kind.Kind, "Secret") {
+					//redact secret
+					go logger.Info("logging admission review payload", "AdmissionRequest", rq, "AdmissionReponse", resp)
+				} else {
+					go logger.Info("logging admission review payload", "AdmissionRequest", rq, "AdmissionResponse", resp)
+				}
+			}
+		}
+		return resp
+	}
+}
+
 func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	return handlers.Filter(configuration, inner)
 }
 
 func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner)))
+	return handlers.Monitor(monitor, handlers.Admission(logger, protect(logAdmission(inner))))
 }
 
 func registerWebhookHandlers(

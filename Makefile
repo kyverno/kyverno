@@ -702,7 +702,7 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
+		--set "extraArgs={--autogenInternals=true,--loggingFormat=text,--dumpPayload=true,--dumpPayloadTimer=60s,--dumpPayloadOps=CREATE UPDATE DELETE CONNECT,--dumpPayloadKinds=Service Deployment StatefulSet Secret}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno
 

@@ -92,6 +92,11 @@ var (
 	admissionReports           bool
 	reportsChunkSize           int
 	logFormat                  string
+	//
+	dumpPayload      bool
+	dumpPayloadTimer string
+	dumpPayloadOps   string
+	dumpPayloadKinds string
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -99,6 +104,10 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&dumpPayload, "dumpPayload", false, "This determines the output format of the logger.")
+	flag.StringVar(&dumpPayloadTimer, "dumpPayloadTimer", "", "This determines the output format of the logger.")
+	flag.StringVar(&dumpPayloadOps, "dumpPayloadOps", "", "This determines the output format of the logger.")
+	flag.StringVar(&dumpPayloadKinds, "dumpPayloadKinds", "", "This determines the output format of the logger.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", int(webhookconfig.DefaultWebhookTimeout), "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -483,6 +492,9 @@ func main() {
 		fmt.Println("failed to setup logger", err)
 		os.Exit(1)
 	}
+
+	webhooks.SetDumpFlags(dumpPayload, dumpPayloadTimer, dumpPayloadOps, dumpPayloadKinds)
+
 	logger := logging.WithName("setup")
 	// show version
 	showWarnings(logger)
