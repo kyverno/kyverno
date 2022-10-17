@@ -59,7 +59,6 @@ initContainer:
   extraArgs:
     - --loggingFormat=text
 
-
 testImage:
   # -- Image registry
   registry:
@@ -82,6 +81,9 @@ podLabels: {}
 # -- Additional annotations to add to each pod
 podAnnotations: {}
   # example.com/annotation: foo
+
+# -- Additional annotations to add to each ConfigMap
+configMapAnnotations:
 
 # -- Security context for the pod
 podSecurityContext: {}
