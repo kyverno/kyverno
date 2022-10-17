@@ -203,7 +203,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		policies = append(policies, pols...)
 	}
 	// 	load background policies
-	backgroundPolicies := utils.RemoveNonValidationPolicies(logger, policies...)
+	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
 	if err != nil {
 		return err
 	}
