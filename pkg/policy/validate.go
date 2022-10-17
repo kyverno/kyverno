@@ -79,7 +79,7 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 	return nil
 }
 
-func validateJSONPatchKind(patch string) error {
+func validateJSONPatch(patch string, ruleIdx int) error {
 	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
 
 	jsonPatch, err := yaml.ToJSON([]byte(patch))
@@ -94,36 +94,18 @@ func validateJSONPatchKind(patch string) error {
 
 	for _, operation := range decodedPatch {
 		op := operation.Kind()
-		if op != "add" && op != "remove" && op != "replace" && op != "move" && op != "test" && op != "copy" {
-			return fmt.Errorf("%s", op)
+		if op != "add" && op != "remove" && op != "replace" {
+			return fmt.Errorf("Unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
 		}
-	}
-
-	return nil
-}
-
-func validateJSONPatchValue(patch string) error {
-	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
-
-	jsonPatch, err := yaml.ToJSON([]byte(patch))
-	if err != nil {
-		return err
-	}
-
-	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
-	if err != nil {
-		return err
-	}
-
-	for _, operation := range decodedPatch {
 		v, _ := operation.ValueInterface()
 		if v != nil {
 			vs := fmt.Sprintf("%v", v)
 			if strings.ContainsAny(vs, `"`) || strings.ContainsAny(vs, `'`) {
-				return fmt.Errorf("%s", vs)
+				return fmt.Errorf("missing quote around value: spec.rules[%d]: %s", ruleIdx, vs)
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -188,11 +170,8 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return nil, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
 		}
-		if err := validateJSONPatchKind(rule.Mutation.PatchesJSON6902); err != nil {
-			return nil, fmt.Errorf("Unexpected kind: spec.rules[%d]: %s", i, err)
-		}
-		if err := validateJSONPatchValue(rule.Mutation.PatchesJSON6902); err != nil {
-			return nil, fmt.Errorf("missing quote around value: spec.rules[%d]: %s", i, err)
+		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
+			return nil, fmt.Errorf("%s", err)
 		}
 
 		if jsonPatchOnPod(rule) {
