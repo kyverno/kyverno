@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -127,13 +128,13 @@ func validateJSONPatchValue(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
-		openapi.NewCRDSync(client, openAPIController).CheckSync(context.TODO())
+		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
 
 	var errs field.ErrorList
@@ -307,6 +308,16 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 		}
 
+		if rule.HasVerifyImages() {
+			verifyImagePath := rulePath.Child("verifyImages")
+			for index, i := range rule.VerifyImages {
+				errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
+			}
+			if len(errs) != 0 {
+				return nil, errs.ToAggregate()
+			}
+		}
+
 		podOnlyMap := make(map[string]bool) // Validate that Kind is only Pod
 		podOnlyMap["Pod"] = true
 		if reflect.DeepEqual(common.GetKindsFromRule(rule), podOnlyMap) && podControllerAutoGenExclusion(policy) {
@@ -413,7 +424,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	if spec.SchemaValidation == nil || *spec.SchemaValidation {
-		if err := openAPIController.ValidatePolicyMutation(policy); err != nil {
+		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
 			return nil, err
 		}
 	}
