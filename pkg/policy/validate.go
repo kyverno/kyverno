@@ -79,6 +79,36 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 	return nil
 }
 
+func validateJSONPatch(patch string, ruleIdx int) error {
+	patch = variables.ReplaceAllVars(patch, func(s string) string { return "kyvernojsonpatchvariable" })
+
+	jsonPatch, err := yaml.ToJSON([]byte(patch))
+	if err != nil {
+		return err
+	}
+
+	decodedPatch, err := jsonpatch.DecodePatch(jsonPatch)
+	if err != nil {
+		return err
+	}
+
+	for _, operation := range decodedPatch {
+		op := operation.Kind()
+		if op != "add" && op != "remove" && op != "replace" {
+			return fmt.Errorf("Unexpected kind: spec.rules[%d]: %s", ruleIdx, op)
+		}
+		v, _ := operation.ValueInterface()
+		if v != nil {
+			vs := fmt.Sprintf("%v", v)
+			if strings.ContainsAny(vs, `"`) || strings.ContainsAny(vs, `'`) {
+				return fmt.Errorf("missing quote around value: spec.rules[%d]: %s", ruleIdx, vs)
+			}
+		}
+	}
+
+	return nil
+}
+
 // Validate checks the policy and rules declarations for required configurations
 func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
@@ -139,6 +169,9 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		// check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return nil, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
+		}
+		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
+			return nil, fmt.Errorf("%s", err)
 		}
 
 		if jsonPatchOnPod(rule) {
