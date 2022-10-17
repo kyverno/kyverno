@@ -39,3 +39,5 @@ annotations:
       description: Added ability to get additional policies from restricted
     - kind: fixed
       description: Applied fix in preconditions for background mode
+    - kind: added
+      description: Added case insensitivity guarantees to disallow-capabilities-strict
