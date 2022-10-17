@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
+	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -411,7 +412,7 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, policy := range policies {
+	updateStatusFunc := func(policy kyvernov1.PolicyInterface) error {
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			return err
@@ -420,23 +421,42 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		for _, set := range c.policyState {
 			if !set.Has(policyKey) {
 				ready = false
+				break
 			}
 		}
-		if policy.IsReady() != ready {
-			policy = policy.CreateDeepCopy()
-			status := policy.GetStatus()
-			status.SetReady(ready)
-			if policy.GetNamespace() == "" {
-				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
-				}
-			} else {
-				_, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).UpdateStatus(ctx, policy.(*kyvernov1.Policy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
+		status := policy.GetStatus()
+		status.SetReady(ready)
+		status.Autogen.Rules = nil
+		if toggle.AutogenInternals.Enabled() {
+			for _, rule := range autogen.ComputeRules(policy) {
+				if strings.HasPrefix(rule.Name, "autogen-") {
+					status.Autogen.Rules = append(status.Autogen.Rules, rule)
 				}
 			}
+		}
+		return nil
+	}
+	for _, policy := range policies {
+		if policy.GetNamespace() == "" {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.ClusterPolicy),
+				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
+				func(policy *kyvernov1.ClusterPolicy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			return err
+		} else {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.Policy),
+				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
+				func(policy *kyvernov1.Policy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			return err
 		}
 	}
 	return nil

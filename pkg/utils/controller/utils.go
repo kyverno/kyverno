@@ -148,6 +148,24 @@ func Update[T interface {
 	}
 }
 
+func UpdateStatus[T interface {
+	metav1.Object
+	DeepCopy[T]
+}, S StatusClient[T]](ctx context.Context, obj T, setter S, build func(T) error,
+) (T, error) {
+	mutated := obj.DeepCopy()
+	if err := build(mutated); err != nil {
+		var d T
+		return d, err
+	} else {
+		if reflect.DeepEqual(obj, mutated) {
+			return mutated, nil
+		} else {
+			return setter.UpdateStatus(ctx, mutated, metav1.UpdateOptions{})
+		}
+	}
+}
+
 func Cleanup[T any, R Object[T]](ctx context.Context, actual []R, expected []R, deleter Deleter) error {
 	keep := sets.NewString()
 	for _, obj := range expected {
