@@ -10,7 +10,7 @@ spec:
   restartPolicy: Never
   containers:
     - name: wget
-      image: {{ .Values.testImage.repository | default "busybox" }}{{- if .Values.testImage.tag }}:{{ .Values.testImage.tag }}{{- end }}
+      image: {{ include "kyverno.image" (dict "image" .Values.testImage "defaultTag" "latest") | quote }}
       imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
       {{- with .Values.testResources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}
@@ -24,7 +24,7 @@ spec:
         - |
           sleep 20 ; wget -O- -S --no-check-certificate https://{{ template "kyverno.serviceName" . }}:{{ .Values.service.port }}/health/liveness
     - name: wget-metrics
-      image: {{ .Values.testImage.repository | default "busybox" }}{{- if .Values.testImage.tag }}:{{ .Values.testImage.tag }}{{- end }}
+      image: {{ include "kyverno.image" (dict "image" .Values.testImage "defaultTag" "latest") | quote }}
       imagePullPolicy: {{ default .Values.image.pullPolicy .Values.testImage.pullPolicy }}
       {{- with .Values.testResources }}
       resources: {{ tpl (toYaml .) $ | nindent 8 }}

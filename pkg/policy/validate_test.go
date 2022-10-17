@@ -345,12 +345,12 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openApiManager, _ := openapi.NewManager()
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	_, err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -496,8 +496,8 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -898,8 +898,8 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -947,8 +947,8 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1075,8 +1075,8 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1125,8 +1125,8 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1173,8 +1173,8 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1221,9 +1221,162 @@ func Test_deny_exec(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
+}
+
+func Test_SignatureAlgorithm(t *testing.T) {
+	testcases := []struct {
+		description    string
+		policy         []byte
+		expectedOutput bool
+	}{
+		{
+			description: "Test empty signature algorithm - pass",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-empty-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: true,
+		},
+		{
+			description: "Test invalid signature algorithm - fail",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-invalid-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+														"signatureAlgorithm": "sha123"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: false,
+		},
+		{
+			description: "Test invalid signature algorithm - fail",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-valid-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+														"signatureAlgorithm": "sha256"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: true,
+		},
+	}
+	for _, testcase := range testcases {
+		var policy *kyverno.ClusterPolicy
+		err := json.Unmarshal(testcase.policy, &policy)
+		assert.NilError(t, err)
+
+		openApiManager, _ := openapi.NewManager()
+		_, err = Validate(policy, nil, true, openApiManager)
+		if testcase.expectedOutput {
+			assert.NilError(t, err)
+		} else {
+			assert.ErrorContains(t, err, "Invalid signature algorithm provided")
+		}
+	}
 }
 
 func Test_existing_resource_policy(t *testing.T) {
@@ -1266,8 +1419,8 @@ func Test_existing_resource_policy(t *testing.T) {
 	err = json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	_, err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -1322,8 +1475,8 @@ func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	res, err := Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 	assert.Assert(t, res == nil)
 }
@@ -1379,8 +1532,8 @@ func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T)
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	res, err := Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)
 	}
@@ -1438,8 +1591,8 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	res, err := Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
 	if res != nil {
 		assert.Assert(t, res.Warnings != nil)
 	}

@@ -11,7 +11,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
@@ -52,6 +51,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
+			"user", admissionReview.Request.UserInfo,
 		)
 		admissionReview.Response = &admissionv1.AdmissionResponse{
 			Allowed: true,
@@ -99,9 +99,8 @@ func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
 	}
 }
 
-func Verify(m *webhookconfig.Monitor) AdmissionHandler {
+func Verify() AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
 		return admissionutils.Response(true)
 	}
 }

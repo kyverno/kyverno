@@ -23,7 +23,7 @@ func ReadRootCASecret(client controllerutils.GetClient[*corev1.Secret]) ([]byte,
 	result := stlsca.Data[corev1.TLSCertKey]
 	// if not there, try old "rootCA.crt"
 	if len(result) == 0 {
-		result = stlsca.Data[RootCAKey]
+		result = stlsca.Data[rootCAKey]
 	}
 	if len(result) == 0 {
 		return nil, errors.Errorf("%s in secret %s/%s", ErrorsNotFound, config.KyvernoNamespace(), stlsca.Name)

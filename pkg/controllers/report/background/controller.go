@@ -203,7 +203,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 		policies = append(policies, pols...)
 	}
 	// 	load background policies
-	backgroundPolicies := utils.RemoveNonBackgroundPolicies(logger, policies...)
+	backgroundPolicies := utils.RemoveNonValidationPolicies(logger, policies...)
 	if err != nil {
 		return err
 	}
@@ -355,7 +355,21 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	// try to find resource from the cache
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
+	// if the resource is not present it means we shouldn't have a report for it
+	// we can delete the report, we will recreate one if the resource come back
 	if !exists {
+		report, err := c.getMeta(namespace, name)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+		} else {
+			if report.GetNamespace() == "" {
+				return c.kyvernoClient.KyvernoV1alpha2().ClusterBackgroundScanReports().Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+			} else {
+				return c.kyvernoClient.KyvernoV1alpha2().BackgroundScanReports(report.GetNamespace()).Delete(ctx, report.GetName(), metav1.DeleteOptions{})
+			}
+		}
 		return nil
 	}
 	// try to find report from the cache
