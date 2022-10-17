@@ -71,6 +71,7 @@ func (c *runtime) IsRollingUpdate() bool {
 	}
 	deployment, err := c.getDeployment()
 	if err != nil {
+		c.logger.Error(err, "failed to get deployment")
 		return true
 	}
 	var replicas int32 = 1
@@ -104,7 +105,7 @@ func (c *runtime) getLease() (*coordinationv1.Lease, error) {
 }
 
 func (c *runtime) getDeployment() (*appsv1.Deployment, error) {
-	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get("kyverno")
+	return c.deploymentLister.Deployments(config.KyvernoNamespace()).Get(config.KyvernoDeploymentName())
 }
 
 func (c *runtime) check() bool {
