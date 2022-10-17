@@ -164,6 +164,9 @@ func (v *validationHandler) handleAudit(
 	if !v.admissionReports {
 		return
 	}
+	if request.DryRun != nil && *request.DryRun {
+		return
+	}
 	// we don't need reports for deletions and when it's about sub resources
 	if request.Operation == admissionv1.Delete || request.SubResource != "" {
 		return
