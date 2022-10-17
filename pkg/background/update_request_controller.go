@@ -180,6 +180,7 @@ func (c *controller) syncUpdateRequest(key string) error {
 	if err != nil {
 		return err
 	}
+
 	// if not in any state, try to set it to pending
 	if ur.Status.State == "" {
 		ur = ur.DeepCopy()
@@ -213,7 +214,10 @@ func (c *controller) syncUpdateRequest(key string) error {
 				metav1.ListOptions{LabelSelector: metav1.FormatLabelSelector(selector)},
 			)
 		}
-		return err
+		// check if cleanup is required in case policy is no longer exists
+		if err := c.checkIfCleanupRequired(ur); err != nil {
+			return err
+		}
 	}
 	// if in pending state, try to acquire ur and eventually process it
 	if ur.Status.State == kyvernov1beta1.Pending {
@@ -238,6 +242,34 @@ func (c *controller) syncUpdateRequest(key string) error {
 		return fmt.Errorf("failed to unmark UR %s: %v", key, err)
 	}
 	err = c.cleanUR(ur)
+	return err
+}
+
+func (c *controller) checkIfCleanupRequired(ur *kyvernov1beta1.UpdateRequest) error {
+	var err error
+	pNamespace, pName, err := cache.SplitMetaNamespaceKey(ur.Spec.Policy)
+	if err != nil {
+		return err
+	}
+
+	if pNamespace == "" {
+		_, err = c.cpolLister.Get(pName)
+	} else {
+		_, err = c.polLister.Policies(pNamespace).Get(pName)
+	}
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
+		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
+		err := ctrl.ProcessUR(ur)
+		if err != nil {
+			return err
+		}
+		logger.V(4).Info("failed to get policy, deleting the update request", "key", ur.Spec.Policy, "policy", pName)
+		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
+	}
 	return err
 }
 
@@ -295,34 +327,23 @@ func (c *controller) deletePolicy(obj interface{}) {
 			kyvernov1beta1.URGeneratePolicyLabel: p.Name,
 		}))
 
-		urList, err := c.urLister.List(selector)
-		if err != nil {
-			logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
-			return
-		}
-
-		for _, ur := range urList {
-			for _, generatedResource := range ur.Status.GeneratedResources {
-				logger.V(4).Info("retaining resource", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
-			}
-		}
-
 		if !generatePolicyWithClone {
-			urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(p.Name)
-			if err != nil {
-				logger.Error(err, "failed to update request for the policy", "name", p.Name)
-				return
-			}
 			// re-evaluate the UR as the policy was updated
 			for _, ur := range urs {
 				logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
 				c.enqueueUpdateRequest(ur)
 			}
-		}
-		// re-evaluate the UR as the policy was updated
-		for _, ur := range urs {
-			logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
-			c.enqueueUpdateRequest(ur)
+		} else {
+			urList, err := c.urLister.List(selector)
+			if err != nil {
+				logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
+				return
+			}
+			for _, ur := range urList {
+				for _, generatedResource := range ur.Status.GeneratedResources {
+					logger.V(4).Info("retaining resource for cloned policy", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
+				}
+			}
 		}
 	}
 }
