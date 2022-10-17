@@ -19,8 +19,52 @@ import (
 	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 )
+
+type AdmissionRequestPayload struct {
+	UID                types.UID                    `json:"uid"`
+	Kind               metav1.GroupVersionKind      `json:"kind"`
+	Resource           metav1.GroupVersionResource  `json:"resource"`
+	SubResource        string                       `json:"subResource,omitempty"`
+	RequestKind        *metav1.GroupVersionKind     `json:"requestKind,omitempty"`
+	RequestResource    *metav1.GroupVersionResource `json:"requestResource,omitempty"`
+	RequestSubResource string                       `json:"requestSubResource,omitempty"`
+	Name               string                       `json:"name,omitempty"`
+	Namespace          string                       `json:"namespace,omitempty"`
+	Operation          string                       `json:"operation"`
+	UserInfo           authenticationv1.UserInfo    `json:"userInfo"`
+	Object             map[string]interface{}       `json:"object,omitempty"`
+	OldObject          map[string]interface{}       `json:"oldObject,omitempty"`
+	DryRun             *bool                        `json:"dryRun,omitempty"`
+	// Options runtime.RawExtension `json:"options,omitempty" protobuf:"bytes,12,opt,name=options"`
+}
+
+func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionRequestPayload, error) {
+	newResource, oldResource, err := utils.ExtractResources(nil, rq)
+	if err != nil {
+		return nil, err
+	}
+	return &AdmissionRequestPayload{
+		UID:                rq.UID,
+		Kind:               rq.Kind,
+		Resource:           rq.Resource,
+		SubResource:        rq.SubResource,
+		RequestKind:        rq.RequestKind,
+		RequestResource:    rq.RequestResource,
+		RequestSubResource: rq.RequestSubResource,
+		Name:               rq.Name,
+		Namespace:          rq.Namespace,
+		Operation:          string(rq.Operation),
+		UserInfo:           rq.UserInfo,
+		Object:             newResource.Object,
+		OldObject:          oldResource.Object,
+		DryRun:             rq.DryRun,
+	}, nil
+}
 
 var (
 	dumpPayload bool
@@ -57,6 +101,20 @@ func SetDumpFlags(dumpPl bool, dumpPlOpts ...string) {
 	// dumpPayloadTimer = time.Second * time.Duration(60)
 	dumpPayloadOps = splitString(dumpPlOpts[1])
 	dumpPayloadKinds = splitString(dumpPlOpts[2])
+}
+
+func redactSecretKind(payload *AdmissionRequestPayload) {
+	obj, oldObj := payload.Object, payload.OldObject
+	if obj != nil {
+		delete(obj, "data")
+		x := obj["metadata"].(map[string]interface{})
+		delete(x, "annotations")
+	}
+	if oldObj != nil {
+		delete(oldObj, "data")
+		x := oldObj["metadata"].(map[string]interface{})
+		delete(x, "annotations")
+	}
 }
 
 type Server interface {
@@ -200,13 +258,17 @@ func logAdmission(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		resp := inner(logger, request, startTime)
 		if dumpPayload {
-			rq := request.DeepCopy()
 			if dumpOperation(string(request.Operation)) && dumpKind(request.Kind.Kind) {
+				reqPayload, err := newAdmissionRequestPayload(request)
+				if err != nil {
+					logger.Error(err, "Failed to extract resources")
+					return admissionutils.ResponseFailure(err.Error())
+				}
 				if strings.EqualFold(request.Kind.Kind, "Secret") {
-					//redact secret
-					go logger.Info("logging admission review payload", "AdmissionRequest", rq, "AdmissionReponse", resp)
+					redactSecretKind(reqPayload)
+					go logger.Info("logging admission review payload", "AdmissionRequest", reqPayload, "AdmissionReponse", resp)
 				} else {
-					go logger.Info("logging admission review payload", "AdmissionRequest", rq, "AdmissionResponse", resp)
+					go logger.Info("logging admission review payload", "AdmissionRequest", reqPayload, "AdmissionResponse", resp)
 				}
 			}
 		}
