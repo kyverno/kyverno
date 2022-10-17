@@ -373,7 +373,7 @@ func (c *controller) processUR(ur *kyvernov1beta1.UpdateRequest) error {
 
 func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, bool, error) {
 	name := ur.GetName()
-	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var err error
 		ur, err = c.urLister.Get(name)
 		if err != nil {
@@ -395,7 +395,7 @@ func (c *controller) acquireUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta
 }
 
 func (c *controller) releaseUR(ur *kyvernov1beta1.UpdateRequest) (*kyvernov1beta1.UpdateRequest, error) {
-	err := retry.RetryOnConflict(common.DefaultRetry, func() error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var err error
 		ur, err = c.urLister.Get(ur.GetName())
 		if err != nil {
