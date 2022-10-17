@@ -123,7 +123,7 @@ func parseFlags() error {
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
-    flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
+	flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
 	// DEPRECATED: remove in 1.9
@@ -500,6 +500,8 @@ func main() {
 		os.Exit(1)
 	}
 	logger := logging.WithName("setup")
+	// log if `forceFailurePolicyIgnore` flag has been set or not
+	logger.Info("'forceFailurePolicyIgnore' has been set to", "enabled", fmt.Sprintf("%v", toggle.ForceFailurePolicyIgnore.Enabled()))
 	// show version
 	showWarnings(logger)
 	// show version
