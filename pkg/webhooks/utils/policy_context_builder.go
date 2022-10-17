@@ -54,10 +54,14 @@ func NewPolicyContextBuilder(
 }
 
 func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, policies ...kyvernov1.PolicyInterface) (*engine.PolicyContext, error) {
+	var err error
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
-
+	userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
+	}
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create policy rule context")
@@ -69,11 +73,6 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, poli
 	if err := ctx.AddImageInfos(&newResource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
-	userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-	}
-
 	policyContext := &engine.PolicyContext{
 		NewResource:         newResource,
 		OldResource:         oldResource,
