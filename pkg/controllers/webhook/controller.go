@@ -96,7 +96,7 @@ type controller struct {
 	runtime            runtimeutils.Runtime
 
 	// state
-	lock        sync.RWMutex
+	lock        sync.Mutex
 	policyState map[string]sets.String
 }
 
@@ -201,7 +201,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
 	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) watchdog(ctx context.Context) {
@@ -297,8 +297,9 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			logger.Error(err, "failed to compute policy key", "policy", policy)
+		} else {
+			c.policyState[webhookConfigurationName].Insert(policyKey)
 		}
-		c.policyState[webhookConfigurationName].Insert(policyKey)
 	}
 }
 
@@ -406,13 +407,13 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 }
 
 func (c *controller) updatePolicyStatuses(ctx context.Context) error {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
 	if err != nil {
 		return err
 	}
-	for _, policy := range policies {
+	updateStatusFunc := func(policy kyvernov1.PolicyInterface) error {
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			return err
@@ -421,33 +422,45 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		for _, set := range c.policyState {
 			if !set.Has(policyKey) {
 				ready = false
+				break
 			}
 		}
-		if policy.IsReady() != ready {
-			policy = policy.CreateDeepCopy()
-			status := policy.GetStatus()
-			status.SetReady(ready)
-			if toggle.AutogenInternals.Enabled() {
-				var rules []kyvernov1.Rule
-				for _, rule := range autogen.ComputeRules(policy) {
-					if strings.HasPrefix(rule.Name, "autogen-") {
-						rules = append(rules, rule)
-					}
+		status := policy.GetStatus()
+		status.SetReady(ready)
+		status.Autogen.Rules = nil
+		if toggle.AutogenInternals.Enabled() {
+			for _, rule := range autogen.ComputeRules(policy) {
+				if strings.HasPrefix(rule.Name, "autogen-") {
+					status.Autogen.Rules = append(status.Autogen.Rules, rule)
 				}
-				status.Autogen.Rules = rules
-			} else {
-				status.Autogen.Rules = nil
 			}
-			if policy.GetNamespace() == "" {
-				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
-				}
-			} else {
-				_, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).UpdateStatus(ctx, policy.(*kyvernov1.Policy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
-				}
+		}
+		return nil
+	}
+	for _, policy := range policies {
+		if policy.GetNamespace() == "" {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.ClusterPolicy),
+				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
+				func(policy *kyvernov1.ClusterPolicy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.Policy),
+				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
+				func(policy *kyvernov1.Policy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			if err != nil {
+				return err
 			}
 		}
 	}
