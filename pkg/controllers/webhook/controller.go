@@ -200,11 +200,10 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
-	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
-func (c *controller) watchdog(ctx context.Context) {
+func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 	for {
