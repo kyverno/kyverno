@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
@@ -41,7 +42,6 @@ func NewController(client dclient.Interface, mgr Manager) Controller {
 	if mgr == nil {
 		panic(fmt.Errorf("nil manager sent into crd sync"))
 	}
-
 	return &controller{
 		manager: mgr,
 		client:  client,
@@ -62,9 +62,15 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}
 	// Sync CRD before kyverno starts
 	c.sync()
+	var wg sync.WaitGroup
 	for i := 0; i < workers; i++ {
-		go wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
+		}()
 	}
+	<-ctx.Done()
 }
 
 func (c *controller) sync() {
