@@ -150,7 +150,7 @@ jobs:
             flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD) \
               --path="." \
               --source="$(git config --get remote.origin.url)" \
-              --revision="(git tag --points-at HEAD)/$(git rev-parse HEAD)"
+              --revision="$(git tag --points-at HEAD)/$(git rev-parse HEAD)"
               --creds flux:${CR_PAT_ARTIFACTS}
       
       - name: Sign manifests in GHCR with Cosign
