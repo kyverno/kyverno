@@ -133,6 +133,112 @@ var policyVerifySignature = `
 }
 `
 
+var policyMutateAndVerify = `
+{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+        "name": "disallow-unsigned-images"
+    },
+    "spec": {
+        "validationFailureAction": "enforce",
+        "background": false,
+        "rules": [
+            {
+                "name": "replace-image-registry",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "mutate": {
+                    "foreach": [
+                        {
+                            "list": "request.object.spec.containers",
+                            "patchStrategicMerge": {
+                                "spec": {
+                                    "containers": [
+                                        {
+                                            "name": "{{ element.name }}",
+                                            "image": "{{ regex_replace_all_literal('.*(.*)/', '{{element.image}}', 'ghcr.io/kyverno/' )}}"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "disallow-unsigned-images-rule",
+                "match": {
+                    "any": [
+                        {
+                            "resources": {
+                                "kinds": [
+                                    "Pod"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "verifyImages": [
+                    {
+                        "imageReferences": [
+                            "*"
+                        ],
+                        "verifyDigest": false,
+                        "required": null,
+                        "mutateDigest": false,
+                        "attestors": [
+                            {
+                                "count": 1,
+                                "entries": [
+                                    {
+                                        "keys": {
+                                            "publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}
+`
+
+var resourceMutateAndVerify = `{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+        "labels": {
+            "run": "rewrite"
+        },
+        "name": "rewrite"
+    },
+    "spec": {
+        "containers": [
+            {
+                "image": "test-verify-image:signed",
+                "name": "rewrite",
+                "resources": {}
+            }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "restartPolicy": "OnFailure"
+    }
+}
+`
+
 var pod = `{
 	"apiVersion": "v1",
 	"kind": "Pod",
@@ -271,6 +377,36 @@ func Test_ImageVerify(t *testing.T) {
 
 	response = handlers.Mutate(logger, request, "", time.Now())
 	assert.Equal(t, response.Allowed, false)
+	assert.Equal(t, len(response.Warnings), 0)
+}
+
+func Test_MutateAndVerify(t *testing.T) {
+	policyCache := policycache.NewCache()
+	logger := log.WithName("Test_MutateAndVerify")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	handlers := NewFakeHandlers(ctx, policyCache)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal([]byte(policyMutateAndVerify), &policy)
+	assert.NilError(t, err)
+
+	key := makeKey(&policy)
+	policyCache.Set(key, &policy)
+
+	request := &v1.AdmissionRequest{
+		Operation: v1.Create,
+		Kind:      metav1.GroupVersionKind{Group: "", Version: "v1", Kind: "Pod"},
+		Resource:  metav1.GroupVersionResource{Group: "", Version: "v1", Resource: "Pod"},
+		Object: runtime.RawExtension{
+			Raw: []byte(resourceMutateAndVerify),
+		},
+	}
+
+	response := handlers.Mutate(logger, request, "", time.Now())
+	assert.Equal(t, response.Allowed, true)
 	assert.Equal(t, len(response.Warnings), 0)
 }
 
