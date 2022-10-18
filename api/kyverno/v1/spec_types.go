@@ -40,6 +40,7 @@ type Spec struct {
 
 	// FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled.
 	// Rules within the same policy share the same failure behavior.
+	// This field should not be accessed directly, instead `GetFailurePolicy()` should be used.
 	// Allowed values are Ignore or Fail. Defaults to Fail.
 	// +optional
 	FailurePolicy *FailurePolicyType `json:"failurePolicy,omitempty" yaml:"failurePolicy,omitempty"`
@@ -200,7 +201,7 @@ func (s *Spec) IsGenerateExistingOnPolicyUpdate() bool {
 func (s *Spec) GetFailurePolicy() FailurePolicyType {
 	if toggle.ForceFailurePolicyIgnore.Enabled() {
 		return Ignore
-	} else if s.FailurePolicy == nil || !toggle.ForceFailurePolicyIgnore.Enabled() {
+	} else if s.FailurePolicy == nil {
 		return Fail
 	}
 	return *s.FailurePolicy
