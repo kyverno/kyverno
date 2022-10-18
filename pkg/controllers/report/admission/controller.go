@@ -159,18 +159,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// cleanup old reports
 	// if they are not the same version as the current resource version
-	// and were created more than five minutes ago
+	// and were created more than 2 minutes ago
 	if !found {
 		// if we didn't find the resource, either no policy exist for this kind
 		// or the resource was never created, we delete the report if it has no owner
-		// and was created more than five minutes ago
-		if len(meta.GetOwnerReferences()) == 0 && meta.GetCreationTimestamp().Add(time.Minute*5).Before(time.Now()) {
+		// and was created more than 2 minutes ago
+		if len(meta.GetOwnerReferences()) == 0 && meta.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
 			return c.deleteReport(ctx, namespace, name)
 		}
 	} else {
-		// if hashes don't match and the report was created more than five
+		// if hashes don't match and the report was created more than 2
 		// minutes ago we consider it obsolete and delete the report
-		if !reportutils.CompareHash(meta, resource.Hash) && meta.GetCreationTimestamp().Add(time.Minute*5).Before(time.Now()) {
+		if !reportutils.CompareHash(meta, resource.Hash) && meta.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
 			return c.deleteReport(ctx, namespace, name)
 		}
 	}
