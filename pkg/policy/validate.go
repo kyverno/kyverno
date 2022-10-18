@@ -17,6 +17,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/common"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
 	"github.com/kyverno/kyverno/pkg/logging"
@@ -79,13 +80,13 @@ func validateJSONPatchPathForForwardSlash(patch string) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openAPIController *openapi.Controller) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) (*admissionv1.AdmissionResponse, error) {
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
 	onPolicyUpdate := spec.GetMutateExistingOnPolicyUpdate()
 	if !mock {
-		openapi.NewCRDSync(client, openAPIController).CheckSync(context.TODO())
+		openapicontroller.NewController(client, openApiManager).CheckSync(context.TODO())
 	}
 
 	var errs field.ErrorList
@@ -164,20 +165,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			return nil, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
-		// validate Cluster Resources in namespaced policy
-		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
-		if namespaced {
-			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
-		}
-
-		// validate rule actions
-		// - Mutate
-		// - Validate
-		// - Generate
-		if err := validateActions(i, &rules[i], client, mock); err != nil {
-			return nil, err
-		}
-
 		// If a rule's match block does not match any kind,
 		// we should only allow it to have metadata in its overlay
 		if len(rule.MatchResources.Any) > 0 {
@@ -196,6 +183,20 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if len(rule.MatchResources.Kinds) == 0 {
 				return nil, validateMatchKindHelper(rule)
 			}
+		}
+
+		// validate Cluster Resources in namespaced policy
+		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
+		if namespaced {
+			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
+		}
+
+		// validate rule actions
+		// - Mutate
+		// - Validate
+		// - Generate
+		if err := validateActions(i, &rules[i], client, mock); err != nil {
+			return nil, err
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
@@ -359,7 +360,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	if spec.SchemaValidation == nil || *spec.SchemaValidation {
-		if err := openAPIController.ValidatePolicyMutation(policy); err != nil {
+		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
 			return nil, err
 		}
 	}

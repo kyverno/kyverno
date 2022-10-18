@@ -88,6 +88,6 @@ func reconcile(ctx context.Context, logger logr.Logger, obj interface{}, r recon
 	}
 	logger = logger.WithValues("key", k, "namespace", ns, "name", n)
 	logger.Info("reconciling ...")
-	defer logger.Info("done", "duration", time.Since(start))
+	defer logger.Info("done", "duration", time.Since(start).String())
 	return r(ctx, logger, k, ns, n)
 }
