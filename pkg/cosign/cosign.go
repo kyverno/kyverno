@@ -46,6 +46,7 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
+	SignatureAlgorithm   string
 }
 
 type Response struct {
@@ -115,6 +116,11 @@ func verifySignature(opts Options) (*Response, error) {
 func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	var remoteOpts []remote.Option
 	var err error
+	signatureAlgorithmMap := map[string]crypto.Hash{
+		"":       crypto.SHA256,
+		"sha256": crypto.SHA256,
+		"sha512": crypto.SHA512,
+	}
 	ro := options.RegistryOptions{}
 	remoteOpts, err = ro.ClientOpts(context.Background())
 	if err != nil {
@@ -142,7 +148,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
+			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithmMap[opts.SignatureAlgorithm])
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load public key from PEM")
 			}
@@ -406,14 +412,14 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 	return data, nil
 }
 
-func decodePEM(raw []byte) (signature.Verifier, error) {
+func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, error) {
 	// PEM encoded file.
 	pubKey, err := cryptoutils.UnmarshalPEMToPublicKey(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "pem to public key")
 	}
 
-	return signature.LoadVerifier(pubKey, crypto.SHA256)
+	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
@@ -501,17 +507,17 @@ func matchExtensions(cert *x509.Certificate, issuer string, extensions map[strin
 
 func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
 	switch key {
-	case cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
+	case cosign.CertExtensionOIDCIssuer, cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
 		return ce.GetIssuer(), nil
-	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
+	case cosign.CertExtensionGithubWorkflowTrigger, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
 		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
-	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
+	case cosign.CertExtensionGithubWorkflowSha, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
 		return ce.GetExtensionGithubWorkflowSha(), nil
-	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
+	case cosign.CertExtensionGithubWorkflowName, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
 		return ce.GetCertExtensionGithubWorkflowName(), nil
-	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
+	case cosign.CertExtensionGithubWorkflowRepository, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
 		return ce.GetCertExtensionGithubWorkflowRepository(), nil
-	case cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
+	case cosign.CertExtensionGithubWorkflowRef, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
 		return ce.GetCertExtensionGithubWorkflowRef(), nil
 	default:
 		return "", errors.Errorf("invalid certificate extension %s", key)

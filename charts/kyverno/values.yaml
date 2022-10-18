@@ -23,6 +23,11 @@ rbac:
       # example.com/annotation: value
 
 image:
+  # -- Image registry
+  registry:
+  # If you want to manage the registry you should remove it from the repository
+  # registry: ghcr.io
+  # repository: kyverno/kyverno
   # -- Image repository
   repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
   # -- Image tag
@@ -35,6 +40,11 @@ image:
   # - secretName
 
 initImage:
+  # -- Image registry
+  registry:
+  # If you want to manage the registry you should remove it from the repository
+  # registry: ghcr.io
+  # repository: kyverno/kyvernopre
   # -- Image repository
   repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
   # -- Image tag
@@ -51,9 +61,10 @@ initContainer:
 
 
 testImage:
+  # -- Image registry
+  registry:
   # -- Image repository
-  # Defaults to `busybox` if omitted
-  repository:
+  repository: busybox
   # -- Image tag
   # Defaults to `latest` if omitted
   tag:
@@ -221,6 +232,19 @@ testResources:
     cpu: 10m
     memory: 64Mi
 
+# -- Startup probe.
+# The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+# @default -- See [values.yaml](values.yaml)
+startupProbe:
+  httpGet:
+    path: /health/liveness
+    port: 9443
+    scheme: HTTPS
+  failureThreshold: 12
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -305,6 +329,9 @@ config:
 
   # -- Name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
+  # -- Additional annotations to add to the configmap
+  annotations: {}
+    # example.com/annotation: foo
   # -- Exclude group role
   excludeGroupRole:
   # - ''
@@ -334,6 +361,9 @@ config:
   generateSuccessEvents: false
   # -- Metrics config.
   metricsConfig:
+    # -- Additional annotations to add to the metricsconfigmap
+    annotations: {}
+      # example.com/annotation: foo
     namespaces: {
       "include": [],
       "exclude": []

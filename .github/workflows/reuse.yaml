@@ -62,9 +62,9 @@ jobs:
           go-version: ~1.18.6
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
+        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
         with:
-          cosign-release: 'v1.11.0'
+          cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
         uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
@@ -122,6 +122,8 @@ jobs:
 
       - name: ko build dev image
         id: ko-publish-dev
+        env:
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
         if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         run: |
           set -e
