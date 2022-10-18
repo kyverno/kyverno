@@ -66,7 +66,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}); err != nil {
 		logger.Error(err, "failed to enqueue CA secret", "name", tls.GenerateRootCASecretName())
 	}
-	controllerutils.Run(ctx, logger.V(3), ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
