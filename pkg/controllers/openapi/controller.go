@@ -68,6 +68,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, c.CheckSync, 15*time.Second)
 	}
+	<-ctx.Done()
 }
 
 func (c *controller) sync() {
