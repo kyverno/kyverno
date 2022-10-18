@@ -52,6 +52,10 @@ func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstruc
 		logger.Error(err, "unable to add image info to variables context")
 	}
 
+	if err := ctx.AddOperation("CREATE"); err != nil {
+		logger.Error(err, "unable to set operation in context")
+	}
+
 	engineResponseMutation, err = mutation(policy, resource, logger, ctx, namespaceLabels)
 	if err != nil {
 		logger.Error(err, "failed to process mutation rule")
