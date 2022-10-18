@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -117,8 +118,8 @@ func parseFlags() error {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 100, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 100, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
@@ -622,10 +623,6 @@ func main() {
 	}
 	// start event generator
 	go eventGenerator.Run(signalCtx, 3)
-	// start non leader controllers
-	for _, controller := range nonLeaderControllers {
-		go controller.run(signalCtx, logger.WithName("controllers"))
-	}
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -636,6 +633,7 @@ func main() {
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
 			// when losing the lead we just terminate the pod
+			// TODO: remove when we run the leader election loop continuously
 			defer signalCancel()
 			// validate config
 			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
@@ -677,17 +675,23 @@ func main() {
 				logger.Error(errors.New("failed to wait for cache sync"), "failed to wait for cache sync")
 			}
 			// start leader controllers
+			var wg sync.WaitGroup
 			for _, controller := range leaderControllers {
-				go controller.run(signalCtx, logger.WithName("controllers"))
+				controller.run(signalCtx, logger.WithName("controllers"), &wg)
 			}
-			// wait until we loose the lead (or signal context is canceled)
-			<-ctx.Done()
+			// wait all controllers shut down
+			wg.Wait()
 		},
 		nil,
 	)
 	if err != nil {
 		logger.Error(err, "failed to initialize leader election")
 		os.Exit(1)
+	}
+	// start non leader controllers
+	var wg sync.WaitGroup
+	for _, controller := range nonLeaderControllers {
+		controller.run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
 	go le.Run(signalCtx)
@@ -751,6 +755,7 @@ func main() {
 	server.Run(signalCtx.Done())
 	// wait for termination signal
 	<-signalCtx.Done()
+	wg.Wait()
 	// wait for server cleanup
 	<-server.Cleanup()
 	// say goodbye...
