@@ -39,8 +39,9 @@ type AdmissionReportSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:shortName=admr
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".spec.owner.kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".spec.owner.name",priority=1
+// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
@@ -74,8 +75,9 @@ func (r *AdmissionReport) SetSummary(summary policyreportv1alpha2.PolicyReportSu
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 // +kubebuilder:resource:scope=Cluster,shortName=cadmr
-// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".spec.owner.kind",priority=1
-// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".spec.owner.name",priority=1
+// +kubebuilder:printcolumn:name="ApiVersion",type=string,JSONPath=".metadata.ownerReferences[0].apiVersion",priority=1
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=".metadata.ownerReferences[0].kind",priority=1
+// +kubebuilder:printcolumn:name="Subject",type=string,JSONPath=".metadata.ownerReferences[0].name",priority=1
 // +kubebuilder:printcolumn:name="Pass",type=integer,JSONPath=".spec.summary.pass"
 // +kubebuilder:printcolumn:name="Fail",type=integer,JSONPath=".spec.summary.fail"
 // +kubebuilder:printcolumn:name="Warn",type=integer,JSONPath=".spec.summary.warn"
