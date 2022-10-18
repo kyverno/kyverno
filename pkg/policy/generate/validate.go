@@ -188,8 +188,8 @@ func (g *Generate) hasForEach() bool {
 
 func (g *Generate) validateForeach() (string, error) {
 	rule := g.rule
-	for i, fe = range rule.ForEachGeneration {
-		if fe.GetData() != nil && fe.Clone != (kyvernov1.CloneFrom{}) {
+	for _, fe := range rule.ForEachGeneration {
+		if fe.getData() != nil && fe.Clone != (kyvernov1.CloneFrom{}) {
 			return "", fmt.Errorf("only one of data or clone can be specified")
 		}
 
