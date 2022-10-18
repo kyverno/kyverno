@@ -144,8 +144,8 @@ func NewController(
 			config.ValidatingWebhookConfigurationName: sets.NewString(),
 		},
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
