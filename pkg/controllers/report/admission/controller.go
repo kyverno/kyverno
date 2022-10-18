@@ -58,8 +58,8 @@ func NewController(
 		admrLister:    admrInformer.Lister(),
 		cadmrLister:   cadmrInformer.Lister(),
 		queue:         queue,
-		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger.V(3), admrInformer.Informer(), queue),
-		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), cadmrInformer.Informer(), queue),
+		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger, admrInformer.Informer(), queue),
+		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger, cadmrInformer.Informer(), queue),
 		metadataCache: metadataCache,
 	}
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
@@ -79,7 +79,6 @@ func (c *controller) Run(ctx context.Context, workers int) {
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
-	logger.V(3).Info("enqueuing ...", "selector", selector.String())
 	admrs, err := c.admrLister.List(selector)
 	if err != nil {
 		return err

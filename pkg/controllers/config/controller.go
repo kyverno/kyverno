@@ -37,7 +37,7 @@ func NewController(configuration config.Configuration, configmapInformer corev1i
 		configmapLister: configmapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), configmapInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, configmapInformer.Informer(), c.queue)
 	return &c
 }
 

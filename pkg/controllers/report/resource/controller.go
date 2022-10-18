@@ -84,8 +84,8 @@ func NewController(
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 		dynamicWatchers: map[schema.GroupVersionResource]*watcher{},
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), polInformer.Informer(), c.queue)
-	controllerutils.AddDefaultEventHandlers(logger.V(3), cpolInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, polInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, cpolInformer.Informer(), c.queue)
 	return &c
 }
 

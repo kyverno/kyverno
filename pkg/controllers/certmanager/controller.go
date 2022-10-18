@@ -42,7 +42,7 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer tl
 		renewer:       certRenewer,
 		secretLister:  secretInformer.Lister(),
 		queue:         queue,
-		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger.V(3), secretInformer.Informer(), queue),
+		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger, secretInformer.Informer(), queue),
 	}
 	return &c
 }

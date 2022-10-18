@@ -80,8 +80,8 @@ func NewController(
 		cbgscanrLister: cbgscanr.Lister(),
 		nsLister:       nsInformer.Lister(),
 		queue:          queue,
-		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), bgscanr.Informer(), queue),
-		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger.V(3), cbgscanr.Informer(), queue),
+		bgscanEnqueue:  controllerutils.AddDefaultEventHandlers(logger, bgscanr.Informer(), queue),
+		cbgscanEnqueue: controllerutils.AddDefaultEventHandlers(logger, cbgscanr.Informer(), queue),
 		metadataCache:  metadataCache,
 	}
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
@@ -138,7 +138,6 @@ func (c *controller) deletePolicy(obj interface{}) {
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
-	logger.V(3).Info("enqueuing ...", "selector", selector.String())
 	bgscans, err := c.bgscanrLister.List(selector)
 	if err != nil {
 		return err

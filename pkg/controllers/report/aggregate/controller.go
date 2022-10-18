@@ -77,10 +77,10 @@ func NewController(
 		chunkSize:      chunkSize,
 	}
 	delay := 15 * time.Second
-	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), admrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), cadmrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), bgscanrInformer.Informer(), c.queue, delay, keyFunc)
-	controllerutils.AddDelayedExplicitEventHandlers(logger.V(3), cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cbgscanrInformer.Informer(), c.queue, delay, keyFunc)
 	return &c
 }
 
