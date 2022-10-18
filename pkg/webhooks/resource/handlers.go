@@ -181,6 +181,12 @@ func (h *handlers) Mutate(logger logr.Logger, request *admissionv1.AdmissionRequ
 		return admissionutils.ResponseFailure(err.Error())
 	}
 	newRequest := patchRequest(mutatePatches, request, logger)
+	// rebuild context to process images updated via mutate policies
+	policyContext, err = h.pcBuilder.Build(newRequest, mutatePolicies...)
+	if err != nil {
+		logger.Error(err, "failed to build policy context")
+		return admissionutils.ResponseFailure(err.Error())
+	}
 	ivh := imageverification.NewImageVerificationHandler(logger, h.eventGen)
 	imagePatches, imageVerifyWarnings, err := ivh.Handle(h.metricsConfig, newRequest, verifyImagesPolicies, policyContext)
 	if err != nil {
