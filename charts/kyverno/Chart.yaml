@@ -36,9 +36,15 @@ annotations:
       description: Docs for generatecontrollerExtraResources.
     - kind: changed
       description: Enable autogen internals by default.
-    - kind: added
-      description: Allow overriding of test security context and resource block.
     - kind: fixed
       description: Self signed certificates not using SANs.
     - kind: added
       description: Extra args support for init container.
+    - kind: added
+      description: Allow overriding of test security context and resource block.
+    - kind: added
+      description: Added possibility to define custom image registries
+    - kind: added
+      description: Enable adding optional annotations to configmaps
+    - kind: added
+      description: Add startup probes support
