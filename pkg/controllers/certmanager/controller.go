@@ -26,7 +26,7 @@ const (
 )
 
 type controller struct {
-	renewer *tls.CertRenewer
+	renewer tls.CertRenewer
 
 	// listers
 	secretLister corev1listers.SecretLister
@@ -36,7 +36,7 @@ type controller struct {
 	secretEnqueue controllerutils.EnqueueFunc
 }
 
-func NewController(secretInformer corev1informers.SecretInformer, certRenewer *tls.CertRenewer) controllers.Controller {
+func NewController(secretInformer corev1informers.SecretInformer, certRenewer tls.CertRenewer) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
 	c := controller{
 		renewer:       certRenewer,

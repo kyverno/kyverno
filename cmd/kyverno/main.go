@@ -24,6 +24,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
+	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
 	policycachecontroller "github.com/kyverno/kyverno/pkg/controllers/policycache"
 	admissionreportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/admission"
 	aggregatereportcontroller "github.com/kyverno/kyverno/pkg/controllers/report/aggregate"
@@ -116,8 +117,8 @@ func parseFlags() error {
 	flag.StringVar(&imageSignatureRepository, "imageSignatureRepository", "", "Alternate repository for image signatures. Can be overridden per rule via `verifyImages.Repository`.")
 	flag.BoolVar(&allowInsecureRegistry, "allowInsecureRegistry", false, "Whether to allow insecure connections to registries. Don't use this for anything but testing.")
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 100, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
-	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 100, "Configure the maximum burst for throttle. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
+	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
@@ -303,14 +304,14 @@ func createNonLeaderControllers(
 	configuration config.Configuration,
 	policyCache policycache.Cache,
 	eventGenerator event.Interface,
-	manager *openapi.Controller,
+	manager openapi.Manager,
 ) ([]controller, func() error) {
 	policyCacheController := policycachecontroller.NewController(
 		policyCache,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
-	openApiController := openapi.NewCRDSync(
+	openApiController := openapicontroller.NewController(
 		dynamicClient,
 		manager,
 	)
@@ -331,7 +332,7 @@ func createNonLeaderControllers(
 	)
 	return []controller{
 			newController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
-			newController("openapi-controller", openApiController, 1),
+			newController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 			newController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
 			newController("update-request-controller", updateRequestController, genWorkers),
 		},
@@ -413,7 +414,7 @@ func createrLeaderControllers(
 	configuration config.Configuration,
 	metricsConfig *metrics.MetricsConfig,
 	eventGenerator event.Interface,
-	certRenewer *tls.CertRenewer,
+	certRenewer tls.CertRenewer,
 	runtime runtimeutils.Runtime,
 ) ([]controller, error) {
 	policyCtrl, err := policy.NewPolicyController(
@@ -558,27 +559,21 @@ func main() {
 		logger.Error(err, "failed to initialize configuration")
 		os.Exit(1)
 	}
-	openApiManager, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		logger.Error(err, "Failed to create openapi manager")
 		os.Exit(1)
 	}
-	certRenewer, err := tls.NewCertRenewer(
+	certRenewer := tls.NewCertRenewer(
 		metrics.ObjectClient[*corev1.Secret](
 			metrics.NamespacedClientQueryRecorder(metricsConfig, config.KyvernoNamespace(), "Secret", metrics.KubeClient),
 			kubeClient.CoreV1().Secrets(config.KyvernoNamespace()),
 		),
-		clientConfig,
 		tls.CertRenewalInterval,
 		tls.CAValidityDuration,
 		tls.TLSValidityDuration,
 		serverIP,
-		logging.WithName("CertRenewer"),
 	)
-	if err != nil {
-		logger.Error(err, "failed to initialize CertRenewer")
-		os.Exit(1)
-	}
 	policyCache := policycache.NewCache()
 	eventGenerator := event.NewEventGenerator(
 		dynamicClient,
@@ -594,10 +589,11 @@ func main() {
 		kyvernoInformer.Kyverno().V1().Policies(),
 	)
 	runtime := runtimeutils.NewRuntime(
-		logger.WithName("runtime"),
+		logger.WithName("runtime-checks"),
 		serverIP,
 		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
+		certRenewer,
 	)
 	// create non leader controllers
 	nonLeaderControllers, nonLeaderBootstrap := createNonLeaderControllers(
