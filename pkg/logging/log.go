@@ -20,6 +20,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// LogLevelController is the log level to use for controllers plumbing.
+	LogLevelController = 3
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
@@ -61,6 +63,11 @@ func Setup(logFormat string) error {
 // GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return globalLog
+}
+
+// ControllerLogger returns a logr.Logger to be used by controllers.
+func ControllerLogger(name string) logr.Logger {
+	return globalLog.WithName(name).V(LogLevelController)
 }
 
 // WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
