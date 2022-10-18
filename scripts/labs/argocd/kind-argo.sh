@@ -7,6 +7,10 @@ set -e
 readonly KIND_IMAGE=kindest/node:v1.24.4
 readonly NAME=argo
 
+# DELETE CLUSTER
+
+kind delete cluster --name $NAME || true
+
 # CREATE CLUSTER
 
 kind create cluster --name $NAME --image $KIND_IMAGE --config - <<EOF
@@ -55,6 +59,16 @@ repoServer:
     create: true
 server:
   config:
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
     resource.compareoptions: |
       ignoreAggregatedRoles: true
       ignoreResourceStatusField: all
@@ -122,7 +136,48 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - Replace=true
+EOF
+
+# CREATE REPORTER-UI APP
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: policy-reporter
+  namespace: argocd
+spec:
+  destination:
+    namespace: kyverno
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: policy-reporter
+    repoURL: https://kyverno.github.io/policy-reporter
+    targetRevision: 2.13.1
+    helm:
+      values: |
+        ui:
+          enabled: true
+          ingress:
+            annotations:
+              nginx.ingress.kubernetes.io/rewrite-target: \$1\$2
+              nginx.ingress.kubernetes.io/configuration-snippet: |
+                rewrite ^(/policy-reporter)$ \$1/ redirect;
+            enabled: true
+            hosts:
+              - host: ~
+                paths:
+                  - path: /policy-reporter(/|$)(.*)
+                    pathType: Prefix
+        kyvernoPlugin:
+          enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
 EOF
 
 ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
@@ -130,3 +185,4 @@ ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o js
 echo "---------------------------------------------------------------------------------"
 echo "ArgoCD is running and available at http://localhost/argocd"
 echo "- log in with admin / $ARGOCD_PASSWORD"
+echo "policy-reporter is running and available at http://localhost/policy-reporter"
