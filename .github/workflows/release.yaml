@@ -151,7 +151,7 @@ jobs:
               --path="." \
               --source="$(git config --get remote.origin.url)" \
               --revision="(git tag --points-at HEAD)/$(git rev-parse HEAD)"
-              --creds flux:${{env.CR_PAT_ARTIFACTS}}
+              --creds flux:${CR_PAT_ARTIFACTS}
       
       - name: Sign manifests in GHCR with Cosign
         env:
@@ -159,7 +159,7 @@ jobs:
           CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
         run: |
             set -e
-            cosign login --username ${GITHUB_ACTOR} --password ${{env.CR_PAT_ARTIFACTS}} ghcr.io
+            cosign login --username ${GITHUB_ACTOR} --password ${CR_PAT_ARTIFACTS} ghcr.io
             cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD)
 
   release-cli-via-krew:
