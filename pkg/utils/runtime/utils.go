@@ -94,6 +94,9 @@ func (c *runtime) IsGoingDown() bool {
 	if err != nil {
 		return apierrors.IsNotFound(err)
 	}
+	if deployment.GetDeletionTimestamp() != nil {
+		return true
+	}
 	if deployment.Spec.Replicas != nil {
 		return *deployment.Spec.Replicas == 0
 	}
