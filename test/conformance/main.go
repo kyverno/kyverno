@@ -58,7 +58,8 @@ func (kt KubectlTest) Run(name string) error {
 }
 
 type Test struct {
-	Kubectl *KubectlTest
+	Description string
+	Kubectl     *KubectlTest
 }
 
 func (t Test) Run(name string) error {
@@ -129,17 +130,19 @@ func main() {
 			if err := os.Setenv("KIND_NAME", name); err != nil {
 				return err
 			}
-			defer func(name string) {
-				if err := makeDeleteCluster(); err != nil {
-					log.Fatal(err)
-				}
-			}(name)
-			if err := makeCluster(); err != nil {
-				return err
-			}
+			// defer func(name string) {
+			// 	if err := makeDeleteCluster(); err != nil {
+			// 		log.Fatal(err)
+			// 	}
+			// }(name)
+			// if err := makeCluster(); err != nil {
+			// 	return err
+			// }
 			var errs []error
 			for _, test := range tests {
+				log.Println("Running test ", test.Description, " ...")
 				if err := test.Run(name); err != nil {
+					log.Println("FAILED: ", err)
 					errs = append(errs, err)
 				}
 			}

@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: background-userinfo-1
+  name: validate-labels
 spec:
   validationFailureAction: audit
   background: true
@@ -17,4 +17,4 @@ spec:
       pattern:
         metadata:
           labels:
-            foo: "{{request.userInfo.roles}}"
+            baz: "{{serviceAccountName}}"
