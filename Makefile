@@ -560,6 +560,20 @@ code-cov-report: test-clean ## Generate code coverage report
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
 
+#####################
+# CONFORMANCE TESTS #
+#####################
+
+.PHONY: test-conformance
+test-conformance: ## Run conformance tests
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance
+
+.PHONY: kind-test-conformance
+kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance --create-cluster=false
+
 #############
 # CLI TESTS #
 #############
