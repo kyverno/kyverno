@@ -29,17 +29,17 @@ func (x CommandExpectation) Verify(stdout []byte, stderr []byte, err error) erro
 	}
 	if x.ExitCode != nil {
 		if exitcode != *x.ExitCode {
-			return errors.New(fmt.Sprint("unexpected exit code, expected: ", *x.ExitCode, " - actual: ", exitcode))
+			return errors.New(fmt.Sprint("unexpected exit code\n  expected: ", *x.ExitCode, "\n  actual:   ", exitcode))
 		}
 	}
 	if x.StdOut != nil {
 		if trim(*x.StdOut, "\n", " ") != trim(string(stdout), "\n", " ") {
-			return errors.New(fmt.Sprint("unexpected stdout, expected: ", *x.StdOut, " - actual: ", string(stdout)))
+			return errors.New(fmt.Sprint("unexpected stdout\n  expected: ", *x.StdOut, "\n  actual:   ", string(stdout)))
 		}
 	}
 	if x.StdErr != nil {
 		if trim(*x.StdErr, "\n", " ") != trim(string(stderr), "\n", " ") {
-			return errors.New(fmt.Sprint("unexpected stderr, expected: ", *x.StdErr, " - actual: ", string(stderr)))
+			return errors.New(fmt.Sprint("unexpected stderr\n  expected: ", *x.StdErr, "\n  actual:   ", string(stderr)))
 		}
 	}
 	return nil
@@ -123,7 +123,9 @@ func loadTests() (map[string][]Test, error) {
 
 func main() {
 	var createCluster bool
+	var deleteCluster bool
 	flag.BoolVar(&createCluster, "create-cluster", true, "Set this flag to 'false', to use an existing cluster.")
+	flag.BoolVar(&deleteCluster, "delete-cluster", true, "Set this flag to 'false', to no delete the created cluster.")
 	flag.Parse()
 
 	tests, err := loadTests()
@@ -136,13 +138,15 @@ func main() {
 				return err
 			}
 			if createCluster {
-				defer func(name string) {
-					if err := makeDeleteCluster(); err != nil {
-						log.Fatal(err)
-					}
-				}(name)
 				if err := makeCluster(); err != nil {
 					return err
+				}
+				if deleteCluster {
+					defer func(name string) {
+						if err := makeDeleteCluster(); err != nil {
+							log.Fatal(err)
+						}
+					}(name)
 				}
 			}
 			var errs []error
