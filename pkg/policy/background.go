@@ -10,24 +10,22 @@ import (
 
 // ContainsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
-	for _, rule := range policy.GetSpec().Rules {
-		if rule.IsMutateExisting() {
-			return nil
-		}
-	}
-
-	for _, s := range vars {
-		if strings.Contains(s[0], "userInfo") {
-			return fmt.Errorf("variable %s is not allowed", s[0])
-		}
-	}
 	rules := autogen.ComputeRules(policy)
 	for idx := range rules {
 		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err
 		}
 	}
-
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.IsMutateExisting() {
+			return nil
+		}
+	}
+	for _, s := range vars {
+		if strings.Contains(s[0], "userInfo") {
+			return fmt.Errorf("variable %s is not allowed", s[0])
+		}
+	}
 	return nil
 }
 
