@@ -11,6 +11,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -102,6 +103,7 @@ func NewServer(
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
+			ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
 		},
 		mwcClient:   mwcClient,
 		vwcClient:   vwcClient,
