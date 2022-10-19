@@ -126,7 +126,9 @@ func main() {
 	}
 	for cluster, tests := range tests {
 		runner := func(name string, tests []Test) error {
-			os.Setenv("KIND_NAME", name)
+			if err := os.Setenv("KIND_NAME", name); err != nil {
+				return err
+			}
 			defer func(name string) {
 				if err := makeDeleteCluster(); err != nil {
 					log.Fatal(err)
