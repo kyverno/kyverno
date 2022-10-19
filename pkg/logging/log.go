@@ -7,12 +7,11 @@ import (
 	"os"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	logzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -37,12 +36,6 @@ func Init(flags *flag.FlagSet) {
 	klog.InitFlags(flags)
 }
 
-func setupzap() zap.Config {
-	var cfg = zap.NewProductionConfig()
-	cfg.EncoderConfig.NameKey = "name"
-	return cfg
-}
-
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 func Setup(logFormat string) error {
@@ -51,18 +44,13 @@ func Setup(logFormat string) error {
 		// in text mode we use FormatSerialize format
 		globalLog = klogr.New()
 	case JSONFormat:
-		// zapLog, err := zap.NewProduction()
-		// if err != nil {
-		// 	return err
-		// }
-		// klog.SetLogger(zapr.NewLogger(zapLog))
-		zapLog := logzap.New(logzap.Encoder(&logzap.KubeAwareEncoder{
-			Encoder: zapcore.NewJSONEncoder(setupzap().EncoderConfig),
-			Verbose: false,
-		}))
+		zapLog, err := zap.NewProduction()
+		if err != nil {
+			return err
+		}
+		klog.SetLogger(zapr.NewLogger(zapLog))
 		// in json mode we use FormatKlog format
-		// globalLog = klog.NewKlogr()
-		globalLog = zapLog
+		globalLog = klog.NewKlogr()
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}

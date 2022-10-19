@@ -13,6 +13,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
@@ -25,6 +26,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// DebugModeOptions holds the options to configure debug mode
+type DebugModeOptions struct {
+	// DumpPayload is used to activate/deactivate debug mode.
+	DumpPayload bool
+	// DumpOperations holds all operations that should be logged in debug mode.
+	DumpOperations []string
+	// DumpKinds holds all kinds that should be logged in debug mode.
+	DumpKinds []string
+}
+
+// AdmissionRequestPayload holds a copy of the AdmissionRequest payload
 type AdmissionRequestPayload struct {
 	UID                types.UID                    `json:"uid"`
 	Kind               metav1.GroupVersionKind      `json:"kind"`
@@ -37,10 +49,10 @@ type AdmissionRequestPayload struct {
 	Namespace          string                       `json:"namespace,omitempty"`
 	Operation          string                       `json:"operation"`
 	UserInfo           authenticationv1.UserInfo    `json:"userInfo"`
-	Object             map[string]interface{}       `json:"object,omitempty"`
-	OldObject          map[string]interface{}       `json:"oldObject,omitempty"`
+	Object             unstructured.Unstructured    `json:"object,omitempty"`
+	OldObject          unstructured.Unstructured    `json:"oldObject,omitempty"`
 	DryRun             *bool                        `json:"dryRun,omitempty"`
-	// Options runtime.RawExtension `json:"options,omitempty" protobuf:"bytes,12,opt,name=options"`
+	Options            unstructured.Unstructured    `json:"options,omitempty"`
 }
 
 func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionRequestPayload, error) {
@@ -48,7 +60,14 @@ func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionReq
 	if err != nil {
 		return nil, err
 	}
-	return &AdmissionRequestPayload{
+	var options = new(unstructured.Unstructured)
+	if rq.Options.Raw != nil {
+		options, err = engineutils.ConvertToUnstructured(rq.Options.Raw)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return redactPayload(&AdmissionRequestPayload{
 		UID:                rq.UID,
 		Kind:               rq.Kind,
 		Resource:           rq.Resource,
@@ -60,61 +79,34 @@ func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionReq
 		Namespace:          rq.Namespace,
 		Operation:          string(rq.Operation),
 		UserInfo:           rq.UserInfo,
-		Object:             newResource.Object,
-		OldObject:          oldResource.Object,
+		Object:             newResource,
+		OldObject:          oldResource,
 		DryRun:             rq.DryRun,
-	}, nil
+		Options:            *options,
+	}), nil
 }
 
-var (
-	dumpPayload bool
-	// dumpPayloadTimer time.Duration
-	dumpPayloadOps   []string
-	dumpPayloadKinds []string
-)
-
-func splitString(s string) []string {
-	return strings.Split(s, " ")
+func dumpAdmissionPayload(options *DebugModeOptions, request *admissionv1.AdmissionRequest) bool {
+	return options.DumpPayload && utils.SliceContains(options.DumpOperations, string(request.Operation)) &&
+		utils.SliceContains(options.DumpKinds, request.Kind.Kind)
 }
 
-func dumpOperation(op string) bool {
-	for _, o := range dumpPayloadOps {
-		if strings.EqualFold(o, op) {
-			return true
+func redactPayload(payload *AdmissionRequestPayload) *AdmissionRequestPayload {
+	if strings.EqualFold(payload.Kind.Kind, "Secret") {
+		if payload.Object.Object != nil {
+			unstructured.SetNestedField(payload.Object.Object, "**REDACTED**", "data")
+			metadataField := payload.Object.Object["metadata"]
+			metadataObj := metadataField.(map[string]interface{})
+			unstructured.SetNestedField(metadataObj, "**REDACTED**", "annotations")
+		}
+		if payload.OldObject.Object != nil {
+			unstructured.SetNestedField(payload.OldObject.Object, "**REDACTED**", "data", "metadata.annotations")
+			metadataField := payload.Object.Object["metadata"]
+			metadataObj := metadataField.(map[string]interface{})
+			unstructured.SetNestedField(metadataObj, "**REDACTED**", "annotations")
 		}
 	}
-	return false
-}
-
-func dumpKind(kind string) bool {
-	for _, k := range dumpPayloadKinds {
-		if k == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func SetDumpFlags(dumpPl bool, dumpPlOpts ...string) {
-	dumpPayload = dumpPl
-	// duration := dumpPlOpts[0][:len(dumpPlOpts[0])-1]
-	// dumpPayloadTimer = time.Second * time.Duration(60)
-	dumpPayloadOps = splitString(dumpPlOpts[1])
-	dumpPayloadKinds = splitString(dumpPlOpts[2])
-}
-
-func redactSecretKind(payload *AdmissionRequestPayload) {
-	obj, oldObj := payload.Object, payload.OldObject
-	if obj != nil {
-		delete(obj, "data")
-		x := obj["metadata"].(map[string]interface{})
-		delete(x, "annotations")
-	}
-	if oldObj != nil {
-		delete(oldObj, "data")
-		x := oldObj["metadata"].(map[string]interface{})
-		delete(x, "annotations")
-	}
+	return payload
 }
 
 type Server interface {
@@ -156,16 +148,17 @@ func NewServer(
 	configuration config.Configuration,
 	register *webhookconfig.Register,
 	monitor *webhookconfig.Monitor,
+	debugModeOpts *DebugModeOptions,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate)
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate)))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate)))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor)))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate, debugModeOpts)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate, debugModeOpts)
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate), debugModeOpts))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate), debugModeOpts))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor), debugModeOpts))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
 	return &server{
@@ -254,23 +247,16 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	}
 }
 
-func logAdmission(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+func logAdmission(inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) handlers.AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		resp := inner(logger, request, startTime)
-		if dumpPayload {
-			if dumpOperation(string(request.Operation)) && dumpKind(request.Kind.Kind) {
-				reqPayload, err := newAdmissionRequestPayload(request)
-				if err != nil {
-					logger.Error(err, "Failed to extract resources")
-					return admissionutils.ResponseFailure(err.Error())
-				}
-				if strings.EqualFold(request.Kind.Kind, "Secret") {
-					redactSecretKind(reqPayload)
-					go logger.Info("logging admission review payload", "AdmissionRequest", reqPayload, "AdmissionReponse", resp)
-				} else {
-					go logger.Info("logging admission review payload", "AdmissionRequest", reqPayload, "AdmissionResponse", resp)
-				}
+		if dumpAdmissionPayload(debugModeOpts, request) {
+			reqPayload, err := newAdmissionRequestPayload(request)
+			if err != nil {
+				logger.Error(err, "Failed to extract resources")
+				return admissionutils.ResponseFailure(err.Error())
 			}
+			go logger.Info("Logging admission review payload and admission response", "AdmissionRequest", reqPayload, "AdmissionReponse", resp)
 		}
 		return resp
 	}
@@ -280,8 +266,8 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 	return handlers.Filter(configuration, inner)
 }
 
-func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(logAdmission(inner))))
+func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) http.HandlerFunc {
+	return handlers.Monitor(monitor, handlers.Admission(logger, protect(logAdmission(inner, debugModeOpts))))
 }
 
 func registerWebhookHandlers(
@@ -291,23 +277,24 @@ func registerWebhookHandlers(
 	monitor *webhookconfig.Monitor,
 	configuration config.Configuration,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
+	debugModeOpts *DebugModeOptions,
 ) {
 	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "all", startTime)
-		})),
+		}), debugModeOpts),
 	)
 	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "fail", startTime)
-		})),
+		}), debugModeOpts),
 	)
 	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "ignore", startTime)
-		})),
+		}), debugModeOpts),
 	)
 }
