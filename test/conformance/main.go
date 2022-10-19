@@ -125,7 +125,7 @@ func main() {
 	var createCluster bool
 	var deleteCluster bool
 	flag.BoolVar(&createCluster, "create-cluster", true, "Set this flag to 'false', to use an existing cluster.")
-	flag.BoolVar(&deleteCluster, "delete-cluster", true, "Set this flag to 'false', to no delete the created cluster.")
+	flag.BoolVar(&deleteCluster, "delete-cluster", true, "Set this flag to 'false', to not delete the created cluster.")
 	flag.Parse()
 
 	tests, err := loadTests()
