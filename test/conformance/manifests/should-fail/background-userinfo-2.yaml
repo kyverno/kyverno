@@ -1,7 +1,7 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: cluster-role-background
+  name: background-userinfo-2
 spec:
   validationFailureAction: audit
   background: true
