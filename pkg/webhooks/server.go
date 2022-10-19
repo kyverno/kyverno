@@ -103,6 +103,7 @@ func NewServer(
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
+			IdleTimeout:       5 * time.Minute,
 			ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
 		},
 		mwcClient:   mwcClient,
