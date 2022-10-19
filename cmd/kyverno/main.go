@@ -380,6 +380,8 @@ func createReportControllers(
 			aggregatereportcontroller.NewController(
 				kyvernoClient,
 				metadataFactory,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
 				resourceReportController,
 				reportsChunkSize,
 			),
