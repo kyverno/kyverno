@@ -191,10 +191,10 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 func reportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
 	bLabels := sets.NewString()
 	aLabels := sets.NewString()
-	for key, _ := range before.GetLabels() {
+	for key := range before.GetLabels() {
 		bLabels.Insert(key)
 	}
-	for key, _ := range after.GetLabels() {
+	for key := range after.GetLabels() {
 		aLabels.Insert(key)
 	}
 	if !aLabels.Equal(bLabels) {
