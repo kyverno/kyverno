@@ -78,18 +78,18 @@ func filterRule(rule kyvernov1.Rule, policyContext *PolicyContext) *response.Rul
 	policy := policyContext.policy
 	newResource := policyContext.newResource
 	oldResource := policyContext.oldResource
-	admissionInfo := policyContext.admissionInfo
+	// admissionInfo := policyContext.admissionInfo
 	ctx := policyContext.jsonContext
-	excludeGroupRole := policyContext.excludeGroupRole
-	namespaceLabels := policyContext.namespaceLabels
+	// excludeGroupRole := policyContext.excludeGroupRole
+	// namespaceLabels := policyContext.namespaceLabels
 
 	logger := logging.WithName(string(ruleType)).WithValues("policy", policy.GetName(),
 		"kind", newResource.GetKind(), "namespace", newResource.GetNamespace(), "name", newResource.GetName())
 
-	if err = MatchesResourceDescription(newResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err != nil {
+	if err = MatchesResourceDescription(newResource, policyContext, rule, ""); err != nil {
 		if ruleType == response.Generation {
 			// if the oldResource matched, return "false" to delete GR for it
-			if err = MatchesResourceDescription(oldResource, rule, admissionInfo, excludeGroupRole, namespaceLabels, ""); err == nil {
+			if err = MatchesResourceDescription(oldResource, policyContext, rule, ""); err == nil {
 				return &response.RuleResponse{
 					Name:   rule.Name,
 					Type:   ruleType,

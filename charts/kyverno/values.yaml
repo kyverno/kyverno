@@ -173,6 +173,8 @@ envVars: {}
 # -- Extra arguments to give to the binary.
 extraArgs:
   - --loggingFormat=text
+  - --enablePolicyException=false
+  - --exceptionNamespace=kyverno
 
 # -- Array of extra init containers
 extraInitContainers: []

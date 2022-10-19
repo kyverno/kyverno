@@ -1,0 +1,17 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: bypass-secret
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: add-labels
+      ruleNames:
+        - add-labels
+  exclude:
+    any:
+      - resources:
+          kinds:
+            - Secret
+          names:
+            - testingsecret

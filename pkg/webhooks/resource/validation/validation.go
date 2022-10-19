@@ -139,6 +139,7 @@ func (v *validationHandler) buildAuditResponses(resource unstructured.Unstructur
 	if err != nil {
 		return nil, err
 	}
+
 	var responses []*response.EngineResponse
 	for _, policy := range policies {
 		policyContext := policyContext.WithPolicy(policy).WithNamespaceLabels(namespaceLabels)

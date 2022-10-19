@@ -282,10 +282,27 @@ func matchSubjects(ruleSubjects []rbacv1.Subject, userInfo authenticationv1.User
 }
 
 // MatchesResourceDescription checks if the resource matches resource description of the rule or not
-func MatchesResourceDescription(resourceRef unstructured.Unstructured, ruleRef kyvernov1.Rule, admissionInfoRef kyvernov1beta1.RequestInfo, dynamicConfig []string, namespaceLabels map[string]string, policyNamespace string) error {
+func MatchesResourceDescription(resourceRef unstructured.Unstructured, ctx *PolicyContext, ruleRef kyvernov1.Rule, policyNamespace string) error {
 	rule := ruleRef.DeepCopy()
+
+	var dynamicConfig []string
+	if len(ctx.excludeGroupRole) > 0 {
+		dynamicConfig = ctx.excludeGroupRole
+	}
+
+	namespaceLabels := ctx.namespaceLabels
+	if ctx.PolicyExceptions != nil && !ctx.PolicyExceptions.IsNil() {
+		// Add match resources from policy exceptions to the current rule.excludeResources
+		excludeResources := ctx.PolicyExceptions.ExceptionsByRule(ctx.policy, rule.Name)
+		if len(excludeResources) > 0 {
+			for _, excludeRS := range excludeResources {
+				rule.ExcludeResources.Merge(excludeRS)
+			}
+		}
+	}
+
 	resource := *resourceRef.DeepCopy()
-	admissionInfo := *admissionInfoRef.DeepCopy()
+	admissionInfo := *ctx.admissionInfo.DeepCopy()
 
 	var reasonsForFailure []error
 	if policyNamespace != "" && policyNamespace != resourceRef.GetNamespace() {

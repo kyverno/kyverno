@@ -310,7 +310,7 @@ image-build-all: $(BUILD_WITH)-build-all
 GOPATH_SHIM        := ${PWD}/.gopath
 PACKAGE_SHIM       := $(GOPATH_SHIM)/src/$(PACKAGE)
 OUT_PACKAGE        := $(PACKAGE)/pkg/client
-INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1alpha1,$(PACKAGE)/api/policyreport/v1alpha2
+INPUT_DIRS         := $(PACKAGE)/api/kyverno/v1,$(PACKAGE)/api/kyverno/v1beta1,$(PACKAGE)/api/kyverno/v1alpha2,$(PACKAGE)/api/kyverno/v1alpha1,$(PACKAGE)/api/policyreport/v1alpha2,$(PACKAGE)/api/kyverno/v2beta1
 CLIENTSET_PACKAGE  := $(OUT_PACKAGE)/clientset
 LISTERS_PACKAGE    := $(OUT_PACKAGE)/listers
 INFORMERS_PACKAGE  := $(OUT_PACKAGE)/informers
@@ -731,7 +731,9 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--loggingFormat=text}"
+		--set extraArgs[0]="--loggingFormat=text" \
+		--set extraArgs[1]="--enablePolicyException=true" \
+		--set extraArgs[2]="--exceptionNamespace=kyverno"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno
 

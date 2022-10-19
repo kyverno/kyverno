@@ -27,15 +27,15 @@ spec:
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
-          - weight: 1
-            podAffinityTerm:
-              labelSelector:
-                matchExpressions:
-                - key: app.kubernetes.io/name
-                  operator: In
-                  values:
-                  - kyverno
-              topologyKey: "kubernetes.io/hostname"
+            - weight: 1
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app.kubernetes.io/name
+                      operator: In
+                      values:
+                        - kyverno
+                topologyKey: "kubernetes.io/hostname"
       serviceAccountName: kyverno-service-account
       securityContext:
         runAsNonRoot: true
@@ -76,13 +76,17 @@ spec:
           image: ghcr.io/kyverno/kyverno:latest
           imagePullPolicy: Always
           args:
-          # customize webhook timeout
-          #- "--webhookTimeout=4"
-          # enable profiling
-          # - "--profile"
-          # configure the workers for generate controller
-          # - --genWorkers=20
-          - "-v=2"
+            # customize webhook timeout
+            #- "--webhookTimeout=4"
+            # enable profiling
+            # - "--profile"
+            # configure the workers for generate controller
+            # - --genWorkers=20
+            # enable policyexceptions
+            - "--enablePolicyException=false"
+            # configure the namespace for policyexceptions
+            # - "--exceptionNamespace=kyverno"
+            - "-v=2"
           ports:
             - containerPort: 9443
               name: https
@@ -153,8 +157,8 @@ spec:
             successThreshold: 1
           # Failing to provide a writable $TUF_ROOT can cause TUF client initialization to panic
           volumeMounts:
-          - mountPath: /.sigstore
-            name: sigstore
+            - mountPath: /.sigstore
+              name: sigstore
   strategy:
     type: RollingUpdate
     rollingUpdate:

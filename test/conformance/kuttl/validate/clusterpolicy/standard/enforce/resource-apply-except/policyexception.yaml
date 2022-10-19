@@ -1,0 +1,28 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: bypass-test-deployment
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: require-labels
+      ruleNames:
+        - check-for-labels
+        - autogen-check-for-labels
+  exclude:
+    any:
+      - resources:
+          kinds:
+            - Deployment
+          names:
+            - nginx
+          namespaces:
+            - testing
+      - resources:
+          kinds:
+            - Pod
+          namespaces:
+            - testing
+          selector:
+            matchLabels:
+              app: nginx

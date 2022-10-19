@@ -1,0 +1,14 @@
+## Checks that the bypass-resource.yaml file CAN be successfully created. If it can't, fail the test as this is incorrect.
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      if kubectl apply -f bypass-resource.yaml
+      then 
+        echo "Test succeeded. Task was created as it's excepted from policy."
+        exit 0
+      else 
+        echo "Tested failed. Task was not created as intended."
+        exit 1 
+      fi

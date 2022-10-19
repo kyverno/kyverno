@@ -30,6 +30,12 @@ type MatchResources struct {
 	ResourceDescription `json:"resources,omitempty" yaml:"resources,omitempty"`
 }
 
+// Merge appends incoming match resources
+func (m *MatchResources) Merge(incomingResources MatchResources) {
+	m.Any = append(m.Any, incomingResources.Any...)
+	m.All = append(m.All, incomingResources.All...)
+}
+
 // GetKinds returns all kinds
 func (m *MatchResources) GetKinds() []string {
 	var kinds []string

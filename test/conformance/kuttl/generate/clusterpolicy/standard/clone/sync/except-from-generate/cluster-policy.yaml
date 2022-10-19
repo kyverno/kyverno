@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-with-multi-clone
+spec:
+  generateExistingOnPolicyUpdate: false
+  rules:
+    - name: sync-secret
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      generate:
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: true
+        cloneList:
+          namespace: default
+          kinds:
+            - v1/Secret
+          selector:
+            matchLabels:
+              allowedToBeCloned: "true"

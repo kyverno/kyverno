@@ -2413,7 +2413,8 @@ The repository can be overridden per Attestor or Attestation.</p>
 <p>
 (<em>Appears on:</em>
 <a href="#kyverno.io/v1.Rule">Rule</a>, 
-<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>)
+<a href="#kyverno.io/v1alpha1.CleanupPolicySpec">CleanupPolicySpec</a>, 
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
 </p>
 <p>
 <p>MatchResources is used to specify resource and admission review request data for
@@ -5347,6 +5348,8 @@ Resource Types:
 <a href="#kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy</a>
 </li><li>
 <a href="#kyverno.io/v2beta1.Policy">Policy</a>
+</li><li>
+<a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>
 </li></ul>
 <hr />
 <h3 id="kyverno.io/v2beta1.ClusterPolicy">ClusterPolicy
@@ -5798,6 +5801,94 @@ PolicyStatus
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.PolicyException">PolicyException
+</h3>
+<p>
+<p>PolicyException declares resources to be excluded from specified policies.</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>apiVersion</code><br/>
+string</td>
+<td>
+<code>
+kyverno.io/v2beta1
+</code>
+</td>
+</tr>
+<tr>
+<td>
+<code>kind</code><br/>
+string
+</td>
+<td><code>PolicyException</code></td>
+</tr>
+<tr>
+<td>
+<code>metadata</code><br/>
+<em>
+<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.23/#objectmeta-v1-meta">
+Kubernetes meta/v1.ObjectMeta
+</a>
+</em>
+</td>
+<td>
+Refer to the Kubernetes API documentation for the fields of the
+<code>metadata</code> field.
+</td>
+</tr>
+<tr>
+<td>
+<code>spec</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">
+PolicyExceptionSpec
+</a>
+</em>
+</td>
+<td>
+<p>Spec declares policy exception behaviors.</p>
+<br/>
+<br/>
+<table class="table table-striped">
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2beta1.AnyAllConditions">AnyAllConditions
 </h3>
 <p>
@@ -5959,6 +6050,47 @@ See: <a href="https://kyverno.io/docs/writing-policies/validate/#deny-rules">htt
 </tbody>
 </table>
 <hr />
+<h3 id="kyverno.io/v2beta1.Exception">Exception
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>policyName</code><br/>
+<em>
+string
+</em>
+</td>
+<td>
+<p>PolicyName defines the excepted policy.</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>ruleNames</code><br/>
+<em>
+[]string
+</em>
+</td>
+<td>
+<p>RuleName is a list which contains the target excepted rules.</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
 <h3 id="kyverno.io/v2beta1.ImageVerification">ImageVerification
 </h3>
 <p>
@@ -6114,6 +6246,49 @@ ResourceFilters
 <td>
 <em>(Optional)</em>
 <p>All allows specifying resources which will be ANDed</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v2beta1.PolicyExceptionSpec">PolicyExceptionSpec
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v2beta1.PolicyException">PolicyException</a>)
+</p>
+<p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>exceptions</code><br/>
+<em>
+<a href="#kyverno.io/v2beta1.Exception">
+[]Exception
+</a>
+</em>
+</td>
+<td>
+</td>
+</tr>
+<tr>
+<td>
+<code>exclude</code><br/>
+<em>
+<a href="#kyverno.io/v1.MatchResources">
+MatchResources
+</a>
+</em>
+</td>
+<td>
 </td>
 </tr>
 </tbody>

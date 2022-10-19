@@ -6,6 +6,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	exception "github.com/kyverno/kyverno/pkg/policyexceptions"
 	"github.com/kyverno/kyverno/pkg/userinfo"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -22,6 +23,7 @@ type policyContextBuilder struct {
 	rbLister               rbacv1listers.RoleBindingLister
 	crbLister              rbacv1listers.ClusterRoleBindingLister
 	informerCacheResolvers resolvers.ConfigmapResolver
+	exception              exception.Interface
 }
 
 func NewPolicyContextBuilder(
@@ -30,6 +32,7 @@ func NewPolicyContextBuilder(
 	rbLister rbacv1listers.RoleBindingLister,
 	crbLister rbacv1listers.ClusterRoleBindingLister,
 	informerCacheResolvers resolvers.ConfigmapResolver,
+	exception exception.Interface,
 ) PolicyContextBuilder {
 	return &policyContextBuilder{
 		configuration:          configuration,
@@ -37,6 +40,7 @@ func NewPolicyContextBuilder(
 		rbLister:               rbLister,
 		crbLister:              crbLister,
 		informerCacheResolvers: informerCacheResolvers,
+		exception:              exception,
 	}
 }
 
@@ -50,5 +54,5 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest) (*en
 		userRequestInfo.Roles = roles
 		userRequestInfo.ClusterRoles = clusterRoles
 	}
-	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers)
+	return engine.NewPolicyContextFromAdmissionRequest(request, userRequestInfo, b.configuration, b.client, b.informerCacheResolvers, b.exception)
 }

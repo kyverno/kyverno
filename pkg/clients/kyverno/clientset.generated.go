@@ -7,12 +7,14 @@ import (
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha1"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1alpha2"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v1beta1"
+	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/kyverno/v2beta1"
 	github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2 "github.com/kyverno/kyverno/pkg/client/clientset/versioned/typed/policyreport/v1alpha2"
 	discovery "github.com/kyverno/kyverno/pkg/clients/kyverno/discovery"
 	kyvernov1 "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1"
 	kyvernov1alpha1 "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1alpha1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1alpha2"
 	kyvernov1beta1 "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov1beta1"
+	kyvernov2beta1 "github.com/kyverno/kyverno/pkg/clients/kyverno/kyvernov2beta1"
 	wgpolicyk8sv1alpha2 "github.com/kyverno/kyverno/pkg/clients/kyverno/wgpolicyk8sv1alpha2"
 	"github.com/kyverno/kyverno/pkg/metrics"
 	k8s_io_client_go_discovery "k8s.io/client-go/discovery"
@@ -24,6 +26,7 @@ type clientset struct {
 	kyvernov1alpha1     github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha1.KyvernoV1alpha1Interface
 	kyvernov1alpha2     github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1alpha2.KyvernoV1alpha2Interface
 	kyvernov1beta1      github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1beta1.KyvernoV1beta1Interface
+	kyvernov2beta1      github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.KyvernoV2beta1Interface
 	wgpolicyk8sv1alpha2 github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.Wgpolicyk8sV1alpha2Interface
 }
 
@@ -42,6 +45,9 @@ func (c *clientset) KyvernoV1alpha2() github_com_kyverno_kyverno_pkg_client_clie
 func (c *clientset) KyvernoV1beta1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v1beta1.KyvernoV1beta1Interface {
 	return c.kyvernov1beta1
 }
+func (c *clientset) KyvernoV2beta1() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_kyverno_v2beta1.KyvernoV2beta1Interface {
+	return c.kyvernov2beta1
+}
 func (c *clientset) Wgpolicyk8sV1alpha2() github_com_kyverno_kyverno_pkg_client_clientset_versioned_typed_policyreport_v1alpha2.Wgpolicyk8sV1alpha2Interface {
 	return c.wgpolicyk8sv1alpha2
 }
@@ -53,6 +59,7 @@ func WrapWithMetrics(inner github_com_kyverno_kyverno_pkg_client_clientset_versi
 		kyvernov1alpha1:     kyvernov1alpha1.WithMetrics(inner.KyvernoV1alpha1(), m, clientType),
 		kyvernov1alpha2:     kyvernov1alpha2.WithMetrics(inner.KyvernoV1alpha2(), m, clientType),
 		kyvernov1beta1:      kyvernov1beta1.WithMetrics(inner.KyvernoV1beta1(), m, clientType),
+		kyvernov2beta1:      kyvernov2beta1.WithMetrics(inner.KyvernoV2beta1(), m, clientType),
 		wgpolicyk8sv1alpha2: wgpolicyk8sv1alpha2.WithMetrics(inner.Wgpolicyk8sV1alpha2(), m, clientType),
 	}
 }
@@ -64,6 +71,7 @@ func WrapWithTracing(inner github_com_kyverno_kyverno_pkg_client_clientset_versi
 		kyvernov1alpha1:     kyvernov1alpha1.WithTracing(inner.KyvernoV1alpha1(), "KyvernoV1alpha1"),
 		kyvernov1alpha2:     kyvernov1alpha2.WithTracing(inner.KyvernoV1alpha2(), "KyvernoV1alpha2"),
 		kyvernov1beta1:      kyvernov1beta1.WithTracing(inner.KyvernoV1beta1(), "KyvernoV1beta1"),
+		kyvernov2beta1:      kyvernov2beta1.WithTracing(inner.KyvernoV2beta1(), "KyvernoV2beta1"),
 		wgpolicyk8sv1alpha2: wgpolicyk8sv1alpha2.WithTracing(inner.Wgpolicyk8sV1alpha2(), "Wgpolicyk8sV1alpha2"),
 	}
 }
@@ -75,6 +83,7 @@ func WrapWithLogging(inner github_com_kyverno_kyverno_pkg_client_clientset_versi
 		kyvernov1alpha1:     kyvernov1alpha1.WithLogging(inner.KyvernoV1alpha1(), logger.WithValues("group", "KyvernoV1alpha1")),
 		kyvernov1alpha2:     kyvernov1alpha2.WithLogging(inner.KyvernoV1alpha2(), logger.WithValues("group", "KyvernoV1alpha2")),
 		kyvernov1beta1:      kyvernov1beta1.WithLogging(inner.KyvernoV1beta1(), logger.WithValues("group", "KyvernoV1beta1")),
+		kyvernov2beta1:      kyvernov2beta1.WithLogging(inner.KyvernoV2beta1(), logger.WithValues("group", "KyvernoV2beta1")),
 		wgpolicyk8sv1alpha2: wgpolicyk8sv1alpha2.WithLogging(inner.Wgpolicyk8sV1alpha2(), logger.WithValues("group", "Wgpolicyk8sV1alpha2")),
 	}
 }

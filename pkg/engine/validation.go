@@ -568,13 +568,13 @@ func isEmptyUnstructured(u *unstructured.Unstructured) bool {
 
 // matches checks if either the new or old resource satisfies the filter conditions defined in the rule
 func matches(logger logr.Logger, rule *kyvernov1.Rule, ctx *PolicyContext) bool {
-	err := MatchesResourceDescription(ctx.newResource, *rule, ctx.admissionInfo, ctx.excludeGroupRole, ctx.namespaceLabels, "")
+	err := MatchesResourceDescription(ctx.newResource, ctx, *rule, "")
 	if err == nil {
 		return true
 	}
 
 	if !reflect.DeepEqual(ctx.oldResource, unstructured.Unstructured{}) {
-		err := MatchesResourceDescription(ctx.oldResource, *rule, ctx.admissionInfo, ctx.excludeGroupRole, ctx.namespaceLabels, "")
+		err := MatchesResourceDescription(ctx.oldResource, ctx, *rule, "")
 		if err == nil {
 			return true
 		}

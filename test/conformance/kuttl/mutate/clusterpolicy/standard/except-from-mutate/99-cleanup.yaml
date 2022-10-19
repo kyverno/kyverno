@@ -1,0 +1,6 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl delete clusterpolicy add-labels --force --wait=true --ignore-not-found=true
+  - command: kubectl delete policyexception bypass-secret --force --wait=true --ignore-not-found=true
+  - command: kubectl delete secret testingsecret --force --wait=true --ignore-not-found=true

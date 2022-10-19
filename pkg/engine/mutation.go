@@ -47,12 +47,7 @@ func Mutate(policyContext *PolicyContext) (resp *response.EngineResponse) {
 		}
 
 		logger := logger.WithValues("rule", rule.Name)
-		var excludeResource []string
-		if len(policyContext.excludeGroupRole) > 0 {
-			excludeResource = policyContext.excludeGroupRole
-		}
-
-		if err = MatchesResourceDescription(matchedResource, rule, policyContext.admissionInfo, excludeResource, policyContext.namespaceLabels, policyContext.policy.GetNamespace()); err != nil {
+		if err = MatchesResourceDescription(matchedResource, policyContext, rule, policyContext.policy.GetNamespace()); err != nil {
 			logger.V(4).Info("rule not matched", "reason", err.Error())
 			skippedRules = append(skippedRules, rule.Name)
 			continue

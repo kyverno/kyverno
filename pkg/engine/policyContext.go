@@ -8,6 +8,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	enginectx "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
+	exceptions "github.com/kyverno/kyverno/pkg/policyexceptions"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"github.com/pkg/errors"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -53,6 +54,9 @@ type PolicyContext struct {
 
 	// informerCacheResolvers - used to get resources from informer cache
 	informerCacheResolvers resolvers.ConfigmapResolver
+
+	// PolicyExceptions store corresponding exceptions
+	PolicyExceptions exceptions.Interface
 }
 
 // Getters
@@ -147,6 +151,12 @@ func (c *PolicyContext) WithInformerCacheResolver(informerCacheResolver resolver
 	return copy
 }
 
+func (c *PolicyContext) WithExceptions(exceptions exceptions.Interface) *PolicyContext {
+	copy := c.Copy()
+	copy.PolicyExceptions = exceptions
+	return copy
+}
+
 // Constructors
 
 func NewPolicyContextWithJsonContext(jsonContext context.Interface) *PolicyContext {
@@ -169,6 +179,7 @@ func NewPolicyContextFromAdmissionRequest(
 	configuration config.Configuration,
 	client dclient.Interface,
 	informerCacheResolver resolvers.ConfigmapResolver,
+	exceptions exceptions.Interface,
 ) (*PolicyContext, error) {
 	ctx, err := newVariablesContext(request, &admissionInfo)
 	if err != nil {
@@ -181,6 +192,7 @@ func NewPolicyContextFromAdmissionRequest(
 	if err := ctx.AddImageInfos(&newResource); err != nil {
 		return nil, errors.Wrap(err, "failed to add image information to the policy rule context")
 	}
+
 	policyContext := NewPolicyContextWithJsonContext(ctx).
 		WithNewResource(newResource).
 		WithOldResource(oldResource).
@@ -188,7 +200,8 @@ func NewPolicyContextFromAdmissionRequest(
 		WithConfiguration(configuration).
 		WithClient(client).
 		WithAdmissionOperation(true).
-		WithInformerCacheResolver(informerCacheResolver)
+		WithInformerCacheResolver(informerCacheResolver).
+		WithExceptions(exceptions)
 	return policyContext, nil
 }
 

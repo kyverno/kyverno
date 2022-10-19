@@ -1,0 +1,18 @@
+apiVersion: kyverno.io/v2beta1
+kind: PolicyException
+metadata:
+  name: bypass-clone
+  namespace: kyverno
+spec:
+  exceptions:
+    - policyName: sync-with-multi-clone
+      ruleNames:
+        - sync-secret
+  exclude:
+    any:
+      - resources:
+          kinds:
+            - Namespace
+          selector:
+            matchLabels:
+              app: test

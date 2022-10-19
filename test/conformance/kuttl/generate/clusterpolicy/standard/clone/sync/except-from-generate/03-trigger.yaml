@@ -1,0 +1,17 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+apply:
+  - ns.yaml
+commands:
+  - script: |
+      if kubectl get secrets -l allowedToBeCloned=true 2>&1 | grep -q 'No resources found in default namespace.'
+      then 
+        echo "Tested succeeded. Secret is not generated."
+        exit 0 
+
+      else 
+        echo "Test failed. Secret shouldn't be created."
+        kubectl get secrets -l allowedToBeCloned=true
+        exit 1
+
+      fi
