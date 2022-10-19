@@ -9,13 +9,17 @@ import (
 	"github.com/go-logr/logr"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
+	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
+	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/controllers/report/resource"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
 	"k8s.io/client-go/tools/cache"
@@ -38,6 +42,8 @@ type controller struct {
 	client versioned.Interface
 
 	// listers
+	polLister      kyvernov1listers.PolicyLister
+	cpolLister     kyvernov1listers.ClusterPolicyLister
 	admrLister     cache.GenericLister
 	cadmrLister    cache.GenericLister
 	bgscanrLister  cache.GenericLister
@@ -59,6 +65,8 @@ func keyFunc(obj metav1.Object) cache.ExplicitKey {
 func NewController(
 	client versioned.Interface,
 	metadataFactory metadatainformers.SharedInformerFactory,
+	polInformer kyvernov1informers.PolicyInformer,
+	cpolInformer kyvernov1informers.ClusterPolicyInformer,
 	metadataCache resource.MetadataCache,
 	chunkSize int,
 ) controllers.Controller {
@@ -68,6 +76,8 @@ func NewController(
 	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
 	c := controller{
 		client:         client,
+		polLister:      polInformer.Lister(),
+		cpolLister:     cpolInformer.Lister(),
 		admrLister:     admrInformer.Lister(),
 		cadmrLister:    cadmrInformer.Lister(),
 		bgscanrLister:  bgscanrInformer.Lister(),
@@ -85,7 +95,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) listAdmissionReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
@@ -160,7 +170,7 @@ func (c *controller) cleanReports(ctx context.Context, actual map[string]kyverno
 	return nil
 }
 
-func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -172,33 +182,73 @@ func mergeReports(accumulator map[string]policyreportv1alpha2.PolicyReportResult
 				UID:        ownerRef.UID,
 			}}
 			for _, result := range report.GetResults() {
-				key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
-				result.Resources = objectRefs
-				if rule, exists := accumulator[key]; !exists {
-					accumulator[key] = result
-				} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
-					accumulator[key] = result
+				currentPolicy := policyMap[result.Policy]
+				if currentPolicy != nil && currentPolicy.Has(result.Rule) {
+					key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
+					result.Resources = objectRefs
+					if rule, exists := accumulator[key]; !exists {
+						accumulator[key] = result
+					} else if rule.Timestamp.Seconds < result.Timestamp.Seconds {
+						accumulator[key] = result
+					}
 				}
 			}
 		}
 	}
 }
 
-func (c *controller) buildReportsResults(ctx context.Context, namepsace string) ([]policyreportv1alpha2.PolicyReportResult, error) {
+func (c *controller) createPolicyMap() (map[string]sets.String, error) {
+	results := map[string]sets.String{}
+	cpols, err := c.cpolLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	for _, cpol := range cpols {
+		key, err := cache.MetaNamespaceKeyFunc(cpol)
+		if err != nil {
+			return nil, err
+		}
+		results[key] = sets.NewString()
+		for _, rule := range autogen.ComputeRules(cpol) {
+			results[key].Insert(rule.Name)
+		}
+	}
+	pols, err := c.polLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	for _, pol := range pols {
+		key, err := cache.MetaNamespaceKeyFunc(pol)
+		if err != nil {
+			return nil, err
+		}
+		results[key] = sets.NewString()
+		for _, rule := range autogen.ComputeRules(pol) {
+			results[key].Insert(rule.Name)
+		}
+	}
+	return results, nil
+}
+
+func (c *controller) buildReportsResults(ctx context.Context, namespace string) ([]policyreportv1alpha2.PolicyReportResult, error) {
+	policyMap, err := c.createPolicyMap()
+	if err != nil {
+		return nil, err
+	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	{
-		reports, err := c.listAdmissionReports(ctx, namepsace)
+		reports, err := c.listAdmissionReports(ctx, namespace)
 		if err != nil {
 			return nil, err
 		}
-		mergeReports(merged, reports...)
+		mergeReports(policyMap, merged, reports...)
 	}
 	{
-		reports, err := c.listBackgroundScanReports(ctx, namepsace)
+		reports, err := c.listBackgroundScanReports(ctx, namespace)
 		if err != nil {
 			return nil, err
 		}
-		mergeReports(merged, reports...)
+		mergeReports(policyMap, merged, reports...)
 	}
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, result := range merged {

@@ -54,13 +54,14 @@ func NewPolicyContextBuilder(
 }
 
 func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, policies ...kyvernov1.PolicyInterface) (*engine.PolicyContext, error) {
-	var err error
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
-	userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration)
-	if err != nil {
+	if roles, clusterRoles, err := userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration); err != nil {
 		return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
+	} else {
+		userRequestInfo.Roles = roles
+		userRequestInfo.ClusterRoles = clusterRoles
 	}
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
