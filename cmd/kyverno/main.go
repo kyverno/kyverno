@@ -51,7 +51,7 @@ import (
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	_ "go.uber.org/automaxprocs" // #nosec
+	"go.uber.org/automaxprocs/maxprocs" // #nosec
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -133,6 +133,17 @@ func parseFlags() error {
 	}
 	flag.Parse()
 	return nil
+}
+
+func setupMaxProcs(logger logr.Logger) (func(), error) {
+	logger = logger.WithName("maxprocs")
+	if undo, err := maxprocs.Set(maxprocs.Logger(func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...))
+	})); err != nil {
+		return nil, err
+	} else {
+		return undo, nil
+	}
 }
 
 func startProfiling(logger logr.Logger) {
@@ -502,6 +513,13 @@ func main() {
 		os.Exit(1)
 	}
 	logger := logging.WithName("setup")
+	// setup maxprocs
+	if undo, err := setupMaxProcs(logger); err != nil {
+		logger.Error(err, "failed to configure maxprocs")
+		os.Exit(1)
+	} else {
+		defer undo()
+	}
 	// show version
 	showWarnings(logger)
 	// show version
