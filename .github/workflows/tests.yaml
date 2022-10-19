@@ -101,6 +101,3 @@ jobs:
           export PROJECT_PATH=$(pwd)
           export FLAG_AUTOGEN_INTERNALS=${{ matrix.autogen-internals }}
           make test-unit
-
-      - name: Kyverno conformance tests
-        run: go run ./test/conformance/main.go
