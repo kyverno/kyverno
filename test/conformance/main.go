@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -121,6 +122,10 @@ func loadTests() (map[string][]Test, error) {
 }
 
 func main() {
+	var createCluster bool
+	flag.BoolVar(&createCluster, "create-cluster", true, "Set this flag to 'false', to use an existing cluster.")
+	flag.Parse()
+
 	tests, err := loadTests()
 	if err != nil {
 		log.Fatal(err)
@@ -130,14 +135,16 @@ func main() {
 			if err := os.Setenv("KIND_NAME", name); err != nil {
 				return err
 			}
-			// defer func(name string) {
-			// 	if err := makeDeleteCluster(); err != nil {
-			// 		log.Fatal(err)
-			// 	}
-			// }(name)
-			// if err := makeCluster(); err != nil {
-			// 	return err
-			// }
+			if createCluster {
+				defer func(name string) {
+					if err := makeDeleteCluster(); err != nil {
+						log.Fatal(err)
+					}
+				}(name)
+				if err := makeCluster(); err != nil {
+					return err
+				}
+			}
 			var errs []error
 			for _, test := range tests {
 				log.Println("Running test ", test.Description, " ...")
