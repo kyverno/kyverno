@@ -3,6 +3,7 @@ package resource
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -89,7 +90,7 @@ func NewController(
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) GetResourceHash(uid types.UID) (Resource, schema.GroupVersionKind, bool) {
