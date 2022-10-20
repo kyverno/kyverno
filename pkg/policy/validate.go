@@ -370,20 +370,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
 	vars := hasVariables(p)
-	if len(vars) == 0 {
-		return nil
-	}
-
-	if err := hasInvalidVariables(p, backgroundMode); err != nil {
-		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
-	}
-
 	if backgroundMode {
 		if err := containsUserVariables(p, vars); err != nil {
 			return fmt.Errorf("only select variables are allowed in background mode. Set spec.background=false to disable background mode for this policy rule: %s ", err)
 		}
 	}
-
+	if err := hasInvalidVariables(p, backgroundMode); err != nil {
+		return fmt.Errorf("policy contains invalid variables: %s", err.Error())
+	}
 	return nil
 }
 
