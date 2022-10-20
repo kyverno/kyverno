@@ -51,11 +51,13 @@ KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
 KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
+HELM                               := $(TOOLS_DIR)/helm
+HELM_VERSION                       := v3.10.1
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -101,6 +103,10 @@ $(KUSTOMIZE):
 $(GOIMPORTS):
 	@echo Install goimports... >&2
 	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+
+$(HELM):
+	@echo Install helm... >&2
+	@GOBIN=$(TOOLS_DIR) go install helm.sh/helm/v3/cmd/helm@$(HELM_VERSION)
 
 $(HELM_DOCS):
 	@echo Install helm-docs... >&2
@@ -694,9 +700,9 @@ kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load i
 kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
-kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
@@ -707,14 +713,14 @@ kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster an
 	@kubectl rollout restart deployment -n kyverno kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-metrics-server
-kind-deploy-metrics-server: ## Deploy metrics-server helm chart
+kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@helm upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
+	@$(HELM) upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
 		--set extraArgs={--kubelet-insecure-tls=true} \
 		--set apiService.create=true
 
@@ -722,9 +728,9 @@ kind-deploy-metrics-server: ## Deploy metrics-server helm chart
 kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
-kind-deploy-reporter: ## Deploy policy-reporter helm chart
+kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@helm upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
+	@$(HELM) upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
 		--set ui.enabled=true \
 		--set kyvernoPlugin.enabled=true \
 		--create-namespace
