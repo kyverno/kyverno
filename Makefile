@@ -672,6 +672,29 @@ gh-install-pin-github-action:
 gh-pin-actions: gh-install-pin-github-action
 	@pin-github-action ./.github/workflows/release.yaml
 
+#############
+# PERF TEST #
+#############
+
+.PHONY: test-perf
+test-perf: $(PACKAGE_SHIM)
+	GO111MODULE=off GOPATH=$(GOPATH_SHIM) go get k8s.io/perf-tests || true
+	cd $(GOPATH_SHIM)/src/k8s.io/perf-tests && \
+	GOPATH=$(GOPATH_SHIM) ./run-e2e.sh cluster-loader2 \
+		--testconfig=./testing/load/config.yaml \
+		--provider=kind \
+		--kubeconfig=${HOME}/.kube/config \
+		--nodes=3 \
+		--enable-prometheus-server=true \	
+		--prometheus-apiserver-scrape-port=6443 \
+		--prometheus-storage-class-provisioner=rancher.io/local-path \
+		--prometheus-storage-class-volume-type=standard \
+		--v=2 \
+		--report-dir=.
+
+# kubectl port-forward -n monitoring service/prometheus-operated  8000:9090
+# kubectl port-forward -n monitoring service/grafana  3000:3000
+
 ########
 # KIND #
 ########
@@ -679,7 +702,7 @@ gh-pin-actions: gh-install-pin-github-action
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/kind.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -708,6 +731,7 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set initContainer.extraArgs={--loggingFormat=text} \
+		--set replicaCount=3 \
 		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno
@@ -715,12 +739,12 @@ kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cl
 .PHONY: kind-deploy-kyverno-policies
 kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --wait --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-metrics-server
 kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@$(HELM) upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
+	@$(HELM) upgrade --install metrics-server --namespace kube-system --wait --repo https://charts.bitnami.com/bitnami metrics-server \
 		--set extraArgs={--kubelet-insecure-tls=true} \
 		--set apiService.create=true
 
@@ -730,11 +754,16 @@ kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-ky
 .PHONY: kind-deploy-reporter
 kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@$(HELM) upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
+	@$(HELM) upgrade --install policy-reporter --namespace policy-reporter --wait --repo https://kyverno.github.io/policy-reporter policy-reporter \
 		--set ui.enabled=true \
 		--set kyvernoPlugin.enabled=true \
 		--create-namespace
 	@kubectl port-forward -n policy-reporter services/policy-reporter-ui  8082:8080
+
+deploy-kube-prom-stack: $(HELM)
+	@$(HELM) upgrade --install kube-prometheus-stack --namespace monitoring --create-namespace --wait \
+		--repo https://prometheus-community.github.io/helm-charts kube-prometheus-stack \
+		--values ./scripts/kube-prometheus-stack.yaml
 
 ########
 # HELP #
