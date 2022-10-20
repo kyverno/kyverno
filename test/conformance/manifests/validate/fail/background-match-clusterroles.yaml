@@ -1,18 +1,19 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: background-userinfo-2
+  name: background-match-clusterroles
 spec:
   validationFailureAction: audit
   background: true
   rules:
-  - name: ns-clusterroles-old
+  - name: ns-clusterroles
     match:
-      resources:
-        kinds:
-          - Pod
-      clusterRoles:
-        - foo-admin
+      any:
+      - resources:
+          kinds:
+            - Pod
+        clusterRoles:
+          - foo-admin
     validate:
       message: The `owner` label is required for all Namespaces.
       pattern:

@@ -12,7 +12,21 @@ validate-fail:
           admission webhook "validate-policy.kyverno.svc" denied the request:
           only select variables are allowed in background mode.
           Set spec.background=false to disable background mode for this policy rule:
-          invalid variable used at path: spec/rules[0]/match/clusterRoles
+          invalid variable used at path: spec/rules[0]/match/any[0]/clusterRoles
+  - description: Policy with background enabled and referencing roles in match/exclude statements should be rejected
+    kubectl:
+      args:
+        - create
+        - -f 
+        - test/conformance/manifests/validate/fail/background-match-roles.yaml
+      expect:
+        exitcode: 1
+        stderr: >-
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-match-roles.yaml":
+          admission webhook "validate-policy.kyverno.svc" denied the request:
+          only select variables are allowed in background mode.
+          Set spec.background=false to disable background mode for this policy rule:
+          invalid variable used at path: spec/rules[0]/match/any[0]/roles
   - description: Policy with background enabled and referencing the var request.roles should be rejected.
     kubectl:
       args:
