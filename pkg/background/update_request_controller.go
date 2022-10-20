@@ -261,16 +261,41 @@ func (c *controller) checkIfCleanupRequired(ur *kyvernov1beta1.UpdateRequest) er
 		if !apierrors.IsNotFound(err) {
 			return err
 		}
-		statusControl := common.NewStatusControl(c.kyvernoClient, c.urLister)
-		ctrl := generate.NewGenerateController(c.client, c.kyvernoClient, statusControl, c.cpolLister, c.polLister, c.urLister, c.nsLister, c.configuration, c.eventGen, logger)
-		err := ctrl.ProcessUR(ur)
-		if err != nil {
-			return err
+
+		logger.V(4).Info("policy no longer exists, deleting the update request and respective resource based on synchronize", "ur", ur.Name, "policy", ur.Spec.Policy)
+		for _, e := range ur.Status.GeneratedResources {
+			if err := c.cleanupDataResource(e); err != nil {
+				logger.Error(err, "failed to clean up data resource on policy deletion")
+			}
 		}
-		logger.V(4).Info("failed to get policy, deleting the update request", "key", ur.Spec.Policy, "policy", pName)
 		return c.kyvernoClient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Delete(context.TODO(), ur.Name, metav1.DeleteOptions{})
 	}
-	return err
+	return nil
+}
+
+// cleanupDataResource deletes resource if sync is enabled for data policy
+func (c *controller) cleanupDataResource(targetSpec kyvernov1.ResourceSpec) error {
+	target, err := c.client.GetResource(targetSpec.APIVersion, targetSpec.Kind, targetSpec.Namespace, targetSpec.Name)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to find generated resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
+		}
+	}
+
+	if target == nil {
+		return nil
+	}
+
+	labels := target.GetLabels()
+	syncEnabled := labels["policy.kyverno.io/synchronize"] == "enable"
+	clone := labels["generate.kyverno.io/clone-policy-name"] != ""
+
+	if syncEnabled && !clone {
+		if err := c.client.DeleteResource(target.GetAPIVersion(), target.GetKind(), target.GetNamespace(), target.GetName(), false); err != nil {
+			return fmt.Errorf("failed to delete data resource %s/%s: %v", targetSpec.Namespace, targetSpec.Name, err)
+		}
+	}
+	return nil
 }
 
 func (c *controller) enqueueUpdateRequest(obj interface{}) {
