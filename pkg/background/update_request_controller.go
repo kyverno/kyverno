@@ -339,31 +339,28 @@ func (c *controller) deletePolicy(obj interface{}) {
 		logger.Error(err, "failed to compute policy key")
 	} else {
 		logger.V(4).Info("updating policy", "key", key)
-		urs, err := c.urLister.GetUpdateRequestsForClusterPolicy(key)
-		if err != nil {
-			logger.Error(err, "failed to list update requests for policy", "key", key)
-			return
-		}
 
+		// check if deleted policy is clone generate policy
 		generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, p.GetName(), logger)
 
-		// get the generated resource name from update request for log
+		// get the generated resource name from update request
 		selector := labels.SelectorFromSet(labels.Set(map[string]string{
 			kyvernov1beta1.URGeneratePolicyLabel: p.Name,
 		}))
 
+		urList, err := c.urLister.List(selector)
+		if err != nil {
+			logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
+			return
+		}
+
 		if !generatePolicyWithClone {
 			// re-evaluate the UR as the policy was updated
-			for _, ur := range urs {
+			for _, ur := range urList {
 				logger.V(4).Info("enqueue the ur for cleanup", "ur name", ur.Name)
 				c.enqueueUpdateRequest(ur)
 			}
 		} else {
-			urList, err := c.urLister.List(selector)
-			if err != nil {
-				logger.Error(err, "failed to get update request for the resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
-				return
-			}
 			for _, ur := range urList {
 				for _, generatedResource := range ur.Status.GeneratedResources {
 					logger.V(4).Info("retaining resource for cloned policy", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
