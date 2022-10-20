@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io"
+	stdlog "log"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -128,4 +131,18 @@ func Background() context.Context {
 // TODO calls IntoContext with the global logger and a TODO context.
 func TODO() context.Context {
 	return IntoContext(context.TODO(), GlobalLogger())
+}
+
+type writerAdapter struct {
+	io.Writer
+	logger logr.Logger
+}
+
+func (a *writerAdapter) Write(p []byte) (int, error) {
+	a.logger.Info(strings.TrimSuffix(string(p), "\n"))
+	return len(p), nil
+}
+
+func StdLogger(logger logr.Logger, prefix string) *stdlog.Logger {
+	return stdlog.New(&writerAdapter{logger: logger}, prefix, stdlog.LstdFlags)
 }
