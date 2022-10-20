@@ -30,10 +30,6 @@ import (
 type DebugModeOptions struct {
 	// DumpPayload is used to activate/deactivate debug mode.
 	DumpPayload bool
-	// DumpOperations holds all operations that should be logged in debug mode.
-	DumpOperations []string
-	// DumpKinds holds all kinds that should be logged in debug mode.
-	DumpKinds []string
 }
 
 // AdmissionRequestPayload holds a copy of the AdmissionRequest payload
@@ -83,30 +79,27 @@ func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionReq
 		OldObject:          oldResource,
 		DryRun:             rq.DryRun,
 		Options:            *options,
-	}), nil
+	})
 }
 
-func dumpAdmissionPayload(options *DebugModeOptions, request *admissionv1.AdmissionRequest) bool {
-	return options.DumpPayload && utils.SliceContains(options.DumpOperations, string(request.Operation)) &&
-		utils.SliceContains(options.DumpKinds, request.Kind.Kind)
-}
-
-func redactPayload(payload *AdmissionRequestPayload) *AdmissionRequestPayload {
+func redactPayload(payload *AdmissionRequestPayload) (*AdmissionRequestPayload, error) {
 	if strings.EqualFold(payload.Kind.Kind, "Secret") {
 		if payload.Object.Object != nil {
-			unstructured.SetNestedField(payload.Object.Object, "**REDACTED**", "data")
-			metadataField := payload.Object.Object["metadata"]
-			metadataObj := metadataField.(map[string]interface{})
-			unstructured.SetNestedField(metadataObj, "**REDACTED**", "annotations")
+			obj, err := utils.RedactSecret(&payload.Object)
+			if err != nil {
+				return nil, err
+			}
+			payload.Object = obj
 		}
 		if payload.OldObject.Object != nil {
-			unstructured.SetNestedField(payload.OldObject.Object, "**REDACTED**", "data", "metadata.annotations")
-			metadataField := payload.Object.Object["metadata"]
-			metadataObj := metadataField.(map[string]interface{})
-			unstructured.SetNestedField(metadataObj, "**REDACTED**", "annotations")
+			oldObj, err := utils.RedactSecret(&payload.OldObject)
+			if err != nil {
+				return nil, err
+			}
+			payload.OldObject = oldObj
 		}
 	}
-	return payload
+	return payload, nil
 }
 
 type Server interface {
@@ -225,7 +218,7 @@ func (s *server) cleanup(ctx context.Context) {
 	close(s.cleanUp)
 }
 
-func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+func protect(inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) handlers.AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if toggle.ProtectManagedResources.Enabled() {
 			newResource, oldResource, err := utils.ExtractResources(nil, request)
@@ -243,23 +236,23 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 				}
 			}
 		}
-		return inner(logger, request, startTime)
+		return dumpPayload(logger, request, startTime, inner, debugModeOpts)
 	}
 }
 
-func logAdmission(inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) handlers.AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		resp := inner(logger, request, startTime)
-		if dumpAdmissionPayload(debugModeOpts, request) {
-			reqPayload, err := newAdmissionRequestPayload(request)
-			if err != nil {
-				logger.Error(err, "Failed to extract resources")
-				return admissionutils.ResponseFailure(err.Error())
-			}
-			go logger.Info("Logging admission review payload and admission response", "AdmissionRequest", reqPayload, "AdmissionReponse", resp)
+func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest,
+	startTime time.Time, inner handlers.AdmissionHandler,
+	debugModeOpts *DebugModeOptions) *admissionv1.AdmissionResponse {
+	resp := inner(logger, request, startTime)
+	if debugModeOpts.DumpPayload {
+		reqPayload, err := newAdmissionRequestPayload(request)
+		if err != nil {
+			logger.Error(err, "Failed to extract resources")
+			return admissionutils.ResponseFailure(err.Error())
 		}
-		return resp
+		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", resp)
 	}
+	return resp
 }
 
 func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
@@ -267,7 +260,7 @@ func filter(configuration config.Configuration, inner handlers.AdmissionHandler)
 }
 
 func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(logAdmission(inner, debugModeOpts))))
+	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner, debugModeOpts)))
 }
 
 func registerWebhookHandlers(
