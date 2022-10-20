@@ -2,11 +2,19 @@ package policy
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
 )
+
+var forbidden = []*regexp.Regexp{
+	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
+	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
+	regexp.MustCompile(`[^\.](request.userInfo)\b`),
+	regexp.MustCompile(`[^\.](request.roles)\b`),
+	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
+}
 
 // ContainsUserVariables returns error if variable that does not start from request.object
 func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
@@ -22,8 +30,10 @@ func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) er
 		}
 	}
 	for _, s := range vars {
-		if strings.Contains(s[0], "userInfo") {
-			return fmt.Errorf("variable %s is not allowed", s[0])
+		for _, banned := range forbidden {
+			if banned.Match([]byte(s[0])) {
+				return fmt.Errorf("variable %s is not allowed", s[0])
+			}
 		}
 	}
 	return nil

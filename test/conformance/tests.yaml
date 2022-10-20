@@ -10,7 +10,7 @@ should-fail:
         stderr: >-
           Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-1.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
-          Set spec.background=false to disable background mode for this policy rule: variable "{{request.userInfo.roles}} is not allowed 
+          Set spec.background=false to disable background mode for this policy rule: variable "{{request.roles}} is not allowed 
   - description: Policy with backgound enabled and referencing user infos should be rejected
     kubectl:
       args:
@@ -47,6 +47,5 @@ should-fail:
         exitcode: 1
         stderr: >-
           Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-4.yaml":
-          admission webhook "validate-policy.kyverno.svc" denied the request: policy contains invalid variables:
-          variable substitution failed for rule ns-vars:
-          variable serviceAccountName must match regex "request\.|element|elementIndex|@|images\.|target\.|([a-z_0-9]+\()[^{}]" or patterns []
+          admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
+          Set spec.background=false to disable background mode for this policy rule: variable "{{serviceAccountName}} is not allowed 
