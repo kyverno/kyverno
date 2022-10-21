@@ -21,7 +21,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
-	enginecontext "github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/context/resolvers"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
@@ -359,7 +358,11 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 		}
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
-			genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
+			if len(rule.Generation.ForEachGeneration) > 0 {
+				genResource, err = applyRules(log, c.client, rule, resource, jsonContext, policy, ur)
+			} else {
+				genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
+			}
 			if err != nil {
 				log.Error(err, "failed to apply generate rule", "policy", policy.GetName(),
 					"rule", rule.Name, "resource", resource.GetName(), "suggestion", "users need to grant Kyverno's service account additional privileges")
@@ -413,7 +416,14 @@ func getResourceInfoForDataAndClone(rule kyvernov1.Rule) (kind, name, namespace,
 	return
 }
 
-func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx enginecontext.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+	for _, fe := range rule.Generation.ForEachGeneration {
+		// Have to implement
+	}
+
+}
+
+func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	rdatas := []GenerateResponse{}
 	var cresp, dresp map[string]interface{}
 	var err error
