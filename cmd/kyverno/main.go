@@ -482,6 +482,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
+		admissionReports,
 		runtime,
 	)
 	return append(
