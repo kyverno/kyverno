@@ -170,7 +170,9 @@ func Command() *cobra.Command {
 func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, resources []*unstructured.Unstructured, skipInvalidPolicies SkippedInvalidPolicies, pvInfos []policyreport.Info, err error) {
 	store.SetMock(true)
 	store.SetRegistryAccess(c.RegistryAccess)
-
+	if c.Cluster {
+		store.AllowApiCall(true)
+	}
 	fs := memfs.New()
 
 	if c.ValuesFile != "" && c.VariablesString != "" {
@@ -185,7 +187,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 		return rc, resources, skipInvalidPolicies, pvInfos, err
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError("failed to initialize openAPIController", err)
 	}
@@ -322,7 +324,7 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 	skipInvalidPolicies.invalid = make([]string, 0)
 
 	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "policy validation error")
 			if strings.HasPrefix(err.Error(), "variable 'element.name'") {
@@ -353,8 +355,21 @@ func (c *ApplyCommandConfig) applyCommandHelper() (rc *common.ResultCounts, reso
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-
-			_, info, err := common.ApplyPolicyOnResource(policy, resource, c.MutateLogPath, mutateLogPathIsDir, thisPolicyResourceValues, userInfo, c.PolicyReport, namespaceSelectorMap, c.Stdin, rc, true, nil)
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				Policy:               policy,
+				Resource:             resource,
+				MutateLogPath:        c.MutateLogPath,
+				MutateLogPathIsDir:   mutateLogPathIsDir,
+				Variables:            thisPolicyResourceValues,
+				UserInfo:             userInfo,
+				PolicyReport:         c.PolicyReport,
+				NamespaceSelectorMap: namespaceSelectorMap,
+				Stdin:                c.Stdin,
+				Rc:                   rc,
+				PrintPatchResource:   true,
+				Client:               dClient,
+			}
+			_, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return rc, resources, skipInvalidPolicies, pvInfos, sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}

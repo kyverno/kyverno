@@ -14,13 +14,18 @@ import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/toggle"
 	"github.com/kyverno/kyverno/pkg/utils"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
+	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
@@ -126,9 +131,12 @@ type ResourceHandlers interface {
 }
 
 type server struct {
-	server          *http.Server
-	webhookRegister *webhookconfig.Register
-	cleanUp         chan struct{}
+	server      *http.Server
+	runtime     runtimeutils.Runtime
+	mwcClient   controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vwcClient   controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease]
+	cleanUp     chan struct{}
 }
 
 type TlsProvider func() ([]byte, []byte, error)
@@ -137,11 +145,13 @@ type TlsProvider func() ([]byte, []byte, error)
 func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
-	tlsProvider TlsProvider,
 	configuration config.Configuration,
-	register *webhookconfig.Register,
-	monitor *webhookconfig.Monitor,
+	tlsProvider TlsProvider,
+	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
+	vwcClient controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
+	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
 	debugModeOpts *DebugModeOptions,
+	runtime runtimeutils.Runtime,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
@@ -152,8 +162,8 @@ func NewServer(
 	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate), debugModeOpts))
 	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate), debugModeOpts))
 	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor), debugModeOpts))
-	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(register.Check))
-	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(nil))
+	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
+	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
 		server: &http.Server{
 			Addr: ":9443",
@@ -175,9 +185,14 @@ func NewServer(
 			ReadTimeout:       30 * time.Second,
 			WriteTimeout:      30 * time.Second,
 			ReadHeaderTimeout: 30 * time.Second,
+			IdleTimeout:       5 * time.Minute,
+			ErrorLog:          logging.StdLogger(logger.WithName("server"), ""),
 		},
-		webhookRegister: register,
-		cleanUp:         make(chan struct{}),
+		mwcClient:   mwcClient,
+		vwcClient:   vwcClient,
+		leaseClient: leaseClient,
+		runtime:     runtime,
+		cleanUp:     make(chan struct{}),
 	}
 }
 
@@ -208,13 +223,29 @@ func (s *server) Cleanup() <-chan struct{} {
 }
 
 func (s *server) cleanup(ctx context.Context) {
-	cleanupKyvernoResource := s.webhookRegister.ShouldCleanupKyvernoResource()
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go s.webhookRegister.Remove(cleanupKyvernoResource, &wg)
-	go s.webhookRegister.ResetPolicyStatus(cleanupKyvernoResource, &wg)
-	wg.Wait()
+	if s.runtime.IsGoingDown() {
+		deleteLease := func(name string) {
+			if err := s.leaseClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up lease", "name", name)
+			}
+		}
+		deleteVwc := func(name string) {
+			if err := s.vwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up validating webhook configuration", "name", name)
+			}
+		}
+		deleteMwc := func(name string) {
+			if err := s.mwcClient.Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				logger.Error(err, "failed to clean up mutating webhook configuration", "name", name)
+			}
+		}
+		deleteLease("kyvernopre-lock")
+		deleteVwc(config.ValidatingWebhookConfigurationName)
+		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
+		deleteMwc(config.MutatingWebhookConfigurationName)
+		deleteMwc(config.PolicyMutatingWebhookConfigurationName)
+		deleteMwc(config.VerifyMutatingWebhookConfigurationName)
+	}
 	close(s.cleanUp)
 }
 
@@ -267,24 +298,23 @@ func registerWebhookHandlers(
 	logger logr.Logger,
 	mux *httprouter.Router,
 	basePath string,
-	monitor *webhookconfig.Monitor,
 	configuration config.Configuration,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
 	debugModeOpts *DebugModeOptions,
 ) {
-	mux.HandlerFunc("POST", basePath, admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath, admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "all", startTime)
 		}), debugModeOpts),
 	)
-	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/fail", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "fail", startTime)
 		}), debugModeOpts),
 	)
-	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, monitor, filter(
+	mux.HandlerFunc("POST", basePath+"/ignore", admission(logger, filter(
 		configuration,
 		func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 			return handlerFunc(logger, request, "ignore", startTime)

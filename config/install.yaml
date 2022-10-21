@@ -14,7 +14,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -35,11 +35,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .owner.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .owner.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -351,7 +355,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -372,6 +376,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -652,7 +660,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -673,11 +681,15 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .scope.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .scope.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -990,7 +1002,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -1011,6 +1023,10 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -1291,7 +1307,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -3556,6 +3572,11 @@ spec:
                                           description: Keys specifies one or more
                                             public keys
                                           properties:
+                                            kms:
+                                              description: 'KMS provides the URI to
+                                                the public key stored in a Key Management
+                                                System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                              type: string
                                             publicKeys:
                                               description: Keys is a set of X.509
                                                 public keys used to verify image signatures.
@@ -3585,6 +3606,27 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            secret:
+                                              description: Reference to a Secret resource
+                                                that contains a public key
+                                              properties:
+                                                name:
+                                                  description: name of the secret
+                                                  type: string
+                                                namespace:
+                                                  description: namespace name in which
+                                                    secret is created
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -3992,6 +4034,11 @@ spec:
                                         description: Keys specifies one or more public
                                           keys
                                         properties:
+                                          kms:
+                                            description: 'KMS provides the URI to
+                                              the public key stored in a Key Management
+                                              System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                            type: string
                                           publicKeys:
                                             description: Keys is a set of X.509 public
                                               keys used to verify image signatures.
@@ -4020,6 +4067,27 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          secret:
+                                            description: Reference to a Secret resource
+                                              that contains a public key
+                                            properties:
+                                              name:
+                                                description: name of the secret
+                                                type: string
+                                              namespace:
+                                                description: namespace name in which
+                                                  secret is created
+                                                type: string
+                                            required:
+                                            - name
+                                            - namespace
+                                            type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -6411,6 +6479,11 @@ spec:
                                               description: Keys specifies one or more
                                                 public keys
                                               properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
                                                 publicKeys:
                                                   description: Keys is a set of X.509
                                                     public keys used to verify image
@@ -6442,6 +6515,28 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: name of the secret
+                                                      type: string
+                                                    namespace:
+                                                      description: namespace name
+                                                        in which secret is created
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -6859,6 +6954,11 @@ spec:
                                             description: Keys specifies one or more
                                               public keys
                                             properties:
+                                              kms:
+                                                description: 'KMS provides the URI
+                                                  to the public key stored in a Key
+                                                  Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                type: string
                                               publicKeys:
                                                 description: Keys is a set of X.509
                                                   public keys used to verify image
@@ -6889,6 +6989,28 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              secret:
+                                                description: Reference to a Secret
+                                                  resource that contains a public
+                                                  key
+                                                properties:
+                                                  name:
+                                                    description: name of the secret
+                                                    type: string
+                                                  namespace:
+                                                    description: namespace name in
+                                                      which secret is created
+                                                    type: string
+                                                required:
+                                                - name
+                                                - namespace
+                                                type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -9069,6 +9191,11 @@ spec:
                                           description: Keys specifies one or more
                                             public keys
                                           properties:
+                                            kms:
+                                              description: 'KMS provides the URI to
+                                                the public key stored in a Key Management
+                                                System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                              type: string
                                             publicKeys:
                                               description: Keys is a set of X.509
                                                 public keys used to verify image signatures.
@@ -9098,6 +9225,27 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            secret:
+                                              description: Reference to a Secret resource
+                                                that contains a public key
+                                              properties:
+                                                name:
+                                                  description: name of the secret
+                                                  type: string
+                                                namespace:
+                                                  description: namespace name in which
+                                                    secret is created
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -9490,6 +9638,11 @@ spec:
                                         description: Keys specifies one or more public
                                           keys
                                         properties:
+                                          kms:
+                                            description: 'KMS provides the URI to
+                                              the public key stored in a Key Management
+                                              System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                            type: string
                                           publicKeys:
                                             description: Keys is a set of X.509 public
                                               keys used to verify image signatures.
@@ -9518,6 +9671,27 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          secret:
+                                            description: Reference to a Secret resource
+                                              that contains a public key
+                                            properties:
+                                              name:
+                                                description: name of the secret
+                                                type: string
+                                              namespace:
+                                                description: namespace name in which
+                                                  secret is created
+                                                type: string
+                                            required:
+                                            - name
+                                            - namespace
+                                            type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -11884,6 +12058,11 @@ spec:
                                               description: Keys specifies one or more
                                                 public keys
                                               properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
                                                 publicKeys:
                                                   description: Keys is a set of X.509
                                                     public keys used to verify image
@@ -11915,6 +12094,28 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: name of the secret
+                                                      type: string
+                                                    namespace:
+                                                      description: namespace name
+                                                        in which secret is created
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -12332,6 +12533,11 @@ spec:
                                             description: Keys specifies one or more
                                               public keys
                                             properties:
+                                              kms:
+                                                description: 'KMS provides the URI
+                                                  to the public key stored in a Key
+                                                  Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                type: string
                                               publicKeys:
                                                 description: Keys is a set of X.509
                                                   public keys used to verify image
@@ -12362,6 +12568,28 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              secret:
+                                                description: Reference to a Secret
+                                                  resource that contains a public
+                                                  key
+                                                properties:
+                                                  name:
+                                                    description: name of the secret
+                                                    type: string
+                                                  namespace:
+                                                    description: namespace name in
+                                                      which secret is created
+                                                    type: string
+                                                required:
+                                                - name
+                                                - namespace
+                                                type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -12530,7 +12758,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -12899,7 +13127,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -13089,7 +13317,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -15355,6 +15583,11 @@ spec:
                                           description: Keys specifies one or more
                                             public keys
                                           properties:
+                                            kms:
+                                              description: 'KMS provides the URI to
+                                                the public key stored in a Key Management
+                                                System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                              type: string
                                             publicKeys:
                                               description: Keys is a set of X.509
                                                 public keys used to verify image signatures.
@@ -15384,6 +15617,27 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            secret:
+                                              description: Reference to a Secret resource
+                                                that contains a public key
+                                              properties:
+                                                name:
+                                                  description: name of the secret
+                                                  type: string
+                                                namespace:
+                                                  description: namespace name in which
+                                                    secret is created
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -15791,6 +16045,11 @@ spec:
                                         description: Keys specifies one or more public
                                           keys
                                         properties:
+                                          kms:
+                                            description: 'KMS provides the URI to
+                                              the public key stored in a Key Management
+                                              System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                            type: string
                                           publicKeys:
                                             description: Keys is a set of X.509 public
                                               keys used to verify image signatures.
@@ -15819,6 +16078,27 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          secret:
+                                            description: Reference to a Secret resource
+                                              that contains a public key
+                                            properties:
+                                              name:
+                                                description: name of the secret
+                                                type: string
+                                              namespace:
+                                                description: namespace name in which
+                                                  secret is created
+                                                type: string
+                                            required:
+                                            - name
+                                            - namespace
+                                            type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -18211,6 +18491,11 @@ spec:
                                               description: Keys specifies one or more
                                                 public keys
                                               properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
                                                 publicKeys:
                                                   description: Keys is a set of X.509
                                                     public keys used to verify image
@@ -18242,6 +18527,28 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: name of the secret
+                                                      type: string
+                                                    namespace:
+                                                      description: namespace name
+                                                        in which secret is created
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -18659,6 +18966,11 @@ spec:
                                             description: Keys specifies one or more
                                               public keys
                                             properties:
+                                              kms:
+                                                description: 'KMS provides the URI
+                                                  to the public key stored in a Key
+                                                  Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                type: string
                                               publicKeys:
                                                 description: Keys is a set of X.509
                                                   public keys used to verify image
@@ -18689,6 +19001,28 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              secret:
+                                                description: Reference to a Secret
+                                                  resource that contains a public
+                                                  key
+                                                properties:
+                                                  name:
+                                                    description: name of the secret
+                                                    type: string
+                                                  namespace:
+                                                    description: namespace name in
+                                                      which secret is created
+                                                    type: string
+                                                required:
+                                                - name
+                                                - namespace
+                                                type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -20870,6 +21204,11 @@ spec:
                                           description: Keys specifies one or more
                                             public keys
                                           properties:
+                                            kms:
+                                              description: 'KMS provides the URI to
+                                                the public key stored in a Key Management
+                                                System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                              type: string
                                             publicKeys:
                                               description: Keys is a set of X.509
                                                 public keys used to verify image signatures.
@@ -20899,6 +21238,27 @@ spec:
                                               required:
                                               - url
                                               type: object
+                                            secret:
+                                              description: Reference to a Secret resource
+                                                that contains a public key
+                                              properties:
+                                                name:
+                                                  description: name of the secret
+                                                  type: string
+                                                namespace:
+                                                  description: namespace name in which
+                                                    secret is created
+                                                  type: string
+                                              required:
+                                              - name
+                                              - namespace
+                                              type: object
+                                            signatureAlgorithm:
+                                              default: sha256
+                                              description: Specify signature algorithm
+                                                for public keys. Supported values
+                                                are sha256 and sha512
+                                              type: string
                                           type: object
                                         repository:
                                           description: Repository is an optional alternate
@@ -21291,6 +21651,11 @@ spec:
                                         description: Keys specifies one or more public
                                           keys
                                         properties:
+                                          kms:
+                                            description: 'KMS provides the URI to
+                                              the public key stored in a Key Management
+                                              System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                            type: string
                                           publicKeys:
                                             description: Keys is a set of X.509 public
                                               keys used to verify image signatures.
@@ -21319,6 +21684,27 @@ spec:
                                             required:
                                             - url
                                             type: object
+                                          secret:
+                                            description: Reference to a Secret resource
+                                              that contains a public key
+                                            properties:
+                                              name:
+                                                description: name of the secret
+                                                type: string
+                                              namespace:
+                                                description: namespace name in which
+                                                  secret is created
+                                                type: string
+                                            required:
+                                            - name
+                                            - namespace
+                                            type: object
+                                          signatureAlgorithm:
+                                            default: sha256
+                                            description: Specify signature algorithm
+                                              for public keys. Supported values are
+                                              sha256 and sha512
+                                            type: string
                                         type: object
                                       repository:
                                         description: Repository is an optional alternate
@@ -23685,6 +24071,11 @@ spec:
                                               description: Keys specifies one or more
                                                 public keys
                                               properties:
+                                                kms:
+                                                  description: 'KMS provides the URI
+                                                    to the public key stored in a
+                                                    Key Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                  type: string
                                                 publicKeys:
                                                   description: Keys is a set of X.509
                                                     public keys used to verify image
@@ -23716,6 +24107,28 @@ spec:
                                                   required:
                                                   - url
                                                   type: object
+                                                secret:
+                                                  description: Reference to a Secret
+                                                    resource that contains a public
+                                                    key
+                                                  properties:
+                                                    name:
+                                                      description: name of the secret
+                                                      type: string
+                                                    namespace:
+                                                      description: namespace name
+                                                        in which secret is created
+                                                      type: string
+                                                  required:
+                                                  - name
+                                                  - namespace
+                                                  type: object
+                                                signatureAlgorithm:
+                                                  default: sha256
+                                                  description: Specify signature algorithm
+                                                    for public keys. Supported values
+                                                    are sha256 and sha512
+                                                  type: string
                                               type: object
                                             repository:
                                               description: Repository is an optional
@@ -24133,6 +24546,11 @@ spec:
                                             description: Keys specifies one or more
                                               public keys
                                             properties:
+                                              kms:
+                                                description: 'KMS provides the URI
+                                                  to the public key stored in a Key
+                                                  Management System. See: https://github.com/sigstore/cosign/blob/main/KMS.md'
+                                                type: string
                                               publicKeys:
                                                 description: Keys is a set of X.509
                                                   public keys used to verify image
@@ -24163,6 +24581,28 @@ spec:
                                                 required:
                                                 - url
                                                 type: object
+                                              secret:
+                                                description: Reference to a Secret
+                                                  resource that contains a public
+                                                  key
+                                                properties:
+                                                  name:
+                                                    description: name of the secret
+                                                    type: string
+                                                  namespace:
+                                                    description: namespace name in
+                                                      which secret is created
+                                                    type: string
+                                                required:
+                                                - name
+                                                - namespace
+                                                type: object
+                                              signatureAlgorithm:
+                                                default: sha256
+                                                description: Specify signature algorithm
+                                                  for public keys. Supported values
+                                                  are sha256 and sha512
+                                                type: string
                                             type: object
                                           repository:
                                             description: Repository is an optional
@@ -24331,7 +24771,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -24699,7 +25139,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.1-0.20220629131006-1878064c4cdf
+    controller-gen.kubebuilder.io/version: v0.10.0
   creationTimestamp: null
   labels:
     app.kubernetes.io/component: kyverno
@@ -25148,7 +25588,6 @@ metadata:
     app.kubernetes.io/part-of: kyverno
     app.kubernetes.io/version: latest
   name: kyverno
-rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -25708,6 +26147,14 @@ spec:
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 12
+          httpGet:
+            path: /health/liveness
+            port: 9443
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 10
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore
