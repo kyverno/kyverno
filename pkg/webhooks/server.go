@@ -60,7 +60,7 @@ func newAdmissionRequestPayload(rq *admissionv1.AdmissionRequest) (*AdmissionReq
 	if err != nil {
 		return nil, err
 	}
-	var options = new(unstructured.Unstructured)
+	options := new(unstructured.Unstructured)
 	if rq.Options.Raw != nil {
 		options, err = engineutils.ConvertToUnstructured(rq.Options.Raw)
 		if err != nil {
