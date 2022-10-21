@@ -1,3 +1,9 @@
+## v1.8.1-rc3
+
+### Note
+
+- A new flag `backgroundScanWorkers` to configure the number of background scan workers (default value is `2`).
+
 ## v1.8.0-rc3
 
 ### Note
