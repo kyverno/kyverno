@@ -9,10 +9,8 @@ validate-fail:
         exitcode: 1
         stderr: >-
           Error from server: error when creating "test/conformance/manifests/validate/fail/background-match-clusterroles.yaml":
-          admission webhook "validate-policy.kyverno.svc" denied the request:
-          only select variables are allowed in background mode.
-          Set spec.background=false to disable background mode for this policy rule:
-          invalid variable used at path: spec/rules[0]/match/any[0]/clusterRoles
+          admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
+          Set spec.background=false to disable background mode for this policy rule: variable {{request.roles}} is not allowed 
   - description: Policy with background enabled and referencing roles in match/exclude statements should be rejected
     kubectl:
       args:
@@ -50,7 +48,7 @@ validate-fail:
         stderr: >-
           Error from server: error when creating "test/conformance/manifests/validate/fail/background-vars-userinfo.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
-          Set spec.background=false to disable background mode for this policy rule: variable "{{request.userInfo}} is not allowed 
+          Set spec.background=false to disable background mode for this policy rule: variable {{request.userInfo}} is not allowed 
   - description: Policy with background enabled and referencing the var request.serviceaccountname should be rejected.
     kubectl:
       args:
@@ -62,7 +60,7 @@ validate-fail:
         stderr: >-
           Error from server: error when creating "test/conformance/manifests/validate/fail/background-vars-serviceaccountname.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
-          Set spec.background=false to disable background mode for this policy rule: variable "{{serviceAccountName}} is not allowed 
+          Set spec.background=false to disable background mode for this policy rule: variable {{serviceAccountName}} is not allowed 
   - description: Best practice policies should create fine
     kubectl:
       args:

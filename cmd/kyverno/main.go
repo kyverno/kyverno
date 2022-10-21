@@ -95,6 +95,7 @@ var (
 	reportsChunkSize           int
 	backgroundScanWorkers      int
 	logFormat                  string
+	dumpPayload                bool
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -102,6 +103,7 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -482,6 +484,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
+		admissionReports,
 		runtime,
 	)
 	return append(
@@ -746,6 +749,9 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
