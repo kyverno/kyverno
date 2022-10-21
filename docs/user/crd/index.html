@@ -3233,47 +3233,6 @@ Generation
 </tbody>
 </table>
 <hr />
-<h3 id="kyverno.io/v1.SecretReference">SecretReference
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#kyverno.io/v1.StaticKeyAttestor">StaticKeyAttestor</a>)
-</p>
-<p>
-</p>
-<table class="table table-striped">
-<thead class="thead-dark">
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>name of the secret</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>namespace</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>namespace name in which secret is created</p>
-</td>
-</tr>
-</tbody>
-</table>
-<hr />
 <h3 id="kyverno.io/v1.Spec">Spec
 </h3>
 <p>
@@ -3470,42 +3429,6 @@ specified or can be a variable reference to a key specified in a ConfigMap (see
 <a href="https://kyverno.io/docs/writing-policies/variables/)">https://kyverno.io/docs/writing-policies/variables/)</a>. When multiple keys are specified each
 key is processed as a separate staticKey entry (.attestors[*].entries.keys) within the set of
 attestors and the count is applied across the keys.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>signatureAlgorithm</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Specify signature algorithm for public keys. Supported values are sha256 and sha512</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>kms</code><br/>
-<em>
-string
-</em>
-</td>
-<td>
-<p>KMS provides the URI to the public key stored in a Key Management System. See:
-<a href="https://github.com/sigstore/cosign/blob/main/KMS.md">https://github.com/sigstore/cosign/blob/main/KMS.md</a></p>
-</td>
-</tr>
-<tr>
-<td>
-<code>secret</code><br/>
-<em>
-<a href="#kyverno.io/v1.SecretReference">
-SecretReference
-</a>
-</em>
-</td>
-<td>
-<p>Reference to a Secret resource that contains a public key</p>
 </td>
 </tr>
 <tr>
