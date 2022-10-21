@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -448,8 +447,4 @@ func containsWithStringReturn(list []string, element string, fn func(string, str
 // containsNamespaceWithStringReturn check if namespace satisfies any list of pattern(regex)
 func containsNamespaceWithStringReturn(patterns []string, ns string) (string, string, bool) {
 	return containsWithStringReturn(patterns, ns, comparePatterns)
-}
-
-func SplitString(s string, sep string) []string {
-	return strings.Split(s, sep)
 }
