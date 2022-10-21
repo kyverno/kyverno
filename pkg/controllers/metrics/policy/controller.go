@@ -42,6 +42,7 @@ func (c *controller) startRountine(routing func()) {
 		defer wg.Done()
 	}(&c.waitGroup)
 }
+
 func (c *controller) addPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
 	// register kyverno_policy_rule_info_total metric concurrently
