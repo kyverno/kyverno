@@ -2,6 +2,7 @@ package event
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -97,10 +98,8 @@ func initRecorder(client dclient.Interface, eventSource Source, log logr.Logger)
 
 // Add queues an event for generation
 func (gen *Generator) Add(infos ...Info) {
-	logger := gen.log
-
 	if gen.queue.Len() > gen.maxQueuedEvents {
-		logger.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
+		gen.log.V(5).Info("exceeds the event queue limit, dropping the event", "maxQueuedEvents", gen.maxQueuedEvents, "current size", gen.queue.Len())
 		return
 	}
 
@@ -108,7 +107,7 @@ func (gen *Generator) Add(infos ...Info) {
 		if info.Name == "" {
 			// dont create event for resources with generateName
 			// as the name is not generated yet
-			logger.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
+			gen.log.V(4).Info("not creating an event as the resource has not been assigned a name yet", "kind", info.Kind, "name", info.Name, "namespace", info.Namespace)
 			continue
 		}
 		gen.queue.Add(info)
@@ -116,13 +115,13 @@ func (gen *Generator) Add(infos ...Info) {
 }
 
 // Run begins generator
-func (gen *Generator) Run(ctx context.Context, workers int) {
-	logger := gen.log
+func (gen *Generator) Run(ctx context.Context, workers int, waitGroup *sync.WaitGroup) {
+	gen.log.Info("start")
+	defer gen.log.Info("shutting down")
+	waitGroup.Add(1)
+	defer waitGroup.Done()
 	defer utilruntime.HandleCrash()
-
-	logger.Info("start")
-	defer logger.Info("shutting down")
-
+	defer gen.queue.ShutDown()
 	for i := 0; i < workers; i++ {
 		go wait.UntilWithContext(ctx, gen.runWorker, time.Second)
 	}
@@ -135,14 +134,13 @@ func (gen *Generator) runWorker(ctx context.Context) {
 }
 
 func (gen *Generator) handleErr(err error, key interface{}) {
-	logger := gen.log
 	if err == nil {
 		gen.queue.Forget(key)
 		return
 	}
 	// This controller retries if something goes wrong. After that, it stops trying.
 	if gen.queue.NumRequeues(key) < workQueueRetryLimit {
-		logger.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
+		gen.log.V(4).Info("retrying event generation", "key", key, "reason", err.Error())
 		// Re-enqueue the key rate limited. Based on the rate limiter on the
 		// queue and the re-enqueue history, the key will be processed later again.
 		gen.queue.AddRateLimited(key)
@@ -151,7 +149,7 @@ func (gen *Generator) handleErr(err error, key interface{}) {
 
 	gen.queue.Forget(key)
 	if !errors.IsNotFound(err) {
-		logger.Error(err, "failed to generate event", "key", key)
+		gen.log.Error(err, "failed to generate event", "key", key)
 	}
 }
 

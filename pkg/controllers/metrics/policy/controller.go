@@ -1,6 +1,9 @@
 package policy
 
 import (
+	"context"
+	"sync"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1informers "github.com/kyverno/kyverno/pkg/client/informers/externalversions/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/metrics"
@@ -11,33 +14,48 @@ import (
 type controller struct {
 	// config
 	metricsConfig *metrics.MetricsConfig
+	waitGroup     sync.WaitGroup
 }
 
 // TODO: this is a very strange controller, it only processes events, this should be changed to a real controller
 // but this is difficult as we currently can't remove existing metrics. To be reviewed when we implement a more
 // solid metrics system.
-func NewController(metricsConfig *metrics.MetricsConfig, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) {
+func NewController(metricsConfig *metrics.MetricsConfig, cpolInformer kyvernov1informers.ClusterPolicyInformer, polInformer kyvernov1informers.PolicyInformer) *controller {
 	c := controller{
 		metricsConfig: metricsConfig,
 	}
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addNsPolicy, c.updateNsPolicy, c.deleteNsPolicy)
+	return &c
 }
 
+func (c *controller) Run(ctx context.Context, waitGroup *sync.WaitGroup) {
+	waitGroup.Add(1)
+	defer waitGroup.Done()
+	defer c.waitGroup.Wait()
+	<-ctx.Done()
+}
+
+func (c *controller) startRountine(routing func()) {
+	c.waitGroup.Add(1)
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+	}(&c.waitGroup)
+}
 func (c *controller) addPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.ClusterPolicy)
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricAddPolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricAddPolicy(logger, p) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricAddPolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(logger, p) })
 }
 
 func (c *controller) updatePolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.ClusterPolicy), cur.(*kyvernov1.ClusterPolicy)
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP) })
 }
 
 func (c *controller) deletePolicy(obj interface{}) {
@@ -47,25 +65,25 @@ func (c *controller) deletePolicy(obj interface{}) {
 		return
 	}
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricDeletePolicy(logger, p) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricDeletePolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(logger, p) })
 }
 
 func (c *controller) addNsPolicy(obj interface{}) {
 	p := obj.(*kyvernov1.Policy)
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricAddPolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricAddPolicy(logger, p) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricAddPolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricAddPolicy(logger, p) })
 }
 
 func (c *controller) updateNsPolicy(old, cur interface{}) {
 	oldP, curP := old.(*kyvernov1.Policy), cur.(*kyvernov1.Policy)
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricUpdatePolicy(logger, oldP, curP) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP)
+	c.startRountine(func() { c.registerPolicyChangesMetricUpdatePolicy(logger, oldP, curP) })
 }
 
 func (c *controller) deleteNsPolicy(obj interface{}) {
@@ -75,7 +93,7 @@ func (c *controller) deleteNsPolicy(obj interface{}) {
 		return
 	}
 	// register kyverno_policy_rule_info_total metric concurrently
-	go c.registerPolicyRuleInfoMetricDeletePolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyRuleInfoMetricDeletePolicy(logger, p) })
 	// register kyverno_policy_changes_total metric concurrently
-	go c.registerPolicyChangesMetricDeletePolicy(logger, p)
+	c.startRountine(func() { c.registerPolicyChangesMetricDeletePolicy(logger, p) })
 }

@@ -605,8 +605,7 @@ func main() {
 		maxQueuedEvents,
 		logging.WithName("EventGenerator"),
 	)
-	// this controller only subscribe to events, nothing is returned...
-	policymetricscontroller.NewController(
+	policyMetricsController := policymetricscontroller.NewController(
 		metricsConfig,
 		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
 		kyvernoInformer.Kyverno().V1().Policies(),
@@ -643,8 +642,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	// start event generator
-	go eventGenerator.Run(signalCtx, 3)
 	// setup leader election
 	le, err := leaderelection.New(
 		logger.WithName("leader-election"),
@@ -715,6 +712,10 @@ func main() {
 	for _, controller := range nonLeaderControllers {
 		controller.run(signalCtx, logger.WithName("controllers"), &wg)
 	}
+	// start event generator
+	go eventGenerator.Run(signalCtx, 3, &wg)
+	// start policy metrics controller
+	go policyMetricsController.Run(signalCtx, &wg)
 	// start leader election
 	go le.Run(signalCtx)
 	// create webhooks server
