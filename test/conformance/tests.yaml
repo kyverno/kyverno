@@ -1,52 +1,64 @@
-should-fail:
-  - description: Policy with backgound enabled and referencing user infos should be rejected
+validate-fail:
+  - description: Policy with background enabled and referencing clusterRoles in match/exclude statements should be rejected
     kubectl:
       args:
         - create
         - -f 
-        - test/conformance/manifests/should-fail/background-userinfo-1.yaml
+        - test/conformance/manifests/validate/fail/background-match-clusterroles.yaml
       expect:
         exitcode: 1
         stderr: >-
-          Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-1.yaml":
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-match-clusterroles.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
           Set spec.background=false to disable background mode for this policy rule: variable {{request.roles}} is not allowed 
-  - description: Policy with backgound enabled and referencing user infos should be rejected
+  - description: Policy with background enabled and referencing roles in match/exclude statements should be rejected
     kubectl:
       args:
         - create
         - -f 
-        - test/conformance/manifests/should-fail/background-userinfo-2.yaml
+        - test/conformance/manifests/validate/fail/background-match-roles.yaml
       expect:
         exitcode: 1
         stderr: >-
-          Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-2.yaml":
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-match-roles.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request:
           only select variables are allowed in background mode.
           Set spec.background=false to disable background mode for this policy rule:
-          invalid variable used at path: spec/rules[0]/match/clusterRoles
-  - description: Policy with backgound enabled and referencing user infos should be rejected
+          invalid variable used at path: spec/rules[0]/match/any[0]/roles
+  - description: Policy with background enabled and referencing the var request.roles should be rejected.
     kubectl:
       args:
         - create
         - -f 
-        - test/conformance/manifests/should-fail/background-userinfo-3.yaml
+        - test/conformance/manifests/validate/fail/background-vars-roles.yaml
       expect:
         exitcode: 1
         stderr: >-
-          Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-3.yaml":
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-vars-roles.yaml":
+          admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
+          Set spec.background=false to disable background mode for this policy rule: variable "{{request.roles}} is not allowed 
+  - description: Policy with background enabled and referencing the var request.userInfo should be rejected.
+    kubectl:
+      args:
+        - create
+        - -f 
+        - test/conformance/manifests/validate/fail/background-vars-userinfo.yaml
+      expect:
+        exitcode: 1
+        stderr: >-
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-vars-userinfo.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
           Set spec.background=false to disable background mode for this policy rule: variable {{request.userInfo}} is not allowed 
-  - description: Policy with backgound enabled and referencing user infos should be rejected
+  - description: Policy with background enabled and referencing the var request.serviceaccountname should be rejected.
     kubectl:
       args:
         - create
         - -f 
-        - test/conformance/manifests/should-fail/background-userinfo-4.yaml
+        - test/conformance/manifests/validate/fail/background-vars-serviceaccountname.yaml
       expect:
         exitcode: 1
         stderr: >-
-          Error from server: error when creating "test/conformance/manifests/should-fail/background-userinfo-4.yaml":
+          Error from server: error when creating "test/conformance/manifests/validate/fail/background-vars-serviceaccountname.yaml":
           admission webhook "validate-policy.kyverno.svc" denied the request: only select variables are allowed in background mode.
           Set spec.background=false to disable background mode for this policy rule: variable {{serviceAccountName}} is not allowed 
   - description: Best practice policies should create fine
