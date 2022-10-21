@@ -110,6 +110,10 @@ jobs:
     needs:
       - create-release
     steps:
+      - name: Set version
+        id: version
+        run: echo ::set-output name=version::${GITHUB_REF#refs/*/}
+
       - name: Checkout
         uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
         with:
@@ -153,17 +157,19 @@ jobs:
           CR_PAT_ARTIFACTS:  ${{ secrets.CR_PAT_ARTIFACTS }}
         run: |
           set -e
-          cd config/.release/ && \
-          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD) \
+          mkdir -p config/.release-manifests
+          cp config/.release/install.yaml config/.release-manifests/install.yaml
+          cd config/.release-manifests/ && \
+          flux push artifact oci://ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }} \
             --path="." \
             --source="$(git config --get remote.origin.url)" \
-            --revision="$(git tag --points-at HEAD)/$(git rev-parse HEAD)"
+            --revision="${{ steps.version.outputs.version }}/$(git rev-parse HEAD)"
 
       - name: Sign manifests in GHCR with Cosign
         env:
           COSIGN_EXPERIMENTAL: 1
         run: |
-          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:$(git rev-parse --short HEAD)
+          cosign sign ghcr.io/${{ github.repository_owner }}/manifests/kyverno:${{ steps.version.outputs.version }}
 
   release-cli-via-krew:
     runs-on: ubuntu-latest
