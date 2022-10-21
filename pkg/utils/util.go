@@ -228,14 +228,22 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 	if err != nil {
 		return *resource, errors.Wrap(err, "unable to convert object to secret")
 	}
+	var stringSecret = struct {
+		Data map[string]string `json:"string_data"`
+		*corev1.Secret
+	}{
+		Data:   make(map[string]string),
+		Secret: secret,
+	}
 	for key := range secret.Data {
 		secret.Data[key] = []byte("**REDACTED**")
+		stringSecret.Data[key] = string(secret.Data[key])
 	}
 	for key := range secret.Annotations {
 		secret.Annotations[key] = "**REDACTED**"
 	}
 	updateSecret := map[string]interface{}{}
-	raw, err := json.Marshal(secret)
+	raw, err := json.Marshal(stringSecret)
 	if err != nil {
 		return *resource, nil
 	}
@@ -244,7 +252,7 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 		return *resource, errors.Wrap(err, "unable to convert object from secret")
 	}
 	if secret.Data != nil {
-		v := updateSecret["data"].(map[string]interface{})
+		v := updateSecret["string_data"].(map[string]interface{})
 		err = unstructured.SetNestedMap(resource.Object, v, "data")
 		if err != nil {
 			return *resource, errors.Wrap(err, "failed to set secret.data")
