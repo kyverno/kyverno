@@ -68,15 +68,17 @@ func (prs PolicyReportSummary) ToMap() map[string]interface{} {
 	return m
 }
 
+// +kubebuilder:validation:Enum=pass;fail;warn;error;skip
+
 // PolicyResult has one of the following values:
 //   - pass: indicates that the policy requirements are met
 //   - fail: indicates that the policy requirements are not met
 //   - warn: indicates that the policy requirements and not met, and the policy is not scored
 //   - error: indicates that the policy could not be evaluated
 //   - skip: indicates that the policy was not selected based on user inputs or applicability
-//
-// +kubebuilder:validation:Enum=pass;fail;warn;error;skip
 type PolicyResult string
+
+// +kubebuilder:validation:Enum=critical;high;low;medium;info
 
 // PolicySeverity has one of the following values:
 // - critical
@@ -84,7 +86,6 @@ type PolicyResult string
 // - low
 // - medium
 // - info
-// +kubebuilder:validation:Enum=critical;high;low;medium;info
 type PolicySeverity string
 
 // PolicyReportResult provides the result for an individual policy
