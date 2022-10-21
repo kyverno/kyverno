@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1alpha2 contains API Schema definitions for the policy v1alpha2 API group
 // +k8s:deepcopy-gen=package
-// +kubebuilder:object:generate=true
 // +groupName=wgpolicyk8s.io
+
 package v1alpha2
