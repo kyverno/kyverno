@@ -83,6 +83,60 @@ entries:
       artifacthub.io/operator: "false"
       artifacthub.io/prerelease: "false"
     apiVersion: v2
+    appVersion: v1.8.1-rc.3
+    created: "2022-10-21T10:30:35.324251132Z"
+    description: Kubernetes Native Policy Management
+    digest: 71a5d3e7ce35fed77dc3d8d13b567d280d2977ab94eaf7d6dbe6bfe3edede751
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.6.1-rc.3.tgz
+    version: 2.6.1-rc.3
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Added possibility to define additional init and sidecar container.
+        - kind: added
+          description: Added ability to remove namespaces from default resourceFilters list.
+        - kind: added
+          description: Prevent installing Kyverno in namespace kube-system.
+        - kind: fixed
+          description: Docs for generatecontrollerExtraResources.
+        - kind: changed
+          description: Enable autogen internals by default.
+        - kind: fixed
+          description: Self signed certificates not using SANs.
+        - kind: added
+          description: Extra args support for init container.
+        - kind: added
+        - kind: added
+          description: Allow overriding of test security context and resource block.
+        - kind: added
+          description: Added possibility to define custom image registries
+        - kind: added
+          description: Enable adding optional annotations to configmaps
+        - kind: added
+          description: Add startup probes support
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
     appVersion: v1.8.1-rc.2
     created: "2022-10-19T14:59:00.051940327Z"
     description: Kubernetes Native Policy Management
@@ -4551,4 +4605,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-10-19T15:00:01.274748289Z"
+generated: "2022-10-21T10:30:35.315786336Z"
