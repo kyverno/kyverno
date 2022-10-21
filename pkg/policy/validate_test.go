@@ -1599,6 +1599,38 @@ func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
 	assert.NilError(t, err)
 }
 
+func Test_ValidateJSON6902(t *testing.T) {
+	var patch string = `- path: "/metadata/labels/img"
+  op: addition
+  value: "nginx"`
+	err := validateJSONPatch(patch, 0)
+	assert.Error(t, err, "Unexpected kind: spec.rules[0]: addition")
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.NilError(t, err)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.Error(t, err, `missing quote around value: spec.rules[0]: nginx"`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: {"node.kubernetes.io/role": test"}`
+	err = validateJSONPatch(patch, 0)
+	assert.Error(t, err, `missing quote around value: spec.rules[0]: map[node.kubernetes.io/role:test"]`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.NilError(t, err)
+}
+
 func Test_ValidateNamespace(t *testing.T) {
 	testcases := []struct {
 		description   string

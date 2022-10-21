@@ -73,6 +73,22 @@ type NamespaceSelector struct {
 	Labels map[string]string `json:"labels"`
 }
 
+type ApplyPolicyConfig struct {
+	Policy                    kyvernov1.PolicyInterface
+	Resource                  *unstructured.Unstructured
+	MutateLogPath             string
+	MutateLogPathIsDir        bool
+	Variables                 map[string]interface{}
+	UserInfo                  kyvernov1beta1.RequestInfo
+	PolicyReport              bool
+	NamespaceSelectorMap      map[string]map[string]string
+	Stdin                     bool
+	Rc                        *ResultCounts
+	PrintPatchResource        bool
+	RuleToCloneSourceResource map[string]string
+	Client                    dclient.Interface
+}
+
 // HasVariables - check for variables in the policy
 func HasVariables(policy kyvernov1.PolicyInterface) [][]string {
 	policyRaw, _ := json.Marshal(policy)
@@ -395,22 +411,18 @@ func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInt
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(policy kyvernov1.PolicyInterface, resource *unstructured.Unstructured,
-	mutateLogPath string, mutateLogPathIsDir bool, variables map[string]interface{}, userInfo kyvernov1beta1.RequestInfo, policyReport bool,
-	namespaceSelectorMap map[string]map[string]string, stdin bool, rc *ResultCounts,
-	printPatchResource bool, ruleToCloneSourceResource map[string]string,
-) ([]*response.EngineResponse, policyreport.Info, error) {
+func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, policyreport.Info, error) {
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
 
-	if variables["request.operation"] == "DELETE" {
+	if c.Variables["request.operation"] == "DELETE" {
 		operationIsDelete = true
 	}
 
 	policyWithNamespaceSelector := false
 OuterLoop:
-	for _, p := range autogen.ComputeRules(policy) {
+	for _, p := range autogen.ComputeRules(c.Policy) {
 		if p.MatchResources.ResourceDescription.NamespaceSelector != nil ||
 			p.ExcludeResources.ResourceDescription.NamespaceSelector != nil {
 			policyWithNamespaceSelector = true
@@ -443,17 +455,17 @@ OuterLoop:
 	}
 
 	if policyWithNamespaceSelector {
-		resourceNamespace := resource.GetNamespace()
-		namespaceLabels = namespaceSelectorMap[resource.GetNamespace()]
+		resourceNamespace := c.Resource.GetNamespace()
+		namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", resource.GetName()), nil)
+			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 		}
 	}
 
-	resPath := fmt.Sprintf("%s/%s/%s", resource.GetNamespace(), resource.GetKind(), resource.GetName())
-	log.Log.V(3).Info("applying policy on resource", "policy", policy.GetName(), "resource", resPath)
+	resPath := fmt.Sprintf("%s/%s/%s", c.Resource.GetNamespace(), c.Resource.GetKind(), c.Resource.GetName())
+	log.Log.V(3).Info("applying policy on resource", "policy", c.Policy.GetName(), "resource", resPath)
 
-	resourceRaw, err := resource.MarshalJSON()
+	resourceRaw, err := c.Resource.MarshalJSON()
 	if err != nil {
 		log.Log.Error(err, "failed to marshal resource")
 	}
@@ -474,14 +486,14 @@ OuterLoop:
 		log.Log.Error(err, "failed to load resource in context")
 	}
 
-	for key, value := range variables {
+	for key, value := range c.Variables {
 		err = ctx.AddVariable(key, value)
 		if err != nil {
 			log.Log.Error(err, "failed to add variable to context")
 		}
 	}
 
-	if err := ctx.AddImageInfos(resource); err != nil {
+	if err := ctx.AddImageInfos(c.Resource); err != nil {
 		if err != nil {
 			log.Log.Error(err, "failed to add image variables to context")
 		}
@@ -492,11 +504,12 @@ OuterLoop:
 	}
 
 	policyContext := &engine.PolicyContext{
-		Policy:          policy,
+		Policy:          c.Policy,
 		NewResource:     *updatedResource,
 		JSONContext:     ctx,
 		NamespaceLabels: namespaceLabels,
-		AdmissionInfo:   userInfo,
+		AdmissionInfo:   c.UserInfo,
+		Client:          c.Client,
 	}
 
 	mutateResponse := engine.Mutate(policyContext)
@@ -504,25 +517,25 @@ OuterLoop:
 		engineResponses = append(engineResponses, mutateResponse)
 	}
 
-	err = processMutateEngineResponse(policy, mutateResponse, resPath, rc, mutateLogPath, stdin, mutateLogPathIsDir, resource.GetName(), printPatchResource)
+	err = processMutateEngineResponse(c, mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
 			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 		}
 	}
 
-	if resource.GetKind() == "Pod" && len(resource.GetOwnerReferences()) > 0 {
-		if policy.HasAutoGenAnnotation() {
-			annotations := policy.GetAnnotations()
+	if c.Resource.GetKind() == "Pod" && len(c.Resource.GetOwnerReferences()) > 0 {
+		if c.Policy.HasAutoGenAnnotation() {
+			annotations := c.Policy.GetAnnotations()
 			if _, ok := annotations[kyvernov1.PodControllersAnnotation]; ok {
 				delete(annotations, kyvernov1.PodControllersAnnotation)
-				policy.SetAnnotations(annotations)
+				c.Policy.SetAnnotations(annotations)
 			}
 		}
 	}
 
 	var policyHasValidate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasImagesValidationChecks() {
 			policyHasValidate = true
 		}
@@ -534,7 +547,7 @@ OuterLoop:
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
 		validateResponse = engine.Validate(policyContext)
-		info = ProcessValidateEngineResponse(policy, validateResponse, resPath, rc, policyReport)
+		info = ProcessValidateEngineResponse(c.Policy, validateResponse, resPath, c.Rc, c.PolicyReport)
 	}
 
 	if validateResponse != nil && !validateResponse.IsEmpty() {
@@ -544,11 +557,11 @@ OuterLoop:
 	verifyImageResponse, _ := engine.VerifyAndPatchImages(policyContext)
 	if verifyImageResponse != nil && !verifyImageResponse.IsEmpty() {
 		engineResponses = append(engineResponses, verifyImageResponse)
-		info = ProcessValidateEngineResponse(policy, verifyImageResponse, resPath, rc, policyReport)
+		info = ProcessValidateEngineResponse(c.Policy, verifyImageResponse, resPath, c.Rc, c.PolicyReport)
 	}
 
 	var policyHasGenerate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasGenerate() {
 			policyHasGenerate = true
 		}
@@ -556,8 +569,8 @@ OuterLoop:
 
 	if policyHasGenerate {
 		policyContext := &engine.PolicyContext{
-			NewResource:      *resource,
-			Policy:           policy,
+			NewResource:      *c.Resource,
+			Policy:           c.Policy,
 			ExcludeGroupRole: []string{},
 			ExcludeResourceFunc: func(s1, s2, s3 string) bool {
 				return false
@@ -567,7 +580,7 @@ OuterLoop:
 		}
 		generateResponse := engine.ApplyBackgroundChecks(policyContext)
 		if generateResponse != nil && !generateResponse.IsEmpty() {
-			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, ruleToCloneSourceResource)
+			newRuleResponse, err := handleGeneratePolicy(generateResponse, *policyContext, c.RuleToCloneSourceResource)
 			if err != nil {
 				log.Log.Error(err, "failed to apply generate policy")
 			} else {
@@ -575,7 +588,7 @@ OuterLoop:
 			}
 			engineResponses = append(engineResponses, generateResponse)
 		}
-		updateResultCounts(policy, generateResponse, resPath, rc)
+		updateResultCounts(c.Policy, generateResponse, resPath, c.Rc)
 	}
 
 	return engineResponses, info, nil
@@ -879,9 +892,9 @@ func SetInStoreContext(mutatedPolicies []kyvernov1.PolicyInterface, variables ma
 	return variables
 }
 
-func processMutateEngineResponse(policy kyvernov1.PolicyInterface, mutateResponse *response.EngineResponse, resPath string, rc *ResultCounts, mutateLogPath string, stdin bool, mutateLogPathIsDir bool, resourceName string, printPatchResource bool) error {
+func processMutateEngineResponse(c ApplyPolicyConfig, mutateResponse *response.EngineResponse, resPath string) error {
 	var policyHasMutate bool
-	for _, rule := range autogen.ComputeRules(policy) {
+	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasMutate() {
 			policyHasMutate = true
 		}
@@ -892,52 +905,52 @@ func processMutateEngineResponse(policy kyvernov1.PolicyInterface, mutateRespons
 
 	printCount := 0
 	printMutatedRes := false
-	for _, policyRule := range autogen.ComputeRules(policy) {
+	for _, policyRule := range autogen.ComputeRules(c.Policy) {
 		ruleFoundInEngineResponse := false
 		for i, mutateResponseRule := range mutateResponse.PolicyResponse.Rules {
 			if policyRule.Name == mutateResponseRule.Name {
 				ruleFoundInEngineResponse = true
 				if mutateResponseRule.Status == response.RuleStatusPass {
-					rc.Pass++
+					c.Rc.Pass++
 					printMutatedRes = true
 				} else if mutateResponseRule.Status == response.RuleStatusSkip {
-					fmt.Printf("\nskipped mutate policy %s -> resource %s", policy.GetName(), resPath)
-					rc.Skip++
+					fmt.Printf("\nskipped mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
+					c.Rc.Skip++
 				} else if mutateResponseRule.Status == response.RuleStatusError {
-					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", policy.GetName(), resPath, mutateResponseRule.Message)
-					rc.Error++
+					fmt.Printf("\nerror while applying mutate policy %s -> resource %s\nerror: %s", c.Policy.GetName(), resPath, mutateResponseRule.Message)
+					c.Rc.Error++
 				} else {
 					if printCount < 1 {
-						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", policy.GetName(), resPath)
+						fmt.Printf("\nfailed to apply mutate policy %s -> resource %s", c.Policy.GetName(), resPath)
 						printCount++
 					}
 					fmt.Printf("%d. %s - %s \n", i+1, mutateResponseRule.Name, mutateResponseRule.Message)
-					rc.Fail++
+					c.Rc.Fail++
 				}
 				continue
 			}
 		}
 		if !ruleFoundInEngineResponse {
-			rc.Skip++
+			c.Rc.Skip++
 		}
 	}
 
-	if printMutatedRes && printPatchResource {
+	if printMutatedRes && c.PrintPatchResource {
 		yamlEncodedResource, err := yamlv2.Marshal(mutateResponse.PatchedResource.Object)
 		if err != nil {
 			return sanitizederror.NewWithError("failed to marshal", err)
 		}
 
-		if mutateLogPath == "" {
+		if c.MutateLogPath == "" {
 			mutatedResource := string(yamlEncodedResource) + string("\n---")
 			if len(strings.TrimSpace(mutatedResource)) > 0 {
-				if !stdin {
-					fmt.Printf("\nmutate policy %s applied to %s:", policy.GetName(), resPath)
+				if !c.Stdin {
+					fmt.Printf("\nmutate policy %s applied to %s:", c.Policy.GetName(), resPath)
 				}
 				fmt.Printf("\n" + mutatedResource + "\n")
 			}
 		} else {
-			err := PrintMutatedOutput(mutateLogPath, mutateLogPathIsDir, string(yamlEncodedResource), resourceName+"-mutated")
+			err := PrintMutatedOutput(c.MutateLogPath, c.MutateLogPathIsDir, string(yamlEncodedResource), c.Resource.GetName()+"-mutated")
 			if err != nil {
 				return sanitizederror.NewWithError("failed to print mutated result", err)
 			}

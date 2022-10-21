@@ -58,14 +58,10 @@ func NewController(
 		admrLister:    admrInformer.Lister(),
 		cadmrLister:   cadmrInformer.Lister(),
 		queue:         queue,
-		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger.V(3), admrInformer.Informer(), queue),
-		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger.V(3), cadmrInformer.Informer(), queue),
+		admrEnqueue:   controllerutils.AddDefaultEventHandlers(logger, admrInformer.Informer(), queue),
+		cadmrEnqueue:  controllerutils.AddDefaultEventHandlers(logger, cadmrInformer.Informer(), queue),
 		metadataCache: metadataCache,
 	}
-	return &c
-}
-
-func (c *controller) Run(ctx context.Context, workers int) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, _ resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -75,11 +71,14 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			logger.Error(err, "failed to enqueue")
 		}
 	})
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	return &c
+}
+
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) enqueue(selector labels.Selector) error {
-	logger.V(3).Info("enqueuing ...", "selector", selector.String())
 	admrs, err := c.admrLister.List(selector)
 	if err != nil {
 		return err
@@ -146,9 +145,9 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// try to find resource from the cache
 	uid := reportutils.GetResourceUid(meta)
-	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
+	resource, gvk, found := c.metadataCache.GetResourceHash(uid)
 	// set owner if not done yet
-	if exists && len(meta.GetOwnerReferences()) == 0 {
+	if found && len(meta.GetOwnerReferences()) == 0 {
 		report, err := c.getReport(ctx, namespace, name)
 		if err != nil {
 			return err
@@ -159,9 +158,18 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	}
 	// cleanup old reports
 	// if they are not the same version as the current resource version
-	// and were created more than five minutes ago
-	if !exists || !reportutils.CompareHash(meta, resource.Hash) {
-		if meta.GetCreationTimestamp().Add(time.Minute * 5).Before(time.Now()) {
+	// and were created more than 2 minutes ago
+	if !found {
+		// if we didn't find the resource, either no policy exist for this kind
+		// or the resource was never created, we delete the report if it has no owner
+		// and was created more than 2 minutes ago
+		if len(meta.GetOwnerReferences()) == 0 && meta.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
+			return c.deleteReport(ctx, namespace, name)
+		}
+	} else {
+		// if hashes don't match and the report was created more than 2
+		// minutes ago we consider it obsolete and delete the report
+		if !reportutils.CompareHash(meta, resource.Hash) && meta.GetCreationTimestamp().Add(time.Minute*2).Before(time.Now()) {
 			return c.deleteReport(ctx, namespace, name)
 		}
 	}

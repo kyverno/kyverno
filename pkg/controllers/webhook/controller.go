@@ -52,6 +52,7 @@ const (
 )
 
 var (
+	none         = admissionregistrationv1.SideEffectClassNone
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 	ignore       = admissionregistrationv1.Ignore
@@ -93,6 +94,7 @@ type controller struct {
 	server             string
 	defaultTimeout     int32
 	autoUpdateWebhooks bool
+	admissionReports   bool
 	runtime            runtimeutils.Runtime
 
 	// state
@@ -117,6 +119,7 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	autoUpdateWebhooks bool,
+	admissionReports bool,
 	runtime runtimeutils.Runtime,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -138,14 +141,15 @@ func NewController(
 		server:             server,
 		defaultTimeout:     defaultTimeout,
 		autoUpdateWebhooks: autoUpdateWebhooks,
+		admissionReports:   admissionReports,
 		runtime:            runtime,
 		policyState: map[string]sets.String{
 			config.MutatingWebhookConfigurationName:   sets.NewString(),
 			config.ValidatingWebhookConfigurationName: sets.NewString(),
 		},
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
@@ -200,11 +204,10 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
-	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
-func (c *controller) watchdog(ctx context.Context) {
+func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 	for {
@@ -232,7 +235,7 @@ func (c *controller) watchdog(ctx context.Context) {
 						return nil
 					},
 				); err != nil {
-					logger.Error(err, "failed to get lease")
+					logger.Error(err, "failed to update lease")
 				}
 			}
 			c.enqueueResourceWebhooks(0)
@@ -563,7 +566,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1beta1"},
 			}},
 		},
@@ -677,6 +680,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 }
 
 func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	sideEffects := &none
+	if c.admissionReports {
+		sideEffects = &noneOnDryRun
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
@@ -696,7 +703,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1beta1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 			}},
@@ -739,6 +746,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		if len(webhookCfgs) > 0 {
 			webhookCfg = webhookCfgs[0]
 		}
+		sideEffects := &none
+		if c.admissionReports {
+			sideEffects = &noneOnDryRun
+		}
 		if !ignore.isEmpty() {
 			result.Webhooks = append(
 				result.Webhooks,
@@ -749,7 +760,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 						ignore.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					},
 					FailurePolicy:           &ignore.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
@@ -767,7 +778,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 						fail.buildRuleWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					},
 					FailurePolicy:           &fail.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,

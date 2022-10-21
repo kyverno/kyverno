@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/config"
@@ -36,12 +37,12 @@ func NewController(configuration config.Configuration, configmapInformer corev1i
 		configmapLister: configmapInformer.Lister(),
 		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName),
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), configmapInformer.Informer(), c.queue)
+	controllerutils.AddDefaultEventHandlers(logger, configmapInformer.Informer(), c.queue)
 	return &c
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {

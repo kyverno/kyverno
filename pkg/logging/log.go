@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io"
+	stdlog "log"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -20,6 +23,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// LogLevelController is the log level to use for controllers plumbing.
+	LogLevelController = 3
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
@@ -61,6 +66,11 @@ func Setup(logFormat string) error {
 // GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return globalLog
+}
+
+// ControllerLogger returns a logr.Logger to be used by controllers.
+func ControllerLogger(name string) logr.Logger {
+	return globalLog.WithName(name).V(LogLevelController)
 }
 
 // WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
@@ -121,4 +131,18 @@ func Background() context.Context {
 // TODO calls IntoContext with the global logger and a TODO context.
 func TODO() context.Context {
 	return IntoContext(context.TODO(), GlobalLogger())
+}
+
+type writerAdapter struct {
+	io.Writer
+	logger logr.Logger
+}
+
+func (a *writerAdapter) Write(p []byte) (int, error) {
+	a.logger.Info(strings.TrimSuffix(string(p), "\n"))
+	return len(p), nil
+}
+
+func StdLogger(logger logr.Logger, prefix string) *stdlog.Logger {
+	return stdlog.New(&writerAdapter{logger: logger}, prefix, stdlog.LstdFlags)
 }
