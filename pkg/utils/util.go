@@ -227,7 +227,7 @@ func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructure
 	if err != nil {
 		return *resource, errors.Wrap(err, "unable to convert object to secret")
 	}
-	var stringSecret = struct {
+	stringSecret := struct {
 		Data map[string]string `json:"string_data"`
 		*corev1.Secret
 	}{
