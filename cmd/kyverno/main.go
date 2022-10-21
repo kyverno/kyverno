@@ -749,6 +749,9 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {
@@ -769,9 +772,6 @@ func main() {
 			kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()),
 		),
 		runtime,
-		&webhooks.DebugModeOptions{
-			DumpPayload: dumpPayload,
-		},
 	)
 	// start informers and wait for cache sync
 	// we need to call start again because we potentially registered new informers

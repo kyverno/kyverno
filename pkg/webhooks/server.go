@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -22,8 +21,8 @@ import (
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
 	"github.com/kyverno/kyverno/pkg/webhooks/handlers"
 	admissionv1 "k8s.io/api/admission/v1"
-	authenticationv1 "k8s.io/api/authentication/v1"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	authenticationv1 "k8s.io/api/authentication/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -146,22 +145,22 @@ func NewServer(
 	policyHandlers PolicyHandlers,
 	resourceHandlers ResourceHandlers,
 	configuration config.Configuration,
+	debugModeOpts DebugModeOptions,
 	tlsProvider TlsProvider,
 	mwcClient controllerutils.DeleteClient[*admissionregistrationv1.MutatingWebhookConfiguration],
 	vwcClient controllerutils.DeleteClient[*admissionregistrationv1.ValidatingWebhookConfiguration],
 	leaseClient controllerutils.DeleteClient[*coordinationv1.Lease],
-	debugModeOpts *DebugModeOptions,
 	runtime runtimeutils.Runtime,
 ) Server {
 	mux := httprouter.New()
 	resourceLogger := logger.WithName("resource")
 	policyLogger := logger.WithName("policy")
 	verifyLogger := logger.WithName("verify")
-	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, monitor, configuration, resourceHandlers.Mutate, debugModeOpts)
-	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, monitor, configuration, resourceHandlers.Validate, debugModeOpts)
-	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), monitor, filter(configuration, policyHandlers.Mutate), debugModeOpts))
-	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), monitor, filter(configuration, policyHandlers.Validate), debugModeOpts))
-	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), monitor, handlers.Verify(monitor), debugModeOpts))
+	registerWebhookHandlers(resourceLogger.WithName("mutate"), mux, config.MutatingWebhookServicePath, configuration, resourceHandlers.Mutate, debugModeOpts)
+	registerWebhookHandlers(resourceLogger.WithName("validate"), mux, config.ValidatingWebhookServicePath, configuration, resourceHandlers.Validate, debugModeOpts)
+	mux.HandlerFunc("POST", config.PolicyMutatingWebhookServicePath, admission(policyLogger.WithName("mutate"), filter(configuration, policyHandlers.Mutate), debugModeOpts))
+	mux.HandlerFunc("POST", config.PolicyValidatingWebhookServicePath, admission(policyLogger.WithName("validate"), filter(configuration, policyHandlers.Validate), debugModeOpts))
+	mux.HandlerFunc("POST", config.VerifyMutatingWebhookServicePath, admission(verifyLogger.WithName("mutate"), handlers.Verify(), DebugModeOptions{}))
 	mux.HandlerFunc("GET", config.LivenessServicePath, handlers.Probe(runtime.IsLive))
 	mux.HandlerFunc("GET", config.ReadinessServicePath, handlers.Probe(runtime.IsReady))
 	return &server{
@@ -249,49 +248,56 @@ func (s *server) cleanup(ctx context.Context) {
 	close(s.cleanUp)
 }
 
-func protect(inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) handlers.AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
-		if toggle.ProtectManagedResources.Enabled() {
-			newResource, oldResource, err := utils.ExtractResources(nil, request)
-			if err != nil {
-				logger.Error(err, "Failed to extract resources")
-				return admissionutils.ResponseFailure(err.Error())
-			}
-			for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
-				resLabels := resource.GetLabels()
-				if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
-					if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
-						logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-						return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
-					}
-				}
-			}
-		}
-		return dumpPayload(logger, request, startTime, inner, debugModeOpts)
+func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest, response *admissionv1.AdmissionResponse) {
+	reqPayload, err := newAdmissionRequestPayload(request)
+	if err != nil {
+		logger.Error(err, "Failed to extract resources")
+	} else {
+		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", response)
 	}
 }
 
-func dumpPayload(logger logr.Logger, request *admissionv1.AdmissionRequest,
-	startTime time.Time, inner handlers.AdmissionHandler,
-	debugModeOpts *DebugModeOptions) *admissionv1.AdmissionResponse {
-	resp := inner(logger, request, startTime)
-	if debugModeOpts.DumpPayload {
-		reqPayload, err := newAdmissionRequestPayload(request)
+func dump(inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) handlers.AdmissionHandler {
+	// debug mode not enabled, no need to add debug middleware
+	if !debugModeOpts.DumpPayload {
+		return inner
+	}
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		response := inner(logger, request, startTime)
+		dumpPayload(logger, request, response)
+		return response
+	}
+}
+
+func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+	if !toggle.ProtectManagedResources.Enabled() {
+		return inner
+	}
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		newResource, oldResource, err := utils.ExtractResources(nil, request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
 			return admissionutils.ResponseFailure(err.Error())
 		}
-		logger.Info("Logging admission request and response payload ", "AdmissionRequest", reqPayload, "AdmissionResponse", resp)
+		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
+			resLabels := resource.GetLabels()
+			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
+				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
+					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
+					return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
+				}
+			}
+		}
+		return inner(logger, request, startTime)
 	}
-	return resp
 }
 
 func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 	return handlers.Filter(configuration, inner)
 }
 
-func admission(logger logr.Logger, monitor *webhookconfig.Monitor, inner handlers.AdmissionHandler, debugModeOpts *DebugModeOptions) http.HandlerFunc {
-	return handlers.Monitor(monitor, handlers.Admission(logger, protect(inner, debugModeOpts)))
+func admission(logger logr.Logger, inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) http.HandlerFunc {
+	return handlers.Admission(logger, dump(protect(inner), debugModeOpts))
 }
 
 func registerWebhookHandlers(
@@ -300,7 +306,7 @@ func registerWebhookHandlers(
 	basePath string,
 	configuration config.Configuration,
 	handlerFunc func(logr.Logger, *admissionv1.AdmissionRequest, string, time.Time) *admissionv1.AdmissionResponse,
-	debugModeOpts *DebugModeOptions,
+	debugModeOpts DebugModeOptions,
 ) {
 	mux.HandlerFunc("POST", basePath, admission(logger, filter(
 		configuration,
