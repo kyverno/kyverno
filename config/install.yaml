@@ -35,11 +35,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.owner.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .spec.owner.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -372,6 +376,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -673,11 +681,15 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.owner.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .spec.owner.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -1011,6 +1023,10 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -1367,8 +1383,9 @@ spec:
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
-                  policy share the same failure behavior. Allowed values are Ignore
-                  or Fail. Defaults to Fail.
+                  policy share the same failure behavior. This field should not be
+                  accessed directly, instead `GetFailurePolicy()` should be used.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -13378,8 +13395,9 @@ spec:
               failurePolicy:
                 description: FailurePolicy defines how unexpected policy errors and
                   webhook response timeout errors are handled. Rules within the same
-                  policy share the same failure behavior. Allowed values are Ignore
-                  or Fail. Defaults to Fail.
+                  policy share the same failure behavior. This field should not be
+                  accessed directly, instead `GetFailurePolicy()` should be used.
+                  Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -26131,6 +26149,14 @@ spec:
           runAsNonRoot: true
           seccompProfile:
             type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 12
+          httpGet:
+            path: /health/liveness
+            port: 9443
+            scheme: HTTPS
+          initialDelaySeconds: 30
+          periodSeconds: 10
         volumeMounts:
         - mountPath: /.sigstore
           name: sigstore

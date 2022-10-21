@@ -52,6 +52,7 @@ const (
 )
 
 var (
+	none         = admissionregistrationv1.SideEffectClassNone
 	noneOnDryRun = admissionregistrationv1.SideEffectClassNoneOnDryRun
 	ifNeeded     = admissionregistrationv1.IfNeededReinvocationPolicy
 	ignore       = admissionregistrationv1.Ignore
@@ -93,10 +94,11 @@ type controller struct {
 	server             string
 	defaultTimeout     int32
 	autoUpdateWebhooks bool
+	admissionReports   bool
 	runtime            runtimeutils.Runtime
 
 	// state
-	lock        sync.RWMutex
+	lock        sync.Mutex
 	policyState map[string]sets.String
 }
 
@@ -117,6 +119,7 @@ func NewController(
 	server string,
 	defaultTimeout int32,
 	autoUpdateWebhooks bool,
+	admissionReports bool,
 	runtime runtimeutils.Runtime,
 ) controllers.Controller {
 	queue := workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), ControllerName)
@@ -138,14 +141,15 @@ func NewController(
 		server:             server,
 		defaultTimeout:     defaultTimeout,
 		autoUpdateWebhooks: autoUpdateWebhooks,
+		admissionReports:   admissionReports,
 		runtime:            runtime,
 		policyState: map[string]sets.String{
 			config.MutatingWebhookConfigurationName:   sets.NewString(),
 			config.ValidatingWebhookConfigurationName: sets.NewString(),
 		},
 	}
-	controllerutils.AddDefaultEventHandlers(logger.V(3), mwcInformer.Informer(), queue)
-	controllerutils.AddDefaultEventHandlers(logger.V(3), vwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, mwcInformer.Informer(), queue)
+	controllerutils.AddDefaultEventHandlers(logger, vwcInformer.Informer(), queue)
 	controllerutils.AddEventHandlersT(
 		secretInformer.Informer(),
 		func(obj *corev1.Secret) {
@@ -200,11 +204,10 @@ func NewController(
 func (c *controller) Run(ctx context.Context, workers int) {
 	// add our known webhooks to the queue
 	c.enqueueAll()
-	go c.watchdog(ctx)
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.watchdog)
 }
 
-func (c *controller) watchdog(ctx context.Context) {
+func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 	ticker := time.NewTicker(tickerInterval)
 	defer ticker.Stop()
 	for {
@@ -232,7 +235,7 @@ func (c *controller) watchdog(ctx context.Context) {
 						return nil
 					},
 				); err != nil {
-					logger.Error(err, "failed to get lease")
+					logger.Error(err, "failed to update lease")
 				}
 			}
 			c.enqueueResourceWebhooks(0)
@@ -297,8 +300,9 @@ func (c *controller) recordPolicyState(webhookConfigurationName string, policies
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			logger.Error(err, "failed to compute policy key", "policy", policy)
+		} else {
+			c.policyState[webhookConfigurationName].Insert(policyKey)
 		}
-		c.policyState[webhookConfigurationName].Insert(policyKey)
 	}
 }
 
@@ -406,13 +410,13 @@ func (c *controller) reconcileMutatingWebhookConfiguration(ctx context.Context, 
 }
 
 func (c *controller) updatePolicyStatuses(ctx context.Context) error {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	policies, err := c.getAllPolicies()
 	if err != nil {
 		return err
 	}
-	for _, policy := range policies {
+	updateStatusFunc := func(policy kyvernov1.PolicyInterface) error {
 		policyKey, err := cache.MetaNamespaceKeyFunc(policy)
 		if err != nil {
 			return err
@@ -421,33 +425,45 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		for _, set := range c.policyState {
 			if !set.Has(policyKey) {
 				ready = false
+				break
 			}
 		}
-		if policy.IsReady() != ready {
-			policy = policy.CreateDeepCopy()
-			status := policy.GetStatus()
-			status.SetReady(ready)
-			if toggle.AutogenInternals.Enabled() {
-				var rules []kyvernov1.Rule
-				for _, rule := range autogen.ComputeRules(policy) {
-					if strings.HasPrefix(rule.Name, "autogen-") {
-						rules = append(rules, rule)
-					}
+		status := policy.GetStatus()
+		status.SetReady(ready)
+		status.Autogen.Rules = nil
+		if toggle.AutogenInternals.Enabled() {
+			for _, rule := range autogen.ComputeRules(policy) {
+				if strings.HasPrefix(rule.Name, "autogen-") {
+					status.Autogen.Rules = append(status.Autogen.Rules, rule)
 				}
-				status.Autogen.Rules = rules
-			} else {
-				status.Autogen.Rules = nil
 			}
-			if policy.GetNamespace() == "" {
-				_, err := c.kyvernoClient.KyvernoV1().ClusterPolicies().UpdateStatus(ctx, policy.(*kyvernov1.ClusterPolicy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
-				}
-			} else {
-				_, err := c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()).UpdateStatus(ctx, policy.(*kyvernov1.Policy), metav1.UpdateOptions{})
-				if err != nil {
-					return err
-				}
+		}
+		return nil
+	}
+	for _, policy := range policies {
+		if policy.GetNamespace() == "" {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.ClusterPolicy),
+				c.kyvernoClient.KyvernoV1().ClusterPolicies(),
+				func(policy *kyvernov1.ClusterPolicy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := controllerutils.UpdateStatus(
+				ctx,
+				policy.(*kyvernov1.Policy),
+				c.kyvernoClient.KyvernoV1().Policies(policy.GetNamespace()),
+				func(policy *kyvernov1.Policy) error {
+					return updateStatusFunc(policy)
+				},
+			)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -550,7 +566,7 @@ func (c *controller) buildPolicyValidatingWebhookConfiguration(caBundle []byte) 
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             &none,
 				AdmissionReviewVersions: []string{"v1beta1"},
 			}},
 		},
@@ -660,6 +676,10 @@ func (c *controller) buildResourceMutatingWebhookConfiguration(caBundle []byte) 
 }
 
 func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle []byte) (*admissionregistrationv1.ValidatingWebhookConfiguration, error) {
+	sideEffects := &none
+	if c.admissionReports {
+		sideEffects = &noneOnDryRun
+	}
 	return &admissionregistrationv1.ValidatingWebhookConfiguration{
 			ObjectMeta: objectMeta(config.ValidatingWebhookConfigurationName),
 			Webhooks: []admissionregistrationv1.ValidatingWebhook{{
@@ -679,7 +699,7 @@ func (c *controller) buildDefaultResourceValidatingWebhookConfiguration(caBundle
 					},
 				}},
 				FailurePolicy:           &ignore,
-				SideEffects:             &noneOnDryRun,
+				SideEffects:             sideEffects,
 				AdmissionReviewVersions: []string{"v1beta1"},
 				TimeoutSeconds:          &c.defaultTimeout,
 			}},
@@ -722,6 +742,10 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 		if len(webhookCfgs) > 0 {
 			webhookCfg = webhookCfgs[0]
 		}
+		sideEffects := &none
+		if c.admissionReports {
+			sideEffects = &noneOnDryRun
+		}
 		if !ignore.isEmpty() {
 			result.Webhooks = append(
 				result.Webhooks,
@@ -730,7 +754,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/ignore"),
 					Rules:                   ignore.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &ignore.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,
@@ -746,7 +770,7 @@ func (c *controller) buildResourceValidatingWebhookConfiguration(caBundle []byte
 					ClientConfig:            c.clientConfig(caBundle, config.ValidatingWebhookServicePath+"/fail"),
 					Rules:                   fail.buildRulesWithOperations(admissionregistrationv1.Create, admissionregistrationv1.Update, admissionregistrationv1.Delete, admissionregistrationv1.Connect),
 					FailurePolicy:           &fail.failurePolicy,
-					SideEffects:             &noneOnDryRun,
+					SideEffects:             sideEffects,
 					AdmissionReviewVersions: []string{"v1beta1"},
 					NamespaceSelector:       webhookCfg.NamespaceSelector,
 					ObjectSelector:          webhookCfg.ObjectSelector,

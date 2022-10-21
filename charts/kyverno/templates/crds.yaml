@@ -26,11 +26,15 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.owner.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .spec.owner.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -280,6 +284,10 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -504,11 +512,15 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.owner.kind
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
+    - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
       type: string
-    - jsonPath: .spec.owner.name
+    - jsonPath: .metadata.ownerReferences[0].name
       name: Subject
       priority: 1
       type: string
@@ -758,6 +770,10 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1
@@ -1022,7 +1038,7 @@ spec:
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled. Rules within the same policy share the same failure behavior. Allowed values are Ignore or Fail. Defaults to Fail.
+                description: FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled. Rules within the same policy share the same failure behavior. This field should not be accessed directly, instead `GetFailurePolicy()` should be used. Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail
@@ -8603,7 +8619,7 @@ spec:
                 description: Background controls if rules are applied to existing resources during a background scan. Optional. Default value is "true". The value must be set to "false" if the policy rule uses variables that are only available in the admission review request (e.g. user name).
                 type: boolean
               failurePolicy:
-                description: FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled. Rules within the same policy share the same failure behavior. Allowed values are Ignore or Fail. Defaults to Fail.
+                description: FailurePolicy defines how unexpected policy errors and webhook response timeout errors are handled. Rules within the same policy share the same failure behavior. This field should not be accessed directly, instead `GetFailurePolicy()` should be used. Allowed values are Ignore or Fail. Defaults to Fail.
                 enum:
                 - Ignore
                 - Fail

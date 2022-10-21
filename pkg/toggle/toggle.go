@@ -16,11 +16,17 @@ const (
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
 	protectManagedResourcesEnvVar      = "FLAG_PROTECT_MANAGED_RESOURCES"
 	defaultProtectManagedResources     = false
+	// force failure policy ignore
+	ForceFailurePolicyIgnoreFlagName    = "forceFailurePolicyIgnore"
+	ForceFailurePolicyIgnoreDescription = "Set the flag to 'true', to force set Failure Policy to 'ignore'."
+	forceFailurePolicyIgnoreEnvVar      = "FLAG_FORCE_FAILURE_POLICY_IGNORE"
+	defaultForceFailurePolicyIgnore     = false
 )
 
 var (
-	AutogenInternals        = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
-	ProtectManagedResources = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
+	AutogenInternals         = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
+	ProtectManagedResources  = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
+	ForceFailurePolicyIgnore = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 )
 
 type Toggle interface {

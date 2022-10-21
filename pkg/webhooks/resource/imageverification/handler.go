@@ -1,20 +1,25 @@
 package imageverification
 
 import (
+	"context"
 	"errors"
 	"reflect"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/client/clientset/versioned"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
 	"github.com/kyverno/kyverno/pkg/metrics"
+	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
+	reportutils "github.com/kyverno/kyverno/pkg/utils/report"
 	webhookutils "github.com/kyverno/kyverno/pkg/webhooks/utils"
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 type ImageVerificationHandler interface {
@@ -26,16 +31,25 @@ type ImageVerificationHandler interface {
 	) ([]byte, []string, error)
 }
 
-func NewImageVerificationHandler(log logr.Logger, eventGen event.Interface) ImageVerificationHandler {
+func NewImageVerificationHandler(
+	log logr.Logger,
+	kyvernoClient versioned.Interface,
+	eventGen event.Interface,
+	admissionReports bool,
+) ImageVerificationHandler {
 	return &imageVerificationHandler{
-		log:      log,
-		eventGen: eventGen,
+		kyvernoClient:    kyvernoClient,
+		log:              log,
+		eventGen:         eventGen,
+		admissionReports: admissionReports,
 	}
 }
 
 type imageVerificationHandler struct {
-	log      logr.Logger
-	eventGen event.Interface
+	kyvernoClient    versioned.Interface
+	log              logr.Logger
+	eventGen         event.Interface
+	admissionReports bool
 }
 
 func (h *imageVerificationHandler) Handle(
@@ -92,6 +106,8 @@ func (h *imageVerificationHandler) handleVerifyImages(logger logr.Logger, reques
 		}
 	}
 
+	go h.handleAudit(policyContext.NewResource, request, nil, engineResponses...)
+
 	warnings := webhookutils.GetWarningMessages(engineResponses)
 	return true, "", jsonutils.JoinPatches(patches...), warnings
 }
@@ -109,4 +125,38 @@ func isResourceDeleted(policyContext *engine.PolicyContext) bool {
 		deletionTimeStamp = policyContext.OldResource.GetDeletionTimestamp()
 	}
 	return deletionTimeStamp != nil
+}
+
+func (v *imageVerificationHandler) handleAudit(
+	resource unstructured.Unstructured,
+	request *admissionv1.AdmissionRequest,
+	namespaceLabels map[string]string,
+	engineResponses ...*response.EngineResponse,
+) {
+	if !v.admissionReports {
+		return
+	}
+	if request.DryRun != nil && *request.DryRun {
+		return
+	}
+	// we don't need reports for deletions and when it's about sub resources
+	if request.Operation == admissionv1.Delete || request.SubResource != "" {
+		return
+	}
+	// check if the resource supports reporting
+	if !reportutils.IsGvkSupported(schema.GroupVersionKind(request.Kind)) {
+		return
+	}
+	report := reportutils.NewAdmissionReport(resource, request, request.Kind, engineResponses...)
+	// if it's not a creation, the resource already exists, we can set the owner
+	if request.Operation != admissionv1.Create {
+		gv := metav1.GroupVersion{Group: request.Kind.Group, Version: request.Kind.Version}
+		controllerutils.SetOwner(report, gv.String(), request.Kind.Kind, resource.GetName(), resource.GetUID())
+	}
+	if len(report.GetResults()) > 0 {
+		_, err := reportutils.CreateReport(context.Background(), report, v.kyvernoClient)
+		if err != nil {
+			v.log.Error(err, "failed to create report")
+		}
+	}
 }

@@ -1010,8 +1010,19 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-
-			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				Policy:                    policy,
+				Resource:                  resource,
+				MutateLogPath:             "",
+				Variables:                 thisPolicyResourceValues,
+				UserInfo:                  userInfo,
+				PolicyReport:              true,
+				NamespaceSelectorMap:      namespaceSelectorMap,
+				Rc:                        &resultCounts,
+				RuleToCloneSourceResource: ruleToCloneSourceResource,
+				Client:                    dClient,
+			}
+			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}

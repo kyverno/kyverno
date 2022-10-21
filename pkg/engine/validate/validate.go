@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -121,8 +122,15 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	// Phase 2 : Evaluate non-anchors
 	anchors, resources := anchor.GetAnchorsResourcesFromMap(patternMap)
 
+	keys := make([]string, 0, len(anchors))
+	for k := range anchors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	// Evaluate anchors
-	for key, patternElement := range anchors {
+	for _, key := range keys {
+		patternElement := anchors[key]
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence
