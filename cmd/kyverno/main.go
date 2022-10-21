@@ -298,9 +298,9 @@ func showWarnings(logger logr.Logger) {
 		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
 	}
 	// log if `forceFailurePolicyIgnore` flag has been set or not
-  if toggle.ForceFailurePolicyIgnore.Enabled() {
-  	logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
-  }
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
+		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
+	}
 }
 
 func showVersion(logger logr.Logger) {
