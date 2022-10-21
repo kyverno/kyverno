@@ -387,7 +387,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
-	// we can delete the report, we will recreate one if the resource come back
+	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
 		report, err := c.getMeta(namespace, name)
 		if err != nil {
