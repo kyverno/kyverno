@@ -17,7 +17,7 @@ import (
 // +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:shortName=pol
+// +kubebuilder:resource:shortName=pol,categories=kyverno;all
 // +kubebuilder:storageversion
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.

@@ -9,6 +9,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
