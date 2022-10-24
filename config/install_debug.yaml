@@ -24,6 +24,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -364,6 +367,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -668,6 +674,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -1009,6 +1018,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1313,6 +1325,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -1335,6 +1350,9 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1
     schema:
       openAPIV3Schema:
@@ -7183,6 +7201,9 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -13321,6 +13342,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -13343,6 +13367,9 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1
     schema:
       openAPIV3Schema:
@@ -19193,6 +19220,9 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -25142,6 +25172,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests
