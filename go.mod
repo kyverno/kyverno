@@ -376,5 +376,4 @@ replace (
 	github.com/evanphx/json-patch/v5 => github.com/kyverno/json-patch/v5 v5.5.1-0.20210915204938-7578f4ee9c77
 	github.com/jmespath/go-jmespath => github.com/kyverno/go-jmespath v0.4.1-0.20210511164400-a1d46efa2ed6
 	github.com/opencontainers/image-spec => github.com/opencontainers/image-spec v1.0.2
-	golang.org/x/sys => golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
 )
