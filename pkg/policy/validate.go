@@ -1142,32 +1142,31 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 
 func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	action := map[string]sets.String{
-		string(kyvernov1.Enforce): sets.NewString(),
-		string(kyvernov1.Audit):   sets.NewString(),
-		"enforceW":                sets.NewString(),
-		"auditW":                  sets.NewString(),
+		"enforce":  sets.NewString(),
+		"audit":    sets.NewString(),
+		"enforceW": sets.NewString(),
+		"auditW":   sets.NewString(),
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
 		patternList, nsList := utils.SeperateWildcards(vfa.Namespaces)
 
-		if vfa.Action == kyvernov1.Audit {
-			if action[string(kyvernov1.Enforce)].HasAny(nsList...) {
+		if vfa.Action.Audit() {
+			if action["enforce"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action[string(kyvernov1.Enforce)].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(action["enforce"].Intersection(sets.NewString(nsList...)).List(), ", "))
 			}
 			action["auditW"].Insert(patternList...)
-		} else if vfa.Action == kyvernov1.Enforce {
-			if action[string(kyvernov1.Audit)].HasAny(nsList...) {
+		} else if vfa.Action.Enforce() {
+			if action["audit"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action[string(kyvernov1.Audit)].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(action["audit"].Intersection(sets.NewString(nsList...)).List(), ", "))
 			}
 			action["enforceW"].Insert(patternList...)
 		}
 		action[string(vfa.Action)].Insert(nsList...)
 
-		err := validateWildcardsWithNamespaces(action[string(kyvernov1.Enforce)].List(),
-			action[string(kyvernov1.Audit)].List(), action["enforceW"].List(), action["auditW"].List())
+		err := validateWildcardsWithNamespaces(action["enforce"].List(), action["audit"].List(), action["enforceW"].List(), action["auditW"].List())
 		if err != nil {
 			return fmt.Errorf("path: %s: %s", path.Index(i).Child("namespaces").String(), err.Error())
 		}
