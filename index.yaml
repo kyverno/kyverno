@@ -13,6 +13,59 @@ entries:
           description: Docs for generatecontrollerExtraResources.
         - kind: changed
           description: Enable autogen internals by default.
+        - kind: fixed
+          description: Self signed certificates not using SANs.
+        - kind: added
+          description: Extra args support for init container.
+        - kind: added
+          description: Allow overriding of test security context and resource block.
+        - kind: added
+          description: Added possibility to define custom image registries
+        - kind: added
+          description: Enable adding optional annotations to configmaps
+        - kind: added
+          description: Add startup probes support
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://kyverno.io/docs
+      artifacthub.io/operator: "false"
+      artifacthub.io/prerelease: "false"
+    apiVersion: v2
+    appVersion: v1.8.1
+    created: "2022-10-25T05:59:35.551536919Z"
+    description: Kubernetes Native Policy Management
+    digest: b2e826d03475efa1d1e03b10119a80a28cf04f6b410f6a8814782bb72ba9a096
+    home: https://kyverno.io/
+    icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
+    keywords:
+    - kubernetes
+    - nirmata
+    - policy agent
+    - validating webhook
+    - admissions controller
+    kubeVersion: '>=1.16.0-0'
+    maintainers:
+    - name: Nirmata
+      url: https://kyverno.io/
+    name: kyverno
+    sources:
+    - https://github.com/kyverno/kyverno
+    type: application
+    urls:
+    - https://kyverno.github.io/kyverno/kyverno-2.6.1.tgz
+    version: 2.6.1
+  - annotations:
+      artifacthub.io/changes: |
+        - kind: added
+          description: Added possibility to define additional init and sidecar container.
+        - kind: added
+          description: Added ability to remove namespaces from default resourceFilters list.
+        - kind: added
+          description: Prevent installing Kyverno in namespace kube-system.
+        - kind: fixed
+          description: Docs for generatecontrollerExtraResources.
+        - kind: changed
+          description: Enable autogen internals by default.
         - kind: added
           description: Allow overriding of test security context and resource block.
         - kind: fixed
@@ -4796,4 +4849,4 @@ entries:
     urls:
     - https://kyverno.github.io/kyverno/kyverno-policies-v2.1.0.tgz
     version: v2.1.0
-generated: "2022-10-25T05:45:08.151341959Z"
+generated: "2022-10-25T05:59:35.543555343Z"
