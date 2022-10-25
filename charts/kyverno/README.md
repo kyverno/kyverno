@@ -56,7 +56,7 @@ You can do so by following instructions in these pages of ArgoCD documentation:
 
 ArgoCD uses helm only for templating but applies the results with `kubectl`.
 
-Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuberrnetes. Using `Replace` overcomes this limitation.
+Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kubernetes. Using `Replace` overcomes this limitation.
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
