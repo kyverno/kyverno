@@ -170,6 +170,14 @@ func Test_ignorePath(t *testing.T) {
 			ignore: false,
 		},
 		{
+			path:   "/metadata/ownerReferences",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/finalizers",
+			ignore: false,
+		},
+		{
 			path:   "/metadata/creationTimestamp",
 			ignore: true,
 		},
