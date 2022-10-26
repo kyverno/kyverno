@@ -14,7 +14,7 @@ type ValidationFailureAction string
 // Policy Reporting Modes
 const (
 	// enforceOld blocks the request on failure
-	// DEPRECATED: use enforce insteas
+	// DEPRECATED: use enforce instead
 	enforceOld ValidationFailureAction = "enforce"
 	// enforce blocks the request on failure
 	enforce ValidationFailureAction = "Enforce"
