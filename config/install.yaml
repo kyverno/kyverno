@@ -4198,6 +4198,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -9780,6 +9782,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -16219,6 +16223,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy
@@ -21803,6 +21809,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy

@@ -2816,6 +2816,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
@@ -6299,6 +6301,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
@@ -10406,6 +10410,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
@@ -13889,6 +13895,8 @@ spec:
                 enum:
                 - audit
                 - enforce
+                - Audit
+                - Enforce
                 type: string
               validationFailureActionOverrides:
                 description: ValidationFailureActionOverrides is a Cluster Policy attribute that specifies ValidationFailureAction namespace-wise. It overrides ValidationFailureAction for the specified namespaces.
