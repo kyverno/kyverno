@@ -416,9 +416,31 @@ func getResourceInfoForDataAndClone(rule kyvernov1.Rule) (kind, name, namespace,
 	return
 }
 
+func forEachGetResourceInfoForDataAndClone(fe kyvernov1.ForEachGeneration) (kind, name, namespace, apiversion string, err error) {
+	if len(fe.CloneList.Kinds) == 0 {
+		if kind = fe.Kind; kind == "" {
+			return "", "", "", "", fmt.Errorf("%s", "kind can not be empty")
+		}
+		if name = fe.Name; name == "" {
+			return "", "", "", "", fmt.Errorf("%s", "name can not be empty")
+		}
+	}
+	namespace = fe.Namespace
+	apiversion = fe.APIVersion
+	return
+}
+
 func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	for _, fe := range rule.Generation.ForEachGeneration {
 		// Have to implement
+		rdatas := []GenerateResponse{}
+		var cresp, dresp map[string]interface{}
+		var err error
+		var mode ResourceMode
+		var noGenResource kyvernov1.ResourceSpec
+		var newGenResources []kyvernov1.ResourceSpec
+
+		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 	}
 
 }
