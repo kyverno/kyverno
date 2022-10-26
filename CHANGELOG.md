@@ -1,3 +1,9 @@
+## v1.9.0-rc.1
+
+### Note
+
+- Flag `autogenInternals` was removed, policy mutation has been removed.
+
 ## v1.8.1-rc3
 
 ### Note
