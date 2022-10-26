@@ -42,6 +42,10 @@ func LoadContext(logger logr.Logger, contextEntries []kyvernov1.ContextEntry, ct
 				if err := loadVariable(logger, entry, ctx); err != nil {
 					return err
 				}
+			} else if entry.APICall != nil && store.IsAllowApiCall() {
+				if err := loadAPIData(logger, entry, ctx); err != nil {
+					return err
+				}
 			}
 		}
 

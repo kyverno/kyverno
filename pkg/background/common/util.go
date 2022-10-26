@@ -2,7 +2,6 @@ package common
 
 import (
 	"context"
-	"time"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
@@ -11,20 +10,12 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/logging"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 )
 
-var DefaultRetry = wait.Backoff{
-	Steps:    15,
-	Duration: 100 * time.Millisecond,
-	Factor:   1.0,
-	Jitter:   0.1,
-}
-
 func Update(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, mutator func(*kyvernov1beta1.UpdateRequest)) (*kyvernov1beta1.UpdateRequest, error) {
 	var ur *kyvernov1beta1.UpdateRequest
-	err := retry.RetryOnConflict(DefaultRetry, func() error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		ur, err := urLister.Get(name)
 		if err != nil {
 			logging.Error(err, "[ATTEMPT] failed to fetch update request", "name", name)
@@ -41,14 +32,14 @@ func Update(client versioned.Interface, urLister kyvernov1beta1listers.UpdateReq
 	if err != nil {
 		logging.Error(err, "failed to update update request", "name", name)
 	} else {
-		logging.V(3).Info("updated update request", "name", name, "status")
+		logging.V(3).Info("updated update request", "name", name)
 	}
 	return ur, err
 }
 
 func UpdateStatus(client versioned.Interface, urLister kyvernov1beta1listers.UpdateRequestNamespaceLister, name string, state kyvernov1beta1.UpdateRequestState, message string, genResources []kyvernov1.ResourceSpec) (*kyvernov1beta1.UpdateRequest, error) {
 	var ur *kyvernov1beta1.UpdateRequest
-	err := retry.RetryOnConflict(DefaultRetry, func() error {
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		ur, err := urLister.Get(name)
 		if err != nil {
 			logging.Error(err, "[ATTEMPT] failed to fetch update request", "name", name)

@@ -16,7 +16,8 @@ import (
 // +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
-// +kubebuilder:resource:shortName=pol
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:shortName=pol,categories=kyverno;all
 // +kubebuilder:storageversion
 
 // Policy declares validation, mutation, and generation behaviors for matching resources.
@@ -82,6 +83,11 @@ func (p *Policy) BackgroundProcessingEnabled() bool {
 // GetSpec returns the policy spec
 func (p *Policy) GetSpec() *Spec {
 	return &p.Spec
+}
+
+// GetStatus returns the policy status
+func (p *Policy) GetStatus() *PolicyStatus {
+	return &p.Status
 }
 
 // IsNamespaced indicates if the policy is namespace scoped

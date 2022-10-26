@@ -13,11 +13,12 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol
+// +kubebuilder:resource:path=clusterpolicies,scope="Cluster",shortName=cpol,categories=kyverno;all
 // +kubebuilder:printcolumn:name="Background",type=boolean,JSONPath=".spec.background"
 // +kubebuilder:printcolumn:name="Validate Action",type=string,JSONPath=".spec.validationFailureAction"
 // +kubebuilder:printcolumn:name="Failure Policy",type=string,JSONPath=".spec.failurePolicy",priority=1
 // +kubebuilder:printcolumn:name="Ready",type=boolean,JSONPath=`.status.ready`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:storageversion
 
 // ClusterPolicy declares validation, mutation, and generation behaviors for matching resources.
@@ -81,6 +82,11 @@ func (p *ClusterPolicy) BackgroundProcessingEnabled() bool {
 // GetSpec returns the policy spec
 func (p *ClusterPolicy) GetSpec() *Spec {
 	return &p.Spec
+}
+
+// GetStatus returns the policy status
+func (p *ClusterPolicy) GetStatus() *PolicyStatus {
+	return &p.Status
 }
 
 // IsNamespaced indicates if the policy is namespace scoped

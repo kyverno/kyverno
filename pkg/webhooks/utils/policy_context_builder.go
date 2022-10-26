@@ -3,7 +3,6 @@ package utils
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/engine"
@@ -17,52 +16,6 @@ import (
 
 type PolicyContextBuilder interface {
 	Build(*admissionv1.AdmissionRequest, ...kyvernov1.PolicyInterface) (*engine.PolicyContext, error)
-}
-
-func checkForRBACInfo(rule kyvernov1.Rule) bool {
-	if len(rule.MatchResources.Roles) > 0 || len(rule.MatchResources.ClusterRoles) > 0 || len(rule.ExcludeResources.Roles) > 0 || len(rule.ExcludeResources.ClusterRoles) > 0 {
-		return true
-	}
-	if len(rule.MatchResources.All) > 0 {
-		for _, rf := range rule.MatchResources.All {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.MatchResources.Any) > 0 {
-		for _, rf := range rule.MatchResources.Any {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.ExcludeResources.All) > 0 {
-		for _, rf := range rule.ExcludeResources.All {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	if len(rule.ExcludeResources.Any) > 0 {
-		for _, rf := range rule.ExcludeResources.Any {
-			if len(rf.UserInfo.Roles) > 0 || len(rf.UserInfo.ClusterRoles) > 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func containsRBACInfo(policies ...kyvernov1.PolicyInterface) bool {
-	for _, policy := range policies {
-		for _, rule := range autogen.ComputeRules(policy) {
-			if checkForRBACInfo(rule) {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func newVariablesContext(request *admissionv1.AdmissionRequest, userRequestInfo *kyvernov1beta1.RequestInfo) (enginectx.Interface, error) {
@@ -104,12 +57,11 @@ func (b *policyContextBuilder) Build(request *admissionv1.AdmissionRequest, poli
 	userRequestInfo := kyvernov1beta1.RequestInfo{
 		AdmissionUserInfo: *request.UserInfo.DeepCopy(),
 	}
-	if containsRBACInfo(policies...) {
-		var err error
-		userRequestInfo.Roles, userRequestInfo.ClusterRoles, err = userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
-		}
+	if roles, clusterRoles, err := userinfo.GetRoleRef(b.rbLister, b.crbLister, request, b.configuration); err != nil {
+		return nil, errors.Wrap(err, "failed to fetch RBAC information for request")
+	} else {
+		userRequestInfo.Roles = roles
+		userRequestInfo.ClusterRoles = clusterRoles
 	}
 	ctx, err := newVariablesContext(request, &userRequestInfo)
 	if err != nil {
