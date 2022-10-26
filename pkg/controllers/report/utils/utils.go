@@ -39,3 +39,14 @@ func RemoveNonBackgroundPolicies(logger logr.Logger, policies ...kyvernov1.Polic
 	}
 	return backgroundPolicies
 }
+
+func RemoveNonValidationPolicies(logger logr.Logger, policies ...kyvernov1.PolicyInterface) []kyvernov1.PolicyInterface {
+	var validationPolicies []kyvernov1.PolicyInterface
+	for _, pol := range policies {
+		spec := pol.GetSpec()
+		if spec.HasVerifyImages() || spec.HasValidate() || spec.HasYAMLSignatureVerify() {
+			validationPolicies = append(validationPolicies, pol)
+		}
+	}
+	return validationPolicies
+}

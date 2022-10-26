@@ -1,13 +1,11 @@
 certs
 Gopkg.lock
-.vscode
 gh-pages/public
 _output
 coverage.txt
 .idea
 cmd/initContainer/kyvernopre
 cmd/kyverno/kyverno
-kubectl-kyverno
 /release
 .DS_Store
 .tools

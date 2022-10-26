@@ -55,6 +55,13 @@ func (g *Generate) Validate() (string, error) {
 		if kind == "" {
 			return "kind", fmt.Errorf("kind cannot be empty")
 		}
+	} else {
+		if name != "" {
+			return "name", fmt.Errorf("with cloneList, generate.name. should not be specified.")
+		}
+		if kind != "" {
+			return "kind", fmt.Errorf("with cloneList, generate.kind. should not be specified.")
+		}
 	}
 
 	if rule.CloneList.Selector != nil {

@@ -18,7 +18,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils/jsonpointer"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
+var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 

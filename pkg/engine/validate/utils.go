@@ -2,6 +2,7 @@ package validate
 
 import (
 	"container/list"
+	"sort"
 
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
 )
@@ -34,7 +35,15 @@ func hasNestedAnchors(pattern interface{}) bool {
 // getSortedNestedAnchorResource - sorts anchors key
 func getSortedNestedAnchorResource(resources map[string]interface{}) *list.List {
 	sortedResourceKeys := list.New()
-	for k, v := range resources {
+
+	keys := make([]string, 0, len(resources))
+	for k := range resources {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		v := resources[k]
 		if commonAnchors.IsGlobalAnchor(k) {
 			sortedResourceKeys.PushFront(k)
 			continue
