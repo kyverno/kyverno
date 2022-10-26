@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/mattbaird/jsonpatch"
 	assertnew "github.com/stretchr/testify/assert"
 	"gotest.tools/assert"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_GeneratePatches(t *testing.T) {
 
-	out, err := strategicMergePatch(log.Log, string(baseBytes), string(overlayBytes))
+	out, err := strategicMergePatch(logging.GlobalLogger(), string(baseBytes), string(overlayBytes))
 	assert.NilError(t, err)
 
 	expectedPatches := map[string]bool{
@@ -167,6 +167,14 @@ func Test_ignorePath(t *testing.T) {
 		},
 		{
 			path:   "/metadata/labels",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/ownerReferences",
+			ignore: false,
+		},
+		{
+			path:   "/metadata/finalizers",
 			ignore: false,
 		},
 		{

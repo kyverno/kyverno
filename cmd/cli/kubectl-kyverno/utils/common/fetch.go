@@ -4,17 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/autogen"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -137,7 +140,7 @@ func GetResourcesWithTest(fs billy.Filesystem, policies []kyvernov1.PolicyInterf
 					fmt.Printf("Unable to open resource file: %s. error: %s", resourcePath, err)
 					continue
 				}
-				resourceBytes, _ = ioutil.ReadAll(filep)
+				resourceBytes, _ = io.ReadAll(filep)
 			} else {
 				resourceBytes, err = getFileBytes(resourcePath)
 			}
@@ -231,14 +234,14 @@ func getFileBytes(path string) ([]byte, error) {
 			return nil, err
 		}
 
-		file, err = ioutil.ReadAll(resp.Body)
+		file, err = io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		path = filepath.Clean(path)
 		// We accept the risk of including a user provided file here.
-		file, err = ioutil.ReadFile(path) // #nosec G304
+		file, err = os.ReadFile(path) // #nosec G304
 		if err != nil {
 			return nil, err
 		}
@@ -293,9 +296,9 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 	for _, kind := range rule.MatchResources.Kinds {
 		if strings.Contains(kind, "/") {
 			lastElement := kind[strings.LastIndex(kind, "/")+1:]
-			resourceTypesMap[strings.Title(lastElement)] = true
+			resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 		}
-		resourceTypesMap[strings.Title(kind)] = true
+		resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(kind)] = true
 	}
 
 	if rule.MatchResources.Any != nil {
@@ -303,7 +306,7 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 				}
 				resourceTypesMap[kind] = true
 			}
@@ -315,9 +318,9 @@ func GetKindsFromRule(rule kyvernov1.Rule) map[string]bool {
 			for _, kind := range resFilter.ResourceDescription.Kinds {
 				if strings.Contains(kind, "/") {
 					lastElement := kind[strings.LastIndex(kind, "/")+1:]
-					resourceTypesMap[strings.Title(lastElement)] = true
+					resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(lastElement)] = true
 				}
-				resourceTypesMap[strings.Title(kind)] = true
+				resourceTypesMap[cases.Title(language.Und, cases.NoLower).String(kind)] = true
 			}
 		}
 	}

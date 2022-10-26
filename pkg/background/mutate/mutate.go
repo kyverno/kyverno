@@ -9,8 +9,8 @@ import (
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	"github.com/kyverno/kyverno/pkg/background/common"
 	kyvernov1listers "github.com/kyverno/kyverno/pkg/client/listers/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	"github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/event"
@@ -34,7 +34,8 @@ type MutateExistingController struct {
 
 	configuration config.Configuration
 	eventGen      event.Interface
-	log           logr.Logger
+
+	log logr.Logger
 }
 
 // NewMutateExistingController returns an instance of the MutateExistingController

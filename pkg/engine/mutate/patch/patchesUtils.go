@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	wildcard "github.com/kyverno/go-wildcard"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/mattbaird/jsonpatch"
 )
 
@@ -139,7 +139,8 @@ func ignorePatch(path string) bool {
 			!strings.Contains(path, "/metadata/namespace") &&
 			!strings.Contains(path, "/metadata/annotations") &&
 			!strings.Contains(path, "/metadata/labels") &&
-			!strings.Contains(path, "/metadata/ownerReferences") {
+			!strings.Contains(path, "/metadata/ownerReferences") &&
+			!strings.Contains(path, "/metadata/finalizers") {
 			return true
 		}
 	}

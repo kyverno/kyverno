@@ -9,33 +9,34 @@ on:
       - 'main'
       - 'release*'
 
-permissions: 
+permissions:
   contents: read
   packages: write
-  id-token: write 
+  id-token: write
 
 jobs:
   pre-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@2541b1294d2704b0964813337f33b291d3f8596b # pin@v3
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
-      - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
-        with:
-          go-version: 1.17
+      # see https://michaelheap.com/ensure-github-actions-pinned-sha/
+      - name: Ensure SHA pinned actions
+        uses: zgosalvez/github-actions-ensure-sha-pinned-actions@6ca5574367befbc9efdb2fa25978084159c5902d # pin@v1.3.0
 
-      - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+      - name: Setup go
+        uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # pin@v3
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          go-version: ~1.18.6
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@537aa1903e5d359d0b27dbc19ddd22c5087f3fbc # pin@v3
+        with:
+          version: v1.48
 
       - name: gofmt check
         run: |
@@ -49,6 +50,7 @@ jobs:
 
       - name: goimports
         run: |
+          go install golang.org/x/tools/cmd/goimports@latest
           if [ "$(goimports -l . | wc -l)" -ne 0 ]
           then
            echo "The following files were found to have import formatting issues:"
@@ -57,17 +59,9 @@ jobs:
            exit 1
           fi
 
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@02bcf8c1a9febe8620f1ca523b18dd64f82296db # v1.25.0
-        with:
-          fail_on_error: true
-
       - name: Checking unused pkgs using go mod tidy
         run: |
           make unused-package-check
-
-      - name: Verify generated code is up to date
-        run: make verify-codegen
 
       - name: Go vet
         run: |
@@ -77,25 +71,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        autogen-internals: [true, false]
+        autogen-internals: [ true, false ]
     runs-on: ubuntu-latest
     needs: pre-checks
     steps:
       - name: Checkout
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # pin@v2.4.0
 
       - name: Unshallow
         run: git fetch --prune --unshallow
 
       - name: Set up Go
-        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
+        uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # pin@v2.1.5
         with:
-          go-version: 1.17
+          go-version: ~1.18.6
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-

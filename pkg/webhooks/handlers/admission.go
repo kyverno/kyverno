@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -11,12 +11,11 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	admissionutils "github.com/kyverno/kyverno/pkg/utils/admission"
-	"github.com/kyverno/kyverno/pkg/webhookconfig"
 	"go.opentelemetry.io/otel/attribute"
 	admissionv1 "k8s.io/api/admission/v1"
 )
 
-type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse
+type AdmissionHandler func(logr.Logger, *admissionv1.AdmissionRequest, time.Time) *admissionv1.AdmissionResponse
 
 func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
@@ -28,7 +27,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			return
 		}
 		defer request.Body.Close()
-		body, err := ioutil.ReadAll(request.Body)
+		body, err := io.ReadAll(request.Body)
 		if err != nil {
 			logger.Info("failed to read HTTP body", "req", request.URL.String())
 			http.Error(writer, "failed to read HTTP body", http.StatusBadRequest)
@@ -52,12 +51,13 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 			"name", admissionReview.Request.Name,
 			"operation", admissionReview.Request.Operation,
 			"uid", admissionReview.Request.UID,
+			"user", admissionReview.Request.UserInfo,
 		)
 		admissionReview.Response = &admissionv1.AdmissionResponse{
 			Allowed: true,
 			UID:     admissionReview.Request.UID,
 		}
-		adminssionResponse := inner(logger, admissionReview.Request)
+		adminssionResponse := inner(logger, admissionReview.Request, startTime)
 		if adminssionResponse != nil {
 			admissionReview.Response = adminssionResponse
 		}
@@ -91,17 +91,16 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 }
 
 func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		if c.ToFilter(request.Kind.Kind, request.Namespace, request.Name) {
 			return nil
 		}
-		return inner(logger, request)
+		return inner(logger, request, startTime)
 	}
 }
 
-func Verify(m *webhookconfig.Monitor) AdmissionHandler {
-	return func(logger logr.Logger, request *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
-		logger.V(6).Info("incoming request", "last admission request timestamp", m.Time())
+func Verify() AdmissionHandler {
+	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		return admissionutils.Response(true)
 	}
 }

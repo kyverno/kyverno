@@ -89,26 +89,6 @@ func NewResourceViolationEvent(source Source, reason Reason, engineResponse *res
 	}
 }
 
-func NewPolicySkippedEvent(source Source, reason Reason, engineResponse *response.EngineResponse, ruleResp *response.RuleResponse) Info {
-	var bldr strings.Builder
-	defer bldr.Reset()
-	resource := engineResponse.GetResourceSpec()
-
-	if resource.Namespace != "" {
-		fmt.Fprintf(&bldr, "%s %s/%s: %s", resource.Kind, resource.Namespace, resource.Name, ruleResp.Status.String())
-	} else {
-		fmt.Fprintf(&bldr, "%s %s: %s", resource.Kind, resource.Name, ruleResp.Status.String())
-	}
-	return Info{
-		Kind:      getPolicyKind(engineResponse.Policy),
-		Name:      engineResponse.PolicyResponse.Policy.Name,
-		Namespace: engineResponse.PolicyResponse.Policy.Namespace,
-		Reason:    PolicySkipped.String(),
-		Source:    source,
-		Message:   bldr.String(),
-	}
-}
-
 func NewBackgroundFailedEvent(err error, policy, rule string, source Source, r *unstructured.Unstructured) []Info {
 	if r == nil {
 		return nil

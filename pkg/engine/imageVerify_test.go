@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/cosign"
@@ -320,7 +320,7 @@ var testSampleResource = `{
 }`
 
 var testVerifyImageKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----\n`
-var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEyBg8yod24/wIcc5QqlVLtCfL+6Te+nwdPdTvMb1AiZn24zBToHJVZvQdYLgRWAbh0Jd+6JhEwsDmnXRrlV7rfw==\n-----END PUBLIC KEY-----\n`
+var testOtherKey = `-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEpNlOGZ323zMlhs4bcKSpAKQvbcWi5ZLRmijm6SqXDy0Fp0z0Eal+BekFnLzs8rUXUaXlhZ3hNudlgFJH+nFNMw==\n-----END PUBLIC KEY-----\n`
 
 func Test_SignatureGoodSigned(t *testing.T) {
 	policyContext := buildContext(t, testSampleSingleKeyPolicy, testSampleResource, "")
@@ -535,26 +535,62 @@ func Test_NestedAttestors(t *testing.T) {
 }
 
 func Test_ExpandKeys(t *testing.T) {
-	as := expandStaticKeys(createStaticKeyAttestorSet(""))
+	as := expandStaticKeys(createStaticKeyAttestorSet("", true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey))
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey, true, false, false))
 	assert.Equal(t, 1, len(as.Entries))
 
-	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey + testOtherKey + testOtherKey))
+	as = expandStaticKeys(createStaticKeyAttestorSet(testOtherKey+testOtherKey+testOtherKey, true, false, false))
 	assert.Equal(t, 3, len(as.Entries))
+
+	as = expandStaticKeys(createStaticKeyAttestorSet("", false, true, false))
+	assert.Equal(t, 1, len(as.Entries))
+	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
+		as.Entries[0].Keys.Secret)
+
+	as = expandStaticKeys(createStaticKeyAttestorSet("", false, false, true))
+	assert.Equal(t, 1, len(as.Entries))
+	assert.DeepEqual(t, "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1", as.Entries[0].Keys.KMS)
+
+	as = expandStaticKeys((createStaticKeyAttestorSet(testOtherKey, true, true, false)))
+	assert.Equal(t, 2, len(as.Entries))
+	assert.DeepEqual(t, testOtherKey, as.Entries[0].Keys.PublicKeys)
+	assert.DeepEqual(t, &kyverno.SecretReference{Name: "testsecret", Namespace: "default"},
+		as.Entries[1].Keys.Secret)
 }
 
-func createStaticKeyAttestorSet(s string) kyverno.AttestorSet {
-	return kyverno.AttestorSet{
-		Entries: []kyverno.Attestor{
-			{
-				Keys: &kyverno.StaticKeyAttestor{
-					PublicKeys: s,
+func createStaticKeyAttestorSet(s string, withPublicKey, withSecret, withKMS bool) kyverno.AttestorSet {
+	var entries []kyverno.Attestor
+	if withPublicKey {
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				PublicKeys: s,
+			},
+		}
+		entries = append(entries, attestor)
+	}
+	if withSecret {
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				Secret: &kyverno.SecretReference{
+					Name:      "testsecret",
+					Namespace: "default",
 				},
 			},
-		},
+		}
+		entries = append(entries, attestor)
 	}
+	if withKMS {
+		kmsKey := "gcpkms://projects/test_project_id/locations/asia-south1/keyRings/test_key_ring_name/cryptoKeys/test_key_name/versions/1"
+		attestor := kyverno.Attestor{
+			Keys: &kyverno.StaticKeyAttestor{
+				KMS: kmsKey,
+			},
+		}
+		entries = append(entries, attestor)
+	}
+	return kyverno.AttestorSet{Entries: entries}
 }
 
 func Test_ChangedAnnotation(t *testing.T) {
@@ -564,18 +600,18 @@ func Test_ChangedAnnotation(t *testing.T) {
 
 	policyContext := buildContext(t, testPolicyGood, testResource, testResource)
 
-	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged := hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, false)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, testResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 
 	annotationOld := fmt.Sprintf("\"annotations\": {\"%s\": \"%s\"}", annotationKey, "false")
 	oldResource := strings.ReplaceAll(testResource, "\"annotations\": {}", annotationOld)
 
 	policyContext = buildContext(t, testPolicyGood, newResource, oldResource)
-	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, log.Log)
+	hasChanged = hasImageVerifiedAnnotationChanged(policyContext, logging.GlobalLogger())
 	assert.Equal(t, hasChanged, true)
 }
 
@@ -596,7 +632,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	assert.Equal(t, len(verifiedImages.Data), 1)
 	assert.Equal(t, verifiedImages.isVerified(image), true)
 
-	patches, err := verifiedImages.Patches(false, log.Log)
+	patches, err := verifiedImages.Patches(false, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, len(patches), 2)
 
@@ -607,7 +643,7 @@ func Test_MarkImageVerified(t *testing.T) {
 	json := patchedAnnotations[imageVerifyAnnotationKey]
 	assert.Assert(t, json != "")
 
-	verified, err := isImageVerified(resource, image, log.Log)
+	verified, err := isImageVerified(resource, image, logging.GlobalLogger())
 	assert.NilError(t, err)
 	assert.Equal(t, verified, true)
 }

@@ -4,12 +4,12 @@ import (
 	"fmt"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/policy/generate"
 	"github.com/kyverno/kyverno/pkg/policy/mutate"
 	"github.com/kyverno/kyverno/pkg/policy/validate"
 	"github.com/kyverno/kyverno/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Validation provides methods to validate a rule
@@ -55,7 +55,7 @@ func validateActions(idx int, rule *kyvernov1.Rule, client dclient.Interface, mo
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}
 		} else {
-			checker = generate.NewGenerateFactory(client, rule.Generation, log.Log)
+			checker = generate.NewGenerateFactory(client, rule.Generation, logging.GlobalLogger())
 			if path, err := checker.Validate(); err != nil {
 				return fmt.Errorf("path: spec.rules[%d].generate.%s.: %v", idx, path, err)
 			}

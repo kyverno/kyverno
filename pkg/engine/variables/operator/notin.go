@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewNotInHandler returns handler to manage NotIn operations
+// NewNotInHandler returns handler to manage NotIn operations
 //
 // Deprecated: Use `NewAllNotInHandler` or `NewAnyNotInHandler` instead
 func NewNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {

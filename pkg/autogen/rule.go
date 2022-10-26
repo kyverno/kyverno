@@ -149,6 +149,20 @@ func generateRule(name string, rule *kyvernov1.Rule, tplKey, shift string, kinds
 		rule.Validation = deny
 		return rule
 	}
+	if rule.Validation.PodSecurity != nil {
+		newExclude := make([]kyvernov1.PodSecurityStandard, len(rule.Validation.PodSecurity.Exclude))
+		copy(newExclude, rule.Validation.PodSecurity.Exclude)
+		podSecurity := kyvernov1.Validation{
+			Message: variables.FindAndShiftReferences(logger, rule.Validation.Message, shift, "podSecurity"),
+			PodSecurity: &kyvernov1.PodSecurity{
+				Level:   rule.Validation.PodSecurity.Level,
+				Version: rule.Validation.PodSecurity.Version,
+				Exclude: newExclude,
+			},
+		}
+		rule.Validation = podSecurity
+		return rule
+	}
 	if rule.Validation.GetAnyPattern() != nil {
 		anyPatterns, err := rule.Validation.DeserializeAnyPattern()
 		if err != nil {
@@ -283,5 +297,16 @@ func updateGenRuleByte(pbyte []byte, kind string) (obj []byte) {
 		obj = []byte(strings.ReplaceAll(string(pbyte), "request.object.spec", "request.object.spec.jobTemplate.spec.template.spec"))
 	}
 	obj = []byte(strings.ReplaceAll(string(obj), "request.object.metadata", "request.object.spec.template.metadata"))
+	return obj
+}
+
+func updateRestrictedFields(pbyte []byte, kind string) (obj []byte) {
+	if kind == "Pod" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.template.spec`))
+	}
+	if kind == "Cronjob" {
+		obj = []byte(strings.ReplaceAll(string(pbyte), `"restrictedField":"spec`, `"restrictedField":"spec.jobTemplate.spec.template.spec`))
+	}
+	obj = []byte(strings.ReplaceAll(string(obj), "metadata", "spec.template.metadata"))
 	return obj
 }

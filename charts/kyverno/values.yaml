@@ -23,8 +23,13 @@ rbac:
       # example.com/annotation: value
 
 image:
+  # -- Image registry
+  registry:
+  # If you want to manage the registry you should remove it from the repository
+  # registry: ghcr.io
+  # repository: kyverno/kyverno
   # -- Image repository
-  repository: ghcr.io/kyverno/kyverno
+  repository: ghcr.io/kyverno/kyverno  # kyverno: replaced in e2e tests
   # -- Image tag
   # Defaults to appVersion in Chart.yaml if omitted
   tag:  # replaced in e2e tests
@@ -35,8 +40,13 @@ image:
   # - secretName
 
 initImage:
+  # -- Image registry
+  registry:
+  # If you want to manage the registry you should remove it from the repository
+  # registry: ghcr.io
+  # repository: kyverno/kyvernopre
   # -- Image repository
-  repository: ghcr.io/kyverno/kyvernopre
+  repository: ghcr.io/kyverno/kyvernopre  # init: replaced in e2e tests
   # -- Image tag
   # If initImage.tag is missing, defaults to image.tag
   tag:  # replaced in e2e tests
@@ -44,10 +54,17 @@ initImage:
   # If initImage.pullPolicy is missing, defaults to image.pullPolicy
   pullPolicy:
 
+initContainer:
+  # -- Extra arguments to give to the kyvernopre binary.
+  extraArgs:
+    - --loggingFormat=text
+
+
 testImage:
+  # -- Image registry
+  registry:
   # -- Image repository
-  # Defaults to `busybox` if omitted
-  repository:
+  repository: busybox
   # -- Image tag
   # Defaults to `latest` if omitted
   tag:
@@ -71,6 +88,20 @@ podSecurityContext: {}
 
 # -- Security context for the containers
 securityContext:
+  runAsNonRoot: true
+  privileged: false
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Security context for the test containers
+testSecurityContext:
+  runAsUser: 65534
+  runAsGroup: 65534
   runAsNonRoot: true
   privileged: false
   allowPrivilegeEscalation: false
@@ -141,7 +172,7 @@ envVars: {}
 
 # -- Extra arguments to give to the binary.
 extraArgs:
-  - --autogenInternals=false
+  - --loggingFormat=text
 
 # -- Array of extra init containers
 extraInitContainers: []
@@ -190,6 +221,29 @@ initResources:
     cpu: 10m
     memory: 64Mi
 
+testResources:
+  # -- Pod resource limits
+  limits:
+    cpu: 100m
+    memory: 256Mi
+  # -- Pod resource requests
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+# -- Startup probe.
+# The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want.
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
+# @default -- See [values.yaml](values.yaml)
+startupProbe:
+  httpGet:
+    path: /health/liveness
+    port: 9443
+    scheme: HTTPS
+  failureThreshold: 12
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
 # -- Liveness probe.
 # The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want.
 # ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/
@@ -220,9 +274,8 @@ readinessProbe:
   failureThreshold: 6
   successThreshold: 1
 
-# TODO(mbarrien): Should we just list all resources for the
-# generatecontroller in here rather than having defaults hard-coded?
-generatecontrollerExtraResources:
+# -- Additional resources to be added to controller RBAC permissions.
+generatecontrollerExtraResources: []
 # - ResourceA
 # - ResourceB
 
@@ -251,8 +304,10 @@ config:
   - '[SelfSubjectAccessReview,*,*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
-  - '[ReportChangeRequest,*,*]'
-  - '[ClusterReportChangeRequest,*,*]'
+  - '[AdmissionReport,*,*]'
+  - '[ClusterAdmissionReport,*,*]'
+  - '[BackgroundScanReport,*,*]'
+  - '[ClusterBackgroundScanReport,*,*]'
   # exclude resources from the chart
   - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
   - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'
@@ -273,6 +328,9 @@ config:
 
   # -- Name of an existing config map (ignores default/provided resourceFilters)
   existingConfig: ''
+  # -- Additional annotations to add to the configmap
+  annotations: {}
+    # example.com/annotation: foo
   # -- Exclude group role
   excludeGroupRole:
   # - ''
@@ -302,6 +360,9 @@ config:
   generateSuccessEvents: false
   # -- Metrics config.
   metricsConfig:
+    # -- Additional annotations to add to the metricsconfigmap
+    annotations: {}
+      # example.com/annotation: foo
     namespaces: {
       "include": [],
       "exclude": []

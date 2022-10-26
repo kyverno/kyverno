@@ -18,6 +18,10 @@ limitations under the License.
 
 package v1alpha2
 
-type ClusterReportChangeRequestExpansion interface{}
+type AdmissionReportExpansion interface{}
 
-type ReportChangeRequestExpansion interface{}
+type BackgroundScanReportExpansion interface{}
+
+type ClusterAdmissionReportExpansion interface{}
+
+type ClusterBackgroundScanReportExpansion interface{}

@@ -12,10 +12,10 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/in-toto/in-toto-golang/in_toto"
-	wildcard "github.com/kyverno/go-wildcard"
 	"github.com/kyverno/kyverno/pkg/registryclient"
 	"github.com/kyverno/kyverno/pkg/tracing"
 	"github.com/kyverno/kyverno/pkg/utils"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	"github.com/pkg/errors"
 	"github.com/sigstore/cosign/cmd/cosign/cli/fulcio"
 	"github.com/sigstore/cosign/cmd/cosign/cli/options"
@@ -46,6 +46,7 @@ type Options struct {
 	Annotations          map[string]string
 	Repository           string
 	RekorURL             string
+	SignatureAlgorithm   string
 }
 
 type Response struct {
@@ -53,8 +54,7 @@ type Response struct {
 	Statements []map[string]interface{}
 }
 
-type CosignError struct {
-}
+type CosignError struct{}
 
 func Verify(opts Options) (*Response, error) {
 	if opts.FetchAttestations {
@@ -116,6 +116,11 @@ func verifySignature(opts Options) (*Response, error) {
 func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 	var remoteOpts []remote.Option
 	var err error
+	signatureAlgorithmMap := map[string]crypto.Hash{
+		"":       crypto.SHA256,
+		"sha256": crypto.SHA256,
+		"sha512": crypto.SHA512,
+	}
 	ro := options.RegistryOptions{}
 	remoteOpts, err = ro.ClientOpts(context.Background())
 	if err != nil {
@@ -143,7 +148,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 
 	if opts.Key != "" {
 		if strings.HasPrefix(strings.TrimSpace(opts.Key), "-----BEGIN PUBLIC KEY-----") {
-			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key))
+			cosignOpts.SigVerifier, err = decodePEM([]byte(opts.Key), signatureAlgorithmMap[opts.SignatureAlgorithm])
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to load public key from PEM")
 			}
@@ -159,7 +164,7 @@ func buildCosignOptions(opts Options) (*cosign.CheckOpts, error) {
 			// load cert and optionally a cert chain as a verifier
 			cert, err := loadCert([]byte(opts.Cert))
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to load certificate from %s", string(opts.Cert))
+				return nil, errors.Wrapf(err, "failed to load certificate from %s", opts.Cert)
 			}
 
 			if opts.CertChain == "" {
@@ -280,6 +285,20 @@ func fetchAttestations(opts Options) (*Response, error) {
 		return nil, err
 	}
 
+	payload, err := extractPayload(signatures)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := matchCertificate(signatures, opts.Subject, opts.Issuer, opts.AdditionalExtensions); err != nil {
+		return nil, err
+	}
+
+	err = checkAnnotations(payload, opts.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	logger.V(3).Info("verified images", "signatures", len(signatures), "bundleVerified", bundleVerified)
 	inTotoStatements, digest, err := decodeStatements(signatures)
 	if err != nil {
@@ -393,14 +412,14 @@ func stringToJSONMap(i interface{}) (map[string]interface{}, error) {
 	return data, nil
 }
 
-func decodePEM(raw []byte) (signature.Verifier, error) {
+func decodePEM(raw []byte, signatureAlgorithm crypto.Hash) (signature.Verifier, error) {
 	// PEM encoded file.
 	pubKey, err := cryptoutils.UnmarshalPEMToPublicKey(raw)
 	if err != nil {
 		return nil, errors.Wrap(err, "pem to public key")
 	}
 
-	return signature.LoadVerifier(pubKey, crypto.SHA256)
+	return signature.LoadVerifier(pubKey, signatureAlgorithm)
 }
 
 func extractPayload(verified []oci.Signature) ([]payload.SimpleContainerImage, error) {
@@ -444,13 +463,13 @@ func matchCertificate(signatures []oci.Signature, subject, issuer string, extens
 		}
 
 		if cert == nil {
-			return errors.Wrap(err, "certificate not found")
+			return errors.Errorf("certificate not found")
 		}
 
 		if subject != "" {
 			s := sigs.CertSubject(cert)
 			if !wildcard.Match(subject, s) {
-				return fmt.Errorf("subject mismatch: expected %s, received %s", s, subject)
+				return fmt.Errorf("subject mismatch: expected %s, received %s", subject, s)
 			}
 		}
 
@@ -488,17 +507,17 @@ func matchExtensions(cert *x509.Certificate, issuer string, extensions map[strin
 
 func extractCertExtensionValue(key string, ce cosign.CertExtensions) (string, error) {
 	switch key {
-	case cosign.CertExtensionOIDCIssuer:
+	case cosign.CertExtensionOIDCIssuer, cosign.CertExtensionMap[cosign.CertExtensionOIDCIssuer]:
 		return ce.GetIssuer(), nil
-	case cosign.CertExtensionGithubWorkflowTrigger:
+	case cosign.CertExtensionGithubWorkflowTrigger, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowTrigger]:
 		return ce.GetCertExtensionGithubWorkflowTrigger(), nil
-	case cosign.CertExtensionGithubWorkflowSha:
+	case cosign.CertExtensionGithubWorkflowSha, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowSha]:
 		return ce.GetExtensionGithubWorkflowSha(), nil
-	case cosign.CertExtensionGithubWorkflowName:
+	case cosign.CertExtensionGithubWorkflowName, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowName]:
 		return ce.GetCertExtensionGithubWorkflowName(), nil
-	case cosign.CertExtensionGithubWorkflowRepository:
+	case cosign.CertExtensionGithubWorkflowRepository, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRepository]:
 		return ce.GetCertExtensionGithubWorkflowRepository(), nil
-	case cosign.CertExtensionGithubWorkflowRef:
+	case cosign.CertExtensionGithubWorkflowRef, cosign.CertExtensionMap[cosign.CertExtensionGithubWorkflowRef]:
 		return ce.GetCertExtensionGithubWorkflowRef(), nil
 	default:
 		return "", errors.Errorf("invalid certificate extension %s", key)
