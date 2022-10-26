@@ -1164,7 +1164,7 @@ func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 			}
 			action["enforceW"].Insert(patternList...)
 		}
-		action[string(vfa.Action)].Insert(nsList...)
+		action[strings.ToLower(string(vfa.Action))].Insert(nsList...)
 
 		err := validateWildcardsWithNamespaces(action["enforce"].List(), action["audit"].List(), action["enforceW"].List(), action["auditW"].List())
 		if err != nil {
