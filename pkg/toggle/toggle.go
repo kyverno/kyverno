@@ -6,11 +6,6 @@ import (
 )
 
 const (
-	// autogen
-	AutogenInternalsFlagName    = "autogenInternals"
-	AutogenInternalsDescription = "Enables autogen internal policies. When this is 'true' policy rules should not be mutated."
-	autogenInternalsEnvVar      = "FLAG_AUTOGEN_INTERNALS"
-	defaultAutogenInternals     = true
 	// protect managed resource
 	ProtectManagedResourcesFlagName    = "protectManagedResources"
 	ProtectManagedResourcesDescription = "Set the flag to 'true', to enable managed resources protection."
@@ -24,7 +19,6 @@ const (
 )
 
 var (
-	AutogenInternals         = newToggle(defaultAutogenInternals, autogenInternalsEnvVar)
 	ProtectManagedResources  = newToggle(defaultProtectManagedResources, protectManagedResourcesEnvVar)
 	ForceFailurePolicyIgnore = newToggle(defaultForceFailurePolicyIgnore, forceFailurePolicyIgnoreEnvVar)
 )

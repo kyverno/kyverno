@@ -26118,7 +26118,6 @@ spec:
       containers:
       - args:
         - -v=2
-        - --autogenInternals=true
         env:
         - name: INIT_CONFIG
           value: kyverno
