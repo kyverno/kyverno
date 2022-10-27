@@ -1,4 +1,4 @@
-name: e2e
+name: e2e-autogen-internals
 on:
   push:
     branches:
@@ -6,6 +6,7 @@ on:
       - 'release*'
     paths-ignore:
       - 'README.md'
+      - 'docs/**'
       - '.github/config.yml'
   pull_request:
     branches:
@@ -22,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        k8s-version: [v1.24.4, v1.25.0]
+        k8s-version: [v1.22.13, v1.23.10, v1.24.4, v1.25.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -54,7 +55,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name :  Create dev images, kind cluster and setup kustomize
+      - name: Create dev images, kind cluster and setup kustomize
         run: |
           export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
           make create-e2e-infrastructure
@@ -64,7 +65,6 @@ jobs:
           echo ">>> Install Kyverno"
           cat ${GITHUB_WORKSPACE}/config/install.yaml | \
           sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
-          sed -e 's/--autogenInternals:true$/--autogenInternals:false/g' | \
           kubectl create -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
@@ -76,24 +76,8 @@ jobs:
           echo ">>> Expose the Kyverno's service's metric server to the host"
           kubectl port-forward svc/kyverno-svc-metrics -n kyverno 8000:8000 &
           echo ">>> Run Kyverno e2e test"
-          export FLAG_AUTOGEN_INTERNALS=false
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
-
-      - name: Update chart values
-        run: |
-          make helm-test-values
-          cat charts/kyverno/values.yaml
-
-      - name: Run chart-testing (install)
-        run: |
-          kubectl create namespace kyverno
-          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno
-
-      - name: Run chart-testing (policies)
-        run: |
-          helm install kyverno charts/kyverno -n kyverno
-          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno-policies
 
       - name: Debug failure
         if: failure()

@@ -12,9 +12,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
@@ -28,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policymutation"
 	"github.com/kyverno/kyverno/pkg/policyreport"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
@@ -195,41 +192,6 @@ func GetPolicies(paths []string) (policies []kyvernov1.PolicyInterface, errors [
 	return policies, errors
 }
 
-// MutatePolicy - applies mutation to a policy
-func MutatePolicy(policy kyvernov1.PolicyInterface, logger logr.Logger) (kyvernov1.PolicyInterface, error) {
-	patches, _ := policymutation.GenerateJSONPatchesForDefaults(policy, logger)
-	if len(patches) == 0 {
-		return policy, nil
-	}
-	patch, err := jsonpatch.DecodePatch(patches)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to decode patch for %s policy", policy.GetName()), err)
-	}
-	policyBytes, err := json.Marshal(policy)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to marshal %s policy", policy.GetName()), err)
-	}
-	modifiedPolicy, err := patch.Apply(policyBytes)
-	if err != nil {
-		return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to apply %s policy", policy.GetName()), err)
-	}
-	if policy.IsNamespaced() {
-		var p kyvernov1.Policy
-		err = json.Unmarshal(modifiedPolicy, &p)
-		if err != nil {
-			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
-		}
-		return &p, nil
-	} else {
-		var p kyvernov1.ClusterPolicy
-		err = json.Unmarshal(modifiedPolicy, &p)
-		if err != nil {
-			return nil, sanitizederror.NewWithError(fmt.Sprintf("failed to unmarshal %s policy", policy.GetName()), err)
-		}
-		return &p, nil
-	}
-}
-
 // IsInputFromPipe - check if input is passed using pipe
 func IsInputFromPipe() bool {
 	fileInfo, _ := os.Stdin.Stat()
@@ -390,24 +352,6 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 	})
 
 	return variables, globalValMap, valuesMapResource, namespaceSelectorMap, nil
-}
-
-// MutatePolicies - function to apply mutation on policies
-func MutatePolicies(policies []kyvernov1.PolicyInterface) ([]kyvernov1.PolicyInterface, error) {
-	newPolicies := make([]kyvernov1.PolicyInterface, 0)
-	logger := log.Log.WithName("apply")
-
-	for _, policy := range policies {
-		p, err := MutatePolicy(policy, logger)
-		if err != nil {
-			if !sanitizederror.IsErrorSanitized(err) {
-				return nil, sanitizederror.NewWithError("failed to mutate policy.", err)
-			}
-			return nil, err
-		}
-		newPolicies = append(newPolicies, p)
-	}
-	return newPolicies, nil
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
