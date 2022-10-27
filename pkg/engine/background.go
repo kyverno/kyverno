@@ -131,7 +131,15 @@ func filterRule(rule kyvernov1.Rule, policyContext *PolicyContext) *response.Rul
 	// evaluate pre-conditions
 	if !variables.EvaluateConditions(logger, ctx, copyConditions) {
 		logger.V(4).Info("skip rule as preconditions are not met", "rule", ruleCopy.Name)
-		return nil
+		return &response.RuleResponse{
+			Name:   ruleCopy.Name,
+			Type:   ruleType,
+			Status: response.RuleStatusSkip,
+			RuleStats: response.RuleStats{
+				ProcessingTime:         time.Since(startTime),
+				RuleExecutionTimestamp: startTime.Unix(),
+			},
+		}
 	}
 
 	// build rule Response
