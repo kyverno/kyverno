@@ -99,7 +99,7 @@ func NewController(
 	})
 	polInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updatePolicy,
-		DeleteFunc: c.deletePolicy,
+		DeleteFunc: c.deleteNSPolicy,
 	})
 
 	c.informersSynced = []cache.InformerSynced{cpolInformer.Informer().HasSynced, polInformer.Informer().HasSynced, urInformer.Informer().HasSynced, namespaceInformer.Informer().HasSynced, podInformer.Informer().HasSynced}
@@ -365,6 +365,50 @@ func (c *controller) deletePolicy(obj interface{}) {
 				for _, generatedResource := range ur.Status.GeneratedResources {
 					logger.V(4).Info("retaining resource for cloned policy", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
 				}
+			}
+		}
+	}
+}
+
+func (c *controller) deleteNSPolicy(obj interface{}) {
+	p, ok := kubeutils.GetObjectWithTombstone(obj).(*kyvernov1.Policy)
+	if !ok {
+		logger.Info("Failed to get deleted object", "obj", obj)
+		return
+	}
+
+	logger.V(4).Info("deleting policy", "name", p.Name)
+	key, err := cache.MetaNamespaceKeyFunc(kubeutils.GetObjectWithTombstone(obj))
+	if err != nil {
+		logger.Error(err, "failed to load policy key")
+		return
+	}
+	logger.V(4).Info("updating policy", "key", key)
+
+	// check if deleted policy is clone generate policy
+	generatePolicyWithClone := pkgCommon.ProcessDeletePolicyForCloneGenerateRule(p, c.client, c.kyvernoClient, c.urLister, p.GetName(), logger)
+
+	// get the generated resource name from update request
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		kyvernov1beta1.URGeneratePolicyLabel: p.Name,
+	}))
+
+	urList, err := c.urLister.List(selector)
+	if err != nil {
+		logger.Error(err, "failed to get UR for resource", "label", kyvernov1beta1.URGeneratePolicyLabel)
+		return
+	}
+
+	if !generatePolicyWithClone {
+		// re-evaluate the UR as the policy was updated
+		for _, ur := range urList {
+			logger.V(4).Info("enqueue the UR for cleanup", "UR", ur.Name)
+			c.enqueueUpdateRequest(ur)
+		}
+	} else {
+		for _, ur := range urList {
+			for _, generatedResource := range ur.Status.GeneratedResources {
+				logger.V(4).Info("retaining resource for cloned policy", "apiVersion", generatedResource.APIVersion, "kind", generatedResource.Kind, "name", generatedResource.Name, "namespace", generatedResource.Namespace)
 			}
 		}
 	}
