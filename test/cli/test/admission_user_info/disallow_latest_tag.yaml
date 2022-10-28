@@ -10,6 +10,7 @@ metadata:
       a specific version of an application pod.      
 spec:
   validationFailureAction: audit
+  background: false
   rules:
   - name: require-image-tag
     match:

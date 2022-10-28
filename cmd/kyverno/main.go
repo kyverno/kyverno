@@ -51,7 +51,7 @@ import (
 	webhookspolicy "github.com/kyverno/kyverno/pkg/webhooks/policy"
 	webhooksresource "github.com/kyverno/kyverno/pkg/webhooks/resource"
 	webhookgenerate "github.com/kyverno/kyverno/pkg/webhooks/updaterequest"
-	_ "go.uber.org/automaxprocs" // #nosec
+	"go.uber.org/automaxprocs/maxprocs" // #nosec
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -93,7 +93,9 @@ var (
 	backgroundScan             bool
 	admissionReports           bool
 	reportsChunkSize           int
+	backgroundScanWorkers      int
 	logFormat                  string
+	dumpPayload                bool
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
 )
@@ -101,6 +103,7 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
 	flag.IntVar(&maxQueuedEvents, "maxQueuedEvents", 1000, "Maximum events to be queued.")
@@ -120,12 +123,13 @@ func parseFlags() error {
 	flag.BoolVar(&autoUpdateWebhooks, "autoUpdateWebhooks", true, "Set this flag to 'false' to disable auto-configuration of the webhook.")
 	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 20, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 50, "Configure the maximum burst for throttle. Uses the client default if zero.")
-	flag.Func(toggle.AutogenInternalsFlagName, toggle.AutogenInternalsDescription, toggle.AutogenInternals.Parse)
 	flag.DurationVar(&webhookRegistrationTimeout, "webhookRegistrationTimeout", 120*time.Second, "Timeout for webhook registration, e.g., 30s, 1m, 5m.")
 	flag.Func(toggle.ProtectManagedResourcesFlagName, toggle.ProtectManagedResourcesDescription, toggle.ProtectManagedResources.Parse)
 	flag.BoolVar(&backgroundScan, "backgroundScan", true, "Enable or disable backgound scan.")
+	flag.Func(toggle.ForceFailurePolicyIgnoreFlagName, toggle.ForceFailurePolicyIgnoreDescription, toggle.ForceFailurePolicyIgnore.Parse)
 	flag.BoolVar(&admissionReports, "admissionReports", true, "Enable or disable admission reports.")
 	flag.IntVar(&reportsChunkSize, "reportsChunkSize", 1000, "Max number of results in generated reports, reports will be split accordingly if there are more results to be stored.")
+	flag.IntVar(&backgroundScanWorkers, "backgroundScanWorkers", backgroundscancontroller.Workers, "Configure the number of background scan workers.")
 	// DEPRECATED: remove in 1.9
 	flag.BoolVar(&splitPolicyReport, "splitPolicyReport", false, "This is deprecated, please don't use it, will be removed in v1.9.")
 	if err := flag.Set("v", "2"); err != nil {
@@ -133,6 +137,17 @@ func parseFlags() error {
 	}
 	flag.Parse()
 	return nil
+}
+
+func setupMaxProcs(logger logr.Logger) (func(), error) {
+	logger = logger.WithName("maxprocs")
+	if undo, err := maxprocs.Set(maxprocs.Logger(func(format string, args ...interface{}) {
+		logger.Info(fmt.Sprintf(format, args...))
+	})); err != nil {
+		return nil, err
+	} else {
+		return undo, nil
+	}
 }
 
 func startProfiling(logger logr.Logger) {
@@ -281,6 +296,10 @@ func showWarnings(logger logr.Logger) {
 	if splitPolicyReport {
 		logger.Info("The splitPolicyReport flag is deprecated and will be removed in v1.9. It has no effect and should be removed.")
 	}
+	// log if `forceFailurePolicyIgnore` flag has been set or not
+	if toggle.ForceFailurePolicyIgnore.Enabled() {
+		logger.Info("'ForceFailurePolicyIgnore' is enabled, all policies with policy failures will be set to Ignore")
+	}
 }
 
 func showVersion(logger logr.Logger) {
@@ -369,6 +388,8 @@ func createReportControllers(
 			aggregatereportcontroller.NewController(
 				kyvernoClient,
 				metadataFactory,
+				kyvernoV1.Policies(),
+				kyvernoV1.ClusterPolicies(),
 				resourceReportController,
 				reportsChunkSize,
 			),
@@ -397,7 +418,7 @@ func createReportControllers(
 					kubeInformer.Core().V1().Namespaces(),
 					resourceReportController,
 				),
-				backgroundscancontroller.Workers,
+				backgroundScanWorkers,
 			))
 		}
 	}
@@ -467,6 +488,7 @@ func createrLeaderControllers(
 		serverIP,
 		int32(webhookTimeout),
 		autoUpdateWebhooks,
+		admissionReports,
 		runtime,
 	)
 	return append(
@@ -500,6 +522,13 @@ func main() {
 		os.Exit(1)
 	}
 	logger := logging.WithName("setup")
+	// setup maxprocs
+	if undo, err := setupMaxProcs(logger); err != nil {
+		logger.Error(err, "failed to configure maxprocs")
+		os.Exit(1)
+	} else {
+		defer undo()
+	}
 	// show version
 	showWarnings(logger)
 	// show version
@@ -724,6 +753,9 @@ func main() {
 		policyHandlers,
 		resourceHandlers,
 		configuration,
+		webhooks.DebugModeOptions{
+			DumpPayload: dumpPayload,
+		},
 		func() ([]byte, []byte, error) {
 			secret, err := secretLister.Secrets(config.KyvernoNamespace()).Get(tls.GenerateTLSPairSecretName())
 			if err != nil {

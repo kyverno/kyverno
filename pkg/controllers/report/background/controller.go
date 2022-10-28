@@ -3,6 +3,7 @@ package background
 import (
 	"context"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	corev1informers "k8s.io/client-go/informers/core/v1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
 	metadatainformers "k8s.io/client-go/metadata/metadatainformer"
@@ -85,10 +87,6 @@ func NewController(
 	}
 	controllerutils.AddEventHandlers(polInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
 	controllerutils.AddEventHandlers(cpolInformer.Informer(), c.addPolicy, c.updatePolicy, c.deletePolicy)
-	return &c
-}
-
-func (c *controller) Run(ctx context.Context, workers int) {
 	c.metadataCache.AddEventHandler(func(uid types.UID, _ schema.GroupVersionKind, resource resource.Resource) {
 		selector, err := reportutils.SelectorResourceUidEquals(uid)
 		if err != nil {
@@ -103,7 +101,11 @@ func (c *controller) Run(ctx context.Context, workers int) {
 			c.queue.Add(resource.Namespace + "/" + string(uid))
 		}
 	})
-	controllerutils.Run(ctx, ControllerName, logger, c.queue, workers, maxRetries, c.reconcile)
+	return &c
+}
+
+func (c *controller) Run(ctx context.Context, workers int) {
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
 func (c *controller) addPolicy(obj interface{}) {
@@ -186,6 +188,36 @@ func (c *controller) fetchPolicies(logger logr.Logger, namespace string) ([]kyve
 	return policies, nil
 }
 
+// reportsAreIdentical we expect reports are sorted before comparing them
+func reportsAreIdentical(before, after kyvernov1alpha2.ReportInterface) bool {
+	bLabels := sets.NewString()
+	aLabels := sets.NewString()
+	for key := range before.GetLabels() {
+		bLabels.Insert(key)
+	}
+	for key := range after.GetLabels() {
+		aLabels.Insert(key)
+	}
+	if !aLabels.Equal(bLabels) {
+		return false
+	}
+	b := before.GetResults()
+	a := after.GetResults()
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		a := a[i]
+		b := b[i]
+		a.Timestamp = metav1.Timestamp{}
+		b.Timestamp = metav1.Timestamp{}
+		if !reflect.DeepEqual(&a, &b) {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk schema.GroupVersionKind, resource resource.Resource) error {
 	namespace := meta.GetNamespace()
 	labels := meta.GetLabels()
@@ -239,7 +271,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResponses(report, responses...)
-		if reflect.DeepEqual(before, report) {
+		if reportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
@@ -318,7 +350,7 @@ func (c *controller) updateReport(ctx context.Context, meta metav1.Object, gvk s
 			}
 		}
 		reportutils.SetResults(report, ruleResults...)
-		if reflect.DeepEqual(before, report) {
+		if reportsAreIdentical(before, report) {
 			return nil
 		}
 		_, err = reportutils.UpdateReport(ctx, report, c.kyvernoClient)
@@ -355,7 +387,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	uid := types.UID(name)
 	resource, gvk, exists := c.metadataCache.GetResourceHash(uid)
 	// if the resource is not present it means we shouldn't have a report for it
-	// we can delete the report, we will recreate one if the resource come back
+	// we can delete the report, we will recreate one if the resource comes back
 	if !exists {
 		report, err := c.getMeta(namespace, name)
 		if err != nil {
