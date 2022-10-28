@@ -1029,6 +1029,22 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -4634,6 +4650,27 @@ spec:
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -4661,6 +4698,22 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -8119,6 +8172,27 @@ spec:
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -8623,6 +8697,22 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -12228,6 +12318,27 @@ spec:
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -12255,6 +12366,22 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -15713,6 +15840,27 @@ spec:
               ready:
                 description: Ready indicates if the policy is ready to serve the admission request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
