@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -45,16 +44,13 @@ func Init(flags *flag.FlagSet) {
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
 // LogLevel parameter is used to configure zap.
-func Setup(logFormat string, level int) error {
+func Setup(logFormat string) error {
 	switch logFormat {
 	case TextFormat:
 		// in text mode we use FormatSerialize format
 		globalLog = klogr.New()
 	case JSONFormat:
-		zc := zap.NewProductionConfig()
-		zc.Level = zap.NewAtomicLevelAt(zapcore.Level(-1 * level))
-		zc.EncoderConfig.NameKey = "name"
-		zapLog, err := zc.Build()
+		zapLog, err := zap.NewProduction()
 		if err != nil {
 			return err
 		}
