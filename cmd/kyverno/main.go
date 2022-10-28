@@ -95,7 +95,6 @@ var (
 	reportsChunkSize           int
 	backgroundScanWorkers      int
 	logFormat                  string
-	logLevel                   int
 	dumpPayload                bool
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
@@ -104,7 +103,6 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
-	flag.IntVar(&logLevel, "v", 0, "This is used to make zap level compatible with klog's level.")
 	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
