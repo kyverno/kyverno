@@ -438,8 +438,9 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 		var cresp, dresp map[string]interface{}
 		var err error
 		var mode ResourceMode
-		// var noGenResource kyvernov1.ResourceSpec
-		// var newGenResources []kyvernov1.ResourceSpec
+		var noGenResource kyvernov1.ResourceSpec
+		var newGenResources []kyvernov1.ResourceSpec
+		isErrorOccured := false
 
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
 		if err != nil {
@@ -474,7 +475,144 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 				Error:         err,
 			})
 		}
+
+		for _, rdata := range rdatas {
+			if rdata.Error != nil {
+				logger.Error(err, "failed to generate resource", "mode", rdata.Action)
+				newGenResources = append(newGenResources, noGenResource)
+				isErrorOccured = true
+				break
+			}
+
+			logger.V(3).Info("applying generate rule", "mode", rdata.Action)
+
+			// skip processing the response in case of skip action
+			if rdata.Action == Skip {
+				continue
+			}
+
+			if rdata.Data == nil && rdata.Action == Update {
+				logger.V(4).Info("no changes required for generate target resource")
+				newGenResources = append(newGenResources, noGenResource)
+				isErrorOccured = true
+				break
+			}
+
+			// build the resource template
+			newResource := &unstructured.Unstructured{}
+			newResource.SetUnstructuredContent(rdata.Data)
+			newResource.SetName(rdata.GenName)
+			newResource.SetNamespace(rdata.GenNamespace)
+			if newResource.GetKind() == "" {
+				newResource.SetKind(rdata.GenKind)
+			}
+
+			newResource.SetAPIVersion(rdata.GenAPIVersion)
+			// manage labels
+			// - app.kubernetes.io/managed-by: kyverno
+			// "kyverno.io/generated-by-kind": kind (trigger resource)
+			// "kyverno.io/generated-by-namespace": namespace (trigger resource)
+			// "kyverno.io/generated-by-name": name (trigger resource)
+			common.ManageLabels(newResource, resource)
+			// Add Synchronize label
+			label := newResource.GetLabels()
+
+			// Add background gen-rule label if generate rule applied on existing resource
+			if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() {
+				label["kyverno.io/background-gen-rule"] = rule.Name
+			}
+
+			label["policy.kyverno.io/policy-name"] = policy.GetName()
+			label["policy.kyverno.io/gr-name"] = ur.Name
+			if rdata.Action == Create {
+				if rule.Generation.Synchronize {
+					label["policy.kyverno.io/synchronize"] = "enable"
+				} else {
+					label["policy.kyverno.io/synchronize"] = "disable"
+				}
+
+				// Reset resource version
+				newResource.SetResourceVersion("")
+				newResource.SetLabels(label)
+
+				// Create the resource
+				_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+				if err != nil {
+					if !apierrors.IsAlreadyExists(err) {
+						newGenResources = append(newGenResources, noGenResource)
+						isErrorOccured = true
+						break
+					}
+				}
+				logger.V(2).Info("created generate target resource")
+				newGenResources = append(newGenResources, newGenResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName))
+			} else if rdata.Action == Update {
+				generatedObj, err := client.GetResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName)
+				if err != nil {
+					logger.Error(err, fmt.Sprintf("generated resource not found  name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
+					logger.V(2).Info(fmt.Sprintf("creating generate resource name:name:%v namespace:%v kind:%v", genName, genNamespace, genKind))
+					_, err = client.CreateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+					if err != nil {
+						newGenResources = append(newGenResources, noGenResource)
+						isErrorOccured = true
+						break
+					}
+					newGenResources = append(newGenResources, newGenResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName))
+				} else {
+					// if synchronize is true - update the label and generated resource with generate policy data
+					if rule.Generation.Synchronize {
+						logger.V(4).Info("updating existing resource")
+						label["policy.kyverno.io/synchronize"] = "enable"
+						newResource.SetLabels(label)
+
+						if rdata.GenAPIVersion == "" {
+							generatedResourceAPIVersion := generatedObj.GetAPIVersion()
+							newResource.SetAPIVersion(generatedResourceAPIVersion)
+						}
+						if rdata.GenNamespace == "" {
+							newResource.SetNamespace("default")
+						}
+
+						if _, err := ValidateResourceWithPattern(logger, generatedObj.Object, newResource.Object); err != nil {
+							_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, newResource, false)
+							if err != nil {
+								logger.Error(err, "failed to update resource")
+								newGenResources = append(newGenResources, noGenResource)
+								isErrorOccured = true
+								break
+							}
+						}
+					} else {
+						currentGeneratedResourcelabel := generatedObj.GetLabels()
+						currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
+
+						// update only if the labels mismatches
+						if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
+							(rule.Generation.Synchronize && currentSynclabel == "disable") {
+							logger.V(4).Info("updating label in existing resource")
+							currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
+							generatedObj.SetLabels(currentGeneratedResourcelabel)
+
+							_, err = client.UpdateResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, generatedObj, false)
+							if err != nil {
+								logger.Error(err, "failed to update label in existing resource")
+								newGenResources = append(newGenResources, noGenResource)
+								isErrorOccured = true
+								break
+							}
+						}
+					}
+				}
+				logger.V(3).Info("updated generate target resource")
+			}
+		}
+
+		if isErrorOccured {
+			forEachGenerationErrors = append(forEachGenerationErrors, err)
+			continue
+		}
 	}
+	// Have to return
 	return
 }
 
