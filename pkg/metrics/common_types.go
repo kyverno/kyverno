@@ -55,3 +55,26 @@ const (
 	ResourceDeleted   ResourceRequestOperation = "delete"
 	ResourceConnected ResourceRequestOperation = "connect"
 )
+
+type ClientQueryOperation string
+
+const (
+	ClientCreate           ClientQueryOperation = "create"
+	ClientGet              ClientQueryOperation = "get"
+	ClientList             ClientQueryOperation = "list"
+	ClientUpdate           ClientQueryOperation = "update"
+	ClientUpdateStatus     ClientQueryOperation = "update_status"
+	ClientDelete           ClientQueryOperation = "delete"
+	ClientDeleteCollection ClientQueryOperation = "delete_collection"
+	ClientWatch            ClientQueryOperation = "watch"
+	ClientPatch            ClientQueryOperation = "patch"
+)
+
+type ClientType string
+
+const (
+	KubeDynamicClient  ClientType = "dynamic"
+	KubeClient         ClientType = "kubeclient"
+	KyvernoClient      ClientType = "kyverno"
+	PolicyReportClient ClientType = "policyreport"
+)

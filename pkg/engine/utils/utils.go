@@ -7,9 +7,9 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/logging"
 	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // ApplyPatches patches given resource with given patches and returns patched document
@@ -21,17 +21,17 @@ func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
 	joinedPatches := jsonutils.JoinPatches(patches...)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
-		log.Log.V(4).Info("failed to decode JSON patch", "patch", patch)
+		logging.V(4).Info("failed to decode JSON patch", "patch", patch)
 		return resource, err
 	}
 
 	patchedDocument, err := patch.Apply(resource)
 	if err != nil {
-		log.Log.V(4).Info("failed to apply JSON patch", "patch", patch)
+		logging.V(4).Info("failed to apply JSON patch", "patch", patch)
 		return resource, err
 	}
 
-	log.Log.V(4).Info("applied JSON patch", "patch", patch)
+	logging.V(4).Info("applied JSON patch", "patch", patch)
 	return patchedDocument, err
 }
 
@@ -96,22 +96,4 @@ func JsonPointerToJMESPath(jsonPointer string) string {
 	}
 
 	return sb.String()
-}
-
-func CombineErrors(errors []error) error {
-	if len(errors) == 0 {
-		return nil
-	}
-
-	if len(errors) == 1 {
-		return errors[0]
-	}
-
-	messages := make([]string, len(errors))
-	for i := range errors {
-		messages[i] = errors[i].Error()
-	}
-
-	msg := strings.Join(messages, "; ")
-	return fmt.Errorf(msg)
 }

@@ -9,7 +9,6 @@ aggregationRule:
   clusterRoleSelectors:
   - matchLabels:
       {{- include "kyverno.matchLabels" . | nindent 6 }}
-rules: []
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -47,10 +46,10 @@ rules:
     - generaterequests/status
     - updaterequests
     - updaterequests/status
-    - reportchangerequests
-    - reportchangerequests/status
-    - clusterreportchangerequests
-    - clusterreportchangerequests/status
+    - admissionreports
+    - clusteradmissionreports
+    - backgroundscanreports
+    - clusterbackgroundscanreports
   verbs:
     - create
     - delete

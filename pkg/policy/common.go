@@ -5,21 +5,21 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	wildcard "github.com/kyverno/go-wildcard"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/config"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func transformResource(resource unstructured.Unstructured) []byte {
 	data, err := resource.MarshalJSON()
 	if err != nil {
-		log.Log.Error(err, "failed to marshal resource")
+		logging.Error(err, "failed to marshal resource")
 		return nil
 	}
 	return data
@@ -50,7 +50,6 @@ func (pc *PolicyController) getResourceList(kind, namespace string, labelSelecto
 		log.Error(err, "failed to list resources", "kind", k, "namespace", namespace)
 		return nil
 	}
-
 	return resourceList
 }
 

@@ -109,6 +109,16 @@ var tests = []struct {
 		ExpectedPatternRaw: kyverno_2971_pattern,
 	},
 	{
+		TestDescription:    "checks if the imagePullSecrets is set or not",
+		PolicyName:         "set-image-pull-secret",
+		PolicyRaw:          setImagePullSecret,
+		ResourceName:       "nginx",
+		ResourceNamespace:  "test-run",
+		ResourceGVR:        podGVR,
+		ResourceRaw:        podWithNoSecrets,
+		ExpectedPatternRaw: podWithNoSecretPattern,
+	},
+	{
 		TestDescription:    "checks the global anchor variables for emptyDir",
 		PolicyName:         "add-safe-to-evict",
 		PolicyRaw:          annotate_host_path_policy,

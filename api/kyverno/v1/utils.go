@@ -1,16 +1,16 @@
 package v1
 
 import (
+	log "github.com/kyverno/kyverno/pkg/logging"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	log "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func FromJSON(in *apiextv1.JSON) apiextensions.JSON {
 	var out apiextensions.JSON
 	if err := apiextv1.Convert_v1_JSON_To_apiextensions_JSON(in, &out, nil); err != nil {
-		log.Log.Error(err, "failed to convert JSON to interface")
+		log.Error(err, "failed to convert JSON to interface")
 	}
 	return out
 }
@@ -21,7 +21,7 @@ func ToJSON(in apiextensions.JSON) *apiextv1.JSON {
 	}
 	var out apiextv1.JSON
 	if err := apiextv1.Convert_apiextensions_JSON_To_v1_JSON(&in, &out, nil); err != nil {
-		log.Log.Error(err, "failed to convert interface to JSON")
+		log.Error(err, "failed to convert interface to JSON")
 	}
 	return &out
 }
@@ -44,4 +44,13 @@ func ValidatePolicyName(path *field.Path, name string) (errs field.ErrorList) {
 		errs = append(errs, field.TooLong(path, name, 63))
 	}
 	return errs
+}
+
+func containsString(list []string, key string) bool {
+	for _, val := range list {
+		if val == key {
+			return true
+		}
+	}
+	return false
 }

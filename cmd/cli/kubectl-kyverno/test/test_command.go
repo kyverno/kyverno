@@ -3,7 +3,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/url"
 	"os"
 	"path"
@@ -25,7 +25,7 @@ import (
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/autogen"
 	"github.com/kyverno/kyverno/pkg/background/generate"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
@@ -157,7 +157,7 @@ func Command() *cobra.Command {
 	var testCase string
 	var testFile []byte
 	var fileName, gitBranch string
-	var registryAccess, failOnly bool
+	var registryAccess, failOnly, removeColor bool
 	cmd = &cobra.Command{
 		Use: "test <path_to_folder_Containing_test.yamls> [flags]\n  kyverno test <path_to_gitRepository_with_dir> --git-branch <branchName>\n  kyverno test --manifest-mutate > kyverno-test.yaml\n  kyverno test --manifest-validate > kyverno-test.yaml",
 		// Args:    cobra.ExactArgs(1),
@@ -216,7 +216,7 @@ results:
 				return nil
 			}
 			store.SetRegistryAccess(registryAccess)
-			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly)
+			_, err = testCommandExecute(dirPath, fileName, gitBranch, testCase, failOnly, removeColor)
 			if err != nil {
 				log.Log.V(3).Info("a directory is required")
 				return err
@@ -232,6 +232,7 @@ results:
 	cmd.Flags().BoolP("manifest-validate", "", false, "prints out a template test manifest for a validate policy")
 	cmd.Flags().BoolVarP(&registryAccess, "registry", "", false, "If set to true, access the image registry using local docker credentials to populate external data")
 	cmd.Flags().BoolVarP(&failOnly, "fail-only", "", false, "If set to true, display all the failing test only as output for the test command")
+	cmd.Flags().BoolVarP(&removeColor, "remove-color", "", false, "Remove any color from output")
 	return cmd
 }
 
@@ -318,7 +319,7 @@ type testFilter struct {
 
 var ftable = []Table{}
 
-func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool) (rc *resultCounts, err error) {
+func testCommandExecute(dirPath []string, fileName string, gitBranch string, testCase string, failOnly bool, removeColor bool) (rc *resultCounts, err error) {
 	var errors []error
 	fs := memfs.New()
 	rc = &resultCounts{}
@@ -361,7 +362,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		tf.enabled = false
 	}
 
-	openAPIController, err := openapi.NewOpenAPIController()
+	openApiManager, err := openapi.NewManager()
 	if err != nil {
 		return rc, fmt.Errorf("unable to create open api controller, %w", err)
 	}
@@ -427,7 +428,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 			if path.Base(file.Name()) == fileName {
 				testYamlCount++
 				policyresoucePath := strings.Trim(yamlFilePath, fileName)
-				bytes, err := ioutil.ReadAll(file)
+				bytes, err := io.ReadAll(file)
 				if err != nil {
 					errors = append(errors, sanitizederror.NewWithError("Error: failed to read file", err))
 					continue
@@ -438,7 +439,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 					errors = append(errors, sanitizederror.NewWithError("failed to convert to JSON", err))
 					continue
 				}
-				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openAPIController, tf, failOnly); err != nil {
+				if err := applyPoliciesFromPath(fs, policyBytes, true, policyresoucePath, rc, openApiManager, tf, failOnly, removeColor); err != nil {
 					return rc, sanitizederror.NewWithError("failed to apply test command", err)
 				}
 			}
@@ -450,7 +451,7 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	} else {
 		var testFiles int
 		path := filepath.Clean(dirPath[0])
-		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openAPIController, tf, failOnly)
+		errors = getLocalDirTestFiles(fs, path, fileName, rc, &testFiles, openApiManager, tf, failOnly, removeColor)
 
 		if testFiles == 0 {
 			fmt.Printf("\n No test files found. Please provide test YAML files named kyverno-test.yaml \n")
@@ -479,22 +480,22 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 	return rc, nil
 }
 
-func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) []error {
+func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *resultCounts, testFiles *int, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) []error {
 	var errors []error
 
-	files, err := ioutil.ReadDir(path)
+	files, err := os.ReadDir(path)
 	if err != nil {
 		return []error{fmt.Errorf("failed to read %v: %v", path, err.Error())}
 	}
 	for _, file := range files {
 		if file.IsDir() {
-			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openAPIController, tf, failOnly)
+			getLocalDirTestFiles(fs, filepath.Join(path, file.Name()), fileName, rc, testFiles, openApiManager, tf, failOnly, removeColor)
 			continue
 		}
 		if file.Name() == fileName {
 			*testFiles++
 			// We accept the risk of including files here as we read the test dir only.
-			yamlFile, err := ioutil.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
+			yamlFile, err := os.ReadFile(filepath.Join(path, file.Name())) // #nosec G304
 			if err != nil {
 				errors = append(errors, sanitizederror.NewWithError("unable to read yaml", err))
 				continue
@@ -504,7 +505,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 				errors = append(errors, sanitizederror.NewWithError("failed to convert json", err))
 				continue
 			}
-			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openAPIController, tf, failOnly); err != nil {
+			if err := applyPoliciesFromPath(fs, valuesBytes, false, path, rc, openApiManager, tf, failOnly, removeColor); err != nil {
 				errors = append(errors, sanitizederror.NewWithError(fmt.Sprintf("failed to apply test command from file %s", file.Name()), err))
 				continue
 			}
@@ -556,8 +557,8 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 			if test.Resources != nil {
 				if test.Policy == policyName {
-					// results[].namespace value implict set same as metadata.namespace until and unless
-					// user provides explict values for results[].namespace in test yaml file.
+					// results[].namespace value implicit set same as metadata.namespace until and unless
+					// user provides explicit values for results[].namespace in test yaml file.
 					if test.Namespace == "" {
 						test.Namespace = resourceNamespace
 						testResults[i].Namespace = resourceNamespace
@@ -721,7 +722,7 @@ func buildPolicyResults(engineResponses []*response.EngineResponse, testResults 
 
 				result.Rule = rule.Name
 				result.Result = policyreportv1alpha2.PolicyResult(rule.Status)
-				result.Source = policyreport.SourceValue
+				result.Source = kyvernov1.ValueKyvernoApp
 				result.Timestamp = now
 				results[resultKey] = result
 			}
@@ -818,7 +819,7 @@ func getFullPath(paths []string, policyResourcePath string, isGit bool) []string
 	return paths
 }
 
-func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openAPIController *openapi.Controller, tf *testFilter, failOnly bool) (err error) {
+func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, policyResourcePath string, rc *resultCounts, openApiManager openapi.Manager, tf *testFilter, failOnly, removeColor bool) (err error) {
 	engineResponses := make([]*response.EngineResponse, 0)
 	var dClient dclient.Interface
 	values := &Test{}
@@ -902,7 +903,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		}
 	}
 
-	var ruleToCloneSourceResource = map[string]string{}
+	ruleToCloneSourceResource := map[string]string{}
 	for _, p := range filteredPolicies {
 		filteredRules := []kyvernov1.Rule{}
 
@@ -935,19 +936,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	policies = filteredPolicies
 
-	mutatedPolicies, err := common.MutatePolicies(policies)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return sanitizederror.NewWithError("failed to mutate policy", err)
-		}
-	}
-
-	err = common.PrintMutatedPolicy(mutatedPolicies)
+	err = common.PrintMutatedPolicy(policies)
 	if err != nil {
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -970,7 +964,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	resources = filteredResources
 
 	msgPolicies := "1 policy"
-	if len(mutatedPolicies) > 1 {
+	if len(policies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
 
@@ -979,12 +973,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
 
-	if len(mutatedPolicies) > 0 && len(resources) > 0 {
+	if len(policies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
-	for _, policy := range mutatedPolicies {
-		_, err := policy2.Validate(policy, nil, true, openAPIController)
+	for _, policy := range policies {
+		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())
 			continue
@@ -1009,8 +1003,19 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Sprintf("policy `%s` have variables. pass the values for the variables for resource `%s` using set/values_file flag", policy.GetName(), resource.GetName()), err)
 			}
-
-			ers, info, err := common.ApplyPolicyOnResource(policy, resource, "", false, thisPolicyResourceValues, userInfo, true, namespaceSelectorMap, false, &resultCounts, false, ruleToCloneSourceResource)
+			applyPolicyConfig := common.ApplyPolicyConfig{
+				Policy:                    policy,
+				Resource:                  resource,
+				MutateLogPath:             "",
+				Variables:                 thisPolicyResourceValues,
+				UserInfo:                  userInfo,
+				PolicyReport:              true,
+				NamespaceSelectorMap:      namespaceSelectorMap,
+				Rc:                        &resultCounts,
+				RuleToCloneSourceResource: ruleToCloneSourceResource,
+				Client:                    dClient,
+			}
+			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
 				return sanitizederror.NewWithError(fmt.Errorf("failed to apply policy %v on resource %v", policy.GetName(), resource.GetName()).Error(), err)
 			}
@@ -1019,7 +1024,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		}
 	}
 	resultsMap, testResults := buildPolicyResults(engineResponses, values.Results, pvInfos, policyResourcePath, fs, isGit)
-	resultErr := printTestResult(resultsMap, testResults, rc, failOnly)
+	resultErr := printTestResult(resultsMap, testResults, rc, failOnly, removeColor)
 	if resultErr != nil {
 		return sanitizederror.NewWithError("failed to print test result:", resultErr)
 	}
@@ -1027,7 +1032,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	return
 }
 
-func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly bool) error {
+func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, testResults []TestResults, rc *resultCounts, failOnly, removeColor bool) error {
 	printer := tableprinter.New(os.Stdout)
 	table := []Table{}
 	boldGreen := color.New(color.FgGreen).Add(color.Bold)
@@ -1035,16 +1040,31 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 	boldYellow := color.New(color.FgYellow).Add(color.Bold)
 	boldFgCyan := color.New(color.FgCyan).Add(color.Bold)
 
-	countDeprecatedResource := 0
-	for i, v := range testResults {
+	var countDeprecatedResource int
+	testCount := 1
+	for _, v := range testResults {
 		res := new(Table)
-		res.ID = i + 1
-		res.Policy = boldFgCyan.Sprintf(v.Policy)
-		res.Rule = boldFgCyan.Sprintf(v.Rule)
+		res.ID = testCount
+		if v.Resources == nil {
+			testCount++
+		}
+		if !removeColor {
+			res.Policy = boldFgCyan.Sprintf(v.Policy)
+			res.Rule = boldFgCyan.Sprintf(v.Rule)
+		} else {
+			res.Policy = v.Policy
+			res.Rule = v.Rule
+		}
 
 		if v.Resources != nil {
 			for _, resource := range v.Resources {
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+				res.ID = testCount
+				testCount++
+				if !removeColor {
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+				} else {
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+				}
 				var ruleNameInResultKey string
 				if v.AutoGeneratedRule != "" {
 					ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
@@ -1060,10 +1080,19 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 				} else if found {
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, resource)
-					res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					if !removeColor {
+						res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
+						res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					} else {
+						res.Policy = ns + "/" + v.Policy
+						res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+					}
 				} else if v.Namespace != "" {
-					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					if !removeColor {
+						res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(resource)
+					} else {
+						res.Resource = v.Namespace + "/" + v.Kind + "/" + resource
+					}
 					resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, resource)
 				}
 
@@ -1072,7 +1101,11 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 					testRes = val
 				} else {
 					log.Log.V(2).Info("result not found", "key", resultKey)
-					res.Result = boldYellow.Sprintf("Not found")
+					if !removeColor {
+						res.Result = boldYellow.Sprintf("Not found")
+					} else {
+						res.Result = "Not found"
+					}
 					rc.Fail++
 					table = append(table, *res)
 					ftable = append(ftable, *res)
@@ -1084,23 +1117,29 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				}
 
 				if testRes.Result == v.Result {
-					res.Result = boldGreen.Sprintf("Pass")
-					if testRes.Result == policyreportv1alpha2.StatusSkip {
+					if !removeColor {
 						res.Result = boldGreen.Sprintf("Pass")
+					} else {
+						res.Result = "Pass"
+					}
+					if testRes.Result == policyreportv1alpha2.StatusSkip {
 						rc.Skip++
 					} else {
-						res.Result = boldGreen.Sprintf("Pass")
 						rc.Pass++
 					}
 				} else {
 					log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-					res.Result = boldRed.Sprintf("Fail")
+					if !removeColor {
+						res.Result = boldRed.Sprintf("Fail")
+					} else {
+						res.Result = "Fail"
+					}
 					rc.Fail++
 					ftable = append(ftable, *res)
 				}
 
 				if failOnly {
-					if res.Result == boldRed.Sprintf("Fail") {
+					if res.Result == boldRed.Sprintf("Fail") || res.Result == "Fail" {
 						table = append(table, *res)
 					}
 				} else {
@@ -1109,7 +1148,11 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			}
 		} else if v.Resource != "" {
 			countDeprecatedResource++
-			res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+			if !removeColor {
+				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+			} else {
+				res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+			}
 			var ruleNameInResultKey string
 			if v.AutoGeneratedRule != "" {
 				ruleNameInResultKey = fmt.Sprintf("%s-%s", v.AutoGeneratedRule, v.Rule)
@@ -1125,10 +1168,19 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			} else if found {
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", ns, v.Policy, ruleNameInResultKey, v.Kind, v.Resource)
-				res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+				if !removeColor {
+					res.Policy = boldFgCyan.Sprintf(ns) + "/" + boldFgCyan.Sprintf(v.Policy)
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+				} else {
+					res.Policy = ns + "/" + v.Policy
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+				}
 			} else if v.Namespace != "" {
-				res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+				if !removeColor {
+					res.Resource = boldFgCyan.Sprintf(v.Namespace) + "/" + boldFgCyan.Sprintf(v.Kind) + "/" + boldFgCyan.Sprintf(v.Resource)
+				} else {
+					res.Resource = v.Namespace + "/" + v.Kind + "/" + v.Resource
+				}
 				resultKey = fmt.Sprintf("%s-%s-%s-%s-%s", v.Policy, ruleNameInResultKey, v.Namespace, v.Kind, v.Resource)
 			}
 
@@ -1137,7 +1189,11 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 				testRes = val
 			} else {
 				log.Log.V(2).Info("result not found", "key", resultKey)
-				res.Result = boldYellow.Sprintf("Not found")
+				if !removeColor {
+					res.Result = boldYellow.Sprintf("Not found")
+				} else {
+					res.Result = "Not found"
+				}
 				rc.Fail++
 				table = append(table, *res)
 				ftable = append(ftable, *res)
@@ -1149,23 +1205,29 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 			}
 
 			if testRes.Result == v.Result {
-				res.Result = boldGreen.Sprintf("Pass")
-				if testRes.Result == policyreportv1alpha2.StatusSkip {
+				if !removeColor {
 					res.Result = boldGreen.Sprintf("Pass")
+				} else {
+					res.Result = "Pass"
+				}
+				if testRes.Result == policyreportv1alpha2.StatusSkip {
 					rc.Skip++
 				} else {
-					res.Result = boldGreen.Sprintf("Pass")
 					rc.Pass++
 				}
 			} else {
 				log.Log.V(2).Info("result mismatch", "expected", v.Result, "received", testRes.Result, "key", resultKey)
-				res.Result = boldRed.Sprintf("Fail")
+				if !removeColor {
+					res.Result = boldRed.Sprintf("Fail")
+				} else {
+					res.Result = "Fail"
+				}
 				rc.Fail++
 				ftable = append(ftable, *res)
 			}
 
 			if failOnly {
-				if res.Result == boldRed.Sprintf("Fail") {
+				if res.Result == boldRed.Sprintf("Fail") || res.Result == "Fail" {
 					table = append(table, *res)
 				}
 			} else {
@@ -1174,9 +1236,6 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 		}
 	}
 
-	if countDeprecatedResource > 0 {
-		fmt.Printf("\n Note : The resource field is being deprecated in 1.8.0 release. Please provide the resources under the resources parameter as an array in the results field \n")
-	}
 	printer.BorderTop, printer.BorderBottom, printer.BorderLeft, printer.BorderRight = true, true, true, true
 	printer.CenterSeparator = "│"
 	printer.ColumnSeparator = "│"
@@ -1185,13 +1244,15 @@ func printTestResult(resps map[string]policyreportv1alpha2.PolicyReportResult, t
 	printer.RowLengthTitle = func(rowsLength int) bool {
 		return rowsLength > 10
 	}
-
-	printer.HeaderBgColor = tablewriter.BgBlackColor
-	printer.HeaderFgColor = tablewriter.FgGreenColor
+	if !removeColor {
+		printer.HeaderBgColor = tablewriter.BgBlackColor
+		printer.HeaderFgColor = tablewriter.FgGreenColor
+	}
 	fmt.Printf("\n")
 	printer.Print(table)
 	return nil
 }
+
 func printFailedTestResult() {
 	printer := tableprinter.New(os.Stdout)
 	for i, v := range ftable {

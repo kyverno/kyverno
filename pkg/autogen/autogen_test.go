@@ -3,14 +3,13 @@ package autogen
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/utils"
+	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -73,6 +72,11 @@ func Test_CanAutoGen(t *testing.T) {
 			expectedControllers: "none",
 		},
 		{
+			name:                "rule-with-exclude-names",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"names":["test"]}}}]}}`),
+			expectedControllers: "none",
+		},
+		{
 			name:                "rule-with-exclude-selector",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test-getcontrollers"},"spec":{"background":false,"rules":[{"name":"test-getcontrollers","match":{"resources":{"kinds":["Pod"]}},"exclude":{"resources":{"selector":{"matchLabels":{"foo":"bar"}}}}}]}}`),
 			expectedControllers: "none",
@@ -126,6 +130,11 @@ func Test_CanAutoGen(t *testing.T) {
 			name:                "rule-with-only-predefined-valid-controllers",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
 			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-match-kinds-pod-only-validate-exclude",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","podSecurity": {"level": "baseline","version":"v1.24","exclude":[{"controlName":"SELinux","restrictedField":"spec.containers[*].securityContext.seLinuxOptions.role","images":["nginx"],"values":["baz"]}, {"controlName":"SELinux","restrictedField":"spec.initContainers[*].securityContext.seLinuxOptions.role","images":["nodejs"],"values":["init-baz"]}]}}}]}}`),
+			expectedControllers: PodControllers,
 		},
 	}
 
@@ -173,7 +182,6 @@ func Test_GetSupportedControllers(t *testing.T) {
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","deny":{"conditions":[{"key":"{{request.object.metadata.labels.foo}}","operator":"Equals","value":"bar"}]}}}]}}`),
 			expectedControllers: PodControllers,
 		},
-
 		{
 			name:                "rule-with-match-mixed-kinds-pod-podcontrollers",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Pod","Deployment"]}},"preconditions":{"any":[{"key":"{{request.operation}}","operator":"Equals","value":"CREATE"}]},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
@@ -218,6 +226,16 @@ func Test_GetSupportedControllers(t *testing.T) {
 			name:                "rule-with-only-predefined-valid-controllers",
 			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"set-service-labels-env"},"annotations":null,"pod-policies.kyverno.io/autogen-controllers":"none","spec":{"background":false,"rules":[{"name":"set-service-label","match":{"resources":{"kinds":["Namespace"]}},"mutate":{"patchStrategicMerge":{"metadata":{"labels":{"+(service)":"{{request.object.spec.template.metadata.labels.app}}"}}}}}]}}`),
 			expectedControllers: "none",
+		},
+		{
+			name:                "rule-with-match-kinds-pod-only-validate-exclude",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"test"},"spec":{"rules":[{"name":"require-network-policy","match":{"resources":{"kinds":["Pod"]}},"validate":{"message":"testpolicy","podSecurity": {"level": "baseline","version":"v1.24","exclude":[{"controlName":"SELinux","restrictedField":"spec.containers[*].securityContext.seLinuxOptions.role","images":["nginx"],"values":["baz"]}, {"controlName":"SELinux","restrictedField":"spec.initContainers[*].securityContext.seLinuxOptions.role","images":["nodejs"],"values":["init-baz"]}]}}}]}}`),
+			expectedControllers: PodControllers,
+		},
+		{
+			name:                "rule-with-validate-podsecurity",
+			policy:              []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`),
+			expectedControllers: PodControllers,
 		},
 	}
 
@@ -285,11 +303,11 @@ func Test_Any(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -323,11 +341,11 @@ func Test_All(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -362,11 +380,11 @@ func Test_Exclude(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -396,11 +414,11 @@ func Test_CronJobOnly(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -426,11 +444,11 @@ func Test_ForEachPod(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
+	file, err := os.ReadFile(baseDir + "/test/policy/mutate/policy_mutate_pod_foreach_with_context.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -461,11 +479,11 @@ func Test_CronJob_hasExclude(t *testing.T) {
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
 
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -498,11 +516,11 @@ func Test_CronJobAndDeployment(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/disallow_bind_mounts.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -529,11 +547,11 @@ func Test_UpdateVariablePath(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/best_practices/select-secrets.yaml")
+	file, err := os.ReadFile(baseDir + "/test/best_practices/select-secrets.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -559,11 +577,11 @@ func Test_Deny(t *testing.T) {
 	dir, err := os.Getwd()
 	baseDir := filepath.Dir(filepath.Dir(dir))
 	assert.NilError(t, err)
-	file, err := ioutil.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
+	file, err := os.ReadFile(baseDir + "/test/policy/deny/policy.yaml")
 	if err != nil {
 		t.Log(err)
 	}
-	policies, err := utils.GetPolicy(file)
+	policies, err := yamlutils.GetPolicy(file)
 	if err != nil {
 		t.Log(err)
 	}
@@ -770,10 +788,20 @@ kA==
 	}
 
 	for _, test := range testCases {
-		policies, err := utils.GetPolicy([]byte(test.policy))
+		policies, err := yamlutils.GetPolicy([]byte(test.policy))
 		assert.NilError(t, err)
 		assert.Equal(t, 1, len(policies))
 		rules := computeRules(policies[0])
 		assert.DeepEqual(t, test.expectedRules, rules)
 	}
+}
+
+func Test_PodSecurityWithNoExceptions(t *testing.T) {
+	policy := []byte(`{"apiVersion":"kyverno.io/v1","kind":"ClusterPolicy","metadata":{"name":"pod-security"},"spec":{"validationFailureAction":"enforce","rules":[{"name":"restricted","match":{"all":[{"resources":{"kinds":["Pod"]}}]},"validate":{"podSecurity":{"level":"restricted","version":"v1.24"}}}]}}`)
+	policies, err := yamlutils.GetPolicy([]byte(policy))
+	assert.NilError(t, err)
+	assert.Equal(t, 1, len(policies))
+
+	rules := computeRules(policies[0])
+	assert.Equal(t, 3, len(rules))
 }

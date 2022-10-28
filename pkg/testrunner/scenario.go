@@ -3,7 +3,6 @@ package testrunner
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	ospath "path"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 	"testing"
 
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/dclient"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
@@ -71,7 +70,7 @@ type Generation struct {
 // It assumes that the project directory is 2 levels up. This means if this function is moved
 // it may not work as expected.
 func RootDir() string {
-	_, b, _, _ := runtime.Caller(0) // nolint:dogsled
+	_, b, _, _ := runtime.Caller(0) //nolint:dogsled
 	d := ospath.Join(ospath.Dir(b))
 	d = filepath.Dir(d)
 	return filepath.Dir(d)
@@ -119,7 +118,7 @@ func loadFile(t *testing.T, path string) ([]byte, error) {
 	}
 	path = filepath.Clean(path)
 	// We accept the risk of including a user provided file here.
-	return ioutil.ReadFile(path) // #nosec G304
+	return os.ReadFile(path) // #nosec G304
 }
 
 func runScenario(t *testing.T, s *Scenario) bool {
@@ -366,7 +365,7 @@ func getClient(t *testing.T, files []string) dclient.Interface {
 	// create mock client
 	scheme := k8sRuntime.NewScheme()
 	// mock client expects the resource to be as runtime.Object
-	c, err := dclient.NewMockClient(scheme, nil, objects...)
+	c, err := dclient.NewFakeClient(scheme, nil, objects...)
 	if err != nil {
 		t.Errorf("failed to create client. %v", err)
 		return nil

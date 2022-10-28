@@ -39,7 +39,7 @@ func compareByCondition(key float64, value float64, op kyvernov1.ConditionOperat
 	case kyvernov1.ConditionOperators["LessThan"]:
 		return key < value
 	default:
-		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		log.V(2).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
 	}
 }
@@ -55,7 +55,7 @@ func compareVersionByCondition(key semver.Version, value semver.Version, op kyve
 	case kyvernov1.ConditionOperators["LessThan"]:
 		return key.LT(value)
 	default:
-		log.Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
+		log.V(2).Info(fmt.Sprintf("Expected operator, one of [GreaterThanOrEquals, GreaterThan, LessThanOrEquals, LessThan, Equals, NotEquals], found %s", op))
 		return false
 	}
 }
@@ -71,7 +71,7 @@ func (noh NumericOperatorHandler) Evaluate(key, value interface{}) bool {
 	case string:
 		return noh.validateValueWithStringPattern(typedKey, value)
 	default:
-		noh.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		noh.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -101,7 +101,7 @@ func (noh NumericOperatorHandler) validateValueWithIntPattern(key int64, value i
 		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
 	default:
-		noh.log.Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
+		noh.log.V(2).Info("Expected type int", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }
@@ -130,7 +130,7 @@ func (noh NumericOperatorHandler) validateValueWithFloatPattern(key float64, val
 		noh.log.Error(fmt.Errorf("parse error: "), "Failed to parse both float64 and int64 from the string value")
 		return false
 	default:
-		noh.log.Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))
+		noh.log.V(2).Info("Expected type float", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }
@@ -145,7 +145,7 @@ func (noh NumericOperatorHandler) validateValueWithVersionPattern(key semver.Ver
 		}
 		return compareVersionByCondition(key, versionValue, noh.condition, noh.log)
 	default:
-		noh.log.Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
+		noh.log.V(2).Info("Expected type string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 }

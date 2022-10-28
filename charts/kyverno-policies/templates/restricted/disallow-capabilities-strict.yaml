@@ -19,11 +19,16 @@ metadata:
       Adding capabilities other than `NET_BIND_SERVICE` is disallowed. In addition,
       all containers must explicitly drop `ALL` capabilities.
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: require-drop-all
       match:
@@ -41,7 +46,7 @@ spec:
       preconditions:
         {{- if .all }}
         all:
-        - key: "{{`{{ request.operation }}`}}"
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
         {{- toYaml .all | nindent 8 }}
@@ -52,7 +57,7 @@ spec:
       {{- else }}
       preconditions:
         all:
-        - key: "{{`{{ request.operation }}`}}"
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
       {{- end }}
@@ -66,7 +71,7 @@ spec:
                 all:
                 - key: ALL
                   operator: AnyNotIn
-                  value: "{{`{{ element.securityContext.capabilities.drop || '' }}`}}"
+                  value: "{{`{{`}} element.securityContext.capabilities.drop[].to_upper(@) || `[]` {{`}}`}}"
     - name: adding-capabilities-strict
       match:
         any:
@@ -83,7 +88,7 @@ spec:
       preconditions:
         {{- if .all }}
         all:
-        - key: "{{`{{ request.operation }}`}}"
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
         {{- toYaml .all | nindent 8 }}
@@ -94,7 +99,7 @@ spec:
       {{- else }}
       preconditions:
         all:
-        - key: "{{`{{ request.operation }}`}}"
+        - key: "{{`{{ request.operation || 'BACKGROUND' }}`}}"
           operator: NotEquals
           value: DELETE
       {{- end }}
@@ -106,7 +111,7 @@ spec:
             deny:
               conditions:
                 all:
-                - key: "{{`{{ element.securityContext.capabilities.add[] || '' }}`}}"
+                - key: "{{`{{`}} element.securityContext.capabilities.add[].to_upper(@) || `[]` {{`}}`}}"
                   operator: AnyNotIn
                   value:
                   - NET_BIND_SERVICE

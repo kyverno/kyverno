@@ -17,11 +17,16 @@ metadata:
       Containers must be required to run as non-root users. This policy ensures
       `runAsUser` is either unset or set to a number greater than zero.
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
   background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: run-as-non-root-user
       match:

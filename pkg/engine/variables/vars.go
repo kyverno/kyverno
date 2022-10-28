@@ -17,7 +17,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/operator"
 )
 
-var RegexVariables = regexp.MustCompile(`^\{\{(\{[^{}]*\}|[^{}])*\}\}|[^\\]\{\{(\{[^{}]*\}|[^{}])*\}\}`)
+var RegexVariables = regexp.MustCompile(`(?:^|[^\\])(\{\{(?:\{[^{}]*\}|[^{}])*\}\})`)
 
 var RegexEscpVariables = regexp.MustCompile(`\\\{\{(\{[^{}]*\}|[^{}])*\}\}`)
 
@@ -67,8 +67,8 @@ func newPreconditionsVariableResolver(log logr.Logger) VariableResolver {
 	return func(ctx context.EvalInterface, variable string) (interface{}, error) {
 		value, err := DefaultVariableResolver(ctx, variable)
 		if err != nil {
-			log.V(4).Info(fmt.Sprintf("using empty string for unresolved variable \"%s\" in preconditions", variable))
-			return "", nil
+			log.V(4).Info(fmt.Sprintf("Variable substitution failed in preconditions, therefore nil value assigned to variable,  \"%s\" ", variable))
+			return value, err
 		}
 
 		return value, nil

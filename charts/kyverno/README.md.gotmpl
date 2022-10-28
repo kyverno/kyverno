@@ -46,6 +46,65 @@ The command deploys Kyverno on the Kubernetes cluster with default configuration
 The Kyverno ClusterRole/ClusterRoleBinding that manages webhook configurations must have the suffix `:webhook`. Ex., `*:webhook` or `kyverno:webhook`.
 Other ClusterRole/ClusterRoleBinding names are configurable.
 
+**Notes on using ArgoCD:**
+
+When deploying this chart with ArgoCD you will need to enable `Replace` in the `syncOptions`, and you probably want to ignore diff in aggregated cluster roles.
+
+You can do so by following instructions in these pages of ArgoCD documentation:
+- [Enable Replace in the syncOptions](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/#replace-resource-instead-of-applying-changes)
+- [Ignore diff in aggregated cluster roles](https://argo-cd.readthedocs.io/en/stable/user-guide/diffing/#ignoring-rbac-changes-made-by-aggregateroles)
+
+ArgoCD uses helm only for templating but applies the results with `kubectl`.
+
+Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuberrnetes. Using `Replace` overcomes this limitation.
+
+Another option is to use server side apply, this will be supported in ArgoCD v2.5.
+
+Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those reports are associated with parent resources using an `ownerReference` object.
+
+As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
+
+You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
+
+```yaml
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
+```
+
+Below is an example of ArgoCD Application manifest that should work with this chart.
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kyverno
+  namespace: argocd
+spec:
+  destination:
+    namespace: kyverno
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: kyverno
+    repoURL: https://kyverno.github.io/kyverno
+    targetRevision: 2.6.0
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true
+```
+
 ## Uninstalling the Chart
 
 To uninstall/delete the `kyverno` deployment:
@@ -79,8 +138,10 @@ This chart comes with default resource filters that apply exclusions on a couple
   - `SelfSubjectAccessReview`
   - `Binding`
   - `ReplicaSet`
-  - `ReportChangeRequest`
-  - `ClusterReportChangeRequest`
+  - `AdmissionReport`
+  - `ClusterAdmissionReport`
+  - `BackgroundScanReport`
+  - `ClusterBackgroundScanReport`
 - all resources created by this chart itself
 
 Those default exclusions are there to prevent disruptions as much as possible.

@@ -2,13 +2,14 @@ package validate
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
-	engineUtils "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"go.uber.org/multierr"
 )
 
 type PatternError struct {
@@ -121,8 +122,15 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	// Phase 2 : Evaluate non-anchors
 	anchors, resources := anchor.GetAnchorsResourcesFromMap(patternMap)
 
+	keys := make([]string, 0, len(anchors))
+	for k := range anchors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	// Evaluate anchors
-	for key, patternElement := range anchors {
+	for _, key := range keys {
+		patternElement := anchors[key]
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence
@@ -195,7 +203,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  engineUtils.CombineErrors(skipErrors),
+				Err:  multierr.Combine(skipErrors...),
 				Path: path,
 				Skip: true,
 			}
@@ -229,7 +237,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  engineUtils.CombineErrors(skipErrors),
+			Err:  multierr.Combine(skipErrors...),
 			Path: path,
 			Skip: true,
 		}

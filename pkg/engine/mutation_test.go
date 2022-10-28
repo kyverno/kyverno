@@ -8,7 +8,7 @@ import (
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	client "github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
@@ -20,53 +20,54 @@ import (
 
 func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	policyRaw := []byte(`{
-  "apiVersion": "kyverno.io/v1",
-  "kind": "ClusterPolicy",
-  "metadata": {
-    "name": "add-label"
-  },
-  "spec": {
-    "rules": [
-      {
-        "name": "add-name-label",
-        "match": {
-          "resources": {
-            "kinds": [
-              "Pod"
-            ]
-          }
-        },
-        "mutate": {
-          "patchStrategicMerge": {
-            "metadata": {
-              "labels": {
-                "appname": "{{request.object.metadata.name}}"
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "add-label"
+    },
+    "spec": {
+      "rules": [
+        {
+          "name": "add-name-label",
+          "match": {
+            "resources": {
+              "kinds": [
+                "Pod"
+              ]
+            }
+          },
+          "mutate": {
+            "patchStrategicMerge": {
+              "metadata": {
+                "labels": {
+                  "appname": "{{request.object.metadata.name}}"
+                }
               }
             }
           }
         }
-      }
-    ]
-  }
-}`)
+      ]
+    }
+  }`)
+
 	resourceRaw := []byte(`{
-  "apiVersion": "v1",
-  "kind": "Pod",
-  "metadata": {
-    "name": "check-root-user"
-  },
-  "spec": {
-    "containers": [
-      {
-        "name": "check-root-user",
-        "image": "nginxinc/nginx-unprivileged",
-        "securityContext": {
-          "runAsNonRoot": true
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "check-root-user"
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "check-root-user",
+          "image": "nginxinc/nginx-unprivileged",
+          "securityContext": {
+            "runAsNonRoot": true
+          }
         }
-      }
-    ]
-  }
-}`)
+      ]
+    }
+  }`)
 	expectedPatch := []byte(`{"op":"add","path":"/metadata/labels","value":{"appname":"check-root-user"}}`)
 
 	var policy kyverno.ClusterPolicy
@@ -1441,7 +1442,7 @@ func Test_mutate_existing_resources(t *testing.T) {
 
 			objects := []runtime.Object{target}
 			scheme := runtime.NewScheme()
-			dclient, err := client.NewMockClient(scheme, gvrToListKind, objects...)
+			dclient, err := client.NewFakeClient(scheme, gvrToListKind, objects...)
 			assert.NilError(t, err)
 			dclient.SetDiscovery(client.NewFakeDiscoveryClient(nil))
 
@@ -1463,5 +1464,126 @@ func Test_mutate_existing_resources(t *testing.T) {
 				assert.Equal(t, rr.Status, response.RuleStatusPass, rr.Status)
 			}
 		}
+	}
+}
+
+func Test_RuleSelectorMutate(t *testing.T) {
+	policyRaw := []byte(`{
+    "apiVersion": "kyverno.io/v1",
+    "kind": "ClusterPolicy",
+    "metadata": {
+      "name": "add-label"
+    },
+    "spec": {
+      "rules": [
+        {
+          "name": "add-app-label",
+          "match": {
+            "resources": {
+              "name": "check-root-user",
+              "kinds": [
+                "Pod"
+              ]
+            }
+          },
+          "mutate": {
+            "patchStrategicMerge": {
+              "metadata": {
+                "labels": {
+                  "app": "root"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "add-appname-label",
+          "match": {
+            "resources": {
+              "kinds": [
+                "Pod"
+              ]
+            }
+          },
+          "mutate": {
+            "patchStrategicMerge": {
+              "metadata": {
+                "labels": {
+                  "appname": "{{request.object.metadata.name}}"
+                }
+              }
+            }
+          }
+        }        
+      ]
+    }
+  }`)
+
+	resourceRaw := []byte(`{
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "metadata": {
+      "name": "check-root-user"
+    },
+    "spec": {
+      "containers": [
+        {
+          "name": "check-root-user",
+          "image": "nginxinc/nginx-unprivileged",
+          "securityContext": {
+            "runAsNonRoot": true
+          }
+        }
+      ]
+    }
+  }`)
+
+	expectedPatch1 := []byte(`{"op":"add","path":"/metadata/labels","value":{"app":"root"}}`)
+	expectedPatch2 := []byte(`{"op":"add","path":"/metadata/labels/appname","value":"check-root-user"}`)
+
+	var policy kyverno.ClusterPolicy
+	err := json.Unmarshal(policyRaw, &policy)
+	if err != nil {
+		t.Error(err)
+	}
+
+	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
+	assert.NilError(t, err)
+	ctx := context.NewContext()
+	err = context.AddResource(ctx, resourceRaw)
+	if err != nil {
+		t.Error(err)
+	}
+
+	_, err = ctx.Query("request.object.metadata.name")
+	assert.NilError(t, err)
+
+	policyContext := &PolicyContext{
+		Policy:      &policy,
+		JSONContext: ctx,
+		NewResource: *resourceUnstructured,
+	}
+
+	er := Mutate(policyContext)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 2)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[1].Patches), 1)
+
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+		t.Error("rule 1 patches dont match")
+	}
+	if !reflect.DeepEqual(expectedPatch2, er.PolicyResponse.Rules[1].Patches[0]) {
+		t.Errorf("rule 2 patches dont match")
+	}
+
+	applyOne := kyverno.ApplyOne
+	policyContext.Policy.GetSpec().ApplyRules = &applyOne
+
+	er = Mutate(policyContext)
+	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
+	assert.Equal(t, len(er.PolicyResponse.Rules[0].Patches), 1)
+
+	if !reflect.DeepEqual(expectedPatch1, er.PolicyResponse.Rules[0].Patches[0]) {
+		t.Error("rule 1 patches dont match")
 	}
 }
