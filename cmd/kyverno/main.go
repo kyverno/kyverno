@@ -10,6 +10,7 @@ import (
 	_ "net/http/pprof" // #nosec
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -95,6 +96,7 @@ var (
 	reportsChunkSize           int
 	backgroundScanWorkers      int
 	logFormat                  string
+	logLevel                   int
 	dumpPayload                bool
 	// DEPRECATED: remove in 1.9
 	splitPolicyReport bool
@@ -103,6 +105,7 @@ var (
 func parseFlags() error {
 	logging.Init(nil)
 	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
+	flag.IntVar(&logLevel, "v", 0, "This is used to make zap level compatible with klog's level.")
 	flag.BoolVar(&dumpPayload, "dumpPayload", false, "Set this flag to activate/deactivate debug mode.")
 	flag.IntVar(&webhookTimeout, "webhookTimeout", webhookcontroller.DefaultWebhookTimeout, "Timeout for webhook configurations.")
 	flag.IntVar(&genWorkers, "genWorkers", 10, "Workers for generate controller.")
@@ -517,7 +520,12 @@ func main() {
 		os.Exit(1)
 	}
 	// setup logger
-	if err := logging.Setup(logFormat); err != nil {
+	logLevel, err := strconv.Atoi(flag.Lookup("v").Value.String())
+	if err != nil {
+		fmt.Println("failed to setup logger", err)
+		os.Exit(1)
+	}
+	if err := logging.Setup(logFormat, logLevel); err != nil {
 		fmt.Println("failed to setup logger", err)
 		os.Exit(1)
 	}
