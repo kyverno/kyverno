@@ -29,13 +29,13 @@ jobs:
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
         with:
           fetch-depth: 0
 
       - name: Checkout image
         if: ${{ inputs.tag == 'image'}}
-        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.4.0
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8 # v3.1.0
 
       - name: Unshallow
         if: ${{ inputs.tag == 'image'}}
@@ -94,7 +94,7 @@ jobs:
       - name: Extract branch name
         if: ${{inputs.tag == 'image'}}
         shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        run: echo branch=$(echo ${GITHUB_REF#refs/heads/}) >> $GITHUB_OUTPUT
         id: extract_branch
 
       - name: Check branch
