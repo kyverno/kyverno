@@ -11,7 +11,7 @@ jobs:
   execute:
     runs-on: ubuntu-latest
     steps:
-      - uses: jpmcb/prow-github-actions@v1.1.3
+      - uses: jpmcb/prow-github-actions@f4d01dd4b13f289014c23fe5a19878a2479cb35b
         with:
           prow-commands: '/assign 
             /unassign
