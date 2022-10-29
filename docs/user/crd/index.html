@@ -2759,6 +2759,20 @@ AutogenStatus
 <p>Autogen contains autogen status information</p>
 </td>
 </tr>
+<tr>
+<td>
+<code>rulecount</code><br/>
+<em>
+<a href="#kyverno.io/v1.RuleCountStatus">
+RuleCountStatus
+</a>
+</em>
+</td>
+<td>
+<em>(Optional)</em>
+<p>RuleCount describes total number of rules in a policy</p>
+</td>
+</tr>
 </tbody>
 </table>
 <hr />
@@ -3230,6 +3244,71 @@ Generation
 <td>
 <em>(Optional)</em>
 <p>VerifyImages is used to verify image signatures and mutate them to add a digest</p>
+</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3 id="kyverno.io/v1.RuleCountStatus">RuleCountStatus
+</h3>
+<p>
+(<em>Appears on:</em>
+<a href="#kyverno.io/v1.PolicyStatus">PolicyStatus</a>)
+</p>
+<p>
+<p>RuleCountStatus contains four variables which describes counts for
+validate, generate, mutate and verify images rules</p>
+</p>
+<table class="table table-striped">
+<thead class="thead-dark">
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+<code>validate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for validate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>generate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for generate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>mutate</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for mutate rules in policy</p>
+</td>
+</tr>
+<tr>
+<td>
+<code>verifyimages</code><br/>
+<em>
+int
+</em>
+</td>
+<td>
+<p>Count for verify image rules in policy</p>
 </td>
 </tr>
 </tbody>

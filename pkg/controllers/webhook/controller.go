@@ -430,7 +430,9 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready)
 		status.Autogen.Rules = nil
-		for _, rule := range autogen.ComputeRules(policy) {
+		rules := autogen.ComputeRules(policy)
+		setRuleCount(rules, status)
+		for _, rule := range rules {
 			if strings.HasPrefix(rule.Name, "autogen-") {
 				status.Autogen.Rules = append(status.Autogen.Rules, rule)
 			}
