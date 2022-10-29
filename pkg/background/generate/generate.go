@@ -359,7 +359,7 @@ func (c *GenerateController) ApplyGeneratePolicy(log logr.Logger, policyContext 
 
 		if policy.GetSpec().IsGenerateExistingOnPolicyUpdate() || !processExisting {
 			if len(rule.Generation.ForEachGeneration) > 0 {
-				genResource, err = applyRules(log, c.client, rule, resource, jsonContext, policy, ur)
+				genResource, err = applyForEachGenerateRules(log, c.client, rule, resource, jsonContext, policy, ur)
 			} else {
 				genResource, err = applyRule(log, c.client, rule, resource, jsonContext, policy, ur)
 			}
@@ -430,16 +430,15 @@ func forEachGetResourceInfoForDataAndClone(fe kyvernov1.ForEachGeneration) (kind
 	return
 }
 
-func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
+func applyForEachGenerateRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
 	var forEachGenerationErrors []error
+	var noGenResource kyvernov1.ResourceSpec
+	var newGenResources []kyvernov1.ResourceSpec
 	for _, fe := range rule.Generation.ForEachGeneration {
-		// Have to implement
 		rdatas := []GenerateResponse{}
 		var cresp, dresp map[string]interface{}
 		var err error
 		var mode ResourceMode
-		var noGenResource kyvernov1.ResourceSpec
-		var newGenResources []kyvernov1.ResourceSpec
 		isErrorOccured := false
 
 		genKind, genName, genNamespace, genAPIVersion, err := forEachGetResourceInfoForDataAndClone(fe)
@@ -525,7 +524,7 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 			label["policy.kyverno.io/policy-name"] = policy.GetName()
 			label["policy.kyverno.io/gr-name"] = ur.Name
 			if rdata.Action == Create {
-				if rule.Generation.Synchronize {
+				if fe.Synchronize {
 					label["policy.kyverno.io/synchronize"] = "enable"
 				} else {
 					label["policy.kyverno.io/synchronize"] = "disable"
@@ -560,7 +559,7 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 					newGenResources = append(newGenResources, newGenResource(rdata.GenAPIVersion, rdata.GenKind, rdata.GenNamespace, rdata.GenName))
 				} else {
 					// if synchronize is true - update the label and generated resource with generate policy data
-					if rule.Generation.Synchronize {
+					if fe.Synchronize {
 						logger.V(4).Info("updating existing resource")
 						label["policy.kyverno.io/synchronize"] = "enable"
 						newResource.SetLabels(label)
@@ -587,8 +586,8 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 						currentSynclabel := currentGeneratedResourcelabel["policy.kyverno.io/synchronize"]
 
 						// update only if the labels mismatches
-						if (!rule.Generation.Synchronize && currentSynclabel == "enable") ||
-							(rule.Generation.Synchronize && currentSynclabel == "disable") {
+						if (!fe.Synchronize && currentSynclabel == "enable") ||
+							(fe.Synchronize && currentSynclabel == "disable") {
 							logger.V(4).Info("updating label in existing resource")
 							currentGeneratedResourcelabel["policy.kyverno.io/synchronize"] = "disable"
 							generatedObj.SetLabels(currentGeneratedResourcelabel)
@@ -612,8 +611,7 @@ func applyRules(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, 
 			continue
 		}
 	}
-	// Have to return
-	return
+	return newGenResources, nil
 }
 
 func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, resource unstructured.Unstructured, ctx context.EvalInterface, policy kyvernov1.PolicyInterface, ur kyvernov1beta1.UpdateRequest) ([]kyvernov1.ResourceSpec, error) {
