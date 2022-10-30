@@ -297,17 +297,21 @@ config:
   - '[*,kube-system,*]'
   - '[*,kube-public,*]'
   - '[*,kube-node-lease,*]'
+  - '[*,kyverno,*]'
   - '[Node,*,*]'
   - '[APIService,*,*]'
   - '[TokenReview,*,*]'
   - '[SubjectAccessReview,*,*]'
   - '[SelfSubjectAccessReview,*,*]'
+  - '[*,kyverno,kyverno*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
   - '[AdmissionReport,*,*]'
   - '[ClusterAdmissionReport,*,*]'
   - '[BackgroundScanReport,*,*]'
   - '[ClusterBackgroundScanReport,*,*]'
+  - '[PolicyReport,*,*]'
+  - '[ClusterPolicyReport,*,*]'
   # exclude resources from the chart
   - '[ClusterRole,*,{{ template "kyverno.fullname" . }}:*]'
   - '[ClusterRoleBinding,*,{{ template "kyverno.fullname" . }}:*]'
@@ -334,6 +338,9 @@ config:
   # -- Exclude group role
   excludeGroupRole:
   # - ''
+  - system:serviceaccounts:kube-system
+  - system:nodes
+  - system:kube-scheduler
   # -- Exclude username
   excludeUsername:
   # - ''
@@ -343,13 +350,12 @@ config:
   # The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default)
   webhooks:
     # Exclude namespaces
-    # - namespaceSelector:
-    #     matchExpressions:
-    #     - key: kubernetes.io/metadata.name
-    #       operator: NotIn
-    #       values:
-    #         - kube-system
-    #         - kyverno
+    - namespaceSelector:
+        matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kyverno
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
