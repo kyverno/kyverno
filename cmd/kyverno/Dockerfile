@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} golang:alpine AS certs
+FROM --platform=${BUILDPLATFORM} golang:alpine@sha256:e4dcdac3ed37d8c2b3b8bcef2909573b2ad9c2ab53ba53c608909e8b89ccee36 AS certs
 
 LABEL maintainer="Kyverno"
 
@@ -29,7 +29,7 @@ RUN --mount=type=bind,target=. \
     CGO_ENABLED=0 xx-go build -o /output/kyverno -ldflags="${LD_FLAGS}" -v ./cmd/kyverno/
 
 # Packaging stage
-FROM ghcr.io/distroless/static:latest
+FROM ghcr.io/distroless/static@sha256:a9650a15060275287ebf4530b34020b8d998bd2de9aea00d113c332d8c41eb0b
 
 LABEL maintainer="Kyverno"
 COPY --from=builder /output/kyverno /
