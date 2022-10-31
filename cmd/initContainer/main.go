@@ -174,6 +174,7 @@ func main() {
 		config.KyvernoNamespace(),
 		kubeClient,
 		config.KyvernoPodName(),
+		leaderelection.DefaultRetryPeriod,
 		run,
 		nil,
 	)
