@@ -1,6 +1,8 @@
 package webhook
 
 import (
+	"strings"
+
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/utils"
 	"golang.org/x/exp/slices"
@@ -105,4 +107,28 @@ func objectMeta(name string, owner ...metav1.OwnerReference) metav1.ObjectMeta {
 		},
 		OwnerReferences: owner,
 	}
+}
+
+func setRuleCount(rules []kyvernov1.Rule, status *kyvernov1.PolicyStatus) {
+	validateCount, generateCount, mutateCount, verifyImagesCount := 0, 0, 0, 0
+	for _, rule := range rules {
+		if !strings.HasPrefix(rule.Name, "autogen-") {
+			if rule.HasGenerate() {
+				generateCount += 1
+			}
+			if rule.HasValidate() {
+				validateCount += 1
+			}
+			if rule.HasMutate() {
+				mutateCount += 1
+			}
+			if rule.HasVerifyImages() {
+				verifyImagesCount += 1
+			}
+		}
+	}
+	status.RuleCount.Validate = validateCount
+	status.RuleCount.Generate = generateCount
+	status.RuleCount.Mutate = mutateCount
+	status.RuleCount.VerifyImages = verifyImagesCount
 }

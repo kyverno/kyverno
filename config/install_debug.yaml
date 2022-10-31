@@ -24,6 +24,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: AdmissionReport
     listKind: AdmissionReportList
     plural: admissionreports
@@ -364,6 +367,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: BackgroundScanReport
     listKind: BackgroundScanReportList
     plural: backgroundscanreports
@@ -668,6 +674,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterAdmissionReport
     listKind: ClusterAdmissionReportList
     plural: clusteradmissionreports
@@ -1009,6 +1018,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -1313,6 +1325,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterPolicy
     listKind: ClusterPolicyList
     plural: clusterpolicies
@@ -1335,6 +1350,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -7159,6 +7193,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -7183,6 +7238,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -12738,6 +12812,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -13321,6 +13416,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: Policy
     listKind: PolicyList
     plural: policies
@@ -13343,6 +13441,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v1
     schema:
       openAPIV3Schema:
@@ -19169,6 +19286,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -19193,6 +19331,25 @@ spec:
     - jsonPath: .status.ready
       name: Ready
       type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.rulecount.validate
+      name: Validate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.mutate
+      name: Mutate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.generate
+      name: Generate
+      priority: 1
+      type: integer
+    - jsonPath: .status.rulecount.verifyimages
+      name: Verifyimages
+      priority: 1
+      type: integer
     name: v2beta1
     schema:
       openAPIV3Schema:
@@ -24749,6 +24906,27 @@ spec:
                 description: Ready indicates if the policy is ready to serve the admission
                   request. Deprecated in favor of Conditions
                 type: boolean
+              rulecount:
+                description: RuleCount describes total number of rules in a policy
+                properties:
+                  generate:
+                    description: Count for generate rules in policy
+                    type: integer
+                  mutate:
+                    description: Count for mutate rules in policy
+                    type: integer
+                  validate:
+                    description: Count for validate rules in policy
+                    type: integer
+                  verifyimages:
+                    description: Count for verify image rules in policy
+                    type: integer
+                required:
+                - generate
+                - mutate
+                - validate
+                - verifyimages
+                type: object
             required:
             - ready
             type: object
@@ -25142,6 +25320,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: UpdateRequest
     listKind: UpdateRequestList
     plural: updaterequests

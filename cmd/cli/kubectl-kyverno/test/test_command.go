@@ -936,19 +936,12 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	}
 	policies = filteredPolicies
 
-	mutatedPolicies, err := common.MutatePolicies(policies)
-	if err != nil {
-		if !sanitizederror.IsErrorSanitized(err) {
-			return sanitizederror.NewWithError("failed to mutate policy", err)
-		}
-	}
-
-	err = common.PrintMutatedPolicy(mutatedPolicies)
+	err = common.PrintMutatedPolicy(policies)
 	if err != nil {
 		return sanitizederror.NewWithError("failed to print mutated policy", err)
 	}
 
-	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, mutatedPolicies, dClient, "", false, isGit, policyResourcePath)
+	resources, err := common.GetResourceAccordingToResourcePath(fs, resourceFullPath, false, policies, dClient, "", false, isGit, policyResourcePath)
 	if err != nil {
 		fmt.Printf("Error: failed to load resources\nCause: %s\n", err)
 		os.Exit(1)
@@ -971,7 +964,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	resources = filteredResources
 
 	msgPolicies := "1 policy"
-	if len(mutatedPolicies) > 1 {
+	if len(policies) > 1 {
 		msgPolicies = fmt.Sprintf("%d policies", len(policies))
 	}
 
@@ -980,11 +973,11 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 		msgResources = fmt.Sprintf("%d resources", len(resources))
 	}
 
-	if len(mutatedPolicies) > 0 && len(resources) > 0 {
+	if len(policies) > 0 && len(resources) > 0 {
 		fmt.Printf("\napplying %s to %s... \n", msgPolicies, msgResources)
 	}
 
-	for _, policy := range mutatedPolicies {
+	for _, policy := range policies {
 		_, err := policy2.Validate(policy, nil, true, openApiManager)
 		if err != nil {
 			log.Log.Error(err, "skipping invalid policy", "name", policy.GetName())

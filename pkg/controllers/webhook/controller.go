@@ -17,7 +17,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers"
 	"github.com/kyverno/kyverno/pkg/tls"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	controllerutils "github.com/kyverno/kyverno/pkg/utils/controller"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	runtimeutils "github.com/kyverno/kyverno/pkg/utils/runtime"
@@ -431,11 +430,11 @@ func (c *controller) updatePolicyStatuses(ctx context.Context) error {
 		status := policy.GetStatus()
 		status.SetReady(ready)
 		status.Autogen.Rules = nil
-		if toggle.AutogenInternals.Enabled() {
-			for _, rule := range autogen.ComputeRules(policy) {
-				if strings.HasPrefix(rule.Name, "autogen-") {
-					status.Autogen.Rules = append(status.Autogen.Rules, rule)
-				}
+		rules := autogen.ComputeRules(policy)
+		setRuleCount(rules, status)
+		for _, rule := range rules {
+			if strings.HasPrefix(rule.Name, "autogen-") {
+				status.Autogen.Rules = append(status.Autogen.Rules, rule)
 			}
 		}
 		return nil
