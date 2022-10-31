@@ -410,6 +410,7 @@ func checkDryRunNamespace(namespace string) bool {
 	// should not use kyverno namespace for dryrun
 	if namespace != config.KyvernoNamespace() {
 		return true
+	} else {
+		return false
 	}
-	return false
 }
