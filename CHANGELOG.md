@@ -3,6 +3,7 @@
 ### Note
 
 - Flag `autogenInternals` was removed, policy mutation has been removed.
+- Flag `leaderElectionRetryPeriod` was added to control leader election renewal frequency (default value is `2s`).
 
 ## v1.8.1-rc3
 
