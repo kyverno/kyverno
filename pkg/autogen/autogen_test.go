@@ -709,7 +709,7 @@ kA==
 				Name: "autogen-check-image",
 				MatchResources: kyverno.MatchResources{
 					ResourceDescription: kyverno.ResourceDescription{
-						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet"},
+						Kinds: []string{"DaemonSet", "Deployment", "Job", "StatefulSet", "ReplicaSet", "ReplicationController"},
 					},
 				},
 				VerifyImages: []kyverno.ImageVerification{{
