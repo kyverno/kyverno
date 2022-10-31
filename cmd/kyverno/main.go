@@ -63,8 +63,7 @@ import (
 )
 
 const (
-	resyncPeriod         = 15 * time.Minute
-	metadataResyncPeriod = 15 * time.Minute
+	period               = 15 * time.Minute
 )
 
 var (
@@ -196,7 +195,7 @@ func createInstrumentedClients(ctx context.Context, logger logr.Logger, clientCo
 	if err != nil {
 		return nil, nil, err
 	}
-	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, metadataResyncPeriod)
+	dynamicClient, err := dclient.NewClient(ctx, clientConfig, kubeClient, metricsConfig, period)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -580,9 +579,9 @@ func main() {
 		os.Exit(1)
 	}
 	// informer factories
-	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, period)
+	kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, period, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+	kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, period)
 	configuration, err := config.NewConfiguration(
 		kubeClient,
 	)
@@ -671,9 +670,9 @@ func main() {
 			// 	os.Exit(1)
 			// }
 			// create leader factories
-			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, resyncPeriod)
-			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, resyncPeriod, kubeinformers.WithNamespace(config.KyvernoNamespace()))
-			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, resyncPeriod)
+			kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClient, period)
+			kubeKyvernoInformer := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, period, kubeinformers.WithNamespace(config.KyvernoNamespace()))
+			kyvernoInformer := kyvernoinformer.NewSharedInformerFactory(kyvernoClient, period)
 			metadataInformer := metadatainformers.NewSharedInformerFactory(metadataClient, 15*time.Minute)
 			// create leader controllers
 			leaderControllers, err := createrLeaderControllers(
