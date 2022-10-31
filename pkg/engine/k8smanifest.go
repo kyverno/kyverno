@@ -114,6 +114,12 @@ func verifyManifest(policyContext *PolicyContext, verifyRule kyvernov1.Manifests
 			logger.V(1).Info("kyverno does not have permissions to 'create' resource. disabled DryRun option.", "dryrun namespace", vo.DryRunNamespace, "kind", adreq.Kind.Kind)
 			vo.DisableDryRun = true
 		}
+		// check if kyverno namespace is not used for dryrun
+		ok = checkDryRunNamespace(vo.DryRunNamespace)
+		if !ok {
+			logger.V(1).Info("an inappropriate dryrun namespace is set; set a namespace other than kyverno.", "dryrun namespace", vo.DryRunNamespace)
+			vo.DisableDryRun = true
+		}
 	}
 
 	// can be overridden per Attestor
@@ -398,4 +404,12 @@ func checkDryRunPermission(dclient dclient.Interface, kind, namespace string) (b
 		return false, err
 	}
 	return ok, nil
+}
+
+func checkDryRunNamespace(namespace string) bool {
+	// should not use kyverno namespace for dryrun
+	if namespace != config.KyvernoNamespace() {
+		return true
+	}
+	return false
 }
