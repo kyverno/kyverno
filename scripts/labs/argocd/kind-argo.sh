@@ -7,15 +7,35 @@ set -e
 readonly KIND_IMAGE=kindest/node:v1.24.4
 readonly NAME=argo
 
+# DELETE CLUSTER
+
+kind delete cluster --name $NAME || true
+
 # CREATE CLUSTER
 
 kind create cluster --name $NAME --image $KIND_IMAGE --config - <<EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |-
+    kind: ClusterConfiguration
+    controllerManager:
+      extraArgs:
+        bind-address: 0.0.0.0
+    etcd:
+      local:
+        extraArgs:
+          listen-metrics-urls: http://0.0.0.0:2381
+    scheduler:
+      extraArgs:
+        bind-address: 0.0.0.0
+  - |-
+    kind: KubeProxyConfiguration
+    metricsBindAddress: 0.0.0.0
 nodes:
   - role: control-plane
     kubeadmConfigPatches:
-      - |
+      - |-
         kind: InitConfiguration
         nodeRegistration:
           kubeletExtraArgs:
@@ -27,6 +47,9 @@ nodes:
       - containerPort: 443
         hostPort: 443
         protocol: TCP
+  - role: worker
+  - role: worker
+  - role: worker
 EOF
 
 # DEPLOY INGRESS-NGINX
@@ -55,6 +78,16 @@ repoServer:
     create: true
 server:
   config:
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
     resource.compareoptions: |
       ignoreAggregatedRoles: true
       ignoreResourceStatusField: all
@@ -71,6 +104,110 @@ server:
     enabled: true
     paths:
       - /argocd
+EOF
+
+# CREATE METRICS-SERVER APP
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+spec:
+  destination:
+    namespace: kube-system
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: metrics-server
+    repoURL: https://charts.bitnami.com/bitnami
+    targetRevision: 6.2.1
+    helm:
+      values: |
+        extraArgs:
+          - --kubelet-insecure-tls=true
+        apiService:
+          create: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+EOF
+
+# CREATE KUBE-PROMETHEUS-STACK APP
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+spec:
+  destination:
+    namespace: monitoring
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: kube-prometheus-stack
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 41.4.1
+    helm:
+      values: |
+        kubeEtcd:
+          service:
+            enabled: true
+            targetPort: 2381
+        defaultRules:
+          create: true
+        alertmanager:
+          alertmanagerSpec:
+            routePrefix: /alertmanager
+            alertmanagerConfigSelector:
+              matchLabels: {}
+            alertmanagerConfigNamespaceSelector:
+              matchLabels: {}
+          ingress:
+            enabled: true
+            pathType: Prefix
+        prometheus:
+          prometheusSpec:
+            externalUrl: /prometheus
+            routePrefix: /prometheus
+            ruleSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            probeSelectorNilUsesHelmValues: false
+          ingress:
+            enabled: true
+            pathType: Prefix
+        grafana:
+          enabled: true
+          adminPassword: admin
+          sidecar:
+            enableUniqueFilenames: true
+            dashboards:
+              enabled: true
+              searchNamespace: ALL
+              provider:
+                foldersFromFilesStructure: true
+            datasources:
+              enabled: true
+              searchNamespace: ALL
+          grafana.ini:
+            server:
+              root_url: "%(protocol)s://%(domain)s:%(http_port)s/grafana"
+              serve_from_sub_path: true
+          ingress:
+            enabled: true
+            path: /grafana
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true
 EOF
 
 # CREATE KYVERNO APP
@@ -90,6 +227,10 @@ spec:
     chart: kyverno
     repoURL: https://kyverno.github.io/kyverno
     targetRevision: 2.6.0
+    helm:
+      values: |
+        serviceMonitor:
+          enabled: true
   syncPolicy:
     automated:
       prune: true
@@ -122,11 +263,58 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - Replace=true
 EOF
+
+# CREATE POLICY-REPORTER APP
+
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: policy-reporter
+  namespace: argocd
+spec:
+  destination:
+    namespace: kyverno
+    server: https://kubernetes.default.svc
+  project: default
+  source:
+    chart: policy-reporter
+    repoURL: https://kyverno.github.io/policy-reporter
+    targetRevision: 2.13.1
+    helm:
+      values: |
+        ui:
+          enabled: true
+          ingress:
+            annotations:
+              nginx.ingress.kubernetes.io/rewrite-target: \$1\$2
+              nginx.ingress.kubernetes.io/configuration-snippet: |
+                rewrite ^(/policy-reporter)$ \$1/ redirect;
+            enabled: true
+            hosts:
+              - host: ~
+                paths:
+                  - path: /policy-reporter(/|$)(.*)
+                    pathType: Prefix
+        kyvernoPlugin:
+          enabled: true
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+EOF
+
+echo "---------------------------------------------------------------------------------"
 
 ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 
-echo "---------------------------------------------------------------------------------"
-echo "ArgoCD is running and available at http://localhost/argocd"
+echo "ARGOCD is running and available at            http://localhost/argocd"
 echo "- log in with admin / $ARGOCD_PASSWORD"
+echo "POLICY-REPORTER is running and available at   http://localhost/policy-reporter"
+echo "PROMETHEUS is running and available at        http://localhost/prometheus"
+echo "ALERTMANAGER is running and available at      http://localhost/alertmanager"
+echo "GRAFANA is running and available at           http://localhost/grafana"
+echo "- log in with admin / admin"

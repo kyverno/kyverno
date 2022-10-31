@@ -56,12 +56,32 @@ You can do so by following instructions in these pages of ArgoCD documentation:
 
 ArgoCD uses helm only for templating but applies the results with `kubectl`.
 
-Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuberrnetes. Using `Replace` overcomes this limitation.
+Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kubernetes. Using `Replace` overcomes this limitation.
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Below is an example of ArgoCD application manifest that should work with this chart:
+Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those reports are associated with parent resources using an `ownerReference` object.
+
+As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
+
+You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
+
+```yaml
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
 ```
+
+Below is an example of ArgoCD Application manifest that should work with this chart.
+
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io"
+	stdlog "log"
 	"os"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zapr"
@@ -20,6 +23,8 @@ const (
 	// TextFormat represents text logging mode.
 	// Default logging mode is TextFormat.
 	TextFormat = "text"
+	// LogLevelController is the log level to use for controllers plumbing.
+	LogLevelController = 3
 )
 
 // Initially, globalLog comes from controller-runtime/log with logger created earlier by controller-runtime.
@@ -38,6 +43,7 @@ func Init(flags *flag.FlagSet) {
 
 // Setup configures the logger with the supplied log format.
 // It returns an error if the JSON logger could not be initialized or passed logFormat is not recognized.
+// LogLevel parameter is used to configure zap.
 func Setup(logFormat string) error {
 	switch logFormat {
 	case TextFormat:
@@ -48,9 +54,9 @@ func Setup(logFormat string) error {
 		if err != nil {
 			return err
 		}
-		klog.SetLogger(zapr.NewLogger(zapLog))
-		// in json mode we use FormatKlog format
-		globalLog = klog.NewKlogr()
+		globalLog = zapr.NewLogger(zapLog)
+		// in json mode we configure klog and global logger to use zapr
+		klog.SetLogger(globalLog.WithName("klog"))
 	default:
 		return errors.New("log format not recognized, pass `text` for text mode or `json` to enable JSON logging")
 	}
@@ -61,6 +67,11 @@ func Setup(logFormat string) error {
 // GlobalLogger returns a logr.Logger as configured in main.
 func GlobalLogger() logr.Logger {
 	return globalLog
+}
+
+// ControllerLogger returns a logr.Logger to be used by controllers.
+func ControllerLogger(name string) logr.Logger {
+	return globalLog.WithName(name).V(LogLevelController)
 }
 
 // WithName returns a new logr.Logger instance with the specified name element added to the Logger's name.
@@ -121,4 +132,18 @@ func Background() context.Context {
 // TODO calls IntoContext with the global logger and a TODO context.
 func TODO() context.Context {
 	return IntoContext(context.TODO(), GlobalLogger())
+}
+
+type writerAdapter struct {
+	io.Writer
+	logger logr.Logger
+}
+
+func (a *writerAdapter) Write(p []byte) (int, error) {
+	a.logger.Info(strings.TrimSuffix(string(p), "\n"))
+	return len(p), nil
+}
+
+func StdLogger(logger logr.Logger, prefix string) *stdlog.Logger {
+	return stdlog.New(&writerAdapter{logger: logger}, prefix, stdlog.LstdFlags)
 }

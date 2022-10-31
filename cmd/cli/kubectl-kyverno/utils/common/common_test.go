@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	v1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
-	"github.com/kyverno/kyverno/pkg/toggle"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	"gotest.tools/assert"
 )
@@ -95,20 +94,23 @@ func Test_NamespaceSelector(t *testing.T) {
 			},
 		},
 	}
-
 	rc := &ResultCounts{}
 	for _, tc := range testcases {
 		policyArray, _ := yamlutils.GetPolicy(tc.policy)
 		resourceArray, _ := GetResource(tc.resource)
-		ApplyPolicyOnResource(policyArray[0], resourceArray[0], "", false, nil, v1beta1.RequestInfo{}, false, tc.namespaceSelectorMap, false, rc, false, nil)
+		applyPolicyConfig := ApplyPolicyConfig{
+			Policy:               policyArray[0],
+			Resource:             resourceArray[0],
+			MutateLogPath:        "",
+			UserInfo:             v1beta1.RequestInfo{},
+			NamespaceSelectorMap: tc.namespaceSelectorMap,
+			Rc:                   rc,
+		}
+		ApplyPolicyOnResource(applyPolicyConfig)
 		assert.Equal(t, int64(rc.Pass), int64(tc.result.Pass))
 		assert.Equal(t, int64(rc.Fail), int64(tc.result.Fail))
 		// TODO: autogen rules seem to not be present when autogen internals is disabled
-		if toggle.AutogenInternals.Enabled() {
-			assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
-		} else {
-			assert.Equal(t, int64(rc.Skip), int64(0))
-		}
+		assert.Equal(t, int64(rc.Skip), int64(tc.result.Skip))
 		assert.Equal(t, int64(rc.Warn), int64(tc.result.Warn))
 		assert.Equal(t, int64(rc.Error), int64(tc.result.Error))
 	}

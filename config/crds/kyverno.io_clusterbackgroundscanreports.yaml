@@ -9,6 +9,9 @@ metadata:
 spec:
   group: kyverno.io
   names:
+    categories:
+    - kyverno
+    - all
     kind: ClusterBackgroundScanReport
     listKind: ClusterBackgroundScanReportList
     plural: clusterbackgroundscanreports
@@ -18,6 +21,10 @@ spec:
   scope: Cluster
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .metadata.ownerReferences[0].apiVersion
+      name: ApiVersion
+      priority: 1
+      type: string
     - jsonPath: .metadata.ownerReferences[0].kind
       name: Kind
       priority: 1

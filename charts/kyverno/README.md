@@ -56,12 +56,32 @@ You can do so by following instructions in these pages of ArgoCD documentation:
 
 ArgoCD uses helm only for templating but applies the results with `kubectl`.
 
-Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kuberrnetes. Using `Replace` overcomes this limitation.
+Unfortunately `kubectl` adds metadata that will cross the limit allowed by Kubernetes. Using `Replace` overcomes this limitation.
 
 Another option is to use server side apply, this will be supported in ArgoCD v2.5.
 
-Below is an example of ArgoCD application manifest that should work with this chart:
+Finally, we introduced new CRDs in 1.8 to manage resource-level reports. Those reports are associated with parent resources using an `ownerReference` object.
+
+As a consequence, ArgoCD will show those reports in the UI, but as they are managed dynamically by Kyverno it can pollute your dashboard.
+
+You can tell ArgoCD to ignore reports globally by adding them under the `resource.exclusions` stanza in the ArgoCD ConfigMap.
+
+```yaml
+    resource.exclusions: |
+      - apiGroups:
+          - kyverno.io
+        kinds:
+          - AdmissionReport
+          - BackgroundScanReport
+          - ClusterAdmissionReport
+          - ClusterBackgroundScanReport
+        clusters:
+          - '*'
 ```
+
+Below is an example of ArgoCD Application manifest that should work with this chart.
+
+```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -107,15 +127,18 @@ The command removes all the Kubernetes components associated with the chart and 
 | rbac.serviceAccount.create | bool | `true` | Create a ServiceAccount |
 | rbac.serviceAccount.name | string | `nil` | The ServiceAccount name |
 | rbac.serviceAccount.annotations | object | `{}` | Annotations for the ServiceAccount |
+| image.registry | string | `nil` | Image registry |
 | image.repository | string | `"ghcr.io/kyverno/kyverno"` | Image repository |
 | image.tag | string | `nil` | Image tag Defaults to appVersion in Chart.yaml if omitted |
 | image.pullPolicy | string | `"IfNotPresent"` | Image pull policy |
 | image.pullSecrets | list | `[]` | Image pull secrets |
+| initImage.registry | string | `nil` | Image registry |
 | initImage.repository | string | `"ghcr.io/kyverno/kyvernopre"` | Image repository |
 | initImage.tag | string | `nil` | Image tag If initImage.tag is missing, defaults to image.tag |
 | initImage.pullPolicy | string | `nil` | Image pull policy If initImage.pullPolicy is missing, defaults to image.pullPolicy |
 | initContainer.extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the kyvernopre binary. |
-| testImage.repository | string | `nil` | Image repository Defaults to `busybox` if omitted |
+| testImage.registry | string | `nil` | Image registry |
+| testImage.repository | string | `"busybox"` | Image repository |
 | testImage.tag | string | `nil` | Image tag Defaults to `latest` if omitted |
 | testImage.pullPolicy | string | `nil` | Image pull policy Defaults to image.pullPolicy if omitted |
 | replicaCount | int | `nil` | Desired number of pods |
@@ -137,7 +160,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | dnsPolicy | string | `"ClusterFirst"` | `dnsPolicy` determines the manner in which DNS resolution happens in the cluster. In case of `hostNetwork: true`, usually, the `dnsPolicy` is suitable to be `ClusterFirstWithHostNet`. For further reference: https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy. |
 | envVarsInit | object | `{}` | Env variables for initContainers. |
 | envVars | object | `{}` | Env variables for containers. |
-| extraArgs | list | `["--autogenInternals=true","--loggingFormat=text"]` | Extra arguments to give to the binary. |
+| extraArgs | list | `["--loggingFormat=text"]` | Extra arguments to give to the binary. |
 | extraInitContainers | list | `[]` | Array of extra init containers |
 | extraContainers | list | `[]` | Array of extra containers to run alongside kyverno |
 | imagePullSecrets | object | `{}` | Image pull secrets for image verify and imageData policies. This will define the `--imagePullSecrets` Kyverno argument. |
@@ -147,6 +170,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | initResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
 | testResources.limits | object | `{"cpu":"100m","memory":"256Mi"}` | Pod resource limits |
 | testResources.requests | object | `{"cpu":"10m","memory":"64Mi"}` | Pod resource requests |
+| startupProbe | object | See [values.yaml](values.yaml) | Startup probe. The block is directly forwarded into the deployment, so you can use whatever startupProbes configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | livenessProbe | object | See [values.yaml](values.yaml) | Liveness probe. The block is directly forwarded into the deployment, so you can use whatever livenessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | readinessProbe | object | See [values.yaml](values.yaml) | Readiness Probe. The block is directly forwarded into the deployment, so you can use whatever readinessProbe configuration you want. ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/ |
 | generatecontrollerExtraResources | list | `[]` | Additional resources to be added to controller RBAC permissions. |
@@ -154,11 +178,13 @@ The command removes all the Kubernetes components associated with the chart and 
 | resourceFiltersExcludeNamespaces | list | `[]` | resourceFilter namespace exclude Namespaces to exclude from the default resourceFilters |
 | config.resourceFilters | list | See [values.yaml](values.yaml) | Resource types to be skipped by the Kyverno policy engine. Make sure to surround each entry in quotes so that it doesn't get parsed as a nested YAML list. These are joined together without spaces, run through `tpl`, and the result is set in the config map. |
 | config.existingConfig | string | `""` | Name of an existing config map (ignores default/provided resourceFilters) |
+| config.annotations | object | `{}` | Additional annotations to add to the configmap |
 | config.excludeGroupRole | string | `nil` | Exclude group role |
 | config.excludeUsername | string | `nil` | Exclude username |
 | config.webhooks | string | `nil` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
-| config.metricsConfig | object | `{"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
+| config.metricsConfig | object | `{"annotations":{},"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
+| config.metricsConfig.annotations | object | `{}` | Additional annotations to add to the metricsconfigmap |
 | updateStrategy | object | See [values.yaml](values.yaml) | Deployment update strategy. Ref: https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#strategy |
 | service.port | int | `443` | Service port. |
 | service.type | string | `"ClusterIP"` | Service type. |
