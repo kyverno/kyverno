@@ -1640,17 +1640,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc1",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1672,17 +1672,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc2",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1703,17 +1703,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc3",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1735,17 +1735,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc4",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"*",
 						},
@@ -1767,17 +1767,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc5",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1799,17 +1799,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc6",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default?",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default1",
 						},
@@ -1831,17 +1831,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc7",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1863,16 +1863,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc8",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"*",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"?*",
 						},
@@ -1894,17 +1894,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc9",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 							"test*",
@@ -1927,17 +1927,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc10",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"*efault",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1959,17 +1959,17 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc11",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default-*",
 							"test",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
@@ -1990,16 +1990,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc12",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default*?",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 							"test*",
@@ -2021,16 +2021,16 @@ func Test_ValidateNamespace(t *testing.T) {
 		{
 			description: "tc13",
 			spec: &kyverno.Spec{
-				ValidationFailureAction: kyverno.Enforce,
+				ValidationFailureAction: "Enforce",
 				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
 					{
-						Action: kyverno.Enforce,
+						Action: "Enforce",
 						Namespaces: []string{
 							"default?",
 						},
 					},
 					{
-						Action: kyverno.Audit,
+						Action: "Audit",
 						Namespaces: []string{
 							"default",
 						},
