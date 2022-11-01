@@ -36,7 +36,7 @@ func Admission(logger logr.Logger, inner AdmissionHandler) http.HandlerFunc {
 		}
 		contentType := request.Header.Get("Content-Type")
 		if contentType != "application/json" {
-			logger.Info("invalid Content-Type", "contextType", contentType)
+			logger.Info("invalid Content-Type", "contentType", contentType)
 			http.Error(writer, "invalid Content-Type, expect `application/json`", http.StatusUnsupportedMediaType)
 			return
 		}
