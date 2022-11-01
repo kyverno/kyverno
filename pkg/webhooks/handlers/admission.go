@@ -102,6 +102,9 @@ func Filter(c config.Configuration, inner AdmissionHandler) AdmissionHandler {
 
 func Verify() AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
+		if request.Name != "kyverno-health" || request.Namespace != config.KyvernoNamespace() {
+			return admissionutils.ResponseSuccess()
+		}
 		patch := jsonutils.NewPatchOperation("/metadata/annotations/"+"kyverno.io~1last-request-time", "replace", time.Now().Format(time.RFC3339))
 		bytes, err := patch.ToPatchBytes()
 		if err != nil {
