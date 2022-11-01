@@ -297,13 +297,13 @@ config:
   - '[*,kube-system,*]'
   - '[*,kube-public,*]'
   - '[*,kube-node-lease,*]'
-  - '[*,kyverno,*]'
+  - '[*,{{ include "kyverno.namespace" . }},*]'
   - '[Node,*,*]'
   - '[APIService,*,*]'
   - '[TokenReview,*,*]'
   - '[SubjectAccessReview,*,*]'
   - '[SelfSubjectAccessReview,*,*]'
-  - '[*,kyverno,kyverno*]'
+  - '[*,{{ include "kyverno.namespace" . }},{{ template "kyverno.fullname" . }}*]'
   - '[Binding,*,*]'
   - '[ReplicaSet,*,*]'
   - '[AdmissionReport,*,*]'
@@ -355,7 +355,7 @@ config:
         - key: kubernetes.io/metadata.name
           operator: NotIn
           values:
-            - kyverno
+            - {{ include "kyverno.namespace" . }}
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
