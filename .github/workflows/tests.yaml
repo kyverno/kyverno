@@ -50,7 +50,7 @@ jobs:
 
       - name: goimports
         run: |
-          go install golang.org/x/tools/cmd/goimports@latest
+          go install golang.org/x/tools/cmd/goimports@f112c43328372460f7ac5bc951711609e22b01cc # v0.2.0
           if [ "$(goimports -l . | wc -l)" -ne 0 ]
           then
            echo "The following files were found to have import formatting issues:"
