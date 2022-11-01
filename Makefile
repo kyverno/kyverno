@@ -694,7 +694,7 @@ gh-pin-actions: gh-install-pin-github-action
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/kind.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
