@@ -5,231 +5,209 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
+	kyvernov1beta1 "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	kyvernoclient "github.com/kyverno/kyverno/pkg/client/clientset/versioned"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/config"
-	client "github.com/kyverno/kyverno/pkg/dclient"
 	"github.com/kyverno/kyverno/pkg/leaderelection"
-	"github.com/kyverno/kyverno/pkg/policyreport"
-	"github.com/kyverno/kyverno/pkg/signal"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/tls"
 	"github.com/kyverno/kyverno/pkg/utils"
-	coord "k8s.io/api/coordination/v1"
+	"go.uber.org/multierr"
+	admissionv1 "k8s.io/api/admission/v1"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/klog/v2"
-	"k8s.io/klog/v2/klogr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 var (
 	kubeconfig           string
-	setupLog             = log.Log.WithName("setup")
+	setupLog             = logging.WithName("setup")
 	clientRateLimitQPS   float64
 	clientRateLimitBurst int
-
-	updateLabelSelector = &v1.LabelSelector{
-		MatchExpressions: []v1.LabelSelectorRequirement{
-			{
-				Key:      policyreport.LabelSelectorKey,
-				Operator: v1.LabelSelectorOpDoesNotExist,
-				Values:   []string{},
-			},
-		},
-	}
+	logFormat            string
 )
 
 const (
-	policyReportKind               string = "PolicyReport"
-	clusterPolicyReportKind        string = "ClusterPolicyReport"
-	reportChangeRequestKind        string = "ReportChangeRequest"
-	clusterReportChangeRequestKind string = "ClusterReportChangeRequest"
-	policyViolation                string = "PolicyViolation"
-	clusterPolicyViolation         string = "ClusterPolicyViolation"
+	policyReportKind        string = "PolicyReport"
+	clusterPolicyReportKind string = "ClusterPolicyReport"
+	convertGenerateRequest  string = "ConvertGenerateRequest"
 )
 
-func main() {
-	klog.InitFlags(nil)
-	log.SetLogger(klogr.New())
-	// arguments
+func parseFlags() error {
+	logging.Init(nil)
+	flag.StringVar(&logFormat, "loggingFormat", logging.TextFormat, "This determines the output format of the logger.")
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
-	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the master from Kyverno. Uses the client default if zero.")
+	flag.Float64Var(&clientRateLimitQPS, "clientRateLimitQPS", 0, "Configure the maximum QPS to the Kubernetes API server from Kyverno. Uses the client default if zero.")
 	flag.IntVar(&clientRateLimitBurst, "clientRateLimitBurst", 0, "Configure the maximum burst for throttle. Uses the client default if zero.")
 	if err := flag.Set("v", "2"); err != nil {
-		klog.Fatalf("failed to set log level: %v", err)
+		return err
 	}
 
 	flag.Parse()
+	return nil
+}
 
+func main() {
+	// parse flags
+	if err := parseFlags(); err != nil {
+		fmt.Println("failed to parse flags", err)
+		os.Exit(1)
+	}
+	// setup logger
+	if err := logging.Setup(logFormat); err != nil {
+		fmt.Println("could not setup logger", err)
+		os.Exit(1)
+	}
 	// os signal handler
-	stopCh := signal.SetupSignalHandler()
+	signalCtx, signalCancel := signal.NotifyContext(logging.Background(), os.Interrupt, syscall.SIGTERM)
+	defer signalCancel()
+
+	stopCh := signalCtx.Done()
+
 	// create client config
-	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst, log.Log)
+	clientConfig, err := config.CreateClientConfig(kubeconfig, clientRateLimitQPS, clientRateLimitBurst)
 	if err != nil {
 		setupLog.Error(err, "Failed to build kubeconfig")
 		os.Exit(1)
 	}
 
+	kubeClient, err := kubernetes.NewForConfig(clientConfig)
+	if err != nil {
+		setupLog.Error(err, "Failed to create kubernetes client")
+		os.Exit(1)
+	}
+
 	// DYNAMIC CLIENT
 	// - client for all registered resources
-	client, err := client.NewClient(clientConfig, 15*time.Minute, stopCh, log.Log)
+	client, err := dclient.NewClient(signalCtx, clientConfig, kubeClient, nil, 15*time.Minute)
+	if err != nil {
+		setupLog.Error(err, "Failed to create client")
+		os.Exit(1)
+	}
+
+	pclient, err := kyvernoclient.NewForConfig(clientConfig)
 	if err != nil {
 		setupLog.Error(err, "Failed to create client")
 		os.Exit(1)
 	}
 
 	// Exit for unsupported version of kubernetes cluster
-	if !utils.HigherThanKubernetesVersion(client, log.Log, 1, 16, 0) {
+	if !utils.HigherThanKubernetesVersion(kubeClient.Discovery(), logging.GlobalLogger(), 1, 16, 0) {
 		os.Exit(1)
 	}
 
 	requests := []request{
-		{policyReportKind, ""},
-		{clusterPolicyReportKind, ""},
-
-		{reportChangeRequestKind, ""},
-		{clusterReportChangeRequestKind, ""},
-
-		// clean up policy violation CRD
-		{policyViolation, ""},
-		{clusterPolicyViolation, ""},
+		{policyReportKind},
+		{clusterPolicyReportKind},
+		{convertGenerateRequest},
 	}
-
-	kubeClientLeaderElection, err := utils.NewKubeClient(clientConfig)
-	if err != nil {
-		setupLog.Error(err, "Failed to create kubernetes client")
-		os.Exit(1)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
+		defer signalCancel()
 		<-stopCh
-		cancel()
 	}()
-
-	addPolicyReportSelectorLabel(client)
-	addClusterPolicyReportSelectorLabel(client)
 
 	done := make(chan struct{})
 	defer close(done)
 	failure := false
 
-	run := func() {
-		certProps, err := tls.GetTLSCertProps(clientConfig)
+	run := func(context.Context) {
+		name := tls.GenerateRootCASecretName()
+		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to get cert properties: %v", err.Error())
-			os.Exit(1)
-		}
-
-		depl, err := client.GetResource("", "Deployment", getKyvernoNameSpace(), config.KyvernoDeploymentName)
-		deplHash := ""
-		if err != nil {
-			log.Log.Info("failed to fetch deployment '%v': %v", config.KyvernoDeploymentName, err.Error())
-			os.Exit(1)
-		}
-		deplHash = fmt.Sprintf("%v", depl.GetUID())
-
-		name := tls.GenerateRootCASecretName(certProps)
-		secretUnstr, err := client.GetResource("", "Secret", getKyvernoNameSpace(), name)
-		if err != nil {
-			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-
+			logging.V(2).Info("failed to fetch root CA secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
-				os.Exit(1)
-			}
 		}
 
-		name = tls.GenerateTLSPairSecretName(certProps)
-		secretUnstr, err = client.GetResource("", "Secret", getKyvernoNameSpace(), name)
+		name = tls.GenerateTLSPairSecretName()
+		_, err = kubeClient.CoreV1().Secrets(config.KyvernoNamespace()).Get(context.TODO(), name, metav1.GetOptions{})
 		if err != nil {
-			log.Log.Info("failed to fetch secret '%v': %v", name, err.Error())
-
+			logging.V(2).Info("failed to fetch TLS Pair secret", "name", name, "error", err.Error())
 			if !errors.IsNotFound(err) {
 				os.Exit(1)
 			}
-		} else if tls.CanAddAnnotationToSecret(deplHash, secretUnstr) {
-			secretUnstr.SetAnnotations(map[string]string{tls.MasterDeploymentUID: deplHash})
-			_, err = client.UpdateResource("", "Secret", certProps.Namespace, secretUnstr, false)
-			if err != nil {
-				log.Log.Info("failed to update cert: %v", err.Error())
-				os.Exit(1)
-			}
 		}
 
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Get(ctx, "kyvernopre-lock", v1.GetOptions{})
-		if err != nil {
-			log.Log.Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
-		} else {
-			log.Log.Info("Clean-up complete. Leader exiting...")
-			os.Exit(0)
+		if err = acquireLeader(signalCtx, kubeClient); err != nil {
+			logging.V(2).Info("Failed to create lease 'kyvernopre-lock'")
+			os.Exit(1)
 		}
 
-		// use pipline to pass request to cleanup resources
-		// generate requests
+		// use pipeline to pass request to cleanup resources
 		in := gen(done, stopCh, requests...)
 		// process requests
 		// processing routine count : 2
-		p1 := process(client, done, stopCh, in)
-		p2 := process(client, done, stopCh, in)
+		p1 := process(client, pclient, done, stopCh, in)
+		p2 := process(client, pclient, done, stopCh, in)
 		// merge results from processing routines
 		for err := range merge(done, stopCh, p1, p2) {
 			if err != nil {
 				failure = true
-				log.Log.Error(err, "failed to cleanup resource")
+				logging.Error(err, "failed to cleanup resource")
 			}
 		}
 		// if there is any failure then we fail process
 		if failure {
-			log.Log.Info("failed to cleanup prior configurations")
+			logging.V(2).Info("failed to cleanup prior configurations")
 			os.Exit(1)
 		}
-
-		lease := coord.Lease{}
-		lease.ObjectMeta.Name = "kyvernopre-lock"
-		_, err = kubeClientLeaderElection.CoordinationV1().Leases(getKyvernoNameSpace()).Create(ctx, &lease, v1.CreateOptions{})
-		if err != nil {
-			log.Log.Info("Failed to create lease 'kyvernopre-lock'")
-		}
-
-		log.Log.Info("Clean-up complete. Leader exiting...")
 
 		os.Exit(0)
 	}
 
-	le, err := leaderelection.New("kyvernopre", getKyvernoNameSpace(), kubeClientLeaderElection, run, nil, log.Log.WithName("kyvernopre/LeaderElection"))
+	le, err := leaderelection.New(
+		logging.WithName("kyvernopre/LeaderElection"),
+		"kyvernopre",
+		config.KyvernoNamespace(),
+		kubeClient,
+		config.KyvernoPodName(),
+		run,
+		nil,
+	)
 	if err != nil {
 		setupLog.Error(err, "failed to elect a leader")
 		os.Exit(1)
 	}
 
-	le.Run(ctx)
+	le.Run(signalCtx)
 }
 
-func executeRequest(client *client.Client, req request) error {
+func acquireLeader(ctx context.Context, kubeClient kubernetes.Interface) error {
+	_, err := kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Get(ctx, "kyvernopre-lock", metav1.GetOptions{})
+	if err != nil {
+		logging.V(2).Info("Lease 'kyvernopre-lock' not found. Starting clean-up...")
+	} else {
+		logging.V(2).Info("Leader was elected, quitting")
+		os.Exit(0)
+	}
+
+	lease := coordinationv1.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "kyvernopre-lock",
+		},
+	}
+	_, err = kubeClient.CoordinationV1().Leases(config.KyvernoNamespace()).Create(ctx, &lease, metav1.CreateOptions{})
+
+	return err
+}
+
+func executeRequest(client dclient.Interface, kyvernoclient kyvernoclient.Interface, req request) error {
 	switch req.kind {
-	case policyReportKind:
-		return removePolicyReport(client, req.kind)
-	case clusterPolicyReportKind:
-		return removeClusterPolicyReport(client, req.kind)
-	case reportChangeRequestKind:
-		return removeReportChangeRequest(client, req.kind)
-	case clusterReportChangeRequestKind:
-		return removeClusterReportChangeRequest(client, req.kind)
-	case policyViolation, clusterPolicyViolation:
-		return removeViolationCRD(client)
+	case convertGenerateRequest:
+		return convertGR(kyvernoclient)
 	}
 
 	return nil
@@ -237,7 +215,6 @@ func executeRequest(client *client.Client, req request) error {
 
 type request struct {
 	kind string
-	name string
 }
 
 /* Processing Pipeline
@@ -269,14 +246,14 @@ func gen(done <-chan struct{}, stopCh <-chan struct{}, requests ...request) <-ch
 }
 
 // processes the requests
-func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
-	logger := log.Log.WithName("process")
+func process(client dclient.Interface, kyvernoclient kyvernoclient.Interface, done <-chan struct{}, stopCh <-chan struct{}, requests <-chan request) <-chan error {
+	logger := logging.WithName("process")
 	out := make(chan error)
 	go func() {
 		defer close(out)
 		for req := range requests {
 			select {
-			case out <- executeRequest(client, req):
+			case out <- executeRequest(client, kyvernoclient, req):
 			case <-done:
 				logger.Info("done")
 				return
@@ -291,7 +268,7 @@ func process(client *client.Client, done <-chan struct{}, stopCh <-chan struct{}
 
 // waits for all processes to be complete and merges result
 func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan error) <-chan error {
-	logger := log.Log.WithName("merge")
+	logger := logging.WithName("merge")
 	var wg sync.WaitGroup
 	out := make(chan error)
 	// gets the output from each process
@@ -323,153 +300,66 @@ func merge(done <-chan struct{}, stopCh <-chan struct{}, processes ...<-chan err
 	return out
 }
 
-func removeClusterPolicyReport(client *client.Client, kind string) error {
-	logger := log.Log.WithName("removeClusterPolicyReport")
+func convertGR(pclient kyvernoclient.Interface) error {
+	logger := logging.WithName("convertGenerateRequest")
 
-	cpolrs, err := client.ListResource("", kind, "", policyreport.LabelSelector)
+	var errors []error
+	grs, err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		logger.Error(err, "failed to list clusterPolicyReport")
-		return nil
+		logger.Error(err, "failed to list update requests")
+		return err
 	}
-
-	for _, cpolr := range cpolrs.Items {
-		deleteResource(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
-	}
-	return nil
-}
-
-func removePolicyReport(client *client.Client, kind string) error {
-	logger := log.Log.WithName("removePolicyReport")
-
-	polrs, err := client.ListResource("", kind, v1.NamespaceAll, policyreport.LabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list policyReport")
-		return nil
-	}
-
-	for _, polr := range polrs.Items {
-		deleteResource(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
-	}
-
-	return nil
-}
-
-func addClusterPolicyReportSelectorLabel(client *client.Client) {
-	logger := log.Log.WithName("addClusterPolicyReportSelectorLabel")
-
-	cpolrs, err := client.ListResource("", clusterPolicyReportKind, "", updateLabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list clusterPolicyReport")
-		return
-	}
-
-	for _, cpolr := range cpolrs.Items {
-		if cpolr.GetName() == policyreport.GeneratePolicyReportName("") {
-			addSelectorLabel(client, cpolr.GetAPIVersion(), cpolr.GetKind(), "", cpolr.GetName())
+	for _, gr := range grs.Items {
+		cp := gr.DeepCopy()
+		var request *admissionv1.AdmissionRequest
+		if cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest != "" {
+			var r admissionv1.AdmissionRequest
+			err := json.Unmarshal([]byte(cp.Spec.Context.AdmissionRequestInfo.AdmissionRequest), &r)
+			if err != nil {
+				logger.Error(err, "failed to unmarshal admission request")
+				errors = append(errors, err)
+				continue
+			}
 		}
-	}
-}
-
-func addPolicyReportSelectorLabel(client *client.Client) {
-	logger := log.Log.WithName("addPolicyReportSelectorLabel")
-
-	polrs, err := client.ListResource("", policyReportKind, v1.NamespaceAll, updateLabelSelector)
-	if err != nil {
-		logger.Error(err, "failed to list policyReport")
-		return
-	}
-
-	for _, polr := range polrs.Items {
-		if polr.GetName() == policyreport.GeneratePolicyReportName(polr.GetNamespace()) {
-			addSelectorLabel(client, polr.GetAPIVersion(), polr.GetKind(), polr.GetNamespace(), polr.GetName())
+		ur := &kyvernov1beta1.UpdateRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: "ur-",
+				Namespace:    config.KyvernoNamespace(),
+				Labels:       cp.GetLabels(),
+			},
+			Spec: kyvernov1beta1.UpdateRequestSpec{
+				Type:     kyvernov1beta1.Generate,
+				Policy:   cp.Spec.Policy,
+				Resource: cp.Spec.Resource,
+				Context: kyvernov1beta1.UpdateRequestSpecContext{
+					UserRequestInfo: kyvernov1beta1.RequestInfo{
+						Roles:             cp.Spec.Context.UserRequestInfo.Roles,
+						ClusterRoles:      cp.Spec.Context.UserRequestInfo.ClusterRoles,
+						AdmissionUserInfo: cp.Spec.Context.UserRequestInfo.AdmissionUserInfo,
+					},
+					AdmissionRequestInfo: kyvernov1beta1.AdmissionRequestInfoObject{
+						AdmissionRequest: request,
+						Operation:        cp.Spec.Context.AdmissionRequestInfo.Operation,
+					},
+				},
+			},
 		}
-	}
-}
 
-func removeReportChangeRequest(client *client.Client, kind string) error {
-	logger := log.Log.WithName("removeReportChangeRequest")
+		_, err := pclient.KyvernoV1beta1().UpdateRequests(config.KyvernoNamespace()).Create(context.TODO(), ur, metav1.CreateOptions{})
+		if err != nil {
+			logger.Info("failed to create UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName(), "err", err.Error())
+			errors = append(errors, err)
+			continue
+		} else {
+			logger.Info("successfully created UpdateRequest", "GR namespace", gr.GetNamespace(), "GR name", gr.GetName())
+		}
 
-	ns := getKyvernoNameSpace()
-	rcrList, err := client.ListResource("", kind, ns, nil)
-	if err != nil {
-		logger.Error(err, "failed to list reportChangeRequest")
-		return nil
-	}
-
-	for _, rcr := range rcrList.Items {
-		deleteResource(client, rcr.GetAPIVersion(), rcr.GetKind(), rcr.GetNamespace(), rcr.GetName())
-	}
-
-	return nil
-}
-
-func removeClusterReportChangeRequest(client *client.Client, kind string) error {
-	crcrList, err := client.ListResource("", kind, "", nil)
-	if err != nil {
-		log.Log.Error(err, "failed to list clusterReportChangeRequest")
-		return nil
-	}
-
-	for _, crcr := range crcrList.Items {
-		deleteResource(client, crcr.GetAPIVersion(), crcr.GetKind(), "", crcr.GetName())
-	}
-	return nil
-}
-
-func removeViolationCRD(client *client.Client) error {
-	if err := client.DeleteResource("", "CustomResourceDefinition", "", "policyviolations.kyverno.io", false); err != nil {
-		if !errors.IsNotFound(err) {
-			log.Log.Error(err, "failed to delete CRD policyViolation")
+		if err := pclient.KyvernoV1().GenerateRequests(config.KyvernoNamespace()).Delete(context.TODO(), gr.GetName(), metav1.DeleteOptions{}); err != nil {
+			errors = append(errors, err)
+			logger.Error(err, "failed to delete GR")
 		}
 	}
 
-	if err := client.DeleteResource("", "CustomResourceDefinition", "", "clusterpolicyviolations.kyverno.io", false); err != nil {
-		if !errors.IsNotFound(err) {
-			log.Log.Error(err, "failed to delete CRD clusterPolicyViolation")
-		}
-	}
-	return nil
-}
-
-// getKubePolicyNameSpace - setting default KubePolicyNameSpace
-func getKyvernoNameSpace() string {
-	kyvernoNamespace := os.Getenv("KYVERNO_NAMESPACE")
-	if kyvernoNamespace == "" {
-		kyvernoNamespace = "kyverno"
-	}
-	return kyvernoNamespace
-}
-
-func deleteResource(client *client.Client, apiversion, kind, ns, name string) {
-	err := client.DeleteResource(apiversion, kind, ns, name, false)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to delete resource", "kind", kind, "name", name)
-		return
-	}
-
-	log.Log.Info("successfully cleaned up resource", "kind", kind, "name", name)
-}
-
-func addSelectorLabel(client *client.Client, apiversion, kind, ns, name string) {
-	res, err := client.GetResource(apiversion, kind, ns, name)
-	if err != nil && !errors.IsNotFound(err) {
-		log.Log.Error(err, "failed to get resource", "kind", kind, "name", name)
-		return
-	}
-
-	l, err := v1.LabelSelectorAsMap(policyreport.LabelSelector)
-	if err != nil {
-		log.Log.Error(err, "failed to convert labels", "labels", policyreport.LabelSelector)
-		return
-	}
-
-	res.SetLabels(labels.Merge(res.GetLabels(), l))
-
-	_, err = client.UpdateResource(apiversion, kind, ns, res, false)
-	if err != nil {
-		log.Log.Error(err, "failed to update resource", "kind", kind, "name", name)
-		return
-	}
-
-	log.Log.Info("successfully updated resource labels", "kind", kind, "name", name)
+	err = multierr.Combine(errors...)
+	return err
 }

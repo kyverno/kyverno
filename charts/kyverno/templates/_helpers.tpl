@@ -104,3 +104,58 @@ minAvailable: {{ default 1 .Values.podDisruptionBudget.minAvailable }}
 maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
 {{- end }}
 {{- end }}
+
+{{- define "kyverno.securityContext" -}}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
+{{ toYaml (omit .Values.securityContext "seccompProfile") }}
+{{- else }}
+{{ toYaml .Values.securityContext }}
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.testSecurityContext" -}}
+{{- if semverCompare "<1.19" .Capabilities.KubeVersion.Version }}
+{{ toYaml (omit .Values.testSecurityContext "seccompProfile") }}
+{{- else }}
+{{ toYaml .Values.testSecurityContext }}
+{{- end }}
+{{- end }}
+
+{{- define "kyverno.imagePullSecret" }}
+{{- printf "{\"auths\":{\"%s\":{\"auth\":\"%s\"}}}" .registry (printf "%s:%s" .username .password | b64enc) | b64enc }}
+{{- end }}
+
+{{- define "kyverno.image" -}}
+  {{- if .image.registry -}}
+{{ .image.registry }}/{{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
+  {{- else -}}
+{{ required "An image repository is required" .image.repository }}:{{ default .defaultTag .image.tag }}
+  {{- end -}}
+{{- end }}
+
+{{- define "kyverno.resourceFilters" -}}
+{{- $resourceFilters := .Values.config.resourceFilters }}
+{{- if .Values.excludeKyvernoNamespace }}
+  {{- $resourceFilters = prepend .Values.config.resourceFilters (printf "[*,%s,*]" (include "kyverno.namespace" .)) }}
+{{- end }}
+{{- range $exclude := .Values.resourceFiltersExcludeNamespaces }}
+  {{- range $filter := $resourceFilters }}
+    {{- if (contains (printf ",%s," $exclude) $filter) }}
+      {{- $resourceFilters = without $resourceFilters $filter }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- tpl (join "" $resourceFilters) . }}
+{{- end }}
+
+{{- define "kyverno.webhooks" -}}
+{{- $excludeDefault := dict "key" "kubernetes.io/metadata.name" "operator" "NotIn" "values" (list (include "kyverno.namespace" .)) }}
+{{- $newWebhook := list }}
+{{- range $webhook := .Values.config.webhooks }}
+  {{- $namespaceSelector := default dict $webhook.namespaceSelector }}
+  {{- $matchExpressions := default list $namespaceSelector.matchExpressions }}
+  {{- $newNamespaceSelector := dict "matchLabels" $namespaceSelector.matchLabels "matchExpressions" (append $matchExpressions $excludeDefault) }}
+  {{- $newWebhook = append $newWebhook (merge (omit $webhook "namespaceSelector") (dict "namespaceSelector" $newNamespaceSelector)) }}
+{{- end }}
+{{- $newWebhook | toJson }}
+{{- end }}

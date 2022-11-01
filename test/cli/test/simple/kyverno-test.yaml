@@ -9,11 +9,13 @@ results:
     rule: require-image-tag
     resource: test-require-image-tag-pass
     kind: Pod
+    namespace: test
     status: pass
   - policy: disallow-latest-tag
     rule: require-image-tag
     resource: test-require-image-tag-fail
     kind: Pod
+    namespace: test
     status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
@@ -23,32 +25,38 @@ results:
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-fail
+    namespace: test
     kind: Pod
     status: fail
   - policy: disallow-latest-tag
     rule: validate-image-tag
     resource: test-validate-image-tag-pass
     kind: Pod
+    namespace: test
     status: pass
   - policy: duration-test
     rule: greater-than
     resource: test-lifetime-fail
     kind: Pod
+    namespace: test
     status: fail
   - policy: duration-test
     rule: less-than
     resource: test-lifetime-fail
     kind: Pod
+    namespace: test
     status: pass
   - policy: duration-test
     rule: greater-equal-than
     resource: test-lifetime-fail
     kind: Pod
+    namespace: test
     status: fail
   - policy: duration-test
     rule: less-equal-than
     resource: test-lifetime-fail
     kind: Pod
+    namespace: test
     status: pass
 
   - policy: restrict-pod-counts
@@ -60,11 +68,13 @@ results:
     rule: restrict-pod-count
     resource: test-require-image-tag-pass
     kind: Pod
+    namespace: test
     status: fail
   - policy: restrict-pod-counts
     rule: restrict-pod-count
     resource: test-require-image-tag-fail
     kind: Pod
+    namespace: test
     status: fail
   - policy: restrict-pod-counts
     rule: restrict-pod-count
@@ -75,9 +85,11 @@ results:
     rule: restrict-pod-count
     resource: test-validate-image-tag-fail
     kind: Pod
+    namespace: test
     status: fail    
   - policy: restrict-pod-counts
     rule: restrict-pod-count
     resource: test-validate-image-tag-pass
     kind: Pod
+    namespace: test
     status: fail

@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/response"
-
+	urkyverno "github.com/kyverno/kyverno/api/kyverno/v1beta1"
+	"github.com/kyverno/kyverno/cmd/cli/kubectl-kyverno/utils/store"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/kyverno/kyverno/pkg/kyverno/store"
 	utils2 "github.com/kyverno/kyverno/pkg/utils"
 	"gotest.tools/assert"
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 )
 
 func TestGetAnchorsFromMap_ThereAreAnchors(t *testing.T) {
@@ -128,10 +128,10 @@ func TestValidate_image_tag_fail(t *testing.T) {
 	assert.NilError(t, err)
 	msgs := []string{
 		"validation rule 'validate-tag' passed.",
-		"validation error: imagePullPolicy 'Always' required with tag 'latest'. Rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
+		"validation error: imagePullPolicy 'Always' required with tag 'latest'. rule validate-latest failed at path /spec/containers/0/imagePullPolicy/",
 	}
 
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -231,7 +231,7 @@ func TestValidate_image_tag_pass(t *testing.T) {
 		"validation rule 'validate-tag' passed.",
 		"validation rule 'validate-latest' passed.",
 	}
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -305,10 +305,10 @@ func TestValidate_Fail_anyPattern(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	assert.Assert(t, !er.IsSuccessful())
 
-	msgs := []string{"validation error: A namespace is required. Rule check-default-namespace[0] failed at path /metadata/namespace/. Rule check-default-namespace[1] failed at path /metadata/namespace/."}
+	msgs := []string{"validation error: A namespace is required. rule check-default-namespace[0] failed at path /metadata/namespace/ rule check-default-namespace[1] failed at path /metadata/namespace/"}
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -388,8 +388,8 @@ func TestValidate_host_network_port(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host network and port are not allowed. Rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation error: Host network and port are not allowed. rule validate-host-network-port failed at path /spec/containers/0/ports/0/hostPort/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -434,7 +434,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -478,7 +478,7 @@ func TestValidate_anchor_arraymap_pass(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -523,7 +523,7 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 			  }
 		   ]
 		}
-	 }	
+	 }
 	 `)
 
 	rawResource := []byte(`
@@ -566,8 +566,8 @@ func TestValidate_anchor_arraymap_fail(t *testing.T) {
 	assert.NilError(t, err)
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation error: Host path '/var/lib/' is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/path/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -636,7 +636,7 @@ func TestValidate_anchor_map_notfound(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -709,7 +709,7 @@ func TestValidate_anchor_map_found_valid(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -783,7 +783,7 @@ func TestValidate_inequality_List_Processing(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -863,7 +863,7 @@ func TestValidate_inequality_List_ProcessingBrackets(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod rule 2' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -937,8 +937,8 @@ func TestValidate_anchor_map_found_invalid(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: pod: validate run as non root user. Rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation error: pod: validate run as non root user. rule pod rule 2 failed at path /spec/securityContext/runAsNonRoot/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -980,7 +980,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1003,7 +1003,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1012,7 +1012,7 @@ func TestValidate_AnchorList_pass(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1055,7 +1055,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1078,7 +1078,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1087,7 +1087,7 @@ func TestValidate_AnchorList_fail(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1125,7 +1125,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1148,7 +1148,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1157,7 +1157,7 @@ func TestValidate_existenceAnchor_fail(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -1195,7 +1195,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 		 `)
 
 	rawResource := []byte(`
@@ -1218,7 +1218,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 `)
 
 	var policy kyverno.ClusterPolicy
@@ -1227,7 +1227,7 @@ func TestValidate_existenceAnchor_pass(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'pod image rule' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1271,7 +1271,7 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1315,8 +1315,8 @@ func TestValidate_negationAnchor_deny(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
-	msgs := []string{"validation error: Host path is not allowed. Rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	msgs := []string{"validation error: Host path is not allowed. rule validate-host-path failed at path /spec/volumes/0/hostPath/"}
 
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
@@ -1359,7 +1359,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 			}
 		  ]
 		}
-	  }	
+	  }
 	 `)
 
 	rawResource := []byte(`
@@ -1402,7 +1402,7 @@ func TestValidate_negationAnchor_pass(t *testing.T) {
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(rawResource)
 	assert.NilError(t, err)
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	msgs := []string{"validation rule 'validate-host-path' passed."}
 
 	for index, r := range er.PolicyResponse.Rules {
@@ -1471,11 +1471,11 @@ func Test_VariableSubstitutionPathNotExistInPattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -1564,11 +1564,11 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_OnePatternStatisfiesButSu
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -1625,11 +1625,11 @@ func Test_VariableSubstitution_NotOperatorWithStringVariable(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -1716,11 +1716,11 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathNotPresent(t *test
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -1809,18 +1809,18 @@ func Test_VariableSubstitutionPathNotExistInAnyPattern_AllPathPresent_NonePatter
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
 
 	assert.Equal(t, er.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 	assert.Equal(t, er.PolicyResponse.Rules[0].Message,
-		"validation error: Rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/. Rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/.")
+		"validation error: rule test-path-not-exist[0] failed at path /spec/template/spec/containers/0/name/ rule test-path-not-exist[1] failed at path /spec/template/spec/containers/0/name/")
 }
 
 func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.T) {
@@ -1914,11 +1914,11 @@ func Test_VariableSubstitutionValidate_VariablesInMessageAreResolved(t *testing.
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -1967,11 +1967,11 @@ func Test_Flux_Kustomization_PathNotPresent(t *testing.T) {
 		assert.NilError(t, err)
 
 		ctx := context.NewContext()
-		err = ctx.AddResource(test.resourceRaw)
+		err = context.AddResource(ctx, test.resourceRaw)
 		assert.NilError(t, err)
 
 		policyContext := &PolicyContext{
-			Policy:      policy,
+			Policy:      &policy,
 			JSONContext: ctx,
 			NewResource: *resourceUnstructured}
 		er := Validate(policyContext)
@@ -2009,9 +2009,8 @@ func Test_denyFeatureIssue744_BlockUpdate(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2026,9 +2025,8 @@ func Test_denyFeatureIssue744_DenyAll(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2050,9 +2048,8 @@ func Test_denyFeatureIssue744_BlockFields(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2067,9 +2064,8 @@ func Test_BlockLabelRemove(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
@@ -2091,26 +2087,25 @@ func Test_denyFeatureIssue744_BlockDelete(t *testing.T) {
 		},
 	}
 
-	var err error
 	for _, testcase := range testcases {
-		executeTest(t, err, testcase)
+		executeTest(t, testcase)
 	}
 }
 
-func executeTest(t *testing.T, err error, test testCase) {
+func executeTest(t *testing.T, test testCase) {
 	var policy kyverno.ClusterPolicy
-	err = json.Unmarshal(test.policy, &policy)
+	err := json.Unmarshal(test.policy, &policy)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var request *v1beta1.AdmissionRequest
+	var request *admissionv1.AdmissionRequest
 	err = json.Unmarshal(test.request, &request)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	var userInfo kyverno.RequestInfo
+	var userInfo urkyverno.RequestInfo
 	err = json.Unmarshal(test.userInfo, &userInfo)
 	if err != nil {
 		t.Fatal(err)
@@ -2138,7 +2133,7 @@ func executeTest(t *testing.T, err error, test testCase) {
 	}
 
 	pc := &PolicyContext{
-		Policy:        policy,
+		Policy:        &policy,
 		NewResource:   newR,
 		OldResource:   oldR,
 		AdmissionInfo: userInfo,
@@ -2223,7 +2218,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "restrict-pod-count",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"podcounts": "12",
 						},
 					},
@@ -2244,7 +2239,7 @@ func TestValidate_context_variable_substitution_CLI(t *testing.T) {
 	msgs := []string{
 		"restrict pod counts to be no more than 10 on node minikube",
 	}
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: context.NewContext()})
 	for index, r := range er.PolicyResponse.Rules {
 		assert.Equal(t, r.Message, msgs[index])
 	}
@@ -2327,13 +2322,13 @@ func Test_EmptyStringInDenyCondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: ctx})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: ctx})
 	assert.Assert(t, !er.IsSuccessful())
 }
 
@@ -2416,13 +2411,13 @@ func Test_StringInDenyCondition(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	resourceUnstructured, err := utils.ConvertToUnstructured(resourceRaw)
 	assert.NilError(t, err)
 
-	er := Validate(&PolicyContext{Policy: policy, NewResource: *resourceUnstructured, JSONContext: ctx})
+	er := Validate(&PolicyContext{Policy: &policy, NewResource: *resourceUnstructured, JSONContext: ctx})
 	assert.Assert(t, er.IsSuccessful())
 }
 
@@ -2738,7 +2733,7 @@ func Test_foreach_context_preconditions(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v2",
 						},
@@ -2833,7 +2828,7 @@ func Test_foreach_context_preconditions_fail(t *testing.T) {
 				Rules: []store.Rule{
 					{
 						Name: "test",
-						Values: map[string]string{
+						Values: map[string]interface{}{
 							"img.data.podvalid":   "nginx/nginx:v1",
 							"img.data.podinvalid": "nginx/nginx:v1",
 						},
@@ -3002,11 +2997,11 @@ func testForEach(t *testing.T, policyraw []byte, resourceRaw []byte, msg string,
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContext := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	er := Validate(policyContext)
@@ -3066,11 +3061,11 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.NilError(t, err)
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(resourceRaw)
+	err = context.AddResource(ctx, resourceRaw)
 	assert.NilError(t, err)
 
 	policyContextCreate := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		NewResource: *resourceUnstructured}
 	engineResponseCreate := Validate(policyContextCreate)
@@ -3078,9 +3073,25 @@ func Test_delete_ignore_pattern(t *testing.T) {
 	assert.Equal(t, engineResponseCreate.PolicyResponse.Rules[0].Status, response.RuleStatusFail)
 
 	policyContextDelete := &PolicyContext{
-		Policy:      policy,
+		Policy:      &policy,
 		JSONContext: ctx,
 		OldResource: *resourceUnstructured}
 	engineResponseDelete := Validate(policyContextDelete)
 	assert.Equal(t, len(engineResponseDelete.PolicyResponse.Rules), 0)
+}
+
+func Test_block_bypass(t *testing.T) {
+	testcases := []testCase{
+		{
+			description:   "Blocks bypass of policy by manipulating pre-conditions",
+			policy:        []byte(`{"apiVersion":"kyverno.io/v1","kind":"Policy","metadata":{"name":"configmap-policy"},"spec":{"rules":[{"match":{"resources":{"kinds":["ConfigMap"]}},"name":"key-abc","preconditions":{"any":[{"key":"admin","operator":"Equals","value":"{{request.object.data.lock}}"}]},"validate":{"anyPattern":[{"data":{"key":"abc"}}],"message":"Configmap key must be \"abc\""}}]}}`),
+			request:       []byte(`{"uid":"7b0600b7-0258-4ecb-9666-c2839bd19612","kind":{"group":"","version":"v1","kind":"ConfigMap"},"resource":{"group":"","version":"v1","resource":"configmaps"},"subResource":"status","requestKind":{"group":"","version":"v1","kind":"configmaps"},"requestResource":{"group":"","version":"v1","resource":"configmaps"},"name":"test-configmap","namespace":"default","operation":"UPDATE","userInfo":{"username":"system:node:kind-control-plane","groups":["system:authenticated"]},"object":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz","lock":"admin"}},"oldObject":{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"test-configmap"},"data":{"key":"xyz"}},"dryRun":false,"options":{"kind":"UpdateOptions","apiVersion":"meta.k8s.io/v1"}}`),
+			userInfo:      []byte(`{"roles":["kube-system:kubeadm:kubelet-config-1.17","kube-system:kubeadm:nodes-kubeadm-config"],"clusterRoles":["system:basic-user","system:certificates.k8s.io:certificatesigningrequests:selfnodeclient","system:public-info-viewer","system:discovery"],"userInfo":{"username":"kubernetes-admin","groups":["system:authenticated"]}}`),
+			requestDenied: true,
+		},
+	}
+
+	for _, testcase := range testcases {
+		executeTest(t, testcase)
+	}
 }

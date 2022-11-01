@@ -6,23 +6,70 @@ import (
 	"regexp"
 	"strconv"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/go-logr/logr"
-	common "github.com/kyverno/kyverno/pkg/common"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	engineutils "github.com/kyverno/kyverno/pkg/engine/utils"
-	"github.com/minio/pkg/wildcard"
-	"k8s.io/api/admission/v1beta1"
+	"github.com/kyverno/kyverno/pkg/logging"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
+	"github.com/pkg/errors"
+	admissionv1 "k8s.io/api/admission/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/discovery"
 )
 
 var regexVersion = regexp.MustCompile(`v(\d+).(\d+).(\d+)\.*`)
+
+// CopyMap creates a full copy of the target map
+func CopyMap(m map[string]interface{}) map[string]interface{} {
+	mapCopy := make(map[string]interface{})
+	for k, v := range m {
+		mapCopy[k] = v
+	}
+
+	return mapCopy
+}
+
+// CopySlice creates a full copy of the target slice
+func CopySlice(s []interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	copy(sliceCopy, s)
+
+	return sliceCopy
+}
+
+// CopySliceOfMaps creates a full copy of the target slice
+func CopySliceOfMaps(s []map[string]interface{}) []interface{} {
+	sliceCopy := make([]interface{}, len(s))
+	for i, v := range s {
+		sliceCopy[i] = CopyMap(v)
+	}
+
+	return sliceCopy
+}
+
+func ToMap(data interface{}) (map[string]interface{}, error) {
+	if m, ok := data.(map[string]interface{}); ok {
+		return m, nil
+	}
+
+	b, err := json.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
+	mapData := make(map[string]interface{})
+	err = json.Unmarshal(b, &mapData)
+	if err != nil {
+		return nil, err
+	}
+
+	return mapData, nil
+}
 
 // Contains checks if a string is contained in a list of string
 func contains(list []string, element string, fn func(string, string) bool) bool {
@@ -34,19 +81,9 @@ func contains(list []string, element string, fn func(string, string) bool) bool 
 	return false
 }
 
-func ContainsPod(list []string, element string) bool {
-	for _, e := range list {
-		_, k := common.GetKindFromGVK(e)
-		if k == element {
-			return true
-		}
-	}
-	return false
-}
-
 // ContainsNamepace check if namespace satisfies any list of pattern(regex)
 func ContainsNamepace(patterns []string, ns string) bool {
-	return contains(patterns, ns, compareNamespaces)
+	return contains(patterns, ns, comparePatterns)
 }
 
 // ContainsString checks if the string is contained in the list
@@ -54,7 +91,11 @@ func ContainsString(list []string, element string) bool {
 	return contains(list, element, compareString)
 }
 
-func compareNamespaces(pattern, ns string) bool {
+func ContainsWildcardPatterns(patterns []string, key string) bool {
+	return contains(patterns, key, comparePatterns)
+}
+
+func comparePatterns(pattern, ns string) bool {
 	return wildcard.Match(pattern, ns)
 }
 
@@ -62,18 +103,9 @@ func compareString(str, name string) bool {
 	return str == name
 }
 
-// NewKubeClient returns a new kubernetes client
-func NewKubeClient(config *rest.Config) (kubernetes.Interface, error) {
-	kclient, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return kclient, nil
-}
-
 // CRDsInstalled checks if the Kyverno CRDs are installed or not
-func CRDsInstalled(discovery client.IDiscovery) bool {
-	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "ClusterReportChangeRequest", "ReportChangeRequest"}
+func CRDsInstalled(discovery dclient.IDiscovery) bool {
+	kyvernoCRDs := []string{"ClusterPolicy", "ClusterPolicyReport", "PolicyReport", "AdmissionReport", "BackgroundScanReport", "ClusterAdmissionReport", "ClusterBackgroundScanReport"}
 	for _, crd := range kyvernoCRDs {
 		if !isCRDInstalled(discovery, crd) {
 			return false
@@ -83,23 +115,20 @@ func CRDsInstalled(discovery client.IDiscovery) bool {
 	return true
 }
 
-func isCRDInstalled(discoveryClient client.IDiscovery, kind string) bool {
+func isCRDInstalled(discoveryClient dclient.IDiscovery, kind string) bool {
 	gvr, err := discoveryClient.GetGVRFromKind(kind)
 	if gvr.Empty() {
 		if err == nil {
 			err = fmt.Errorf("not found")
 		}
-
-		log.Log.Error(err, "failed to retrieve CRD", "kind", kind)
+		logging.Error(err, "failed to retrieve CRD", "kind", kind)
 		return false
 	}
-
-	log.Log.Info("CRD found", "gvr", gvr.String())
 	return true
 }
 
 // ExtractResources extracts the new and old resource as unstructured
-func ExtractResources(newRaw []byte, request *v1beta1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
+func ExtractResources(newRaw []byte, request *admissionv1.AdmissionRequest) (unstructured.Unstructured, unstructured.Unstructured, error) {
 	var emptyResource unstructured.Unstructured
 	var newResource unstructured.Unstructured
 	var oldResource unstructured.Unstructured
@@ -149,10 +178,106 @@ func ConvertResource(raw []byte, group, version, kind, namespace string) (unstru
 	return *obj, nil
 }
 
+func NormalizeSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
+	var secret corev1.Secret
+	data, err := json.Marshal(resource.Object)
+	if err != nil {
+		return *resource, err
+	}
+	err = json.Unmarshal(data, &secret)
+	if err != nil {
+		return *resource, errors.Wrap(err, "object unable to convert to secret")
+	}
+	for k, v := range secret.Data {
+		if len(v) == 0 {
+			secret.Data[k] = []byte("")
+		}
+	}
+	updateSecret := map[string]interface{}{}
+	raw, err := json.Marshal(&secret)
+	if err != nil {
+		return *resource, nil
+	}
+
+	err = json.Unmarshal(raw, &updateSecret)
+	if err != nil {
+		return *resource, nil
+	}
+
+	if err != nil {
+		return *resource, errors.Wrap(err, "object unable to convert from secret")
+	}
+	if secret.Data != nil {
+		err = unstructured.SetNestedMap(resource.Object, updateSecret["data"].(map[string]interface{}), "data")
+		if err != nil {
+			return *resource, errors.Wrap(err, "failed to set secret.data")
+		}
+	}
+	return *resource, nil
+}
+
+// RedactSecret masks keys of data and metadata.annotation fields of Secrets.
+func RedactSecret(resource *unstructured.Unstructured) (unstructured.Unstructured, error) {
+	var secret *corev1.Secret
+	data, err := json.Marshal(resource.Object)
+	if err != nil {
+		return *resource, err
+	}
+	err = json.Unmarshal(data, &secret)
+	if err != nil {
+		return *resource, errors.Wrap(err, "unable to convert object to secret")
+	}
+	stringSecret := struct {
+		Data map[string]string `json:"string_data"`
+		*corev1.Secret
+	}{
+		Data:   make(map[string]string),
+		Secret: secret,
+	}
+	for key := range secret.Data {
+		secret.Data[key] = []byte("**REDACTED**")
+		stringSecret.Data[key] = string(secret.Data[key])
+	}
+	for key := range secret.Annotations {
+		secret.Annotations[key] = "**REDACTED**"
+	}
+	updateSecret := map[string]interface{}{}
+	raw, err := json.Marshal(stringSecret)
+	if err != nil {
+		return *resource, nil
+	}
+	err = json.Unmarshal(raw, &updateSecret)
+	if err != nil {
+		return *resource, errors.Wrap(err, "unable to convert object from secret")
+	}
+	if secret.Data != nil {
+		v := updateSecret["string_data"].(map[string]interface{})
+		err = unstructured.SetNestedMap(resource.Object, v, "data")
+		if err != nil {
+			return *resource, errors.Wrap(err, "failed to set secret.data")
+		}
+	}
+	if secret.Annotations != nil {
+		metadata, err := ToMap(resource.Object["metadata"])
+		if err != nil {
+			return *resource, errors.Wrap(err, "unable to convert metadata to map")
+		}
+		updatedMeta := updateSecret["metadata"].(map[string]interface{})
+		if err != nil {
+			return *resource, errors.Wrap(err, "unable to convert object from secret")
+		}
+		err = unstructured.SetNestedMap(metadata, updatedMeta["annotations"].(map[string]interface{}), "annotations")
+		if err != nil {
+			return *resource, errors.Wrap(err, "failed to set secret.annotations")
+		}
+	}
+	return *resource, nil
+}
+
 // HigherThanKubernetesVersion compare Kubernetes client version to user given version
-func HigherThanKubernetesVersion(client *client.Client, log logr.Logger, major, minor, patch int) bool {
+func HigherThanKubernetesVersion(client discovery.ServerVersionInterface, log logr.Logger, major, minor, patch int) bool {
 	logger := log.WithName("CompareKubernetesVersion")
-	serverVersion, err := client.DiscoveryClient.GetServerVersion()
+	serverVersion, err := client.ServerVersion()
 	if err != nil {
 		logger.Error(err, "Failed to get kubernetes server version")
 		return false
@@ -199,8 +324,7 @@ func isVersionHigher(version string, major int, minor int, patch int) (bool, err
 
 // SliceContains checks whether values are contained in slice
 func SliceContains(slice []string, values ...string) bool {
-
-	var sliceElementsMap = make(map[string]bool, len(slice))
+	sliceElementsMap := make(map[string]bool, len(slice))
 	for _, sliceElement := range slice {
 		sliceElementsMap[sliceElement] = true
 	}
@@ -244,12 +368,12 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return nil, fmt.Errorf("error occurred while marshalling %s: %+v", path, err)
 	}
 
-	var kyvernoOldConditions []kyverno.Condition
+	var kyvernoOldConditions []kyvernov1.Condition
 	if err = json.Unmarshal(jsonByte, &kyvernoOldConditions); err == nil {
 		var validConditionOperator bool
 
 		for _, jsonOp := range kyvernoOldConditions {
-			for _, validOp := range kyverno.ConditionOperators {
+			for _, validOp := range kyvernov1.ConditionOperators {
 				if jsonOp.Operator == validOp {
 					validConditionOperator = true
 				}
@@ -263,7 +387,7 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoOldConditions, nil
 	}
 
-	var kyvernoAnyAllConditions kyverno.AnyAllConditions
+	var kyvernoAnyAllConditions kyvernov1.AnyAllConditions
 	if err = json.Unmarshal(jsonByte, &kyvernoAnyAllConditions); err == nil {
 		// checking if unknown fields exist or not
 		err = unknownFieldChecker(jsonByte, path)
@@ -273,4 +397,54 @@ func ApiextensionsJsonToKyvernoConditions(original apiextensions.JSON) (interfac
 		return kyvernoAnyAllConditions, nil
 	}
 	return nil, fmt.Errorf("error occurred while parsing %s: %+v", path, err)
+}
+
+func OverrideRuntimeErrorHandler() {
+	logger := logging.WithName("RuntimeErrorHandler")
+	if len(runtime.ErrorHandlers) > 0 {
+		runtime.ErrorHandlers[0] = func(err error) {
+			logger.V(6).Info("runtime error", "msg", err.Error())
+		}
+	} else {
+		runtime.ErrorHandlers = []func(err error){
+			func(err error) {
+				logger.V(6).Info("runtime error", "msg", err.Error())
+			},
+		}
+	}
+}
+
+func SeperateWildcards(l []string) (lw []string, rl []string) {
+	for _, val := range l {
+		if wildcard.ContainsWildcard(val) {
+			lw = append(lw, val)
+		} else {
+			rl = append(rl, val)
+		}
+	}
+	return lw, rl
+}
+
+func CheckWildcardNamespaces(patterns []string, ns []string) (string, string, bool) {
+	for _, n := range ns {
+		pat, element, boolval := containsNamespaceWithStringReturn(patterns, n)
+		if boolval {
+			return pat, element, true
+		}
+	}
+	return "", "", false
+}
+
+func containsWithStringReturn(list []string, element string, fn func(string, string) bool) (string, string, bool) {
+	for _, e := range list {
+		if fn(e, element) {
+			return e, element, true
+		}
+	}
+	return "", "", false
+}
+
+// containsNamespaceWithStringReturn check if namespace satisfies any list of pattern(regex)
+func containsNamespaceWithStringReturn(patterns []string, ns string) (string, string, bool) {
+	return containsWithStringReturn(patterns, ns, comparePatterns)
 }

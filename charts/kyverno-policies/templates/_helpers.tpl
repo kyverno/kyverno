@@ -40,6 +40,8 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{- true }}
 {{- else if and (eq .Values.podSecurityStandard "custom") (has .name .Values.podSecurityPolicies) }}
 {{- true }}
+{{- else if has .name .Values.includeRestrictedPolicies }}
+{{- true }}
 {{- else -}}
 {{- false }}
 {{- end -}}
@@ -57,13 +59,17 @@ helm.sh/chart: {{ template "kyverno-policies.chart" . }}
 {{/* Get deployed Kyverno version from Kubernetes */}}
 {{- define "kyverno-policies.kyvernoVersion" -}}
 {{- $version := "" -}}
+{{- if eq .Values.kyvernoVersion "autodetect" }}
 {{- with (lookup "apps/v1" "Deployment" .Release.Namespace "kyverno") -}}
   {{- with (first .spec.template.spec.containers) -}}
-    {{- $imageTag := (split ":" .image)._1 -}}
+    {{- $imageTag := (last (splitList ":" .image)) -}}
     {{- $version = trimPrefix "v" $imageTag -}}
   {{- end -}}
 {{- end -}}
 {{ $version }}
+{{- else -}}
+{{ .Values.kyvernoVersion }}
+{{- end -}}
 {{- end -}}
 
 {{/* Fail if deployed Kyverno does not match */}}

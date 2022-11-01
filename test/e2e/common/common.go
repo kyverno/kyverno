@@ -3,11 +3,15 @@ package common
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/kyverno/kyverno/test/e2e"
 )
+
+const defaultTestK8sVersion = "1.21.0"
 
 func CallMetrics() (string, error) {
 	requestObj := e2e.APIRequest{
@@ -28,6 +32,14 @@ func CallMetrics() (string, error) {
 
 	newStr := buf.String()
 	return newStr, nil
+}
+
+func GetKubernetesVersion() semver.Version {
+	ver, err := semver.Parse(os.Getenv("K8S_VERSION"))
+	if err != nil {
+		return semver.MustParse(defaultTestK8sVersion)
+	}
+	return ver
 }
 
 // ProcessMetrics checks the metrics log and identify if the policy is added in cache or not
@@ -59,7 +71,6 @@ func ProcessMetrics(newStr, e2ePolicyName string) error {
 					return nil
 				}
 			}
-
 		}
 	}
 
@@ -83,6 +94,8 @@ func checkPolicyCreated(policyName string) func() error {
 			return fmt.Errorf("policy not created: %v", err)
 		}
 
+		// Wait to make sure that the Policy is ready.
+		time.Sleep(2 * time.Second)
 		return nil
 	}
 }

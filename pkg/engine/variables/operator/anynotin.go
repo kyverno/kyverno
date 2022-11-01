@@ -7,7 +7,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/context"
 )
 
-//NewAnyNotInHandler returns handler to manage AnyNotIn operations
+// NewAnyNotInHandler returns handler to manage AnyNotIn operations
 func NewAnyNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AnyNotInHandler{
 		ctx: ctx,
@@ -15,13 +15,13 @@ func NewAnyNotInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHand
 	}
 }
 
-//AnyNotInHandler provides implementation to handle AnyNotIn Operator
+// AnyNotInHandler provides implementation to handle AnyNotIn Operator
 type AnyNotInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AnyNotIn Operator
+// Evaluate evaluates expression with AnyNotIn Operator
 func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
@@ -35,7 +35,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return anynin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		anynin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		anynin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -43,7 +43,7 @@ func (anynin AnyNotInHandler) Evaluate(key, value interface{}) bool {
 func (anynin AnyNotInHandler) validateValueWithStringPattern(key string, value interface{}) bool {
 	invalidType, keyExists := anyKeyExistsInArray(key, value, anynin.log)
 	if invalidType {
-		anynin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anynin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -53,7 +53,7 @@ func (anynin AnyNotInHandler) validateValueWithStringPattern(key string, value i
 func (anynin AnyNotInHandler) validateValueWithStringSetPattern(key []string, value interface{}) bool {
 	invalidType, isAnyNotIn := anySetExistsInArray(key, value, anynin.log, true)
 	if invalidType {
-		anynin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anynin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 

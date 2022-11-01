@@ -1,7 +1,8 @@
-apiVersion: v1
+apiVersion: v2
+type: application
 name: kyverno
-version: v2.2.0-rc2
-appVersion: v1.6.0-rc2
+version: v2.5.3
+appVersion: v1.7.3
 icon: https://github.com/kyverno/kyverno/raw/main/img/logo.png
 description: Kubernetes Native Policy Management
 keywords:
@@ -16,5 +17,34 @@ sources:
 maintainers:
   - name: Nirmata
     url: https://kyverno.io/
-engine: gotpl
 kubeVersion: ">=1.16.0-0"
+annotations:
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://kyverno.io/docs
+  # valid kinds are: added, changed, deprecated, removed, fixed and security
+  artifacthub.io/changes: |
+    - kind: added
+      description: Added possibility to define additional init and sidecar container.
+    - kind: added
+      description: Added ability to remove namespaces from default resourceFilters list.
+    - kind: added
+      description: Prevent installing Kyverno in namespace kube-system.
+    - kind: fixed
+      description: Docs for generatecontrollerExtraResources.
+    - kind: changed
+      description: Enable autogen internals by default.
+    - kind: fixed
+      description: Self signed certificates not using SANs.
+    - kind: added
+      description: Extra args support for init container.
+    - kind: added
+      description: Allow overriding of test security context and resource block.
+    - kind: added
+      description: Added possibility to define custom image registries
+    - kind: added
+      description: Enable adding optional annotations to configmaps
+    - kind: added
+      description: Add startup probes support

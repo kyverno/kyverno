@@ -5,57 +5,37 @@ import (
 	"strconv"
 	"strings"
 
-	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
-
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	commonAnchor "github.com/kyverno/kyverno/pkg/engine/anchor"
+	"github.com/kyverno/kyverno/pkg/logging"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-//RuleType defines the type for rule
-type RuleType int
-
-const (
-	//Mutation type for mutation rule
-	Mutation RuleType = iota
-	//Validation type for validation rule
-	Validation
-	//Generation type for generation rule
-	Generation
-	// ImageVerify type for image verification
-	ImageVerify
-)
-
-func (ri RuleType) String() string {
-	return [...]string{
-		"Mutation",
-		"Validation",
-		"Generation",
-		"All",
-	}[ri]
-}
 
 // ApplyPatches patches given resource with given patches and returns patched document
 // return original resource if any error occurs
 func ApplyPatches(resource []byte, patches [][]byte) ([]byte, error) {
-	joinedPatches := JoinPatches(patches)
+	if len(patches) == 0 {
+		return resource, nil
+	}
+	joinedPatches := jsonutils.JoinPatches(patches...)
 	patch, err := jsonpatch.DecodePatch(joinedPatches)
 	if err != nil {
-		log.Log.V(4).Info("failed to decode JSON patch", "patch", patch)
+		logging.V(4).Info("failed to decode JSON patch", "patch", patch)
 		return resource, err
 	}
 
 	patchedDocument, err := patch.Apply(resource)
 	if err != nil {
-		log.Log.V(4).Info("failed to apply JSON patch", "patch", patch)
+		logging.V(4).Info("failed to apply JSON patch", "patch", patch)
 		return resource, err
 	}
 
-	log.Log.V(4).Info("applied JSON patch", "patch", patch)
+	logging.V(4).Info("applied JSON patch", "patch", patch)
 	return patchedDocument, err
 }
 
-//ApplyPatchNew patches given resource with given joined patches
+// ApplyPatchNew patches given resource with given joined patches
 func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	jsonpatch, err := jsonpatch.DecodePatch(patch)
 	if err != nil {
@@ -68,29 +48,9 @@ func ApplyPatchNew(resource, patch []byte) ([]byte, error) {
 	}
 
 	return patchedResource, err
-
 }
 
-// JoinPatches joins array of serialized JSON patches to the single JSONPatch array
-func JoinPatches(patches [][]byte) []byte {
-	var result []byte
-	if len(patches) == 0 {
-		return result
-	}
-
-	result = append(result, []byte("[\n")...)
-	for index, patch := range patches {
-		result = append(result, patch...)
-		if index != len(patches)-1 {
-			result = append(result, []byte(",\n")...)
-		}
-	}
-
-	result = append(result, []byte("\n]")...)
-	return result
-}
-
-//ConvertToUnstructured converts the resource to unstructured format
+// ConvertToUnstructured converts the resource to unstructured format
 func ConvertToUnstructured(data []byte) (*unstructured.Unstructured, error) {
 	resource := &unstructured.Unstructured{}
 	err := resource.UnmarshalJSON(data)

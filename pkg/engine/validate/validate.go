@@ -2,13 +2,14 @@ package validate
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/wildcards"
+	"go.uber.org/multierr"
 )
 
 type PatternError struct {
@@ -84,7 +85,7 @@ func validateResourceElement(log logr.Logger, resourceElement, patternElement, o
 		typedResourceElement, ok := resourceElement.([]interface{})
 		if !ok {
 			log.V(4).Info("Pattern and resource have different structures.", "path", path, "expected", fmt.Sprintf("%T", patternElement), "current", fmt.Sprintf("%T", resourceElement))
-			return path, fmt.Errorf("validation rule Failed at path %s, resource does not satisfy the expected overlay pattern", path)
+			return path, fmt.Errorf("validation rule failed at path %s, resource does not satisfy the expected overlay pattern", path)
 		}
 		return validateArray(log, typedResourceElement, typedPatternElement, originPattern, path, ac)
 	// elementary values
@@ -121,9 +122,15 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	// Phase 2 : Evaluate non-anchors
 	anchors, resources := anchor.GetAnchorsResourcesFromMap(patternMap)
 
-	// Evaluate anchors
-	for key, patternElement := range anchors {
+	keys := make([]string, 0, len(anchors))
+	for k := range anchors {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 
+	// Evaluate anchors
+	for _, key := range keys {
+		patternElement := anchors[key]
 		// get handler for each pattern in the pattern
 		// - Conditional
 		// - Existence
@@ -151,24 +158,6 @@ func validateMap(log logr.Logger, resourceMap, patternMap map[string]interface{}
 	}
 
 	return "", nil
-}
-
-func combineErrors(errors []error) error {
-	if len(errors) == 0 {
-		return nil
-	}
-
-	if len(errors) == 1 {
-		return errors[0]
-	}
-
-	messages := make([]string, len(errors))
-	for i := range errors {
-		messages[i] = errors[i].Error()
-	}
-
-	msg := strings.Join(messages, "; ")
-	return fmt.Errorf(msg)
 }
 
 func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, originPattern interface{}, path string, ac *anchor.AnchorKey) (string, error) {
@@ -214,7 +203,7 @@ func validateArray(log logr.Logger, resourceArray, patternArray []interface{}, o
 
 		if applyCount == 0 && len(skipErrors) > 0 {
 			return path, &PatternError{
-				Err:  combineErrors(skipErrors),
+				Err:  multierr.Combine(skipErrors...),
 				Path: path,
 				Skip: true,
 			}
@@ -248,7 +237,7 @@ func validateArrayOfMaps(log logr.Logger, resourceMapArray []interface{}, patter
 
 	if applyCount == 0 && len(skipErrors) > 0 {
 		return path, &PatternError{
-			Err:  combineErrors(skipErrors),
+			Err:  multierr.Combine(skipErrors...),
 			Path: path,
 			Skip: true,
 		}

@@ -9,5 +9,7 @@ const (
 	ValidateEnforce
 	ValidateAudit
 	Generate
-	VerifyImages
+	VerifyImagesMutate
+	VerifyImagesValidate
+	VerifyYAML
 )

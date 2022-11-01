@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -9,20 +8,20 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/go-logr/logr"
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	client "github.com/kyverno/kyverno/pkg/dclient"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/clients/dclient"
 	"github.com/kyverno/kyverno/pkg/engine"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/utils"
+	jsonutils "github.com/kyverno/kyverno/pkg/utils/json"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 // applyPolicy applies policy on a resource
-func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructured,
+func applyPolicy(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured,
 	logger logr.Logger, excludeGroupRole []string,
-	client *client.Client, namespaceLabels map[string]string) (responses []*response.EngineResponse) {
-
+	client dclient.Interface, namespaceLabels map[string]string,
+) (responses []*response.EngineResponse) {
 	startTime := time.Now()
 	defer func() {
 		name := resource.GetKind() + "/" + resource.GetName()
@@ -39,7 +38,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	var err error
 
 	ctx := context.NewContext()
-	err = ctx.AddResource(transformResource(resource))
+	err = context.AddResource(ctx, transformResource(resource))
 	if err != nil {
 		logger.Error(err, "failed to add transform resource to ctx")
 	}
@@ -49,8 +48,12 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 		logger.Error(err, "failed to add namespace to ctx")
 	}
 
-	if err := ctx.AddImageInfo(&resource); err != nil {
+	if err := ctx.AddImageInfos(&resource); err != nil {
 		logger.Error(err, "unable to add image info to variables context")
+	}
+
+	if err := ctx.AddOperation("CREATE"); err != nil {
+		logger.Error(err, "unable to set operation in context")
 	}
 
 	engineResponseMutation, err = mutation(policy, resource, logger, ctx, namespaceLabels)
@@ -73,8 +76,7 @@ func applyPolicy(policy kyverno.ClusterPolicy, resource unstructured.Unstructure
 	return engineResponses
 }
 
-func mutation(policy kyverno.ClusterPolicy, resource unstructured.Unstructured, log logr.Logger, jsonContext *context.Context, namespaceLabels map[string]string) (*response.EngineResponse, error) {
-
+func mutation(policy kyvernov1.PolicyInterface, resource unstructured.Unstructured, log logr.Logger, jsonContext context.Interface, namespaceLabels map[string]string) (*response.EngineResponse, error) {
 	policyContext := &engine.PolicyContext{
 		Policy:          policy,
 		NewResource:     resource,
@@ -110,7 +112,7 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 
 		patches := rule.Patches
 
-		patch, err := jsonpatch.DecodePatch(utils.JoinPatches(patches))
+		patch, err := jsonpatch.DecodePatch(jsonutils.JoinPatches(patches...))
 		if err != nil {
 			log.Error(err, "failed to decode JSON patch", "patches", patches)
 			return &response.EngineResponse{}, err
@@ -133,23 +135,16 @@ func getFailedOverallRuleInfo(resource unstructured.Unstructured, engineResponse
 	return engineResponse, nil
 }
 
-type jsonPatch struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
-}
-
 func extractPatchPath(patches [][]byte, log logr.Logger) string {
 	var resultPath []string
 	// extract the patch path and value
 	for _, patch := range patches {
-		log.V(4).Info("expected json patch not found in resource", "patch", string(patch))
-		var data jsonPatch
-		if err := json.Unmarshal(patch, &data); err != nil {
+		if data, err := jsonutils.UnmarshalPatchOperation(patch); err != nil {
 			log.Error(err, "failed to decode the generate patch", "patch", string(patch))
 			continue
+		} else {
+			resultPath = append(resultPath, data.Path)
 		}
-		resultPath = append(resultPath, data.Path)
 	}
 	return strings.Join(resultPath, ";")
 }

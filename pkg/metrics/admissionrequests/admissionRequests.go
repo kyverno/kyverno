@@ -5,38 +5,36 @@ import (
 
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/metrics"
-	prom "github.com/prometheus/client_golang/prometheus"
+	"github.com/kyverno/kyverno/pkg/utils"
 )
 
-func (pc PromConfig) registerAdmissionRequestsMetric(
+func registerAdmissionRequestsMetric(
+	m *metrics.MetricsConfig,
 	resourceKind, resourceNamespace string,
 	resourceRequestOperation metrics.ResourceRequestOperation,
 ) error {
-	includeNamespaces, excludeNamespaces := pc.Config.GetIncludeNamespaces(), pc.Config.GetExcludeNamespaces()
-	if (resourceNamespace != "" && resourceNamespace != "-") && metrics.ElementInSlice(resourceNamespace, excludeNamespaces) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_requests_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
+	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
+	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_admission_requests_total metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
 		return nil
 	}
-	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !metrics.ElementInSlice(resourceNamespace, includeNamespaces) {
-		pc.Log.Info(fmt.Sprintf("Skipping the registration of kyverno_admission_requests_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
+	if (resourceNamespace != "" && resourceNamespace != "-") && len(includeNamespaces) > 0 && !utils.ContainsString(includeNamespaces, resourceNamespace) {
+		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_admission_requests_total metric as the operation belongs to the namespace '%s' which is not one of 'namespaces.include' %+v in values.yaml", resourceNamespace, includeNamespaces))
 		return nil
 	}
-	pc.Metrics.AdmissionRequests.With(prom.Labels{
-		"resource_kind":              resourceKind,
-		"resource_namespace":         resourceNamespace,
-		"resource_request_operation": string(resourceRequestOperation),
-	}).Inc()
+
+	m.RecordAdmissionRequests(resourceKind, resourceNamespace, resourceRequestOperation)
+
 	return nil
 }
 
-func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineResponse, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponses(m *metrics.MetricsConfig, engineResponses []*response.EngineResponse, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	if len(engineResponses) == 0 {
 		return nil
 	}
 	resourceNamespace, resourceKind := engineResponses[0].PolicyResponse.Resource.Namespace, engineResponses[0].PolicyResponse.Resource.Kind
-	totalValidateRulesCount, totalMutateRulesCount, totalGenerateRulesCount := 0, 0, 0
+	validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 	for _, e := range engineResponses {
-		validateRulesCount, mutateRulesCount, generateRulesCount := 0, 0, 0
 		for _, rule := range e.PolicyResponse.Rules {
 			switch rule.Type {
 			case "Validation":
@@ -47,17 +45,9 @@ func (pc PromConfig) ProcessEngineResponses(engineResponses []*response.EngineRe
 				generateRulesCount++
 			}
 		}
-		// no rules triggered
-		if validateRulesCount+mutateRulesCount+generateRulesCount == 0 {
-			continue
-		}
-
-		totalValidateRulesCount += validateRulesCount
-		totalMutateRulesCount += mutateRulesCount
-		totalGenerateRulesCount += generateRulesCount
 	}
-	if totalValidateRulesCount+totalMutateRulesCount+totalGenerateRulesCount == 0 {
+	if validateRulesCount == 0 && mutateRulesCount == 0 && generateRulesCount == 0 {
 		return nil
 	}
-	return pc.registerAdmissionRequestsMetric(resourceKind, resourceNamespace, resourceRequestOperation)
+	return registerAdmissionRequestsMetric(m, resourceKind, resourceNamespace, resourceRequestOperation)
 }

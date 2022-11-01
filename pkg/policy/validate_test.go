@@ -2,224 +2,18 @@ package policy
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
 	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/logging"
 	"github.com/kyverno/kyverno/pkg/openapi"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"gotest.tools/assert"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
-
-func Test_Validate_UniqueRuleName(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"spec": {
-		   "validationFailureAction": "audit",
-		   "rules": [
-			  {
-				 "name": "deny-privileged-disallowpriviligedescalation",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {}
-			  },
-			  {
-				 "name": "deny-privileged-disallowpriviligedescalation",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Pod"
-					   ]
-					}
-				 },
-				 "validate": {}
-			  }
-		   ]
-		}
-	 }
-	`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	_, err = validateUniqueRuleName(*policy)
-	assert.Assert(t, err != nil)
-}
-
-func Test_Validate_RuleType_EmptyRule(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
-				 },
-				 "mutate": {},
-				 "validate": {}
-			  }
-		   ]
-		}
-	 }
-	`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	for _, rule := range policy.Spec.Rules {
-		err := validateRuleType(rule)
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_RuleType_MultipleRule(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
-				 },
-				 "mutate": {
-					"patchStrategicMerge": {
-					   "spec": {
-						  "template": {
-							 "spec": {
-								"containers": [
-								   {
-									  "(name)": "*",
-									  "resources": {
-										 "limits": {
-											"+(memory)": "300Mi",
-											"+(cpu)": "100"
-										 }
-									  }
-								   }
-								]
-							 }
-						  }
-					   }
-					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "containers": [
-									  {
-										 "securityContext": {
-											"runAsNonRoot": true
-										 }
-									  }
-								   ]
-								}
-							 }
-						  }
-					   }
-					]
-				 }
-			  }
-		   ]
-		}
-	 }`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	for _, rule := range policy.Spec.Rules {
-		err := validateRuleType(rule)
-		assert.Assert(t, err != nil)
-	}
-}
-
-func Test_Validate_RuleType_SingleRule(t *testing.T) {
-	rawPolicy := []byte(`
-	{
-		"spec": {
-		   "rules": [
-			  {
-				 "name": "validate-user-privilege",
-				 "match": {
-					"resources": {
-					   "kinds": [
-						  "Deployment"
-					   ],
-					   "selector": {
-						  "matchLabels": {
-							 "app.type": "prod"
-						  }
-					   }
-					}
-				 },
-				 "validate": {
-					"message": "validate container security contexts",
-					"anyPattern": [
-					   {
-						  "spec": {
-							 "template": {
-								"spec": {
-								   "containers": [
-									  {
-										 "securityContext": {
-											"runAsNonRoot": "true"
-										 }
-									  }
-								   ]
-								}
-							 }
-						  }
-					   }
-					]
-				 }
-			  }
-		   ]
-		}
-	 }
-	`)
-
-	var policy *kyverno.ClusterPolicy
-	err := json.Unmarshal(rawPolicy, &policy)
-	assert.NilError(t, err)
-
-	for _, rule := range policy.Spec.Rules {
-		err := validateRuleType(rule)
-		assert.NilError(t, err)
-	}
-}
 
 func Test_Validate_ResourceDescription_Empty(t *testing.T) {
 	var err error
@@ -469,44 +263,6 @@ func Test_Validate_PreconditionsValuesList_KeyRequestOperation_UnknownItem(t *te
 	assert.Assert(t, err != nil)
 }
 
-func Test_Validate_ResourceDescription_MissingKindsOnExclude(t *testing.T) {
-	var err error
-	excludeResourcedescirption := []byte(`
-	{
-		"selector": {
-		   "matchLabels": {
-			  "app.type": "prod"
-		   }
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err = json.Unmarshal(excludeResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	_, err = validateExcludeResourceDescription(rd)
-	assert.NilError(t, err)
-}
-
-func Test_Validate_ResourceDescription_InvalidSelector(t *testing.T) {
-	rawResourcedescirption := []byte(`
-	{
-		"kinds": [
-		   "Deployment"
-		],
-		"selector": {
-		   "app.type": "prod"
-		}
-	 }`)
-
-	var rd kyverno.ResourceDescription
-	err := json.Unmarshal(rawResourcedescirption, &rd)
-	assert.NilError(t, err)
-
-	err = validateResourceDescription(rd)
-	assert.Assert(t, err != nil)
-}
-
 func Test_Validate_Policy(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -589,12 +345,12 @@ func Test_Validate_Policy(t *testing.T) {
 		}
 	 }`)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
+	openApiManager, _ := openapi.NewManager()
 	var policy *kyverno.ClusterPolicy
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	err = Validate(policy, nil, true, openAPIController)
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
 }
 
@@ -740,69 +496,9 @@ func Test_Validate_ErrorFormat(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
-}
-
-func Test_Validate_EmptyUserInfo(t *testing.T) {
-	rawRule := []byte(`
-	{
-		"name": "test",
-		"match": {
-		   "subjects": null
-		}
-	 }`)
-
-	var rule kyverno.Rule
-	err := json.Unmarshal(rawRule, &rule)
-	assert.NilError(t, err)
-
-	_, errNew := validateUserInfo(rule)
-	assert.NilError(t, errNew)
-}
-
-func Test_Validate_Roles(t *testing.T) {
-	rawRule := []byte(`{
-		"name": "test",
-		"match": {
-		   "roles": [
-			  "namespace1:name1",
-			  "name2"
-		   ]
-		}
-	 }`)
-
-	var rule kyverno.Rule
-	err := json.Unmarshal(rawRule, &rule)
-	assert.NilError(t, err)
-
-	path, err := validateUserInfo(rule)
-	assert.Assert(t, err != nil)
-	assert.Assert(t, path == "match.roles")
-}
-
-func Test_Validate_ServiceAccount(t *testing.T) {
-	rawRule := []byte(`
-	{
-		"name": "test",
-		"exclude": {
-		   "subjects": [
-			  {
-				 "kind": "ServiceAccount",
-				 "name": "testname"
-			  }
-		   ]
-		}
-	 }`)
-
-	var rule kyverno.Rule
-	err := json.Unmarshal(rawRule, &rule)
-	assert.NilError(t, err)
-
-	path, err := validateUserInfo(rule)
-	assert.Assert(t, err != nil)
-	assert.Assert(t, path == "exclude.subjects")
 }
 
 func Test_BackGroundUserInfo_match_roles(t *testing.T) {
@@ -1160,84 +856,6 @@ func Test_ruleOnlyDealsWithResourceMetaData(t *testing.T) {
 	}
 }
 
-func Test_doesMatchExcludeConflict(t *testing.T) {
-	testcases := []struct {
-		description    string
-		rule           []byte
-		expectedOutput bool
-	}{
-		{
-			description:    "Same match and exclude",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: true,
-		},
-		{
-			description:    "Failed to exclude kind",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude name",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something-*","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude namespace",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something3","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude labels",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"higha"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude expression",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["databases"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude subjects",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something2","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude clusterroles",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something3","something1"],"roles":["something","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "Failed to exclude roles",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something","something1"]},"exclude":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"],"selector":{"matchLabels":{"memory":"high"},"matchExpressions":[{"key":"tier","operator":"In","values":["database"]}]}},"subjects":[{"name":"something","kind":"something","Namespace":"something","apiGroup":"something"},{"name":"something1","kind":"something1","Namespace":"something1","apiGroup":"something1"}],"clusterroles":["something","something1"],"roles":["something3","something1"]}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "simple",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"something","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}}`),
-			expectedOutput: true,
-		},
-		{
-			description:    "simple - fail",
-			rule:           []byte(`{"name":"set-image-pull-policy-2","match":{"resources":{"kinds":["Pod","Namespace"],"name":"somxething","namespaces":["something","something1"]}},"exclude":{"resources":{"kinds":["Pod","Namespace","Job"],"name":"some*","namespaces":["something","something1","something2"]}}}`),
-			expectedOutput: false,
-		},
-		{
-			description:    "empty case",
-			rule:           []byte(`{"name":"check-allow-deletes","match":{"resources":{"selector":{"matchLabels":{"allow-deletes":"false"}}}},"exclude":{"clusterRoles":["random"]},"validate":{"message":"Deleting {{request.object.kind}}/{{request.object.metadata.name}} is not allowed","deny":{"conditions":{"all":[{"key":"{{request.operation}}","operator":"Equal","value":"DELETE"}]}}}}`),
-			expectedOutput: false,
-		},
-	}
-
-	for i, testcase := range testcases {
-		var rule kyverno.Rule
-		_ = json.Unmarshal(testcase.rule, &rule)
-
-		if doMatchAndExcludeConflict(rule) != testcase.expectedOutput {
-			t.Errorf("Testcase [%d] failed - description - %v", i+1, testcase.description)
-		}
-	}
-}
-
 func Test_Validate_Kind(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -1280,8 +898,8 @@ func Test_Validate_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1329,8 +947,8 @@ func Test_Validate_Any_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1367,7 +985,7 @@ func Test_checkAutoGenRules(t *testing.T) {
 		err := json.Unmarshal(test.policy, &policy)
 		assert.NilError(t, err)
 
-		res := missingAutoGenRules(&policy, log.Log)
+		res := missingAutoGenRules(&policy, logging.GlobalLogger())
 		assert.Equal(t, test.expectedResult, res, fmt.Sprintf("test %s failed", test.name))
 	}
 }
@@ -1416,6 +1034,7 @@ func Test_Validate_ApiCall(t *testing.T) {
 		}
 	}
 }
+
 func Test_Wildcards_Kind(t *testing.T) {
 	rawPolicy := []byte(`
 	{
@@ -1456,8 +1075,8 @@ func Test_Wildcards_Kind(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1506,8 +1125,8 @@ func Test_Namespced_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, true, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.Assert(t, err != nil)
 }
 
@@ -1554,7 +1173,891 @@ func Test_patchesJson6902_Policy(t *testing.T) {
 	err := json.Unmarshal(rawPolicy, &policy)
 	assert.NilError(t, err)
 
-	openAPIController, _ := openapi.NewOpenAPIController()
-	err = Validate(policy, nil, false, openAPIController)
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
 	assert.NilError(t, err)
+}
+
+func Test_deny_exec(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "deny-exec-to-pod"
+		},
+		"spec": {
+		  "validationFailureAction": "enforce",
+		  "background": false,
+		  "schemaValidation": false,
+		  "rules": [
+			{
+			  "name": "deny-pod-exec",
+			  "match": {
+				"resources": {
+				  "kinds": [
+					"PodExecOptions"
+				  ]
+				}
+			  },
+			  "preconditions": {
+				"all": [
+				  {
+					"key": "{{ request.operation }}",
+					"operator": "Equals",
+					"value": "CONNECT"
+				  }
+				]
+			  },
+			  "validate": {
+				"message": "Containers can't be exec'd into in production.",
+				"deny": {}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
+	assert.NilError(t, err)
+}
+
+func Test_SignatureAlgorithm(t *testing.T) {
+	testcases := []struct {
+		description    string
+		policy         []byte
+		expectedOutput bool
+	}{
+		{
+			description: "Test empty signature algorithm - pass",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-empty-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: true,
+		},
+		{
+			description: "Test invalid signature algorithm - fail",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-invalid-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+														"signatureAlgorithm": "sha123"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: false,
+		},
+		{
+			description: "Test invalid signature algorithm - fail",
+			policy: []byte(`{
+				"apiVersion": "kyverno.io/v1",
+				"kind": "ClusterPolicy",
+				"metadata": {
+					"name": "check-valid-signature-algorithm"
+				},
+				"spec": {
+					"rules": [
+						{
+							"match": {
+								"resources": {
+									"kinds": [
+										"Pod"
+									]
+								}
+							},
+							"verifyImages": [
+								{
+									"imageReferences": [
+										"ghcr.io/kyverno/test-verify-image:*"
+									],
+									"attestors": [
+										{
+											"count": 1,
+											"entries": [
+												{
+													"keys": {
+														"publicKeys": "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE8nXRh950IZbRj8Ra/N9sbqOPZrfM\n5/KAQN0/KjHcorm/J5yctVd7iEcnessRQjU917hmKO6JWVGHpDguIyakZA==\n-----END PUBLIC KEY-----",
+														"signatureAlgorithm": "sha256"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					]
+				}
+			}`),
+			expectedOutput: true,
+		},
+	}
+	for _, testcase := range testcases {
+		var policy *kyverno.ClusterPolicy
+		err := json.Unmarshal(testcase.policy, &policy)
+		assert.NilError(t, err)
+
+		openApiManager, _ := openapi.NewManager()
+		_, err = Validate(policy, nil, true, openApiManager)
+		if testcase.expectedOutput {
+			assert.NilError(t, err)
+		} else {
+			assert.ErrorContains(t, err, "Invalid signature algorithm provided")
+		}
+	}
+}
+
+func Test_existing_resource_policy(t *testing.T) {
+	var err error
+	rawPolicy := []byte(`{
+		"apiVersion": "kyverno.io/v1",
+		"kind": "ClusterPolicy",
+		"metadata": {
+		  "name": "np-test-1"
+		},
+		"spec": {
+		  "validationFailureAction": "audit",
+		  "rules": [
+			{
+			  "name": "no-LoadBalancer",
+			  "match": {
+				"any": [
+				  {
+					"resources": {
+					  "kinds": [
+						"networking.k8s.io/v1/NetworkPolicy"
+					  ]
+					}
+				  }
+				]
+			  },
+			  "validate": {
+				"message": "np-test",
+				"pattern": {
+				  "metadata": {
+					"name": "?*"
+				  }
+				}
+			  }
+			}
+		  ]
+		}
+	  }`)
+	var policy *kyverno.ClusterPolicy
+	err = json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	_, err = Validate(policy, nil, true, openApiManager)
+	assert.NilError(t, err)
+}
+
+func Test_PodControllerAutoGenExclusion_All_Controllers_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-all-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Job,CronJob,Deployment,StatefulSet"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
+	assert.NilError(t, err)
+	assert.Assert(t, res == nil)
+}
+
+func Test_PodControllerAutoGenExclusion_Not_All_Controllers_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-not-all-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "DaemonSet,Job,CronJob,Deployment"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
+	if res != nil {
+		assert.Assert(t, res.Warnings != nil)
+	}
+	assert.NilError(t, err)
+}
+
+func Test_PodControllerAutoGenExclusion_None_Policy(t *testing.T) {
+	rawPolicy := []byte(`
+{
+	"apiVersion": "kyverno.io/v1",
+	"kind": "ClusterPolicy",
+	"metadata": {
+	  "name": "add-none-pod-controller-annotations",
+	  "annotations": {
+		"pod-policies.kyverno.io/autogen-controllers": "none"
+	  }
+	},
+	"spec": {
+	  "validationFailureAction": "enforce",
+	  "background": false,
+	  "rules": [
+		{
+		  "name": "validate-livenessProbe-readinessProbe",
+		  "match": {
+			"resources": {
+			  "kinds": [
+				"Pod"
+			  ]
+			}
+		  },
+		  "validate": {
+			"message": "Liveness and readiness probes are required.",
+			"pattern": {
+			  "spec": {
+				"containers": [
+				  {
+					"livenessProbe": {
+					  "periodSeconds": ">0"
+					},
+					"readinessProbe": {
+					  "periodSeconds": ">0"
+					}
+				  }
+				]
+			  }
+			}
+		  }
+		}
+	  ]
+	}
+  }
+`)
+
+	var policy *kyverno.ClusterPolicy
+	err := json.Unmarshal(rawPolicy, &policy)
+	assert.NilError(t, err)
+
+	openApiManager, _ := openapi.NewManager()
+	res, err := Validate(policy, nil, true, openApiManager)
+	if res != nil {
+		assert.Assert(t, res.Warnings != nil)
+	}
+	assert.NilError(t, err)
+}
+
+func Test_ValidateJSON6902(t *testing.T) {
+	var patch string = `- path: "/metadata/labels/img"
+  op: addition
+  value: "nginx"`
+	err := validateJSONPatch(patch, 0)
+	assert.Error(t, err, "Unexpected kind: spec.rules[0]: addition")
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.NilError(t, err)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.Error(t, err, `missing quote around value: spec.rules[0]: nginx"`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: {"node.kubernetes.io/role": test"}`
+	err = validateJSONPatch(patch, 0)
+	assert.Error(t, err, `missing quote around value: spec.rules[0]: map[node.kubernetes.io/role:test"]`)
+
+	patch = `- path: "/metadata/labels/img"
+  op: add
+  value: "nginx"`
+	err = validateJSONPatch(patch, 0)
+	assert.NilError(t, err)
+}
+
+func Test_ValidateNamespace(t *testing.T) {
+	testcases := []struct {
+		description   string
+		spec          *kyverno.Spec
+		expectedError error
+	}{
+		{
+			description: "tc1",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("conflicting namespaces found in path: spec.validationFailureActionOverrides[1].namespaces: default"),
+		},
+		{
+			description: "tc2",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Mutation: kyverno.Mutation{
+							RawPatchStrategicMerge: &apiextv1.JSON{Raw: []byte(`"metadata": {"labels": {"app-name": "{{request.object.metadata.name}}"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("conflicting namespaces found in path: spec.validationFailureActionOverrides[1].namespaces: default"),
+		},
+		{
+			description: "tc3",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'default*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc4",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc5",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' matches with namespace 'default'"),
+		},
+		{
+			description: "tc6",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default?",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default1",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'default?' matches with namespace 'default1'"),
+		},
+		{
+			description: "tc7",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' matches with namespace 'test'"),
+		},
+		{
+			description: "tc8",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"*",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"?*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '?*' conflicts with the pattern '*'"),
+		},
+		{
+			description: "tc9",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default*",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+							"test*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern 'test*' matches with namespace 'test'"),
+		},
+		{
+			description: "tc10",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"*efault",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+			expectedError: errors.New("path: spec.validationFailureActionOverrides[1].namespaces: wildcard pattern '*efault' matches with namespace 'default'"),
+		},
+		{
+			description: "tc11",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default-*",
+							"test",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "tc12",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default*?",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+							"test*",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+		{
+			description: "tc13",
+			spec: &kyverno.Spec{
+				ValidationFailureAction: "Enforce",
+				ValidationFailureActionOverrides: []kyverno.ValidationFailureActionOverride{
+					{
+						Action: "Enforce",
+						Namespaces: []string{
+							"default?",
+						},
+					},
+					{
+						Action: "Audit",
+						Namespaces: []string{
+							"default",
+						},
+					},
+				},
+				Rules: []kyverno.Rule{
+					{
+						Name:           "require-labels",
+						MatchResources: kyverno.MatchResources{ResourceDescription: kyverno.ResourceDescription{Kinds: []string{"Pod"}}},
+						Validation: kyverno.Validation{
+							Message:    "label 'app.kubernetes.io/name' is required",
+							RawPattern: &apiextv1.JSON{Raw: []byte(`"metadata": {"lables": {"app.kubernetes.io/name": "?*"}}`)},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := validateNamespaces(tc.spec, field.NewPath("spec").Child("validationFailureActionOverrides"))
+			if tc.expectedError != nil {
+				assert.Error(t, err, tc.expectedError.Error())
+			} else {
+				assert.NilError(t, err)
+			}
+		})
+	}
 }

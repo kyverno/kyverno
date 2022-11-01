@@ -215,6 +215,39 @@ subjects:
   namespace: kyverno
 `)
 
+// Cluster Policy to clone ClusterRole and ClusterRoleBinding
+var clusterRoleRoleBindingYamlWithClone = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: "gen-cluster-policy-3"
+spec:
+  background: false
+  rules:
+  - name: "gen-role"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRole
+        name: "cloned-cluster-role"
+        synchronize: true
+        clone:
+          name: "base-cluster-role"
+  - name: "gen-role-binding"
+    match:
+        resources:
+          kinds:
+           - Namespace
+    generate:
+        kind: ClusterRoleBinding
+        name: "cloned-cluster-role-binding"
+        synchronize: true
+        clone:
+            name: "base-cluster-role-binding"
+`)
+
 var genNetworkPolicyYaml = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -222,6 +255,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -261,6 +295,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -300,6 +335,7 @@ metadata:
   name: add-networkpolicy
 spec:
   background: true
+  generateExistingOnPolicyUpdate: true
   rules:
     - name: allow-dns
       match:
@@ -341,6 +377,17 @@ data:
   initial_lives: "2"
 `)
 
+var cloneSecretSourceResource = []byte(`
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secret-basic-auth
+type: kubernetes.io/basic-auth
+stringData:
+  username: admin
+  password: t0p-Secret
+`)
+
 var genCloneConfigMapPolicyYaml = []byte(`
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -368,4 +415,36 @@ spec:
       clone:
         namespace: default
         name: game-demo
+`)
+
+var genMultipleClonePolicyYaml = []byte(`
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sync-secret-with-multi-clone
+spec:
+  generateExistingOnPolicyUpdate: true
+  rules:
+  - name: sync-secret
+    match:
+      any:
+      - resources:
+          kinds:
+          - Namespace
+    exclude:
+      any:
+      - resources:
+          namespaces:
+          - kube-system
+          - default
+          - kube-public
+          - kyverno
+    generate:
+      namespace: "{{request.object.metadata.name}}"
+      synchronize : true
+      cloneList:
+        namespace: default
+        kinds:
+          - v1/Secret
+          - v1/ConfigMap
 `)

@@ -1,35 +1,45 @@
 package policy
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
+	"regexp"
 
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
-	"github.com/kyverno/kyverno/pkg/engine/context"
-	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
+	"github.com/kyverno/kyverno/pkg/autogen"
 )
 
-//ContainsUserVariables returns error if variable that does not start from request.object
-func containsUserVariables(policy *kyverno.ClusterPolicy, vars [][]string) error {
-	for _, s := range vars {
-		if strings.Contains(s[0], "userInfo") {
-			return fmt.Errorf("variable %s is not allowed", s[0])
-		}
-	}
+var forbidden = []*regexp.Regexp{
+	regexp.MustCompile(`[^\.](serviceAccountName)\b`),
+	regexp.MustCompile(`[^\.](serviceAccountNamespace)\b`),
+	regexp.MustCompile(`[^\.](request.userInfo)\b`),
+	regexp.MustCompile(`[^\.](request.roles)\b`),
+	regexp.MustCompile(`[^\.](request.clusterRoles)\b`),
+}
 
-	for idx := range policy.Spec.Rules {
-		if err := hasUserMatchExclude(idx, &policy.Spec.Rules[idx]); err != nil {
+// ContainsUserVariables returns error if variable that does not start from request.object
+func containsUserVariables(policy kyvernov1.PolicyInterface, vars [][]string) error {
+	rules := autogen.ComputeRules(policy)
+	for idx := range rules {
+		if err := hasUserMatchExclude(idx, &rules[idx]); err != nil {
 			return err
 		}
 	}
-
+	for _, rule := range policy.GetSpec().Rules {
+		if rule.IsMutateExisting() {
+			return nil
+		}
+	}
+	for _, s := range vars {
+		for _, banned := range forbidden {
+			if banned.Match([]byte(s[1])) {
+				return fmt.Errorf("variable %s is not allowed", s[1])
+			}
+		}
+	}
 	return nil
 }
 
-func hasUserMatchExclude(idx int, rule *kyverno.Rule) error {
+func hasUserMatchExclude(idx int, rule *kyvernov1.Rule) error {
 	if path := userInfoDefined(rule.MatchResources.UserInfo); path != "" {
 		return fmt.Errorf("invalid variable used at path: spec/rules[%d]/match/%s", idx, path)
 	}
@@ -73,7 +83,7 @@ func hasUserMatchExclude(idx int, rule *kyverno.Rule) error {
 	return nil
 }
 
-func userInfoDefined(ui kyverno.UserInfo) string {
+func userInfoDefined(ui kyvernov1.UserInfo) string {
 	if len(ui.Roles) > 0 {
 		return "roles"
 	}
@@ -84,34 +94,4 @@ func userInfoDefined(ui kyverno.UserInfo) string {
 		return "subjects"
 	}
 	return ""
-}
-
-func substituteVarsInJSON(ctx context.EvalInterface, document apiextensions.JSON) (apiextensions.JSON, error) {
-	jsonByte, err := json.Marshal(document)
-	if err != nil {
-		return nil, err
-	}
-
-	var jsonInterface interface{}
-	err = json.Unmarshal(jsonByte, &jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonInterface, err = variables.SubstituteAll(log.Log, ctx, jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	jsonByte, err = json.Marshal(jsonInterface)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(jsonByte, &document)
-	if err != nil {
-		return nil, err
-	}
-
-	return document, nil
 }

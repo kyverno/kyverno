@@ -1,7 +1,6 @@
 package userinfo
 
 import (
-	"reflect"
 	"testing"
 
 	"gotest.tools/assert"
@@ -62,8 +61,8 @@ func Test_matchServiceAccount_subject_variants(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		res := matchServiceAccount(test.subject, userInfo)
-		assert.Assert(t, test.expected == res)
+		res := matchServiceAccount(test.subject, userInfo, test.subject.Namespace)
+		assert.Equal(t, test.expected, res)
 	}
 }
 
@@ -132,10 +131,10 @@ func Test_matchSubjectsMap(t *testing.T) {
 		Name: "fakeGroup",
 	}
 
-	res := matchSubjectsMap(sasubject, sa)
+	res := matchSubjectsMap(sasubject, sa, sasubject.Namespace)
 	assert.Assert(t, res)
 
-	res = matchSubjectsMap(groupsubject, group)
+	res = matchSubjectsMap(groupsubject, group, "")
 	assert.Assert(t, !res)
 }
 
@@ -159,7 +158,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 
 	list := make([]*rbacv1.RoleBinding, 2)
 
-	list[0] = newRoleBinding("test1", "mynamespace",
+	list[0] = newRoleBinding("test1", "default",
 		[]rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -167,12 +166,12 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				Namespace: "default",
 			},
 		}, rbacv1.RoleRef{
-			Kind: rolekind,
+			Kind: roleKind,
 			Name: "myrole",
 		},
 	)
 
-	list[1] = newRoleBinding("test2", "mynamespace",
+	list[1] = newRoleBinding("test2", "default",
 		[]rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
@@ -180,7 +179,7 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 				Namespace: "default",
 			},
 		}, rbacv1.RoleRef{
-			Kind: clusterrolekind,
+			Kind: clusterroleKind,
 			Name: "myclusterrole",
 		},
 	)
@@ -189,12 +188,11 @@ func Test_getRoleRefByRoleBindings(t *testing.T) {
 		Username: "system:serviceaccount:default:saconfig",
 	}
 
-	expectedrole := []string{"mynamespace:myrole"}
+	expectedrole := []string{list[0].Namespace + ":" + "myrole"}
 	expectedClusterRole := []string{"myclusterrole"}
-	roles, clusterroles, err := getRoleRefByRoleBindings(list, sa)
-	assert.Assert(t, err == nil)
-	assert.Assert(t, reflect.DeepEqual(roles, expectedrole))
-	assert.Assert(t, reflect.DeepEqual(clusterroles, expectedClusterRole))
+	roles, clusterroles := getRoleRefByRoleBindings(list, sa)
+	assert.DeepEqual(t, roles, expectedrole)
+	assert.DeepEqual(t, clusterroles, expectedClusterRole)
 }
 
 func newClusterRoleBinding(name, ns string, subjects []rbacv1.Subject, roles rbacv1.RoleRef) *rbacv1.ClusterRoleBinding {
@@ -220,7 +218,7 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 				Name: "kube-scheduler",
 			},
 		}, rbacv1.RoleRef{
-			Kind: clusterrolekind,
+			Kind: clusterroleKind,
 			Name: "fakeclusterrole",
 		},
 	)
@@ -232,7 +230,7 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 				Name: "system:masters",
 			},
 		}, rbacv1.RoleRef{
-			Kind: clusterrolekind,
+			Kind: clusterroleKind,
 			Name: "myclusterrole",
 		},
 	)
@@ -247,11 +245,9 @@ func Test_getRoleRefByClusterRoleBindings(t *testing.T) {
 		Groups:   []string{"system:authenticated"},
 	}
 
-	clusterroles, err := getRoleRefByClusterRoleBindings(list, group)
-	assert.Assert(t, err == nil)
-	assert.Assert(t, reflect.DeepEqual(clusterroles, []string{"myclusterrole"}))
+	clusterroles := getRoleRefByClusterRoleBindings(list, group)
+	assert.DeepEqual(t, clusterroles, []string{"myclusterrole"})
 
-	clusterroles, err = getRoleRefByClusterRoleBindings(list, user)
-	assert.Assert(t, err == nil)
-	assert.Assert(t, len(clusterroles) == 0)
+	clusterroles = getRoleRefByClusterRoleBindings(list, user)
+	assert.Equal(t, len(clusterroles), 0)
 }

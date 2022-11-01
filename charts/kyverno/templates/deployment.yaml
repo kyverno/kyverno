@@ -6,9 +6,9 @@ metadata:
     app: kyverno
   namespace: {{ template "kyverno.namespace" . }}
 spec:
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels: {{ include "kyverno.matchLabels" . | nindent 6 }}
-  replicas: {{ .Values.replicaCount }}
   {{- if .Values.updateStrategy }}
   strategy:
     {{ toYaml .Values.updateStrategy | nindent 4 | trim }}
@@ -65,20 +65,22 @@ spec:
       dnsPolicy: {{ .Values.dnsPolicy }}
       {{- end }}
       initContainers:
+      {{- if .Values.extraInitContainers }}
+        {{- toYaml .Values.extraInitContainers | nindent 8 }}
+      {{- end }}
         - name: kyverno-pre
-          image: {{ .Values.initImage.repository }}:{{ default .Chart.AppVersion (default .Values.image.tag .Values.initImage.tag) }}
+          image: {{ include "kyverno.image" (dict "image" .Values.initImage "defaultTag" (default .Chart.AppVersion .Values.image.tag)) | quote }}
           imagePullPolicy: {{ default .Values.image.pullPolicy .Values.initImage.pullPolicy }}
+          {{- if .Values.initContainer.extraArgs }}
+          args:
+              {{ tpl (toYaml .Values.initContainer.extraArgs) . }}
+          {{- end }}
           {{- with .Values.initResources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - all
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           env:
           - name: METRICS_CONFIG
             value: {{ template "kyverno.metricsConfigMapName" . }}
@@ -86,29 +88,37 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
           {{- with .Values.envVarsInit }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
       containers:
+      {{- if .Values.extraContainers }}
+        {{- toYaml .Values.extraContainers | nindent 8 }}
+      {{- end }}
         - name: kyverno
-          image: {{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}
+          image: {{ include "kyverno.image" (dict "image" .Values.image "defaultTag" .Chart.AppVersion) | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          {{- with .Values.extraArgs }}
-          args: {{ tpl (toYaml .) $ | nindent 12 }}
+          {{- if or .Values.extraArgs .Values.imagePullSecrets }}
+          args:
+            {{- if .Values.extraArgs -}}
+              {{ tpl (toYaml .Values.extraArgs) . | nindent 12 }}
+            {{- end }}
+            {{- if .Values.imagePullSecrets }}
+            - --imagePullSecrets={{ keys .Values.imagePullSecrets | join "," }}
+            {{- end }}
           {{- end }}
           {{- with .Values.resources }}
           resources: {{ tpl (toYaml .) $ | nindent 12 }}
           {{- end }}
-          securityContext:
-            runAsNonRoot: true
-            privileged: false
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop:
-                - all
+          {{- if .Values.securityContext }}
+          securityContext: {{ include "kyverno.securityContext" . | nindent 12 }}
+          {{- end }}
           ports:
           - containerPort: 9443
             name: https
@@ -125,16 +135,33 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: KYVERNO_POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: KYVERNO_SERVICEACCOUNT_NAME
+            value: {{ template "kyverno.serviceAccountName" . }}
           - name: KYVERNO_SVC
             value: {{ template "kyverno.serviceName" . }}
+          - name: TUF_ROOT
+            value: {{ .Values.tufRootMountPath }}
           {{- with .Values.envVars }}
           {{- toYaml . | nindent 10 }}
           {{- end }}
           - name: KYVERNO_DEPLOYMENT
             value: {{ template "kyverno.fullname" . }}
+        {{- with .Values.startupProbe }}
+          startupProbe: {{ tpl (toYaml .) $ | nindent 12 }}
+        {{- end }}
         {{- with .Values.livenessProbe }}
           livenessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
         {{- with .Values.readinessProbe }}
           readinessProbe: {{ tpl (toYaml .) $ | nindent 12 }}
         {{- end }}
+          volumeMounts:
+            - mountPath: {{ .Values.tufRootMountPath }}
+              name: sigstore
+      volumes:
+      - name: sigstore
+        emptyDir: {}

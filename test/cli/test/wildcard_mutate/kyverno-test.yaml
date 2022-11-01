@@ -1,0 +1,18 @@
+name: wildcard-support-in-matchlabels
+policies:
+  -  policy.yaml
+resources:
+  -  resources.yaml
+results:
+  - policy: mutate-wildcard
+    rule: mutate-wildcard
+    resource: wildcard-mutate
+    patchedResource: patchedResource.yaml
+    kind: Pod
+    result: pass
+  - policy: mutate-wildcard
+    rule: mutate-wildcard
+    resource: wildcard-mutate-fail
+    patchedResource: patchedResource1.yaml
+    kind: Pod
+    result: fail

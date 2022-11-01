@@ -29,6 +29,10 @@ func SetMock(image string, data [][]byte) error {
 	return nil
 }
 
+func ClearMock() {
+	client = &driver{}
+}
+
 type mock struct {
 	data map[string][]cosign.SignedPayload
 }

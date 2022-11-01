@@ -1,12 +1,11 @@
 package v1
 
 import (
-	"k8s.io/api/admission/v1beta1"
+	admissionv1 "k8s.io/api/admission/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// GenerateRequest is a request to process generate rule.
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
@@ -18,6 +17,9 @@ import (
 // +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.state"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=gr
+// +kubebuilder:storageversion
+
+// GenerateRequest is a request to process generate rule.
 type GenerateRequest struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
@@ -55,7 +57,7 @@ type AdmissionRequestInfoObject struct {
 	// +optional
 	AdmissionRequest string `json:"admissionRequest,omitempty" yaml:"admissionRequest,omitempty"`
 	// +optional
-	Operation v1beta1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
+	Operation admissionv1.Operation `json:"operation,omitempty" yaml:"operation,omitempty"`
 }
 
 // RequestInfo contains permission info carried in an admission request.

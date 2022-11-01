@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-require-image-tag-fail
+  labels:
+    app: app
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-validate-image-tag-ignore
+  labels:
+    app: app
+spec:
+  containers:
+  - name: nginx
+    image: nginx:latest

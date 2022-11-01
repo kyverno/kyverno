@@ -9,10 +9,10 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/common"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/operator"
-	"github.com/minio/pkg/wildcard"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
-//NewAnyInHandler returns handler to manage AnyIn operations
+// NewAnyInHandler returns handler to manage AnyIn operations
 func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler {
 	return AnyInHandler{
 		ctx: ctx,
@@ -20,13 +20,13 @@ func NewAnyInHandler(log logr.Logger, ctx context.EvalInterface) OperatorHandler
 	}
 }
 
-//AnyInHandler provides implementation to handle AnyIn Operator
+// AnyInHandler provides implementation to handle AnyIn Operator
 type AnyInHandler struct {
 	ctx context.EvalInterface
 	log logr.Logger
 }
 
-//Evaluate evaluates expression with AnyIn Operator
+// Evaluate evaluates expression with AnyIn Operator
 func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 	switch typedKey := key.(type) {
 	case string:
@@ -40,7 +40,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 		}
 		return anyin.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		anyin.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		anyin.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -48,7 +48,7 @@ func (anyin AnyInHandler) Evaluate(key, value interface{}) bool {
 func (anyin AnyInHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := anyKeyExistsInArray(key, value, anyin.log)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anyin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -60,10 +60,9 @@ func (anyin AnyInHandler) validateValueWithStringPattern(key string, value inter
 // array of strings (e.g. ["val1", "val2", "val3"].
 func anyKeyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}
@@ -112,7 +111,7 @@ func handleRange(key string, value interface{}, log logr.Logger) bool {
 func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isAnyIn := anySetExistsInArray(key, value, anyin.log, false)
 	if invalidType {
-		anyin.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		anyin.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -125,7 +124,6 @@ func (anyin AnyInHandler) validateValueWithStringSetPattern(key []string, value 
 // notIn argument if set to true will check for NotIn
 func anySetExistsInArray(key []string, value interface{}, log logr.Logger, anyNotIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {

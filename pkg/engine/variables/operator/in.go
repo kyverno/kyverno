@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/minio/pkg/wildcard"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
+	wildcard "github.com/kyverno/kyverno/pkg/utils/wildcard"
 )
 
 // NewInHandler returns handler to manage In operations
@@ -40,7 +39,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 		}
 		return in.validateValueWithStringSetPattern(stringSlice, value)
 	default:
-		in.log.Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
+		in.log.V(2).Info("Unsupported type", "value", typedKey, "type", fmt.Sprintf("%T", typedKey))
 		return false
 	}
 }
@@ -48,7 +47,7 @@ func (in InHandler) Evaluate(key, value interface{}) bool {
 func (in InHandler) validateValueWithStringPattern(key string, value interface{}) (keyExists bool) {
 	invalidType, keyExists := keyExistsInArray(key, value, in.log)
 	if invalidType {
-		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -60,10 +59,9 @@ func (in InHandler) validateValueWithStringPattern(key string, value interface{}
 // array of strings (e.g. ["val1", "val2", "val3"].
 func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		for _, val := range valuesAvailable {
-			if wildcard.Match(key, fmt.Sprint(val)) {
+			if wildcard.Match(fmt.Sprint(val), key) || wildcard.Match(key, fmt.Sprint(val)) {
 				return false, true
 			}
 		}
@@ -96,7 +94,7 @@ func keyExistsInArray(key string, value interface{}, log logr.Logger) (invalidTy
 func (in InHandler) validateValueWithStringSetPattern(key []string, value interface{}) (keyExists bool) {
 	invalidType, isIn := setExistsInArray(key, value, in.log, false)
 	if invalidType {
-		in.log.Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
+		in.log.V(2).Info("expected type []string", "value", value, "type", fmt.Sprintf("%T", value))
 		return false
 	}
 
@@ -109,7 +107,6 @@ func (in InHandler) validateValueWithStringSetPattern(key []string, value interf
 // notIn argument if set to true will check for NotIn
 func setExistsInArray(key []string, value interface{}, log logr.Logger, notIn bool) (invalidType bool, keyExists bool) {
 	switch valuesAvailable := value.(type) {
-
 	case []interface{}:
 		var valueSlice []string
 		for _, val := range valuesAvailable {

@@ -2,11 +2,11 @@ name: helm-test
 on:
   pull_request:
     branches:
-      - 'main'
-      - 'release*'
+      - main
+      - release*
     paths:
-      - 'charts/kyverno/**'
-      - '.github/workflows/helm-test.yaml'
+      - charts/**
+      - .github/workflows/helm-test.yaml
 
 permissions: read-all
 

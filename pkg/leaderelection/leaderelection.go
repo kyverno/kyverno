@@ -8,14 +8,12 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/uuid"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
 
 type Interface interface {
-
 	// Run is a blocking call that runs a leader election
 	Run(ctx context.Context)
 
@@ -35,10 +33,10 @@ type Interface interface {
 	GetLeader() string
 }
 
-type Config struct {
+type config struct {
 	name              string
 	namespace         string
-	startWork         func()
+	startWork         func(context.Context)
 	stopWork          func()
 	kubeClient        kubernetes.Interface
 	lock              resourcelock.Interface
@@ -48,14 +46,7 @@ type Config struct {
 	log               logr.Logger
 }
 
-func New(name, namespace string, kubeClient kubernetes.Interface, startWork, stopWork func(), log logr.Logger) (Interface, error) {
-	id, err := os.Hostname()
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting host name: %s/%s", namespace, name)
-	}
-
-	id = id + "_" + string(uuid.NewUUID())
-
+func New(log logr.Logger, name, namespace string, kubeClient kubernetes.Interface, id string, startWork func(context.Context), stopWork func()) (Interface, error) {
 	lock, err := resourcelock.New(
 		resourcelock.LeasesResourceLock,
 		namespace,
@@ -66,21 +57,18 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 			Identity: id,
 		},
 	)
-
 	if err != nil {
 		return nil, errors.Wrapf(err, "error initializing resource lock: %s/%s", namespace, name)
 	}
-
-	e := &Config{
+	e := &config{
 		name:       name,
 		namespace:  namespace,
 		kubeClient: kubeClient,
 		lock:       lock,
 		startWork:  startWork,
 		stopWork:   stopWork,
-		log:        log,
+		log:        log.WithValues("id", lock.Identity()),
 	}
-
 	e.leaderElectionCfg = leaderelection.LeaderElectionConfig{
 		Lock:            e.lock,
 		ReleaseOnCancel: true,
@@ -90,62 +78,58 @@ func New(name, namespace string, kubeClient kubernetes.Interface, startWork, sto
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
 				atomic.StoreInt64(&e.isLeader, 1)
-				e.log.WithValues("id", e.lock.Identity()).Info("started leading")
-
+				e.log.Info("started leading")
 				if e.startWork != nil {
-					e.startWork()
+					e.startWork(ctx)
 				}
 			},
-
 			OnStoppedLeading: func() {
 				atomic.StoreInt64(&e.isLeader, 0)
-				e.log.WithValues("id", e.lock.Identity()).Info("leadership lost, stopped leading")
+				e.log.Info("leadership lost, stopped leading")
 				if e.stopWork != nil {
 					e.stopWork()
 				}
 			},
-
 			OnNewLeader: func(identity string) {
 				if identity == e.lock.Identity() {
-					return
+					e.log.Info("still leading")
+				} else {
+					e.log.Info("another instance has been elected as leader", "leader", identity)
 				}
-				e.log.WithValues("current id", e.lock.Identity(), "leader", identity).Info("another instance has been elected as leader")
 			},
-		}}
-
+		},
+	}
 	e.leaderElector, err = leaderelection.NewLeaderElector(e.leaderElectionCfg)
 	if err != nil {
 		e.log.Error(err, "failed to create leaderElector")
 		os.Exit(1)
 	}
-
 	if e.leaderElectionCfg.WatchDog != nil {
 		e.leaderElectionCfg.WatchDog.SetLeaderElection(e.leaderElector)
 	}
-
 	return e, nil
 }
 
-func (e *Config) Name() string {
+func (e *config) Name() string {
 	return e.name
 }
 
-func (e *Config) Namespace() string {
+func (e *config) Namespace() string {
 	return e.namespace
 }
 
-func (e *Config) ID() string {
+func (e *config) ID() string {
 	return e.lock.Identity()
 }
 
-func (e *Config) IsLeader() bool {
+func (e *config) IsLeader() bool {
 	return atomic.LoadInt64(&e.isLeader) == 1
 }
 
-func (e *Config) GetLeader() string {
+func (e *config) GetLeader() string {
 	return e.leaderElector.GetLeader()
 }
 
-func (e *Config) Run(ctx context.Context) {
+func (e *config) Run(ctx context.Context) {
 	e.leaderElector.Run(ctx)
 }

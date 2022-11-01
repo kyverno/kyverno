@@ -1,0 +1,71 @@
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: images
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: only-allow-trusted-images
+    match:
+      resources:
+        kinds:
+        - Pod
+    preconditions:
+      - key: "{{request.operation}}"
+        operator: NotEquals
+        value: DELETE
+    validate:
+      message: "images with root user are not allowed"
+      foreach:
+      - list: "request.object.spec.containers"
+        context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ element.image }}"
+        deny:
+          conditions:
+            all:
+              - key: "{{ imageData.configData.config.User || ''}}"
+                operator: Equals
+                value: ""
+              - key: "{{ imageData.registry }}"
+                operator: NotEquals
+                value: "ghcr.io"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: check-image-base
+spec:
+  validationFailureAction: enforce
+  rules:
+  - name: check-image-base-rule
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+    preconditions:
+      all:
+      - key: "{{request.operation}}"
+        operator: NotEquals
+        value: DELETE
+    validate:
+      message: "Images must specify a source/base image from which they are built to be valid."
+      foreach:
+      - list: "request.object.spec.containers"
+        context:
+        - name: imageData
+          imageRegistry:
+            reference: "{{ element.image }}"
+        - name: mobysource
+          variable:
+            jmesPath: imageData.configData."moby.buildkit.buildinfo.v1" | base64_decode(@).parse_json(@) | sources[].ref | length(@)
+            default: 0
+        deny:
+          conditions:
+            all:
+              - key: "{{ mobysource }}"
+                operator: Equals
+                value: 0

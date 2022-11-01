@@ -1,4 +1,4 @@
-name: e2e
+name: e2e-autogen-internals
 on:
   push:
     branches:
@@ -14,13 +14,16 @@ on:
       - 'release*'
     paths-ignore:
       - 'README.md'
-      - 'docs/**'
       - '.github/config.yml'
 
 permissions: read-all
 
 jobs:
   e2e-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version: [v1.22.13, v1.23.10, v1.24.4, v1.25.0]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -32,7 +35,7 @@ jobs:
       - name: Set up Go 
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
         with:
-          go-version: 1.17
+          go-version: ~1.18.6
 
       - name: Set up Helm
         uses: azure/setup-helm@18bc76811624f360dbd7f18c2d4ecb32c7b87bab # v1.1
@@ -43,59 +46,26 @@ jobs:
         uses: helm/chart-testing-action@b0d4458c71155b54fcf33e11dd465dc923550009 # v2.0.1
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Test Policy
+      - name: Create dev images, kind cluster and setup kustomize
         run: |
-          if [[ ${{ github.event_name }} == "push" ]]
-          then
-            GIT_BRANCH=${GITHUB_REF##*/}
-          elif [[ ${{ github.event_name }} == "pull_request" ]]
-          then
-            GIT_BRANCH=${{ github.event.pull_request.base.ref }}
-          fi
-
-          CLI_PATH=cmd/cli/kubectl-kyverno
-
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/$GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies --git-branch $GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test https://github.com/kyverno/policies/pod-security/restricted -b $GIT_BRANCH
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-mutate
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-policy && exit 1 || exit 0
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-rule && exit 1 || exit 0
-          go run $PWD/$CLI_PATH/main.go test ./test/cli/test-fail/missing-resource && exit 1 || exit 0
-      
-      - name: gofmt check
-        run: |
-         if [ "$(gofmt -s -l . | wc -l)" -ne 0 ] 
-         then
-          echo "The following files were found to be not go formatted:"
-          gofmt -s -l .
-          echo "Please run 'make fmt' to go format the above files."
-          exit 1
-         fi
-
-      - name: golangci-lint
-        uses: reviewdog/action-golangci-lint@02bcf8c1a9febe8620f1ca523b18dd64f82296db # v1.25.0
-
-      - name: docker images build (AMD64)
-        run: |
-          make docker-build-all-amd64
-
-      - name :  Create Kind Cluster and setup kustomize
-        run: |
-          make create-e2e-infrastruture
+          export KIND_IMAGE=kindest/node:${{ matrix.k8s-version }}
+          make create-e2e-infrastructure
 
       - name: e2e testing
         run: |
           echo ">>> Install Kyverno"
-          sed 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' ${GITHUB_WORKSPACE}/config/install.yaml | kubectl apply -f -
+          cat ${GITHUB_WORKSPACE}/config/install.yaml | \
+          sed -e 's/imagePullPolicy:.*$/imagePullPolicy: IfNotPresent/g' | \
+          kubectl create -f -
           kubectl apply -f ${GITHUB_WORKSPACE}/config/github/rbac.yaml
           chmod a+x ${GITHUB_WORKSPACE}/scripts/verify-deployment.sh
           sleep 50
@@ -109,25 +79,11 @@ jobs:
           make test-e2e
           kubectl delete -f ${GITHUB_WORKSPACE}/config/install.yaml
 
-      - name: Update chart values
-        run: |
-          make helm-test-values
-          cat charts/kyverno/values.yaml
-
-      - name: Run chart-testing (install)
-        run: |
-          kubectl create namespace kyverno
-          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno
-
-      - name: Run chart-testing (policies)
-        run: |
-          helm install kyverno charts/kyverno -n kyverno
-          ct install --target-branch=main --namespace=kyverno --charts charts/kyverno-policies
-
       - name: Debug failure
         if: failure()
         run: |
           kubectl get mutatingwebhookconfigurations,validatingwebhookconfigurations
           kubectl -n kyverno get pod
           kubectl -n kyverno describe pod | grep -i events -A10
+          kubectl -n kyverno logs deploy/kyverno -p || true
           kubectl -n kyverno logs deploy/kyverno

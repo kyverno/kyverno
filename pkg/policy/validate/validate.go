@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"strings"
 
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	commonAnchors "github.com/kyverno/kyverno/pkg/engine/anchor"
-
-	kyverno "github.com/kyverno/kyverno/api/kyverno/v1"
 	"github.com/kyverno/kyverno/pkg/policy/common"
 )
 
 // Validate validates a 'validate' rule
 type Validate struct {
 	// rule to hold 'validate' rule specifications
-	rule *kyverno.Validation
+	rule *kyvernov1.Validation
 }
 
-//NewValidateFactory returns a new instance of Mutate validation checker
-func NewValidateFactory(rule *kyverno.Validation) *Validate {
+// NewValidateFactory returns a new instance of Mutate validation checker
+func NewValidateFactory(rule *kyvernov1.Validation) *Validate {
 	m := Validate{
 		rule: rule,
 	}
@@ -25,19 +24,19 @@ func NewValidateFactory(rule *kyverno.Validation) *Validate {
 	return &m
 }
 
-//Validate validates the 'validate' rule
+// Validate validates the 'validate' rule
 func (v *Validate) Validate() (string, error) {
 	if err := v.validateElements(); err != nil {
 		return "", err
 	}
 
-	if v.rule.Pattern != nil {
-		if path, err := common.ValidatePattern(v.rule.Pattern, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
+	if target := v.rule.GetPattern(); target != nil {
+		if path, err := common.ValidatePattern(target, "/", []commonAnchors.IsAnchor{commonAnchors.IsConditionAnchor, commonAnchors.IsExistenceAnchor, commonAnchors.IsEqualityAnchor, commonAnchors.IsNegationAnchor, commonAnchors.IsGlobalAnchor}); err != nil {
 			return fmt.Sprintf("pattern.%s", path), err
 		}
 	}
 
-	if v.rule.AnyPattern != nil {
+	if target := v.rule.GetAnyPattern(); target != nil {
 		anyPattern, err := v.rule.DeserializeAnyPattern()
 		if err != nil {
 			return "anyPattern", fmt.Errorf("failed to deserialize anyPattern, expect array: %v", err)
@@ -73,17 +72,17 @@ func (v *Validate) validateElements() error {
 	return nil
 }
 
-func validationElemCount(v *kyverno.Validation) int {
+func validationElemCount(v *kyvernov1.Validation) int {
 	if v == nil {
 		return 0
 	}
 
 	count := 0
-	if v.Pattern != nil {
+	if v.GetPattern() != nil {
 		count++
 	}
 
-	if v.AnyPattern != nil {
+	if v.GetAnyPattern() != nil {
 		count++
 	}
 
@@ -95,16 +94,24 @@ func validationElemCount(v *kyverno.Validation) int {
 		count++
 	}
 
+	if v.PodSecurity != nil {
+		count++
+	}
+
+	if v.Manifests != nil && len(v.Manifests.Attestors) != 0 {
+		count++
+	}
+
 	return count
 }
 
-func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
+func (v *Validate) validateForEach(foreach kyvernov1.ForEachValidation) error {
 	if foreach.List == "" {
 		return fmt.Errorf("foreach.list is required")
 	}
 
-	if !strings.HasPrefix(foreach.List, "request.object") {
-		return fmt.Errorf("foreach.list must start with 'request.object' e.g. 'request.object.spec.containers'")
+	if !strings.HasPrefix(foreach.List, "request.object") && !strings.HasPrefix(foreach.List, "request.userInfo") {
+		return fmt.Errorf("foreach.list must start with either 'request.object' or 'request.userInfo', e.g. 'request.object.spec.containers', 'request.userInfo.groups'")
 	}
 
 	count := foreachElemCount(foreach)
@@ -119,17 +126,13 @@ func (v *Validate) validateForEach(foreach *kyverno.ForEachValidation) error {
 	return nil
 }
 
-func foreachElemCount(foreach *kyverno.ForEachValidation) int {
-	if foreach == nil {
-		return 0
-	}
-
+func foreachElemCount(foreach kyvernov1.ForEachValidation) int {
 	count := 0
-	if foreach.Pattern != nil {
+	if foreach.GetPattern() != nil {
 		count++
 	}
 
-	if foreach.AnyPattern != nil {
+	if foreach.GetAnyPattern() != nil {
 		count++
 	}
 

@@ -6,9 +6,6 @@ on:
       publish_command:
         required: true
         type: string
-      digest_command: 
-        required: true
-        type: string
       image_name: 
         required: true
         type: string
@@ -22,6 +19,16 @@ on:
         required: true
       registry_password:
         required: true
+    outputs:
+      init_sha256_digest:
+        description: "sha256 digest of kyverno init docker image"
+        value: ${{ jobs.build.outputs.init-container-digest }}
+      kyverno_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.kyverno-digest }}
+      cli_sha256_digest:
+        description: "sha256 digest of kyverno docker image"
+        value: ${{ jobs.build.outputs.cli-digest }}
 
 jobs:
   build:
@@ -30,6 +37,10 @@ jobs:
       contents: read
       packages: write
       id-token: write
+    outputs:
+      init-container-digest: ${{ steps.set-sha256-digest.outputs.init-container-digest }}
+      kyverno-digest: ${{ steps.set-sha256-digest.outputs.kyverno-digest }}
+      cli-digest: ${{ steps.set-sha256-digest.outputs.cli-digest }}
     steps:
       - name: Checkout release
         if: ${{ inputs.tag == 'release'}}
@@ -48,49 +59,38 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@424fc82d43fa5a37540bae62709ddcc23d9520d4 # v2.1.5
         with:
-          go-version: 1.17
+          go-version: ~1.18.6
 
       - name: Install Cosign
-        uses: sigstore/cosign-installer@116dc6872c0a067bcb78758f18955414cdbf918f # v1.4.1
+        uses: sigstore/cosign-installer@7cc35d7fdbe70d4278a0c96779081e6fac665f88 # v2.8.0
         with:
-          cosign-release: 'v1.4.1'
+          cosign-release: 'v1.13.0'
 
       - name: Cache Go modules
-        uses: actions/cache@d9747005de0f7240e5d35a68dca96b3f41b8b340 # v1.2.0
+        uses: actions/cache@fd5de65bc895cf536527842281bea11763fefd77 # pin@v3
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            /tmp/ko-cache
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Log into ghcr.io
-        uses: docker/login-action@master
-        with:
-          registry: ghcr.io
-          username: ${{secrets.registry_username}}
-          password: ${{secrets.registry_password}}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
-        id: buildx
-        with:
-          install: true
-
       - name: Run Trivy vulnerability scanner in repo mode
         if: ${{inputs.tag == 'release'}}
-        uses: aquasecurity/trivy-action@8f4c7160b470bafe4299efdc1c8a1fb495f8325a # v0.2.1
-        with: 
+        uses: aquasecurity/trivy-action@40c4ca9e7421287d0c5576712fdff370978f9c3c
+        with:
           scan-type: 'fs'
-          format: 'table'
-          exit-code: '1'
           ignore-unfixed: true
-          vuln-type: 'os,library'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
 
       - name: Set Version
         if: ${{ inputs.tag == 'release'}}
         run: |
-          echo "KYVERNO_VERSION=$(git tag --list --sort=-version:refname "v[0-9]*" | head -n 1)" >> $GITHUB_ENV
+          echo "KYVERNO_VERSION=$(git describe --match "v[0-9]*" --tags $(git rev-list --tags --max-count=1))" >> $GITHUB_ENV
 
       - name: Generate SBOM JSON
         if: ${{inputs.tag == 'release'}}
@@ -98,7 +98,7 @@ jobs:
         with:
           version: v1
           args: app -licenses -json -output ${{inputs.image_name}}-${{ env.KYVERNO_VERSION }}-bom.cdx.json -main ${{inputs.main}}
-          
+
       - name: Upload SBOM JSON
         if: ${{inputs.tag == 'release'}}
         uses: actions/upload-artifact@82c141cc518b40d92cc801eee768e7aafc9c2fa2 # v2.3.1
@@ -106,27 +106,81 @@ jobs:
           name: ${{inputs.image_name}}-bom-cdx
           path: ${{inputs.image_name}}-v*-bom.cdx.json
 
-      - name : Docker images publish
-        run: make ${{inputs.publish_command}}
+      - name: Extract branch name
+        if: ${{inputs.tag == 'image'}}
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
 
-      - name: get digest
-        id: get-step
+      - name: Check branch
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch != 'main'}}
+        id: check-branch
         run: |
-          echo "::set-output name=digest::$(make ${{inputs.digest_command}})"
+          if [[ ${{ steps.extract_branch.outputs.branch }} =~ ^release-[0-9]+\.[0-9]$ ]]; then
+              echo ::set-output name=match::true
+          fi
 
-      - name: Sign image
+      - name: ko build dev image
+        id: ko-publish-dev
+        env:
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
+        run: |
+          set -e
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}}-dev)"
+
+      - name: ko build release image
+        id: ko-publish
+        env:
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        run: |
+          set -e
+          echo "::set-output name=digest::$(REGISTRY=ghcr.io REPO=${{ github.repository_owner }} REGISTRY_PASSWORD=${{secrets.registry_password}} make ${{inputs.publish_command}})"
+
+      - name: Sign dev image
+        if: ${{inputs.tag == 'image' && steps.extract_branch.outputs.branch == 'main'}}
         env:
           COSIGN_EXPERIMENTAL: "true"
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/signatures"
-        run: |          
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
+        run: |
+          set -e
           cosign sign \
           -a "repo=${{ github.repository }}" \
           -a "workflow=${{ github.workflow }}" \
           -a "ref=${{ github.sha }}" \
-          ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          ${{ steps.ko-publish-dev.outputs.digest }}
+
+      - name: Sign release-image
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/signatures"
+        run: |
+          set -e
+          cosign sign \
+          -a "repo=${{ github.repository }}" \
+          -a "workflow=${{ github.workflow }}" \
+          -a "ref=${{ github.sha }}" \
+          ${{ steps.ko-publish.outputs.digest }}
 
       - name : Attach SBOM
         if: ${{inputs.tag == 'release'}}
         env:
-          COSIGN_REPOSITORY: "ghcr.io/kyverno/sbom"
-        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx  ghcr.io/kyverno/${{inputs.image_name}}@sha256:${{ steps.get-step.outputs.digest }}
+          COSIGN_REPOSITORY: "ghcr.io/${{ github.repository_owner }}/sbom"
+        run: cosign attach sbom --sbom ./${{inputs.image_name}}-v*-bom.cdx.json --type cyclonedx ${{ steps.ko-publish.outputs.digest }}
+
+      - name: get sha256sum image digest
+        if: ${{inputs.tag == 'release' || (inputs.tag == 'image' && steps.check-branch.outputs.match == 'true')}}
+        id: set-sha256sum-digest
+        run: |
+          echo "The image generated is: ${{ steps.ko-publish.outputs.digest }}"
+          DIGEST=$(echo ${{ steps.ko-publish.outputs.digest }} | cut -d '@' -f2)
+          echo "Digest from image is: $DIGEST"
+          if [[ "${{inputs.publish_command}}" = "ko-publish-kyvernopre" ]]; then
+            echo "::set-output name=init-container-digest::$DIGEST"
+          elif [[ "${{inputs.publish_command}}" = "ko-publish-kyverno" ]]; then
+            echo "::set-output name=kyverno-digest::$DIGEST"
+          else
+            echo "::set-output name=cli-digest::$DIGEST"
+          fi

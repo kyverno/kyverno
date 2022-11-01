@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/anchor"
 	"github.com/kyverno/kyverno/pkg/engine/validate"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
@@ -140,7 +139,8 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 			var lastGlobalAnchorError error = nil
 
 			for _, resourceElement := range resourceElements {
-				if err := preProcessRecursive(logger, patternElement, resourceElement); err != nil {
+				patternElementCopy := patternElement.Copy()
+				if err := preProcessRecursive(logger, patternElementCopy, resourceElement); err != nil {
 					logger.V(3).Info("anchor mismatch", "reason", err.Error())
 					if isConditionError(err) {
 						continue
@@ -158,7 +158,7 @@ func processListOfMaps(logger logr.Logger, pattern, resource *yaml.RNode) error 
 					// global anchor has passed, there is no need to return an error
 					anyGlobalConditionPassed = true
 				} else {
-					if err := handlePatternName(pattern, patternElement, resourceElement); err != nil {
+					if err := handlePatternName(pattern, patternElementCopy, resourceElement); err != nil {
 						return errors.Wrap(err, "failed to update name in pattern")
 					}
 				}
@@ -297,10 +297,8 @@ func hasAnchor(key string) bool {
 }
 
 func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
-	ynode := pattern.YNode()
-	kind := ynode.Kind
-
-	if kind == yaml.MappingNode {
+	ynode := pattern.YNode() //nolint:ifshort
+	if ynode.Kind == yaml.MappingNode {
 		fields, err := pattern.Fields()
 		if err != nil {
 			return false
@@ -318,11 +316,10 @@ func hasAnchors(pattern *yaml.RNode, isAnchor func(key string) bool) bool {
 				}
 			}
 		}
-	} else if kind == yaml.ScalarNode {
+	} else if ynode.Kind == yaml.ScalarNode {
 		v := ynode.Value
 		return anchor.ContainsCondition(v)
-
-	} else if kind == yaml.SequenceNode {
+	} else if ynode.Kind == yaml.SequenceNode {
 		elements, _ := pattern.Elements()
 		for _, e := range elements {
 			if hasAnchors(e, isAnchor) {

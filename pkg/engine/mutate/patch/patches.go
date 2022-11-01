@@ -4,7 +4,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/kyverno/kyverno/pkg/engine/context"
 	"github.com/kyverno/kyverno/pkg/engine/response"
-	"github.com/kyverno/kyverno/pkg/engine/utils"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -56,7 +55,7 @@ func NewPatchesJSON6902(ruleName string, patches string, patchedResource unstruc
 
 func (h patchesJSON6902Handler) Patch() (resp response.RuleResponse, patchedResource unstructured.Unstructured) {
 	resp.Name = h.ruleName
-	resp.Type = utils.Mutation.String()
+	resp.Type = response.Mutation
 
 	patchesJSON6902, err := ConvertPatchesToJSON(h.patches)
 	if err != nil {

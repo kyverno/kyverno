@@ -19,11 +19,16 @@ metadata:
       greater than zero (i.e., non root). A known issue prevents a policy such as this
       using `anyPattern` from being persisted properly in Kubernetes 1.23.0-1.23.2.
 spec:
+  {{- with index .Values "validationFailureActionByPolicy" $name }}
+  validationFailureAction: {{ toYaml . }}
+  {{- else }}
   validationFailureAction: {{ .Values.validationFailureAction }}
+  {{- end }}
   {{- with concat (index .Values "validationFailureActionOverrides" "all") (default list (index .Values "validationFailureActionOverrides" $name)) }}
   validationFailureActionOverrides: {{ toYaml . | nindent 4 }}
   {{- end }}
-  background: true
+  background: {{ .Values.background }}
+  failurePolicy: {{ .Values.failurePolicy }}
   rules:
     - name: check-runasgroup
       match:
@@ -33,6 +38,10 @@ spec:
               - Pod
       {{- with merge (index .Values "policyExclude" "check-runasgroup") (index .Values "policyExclude" $name) }}
       exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "check-runasgroup") (index .Values "policyPreconditions" $name) }}
+      preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       validate:
@@ -73,6 +82,10 @@ spec:
               - Pod
       {{- with merge (index .Values "policyExclude" "check-supplementalgroups") (index .Values "policyExclude" $name) }}
       exclude:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with merge (index .Values "policyPreconditions" "check-supplementalgroups") (index .Values "policyPreconditions" $name) }}
+      preconditions:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       validate:

@@ -16,8 +16,7 @@ type Cosign interface {
 	VerifyImageAttestations(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) (checkedAttestations []oci.Signature, bundleVerified bool, err error)
 }
 
-type driver struct {
-}
+type driver struct{}
 
 func (d *driver) VerifyImageSignatures(ctx context.Context, signedImgRef name.Reference, co *cosign.CheckOpts) ([]oci.Signature, bool, error) {
 	return cosign.VerifyImageSignatures(ctx, signedImgRef, co)

@@ -6,6 +6,15 @@
 /pkg/openapi @vyankyGH
 /pkg/policycache @vyankyGH
 /pkg/policy/validate @vyankyGH
-/test @vyankyGH
-/pkg @samj1912
-/cmd @samj1912
+/test @vyankyGH @chipzoller @eddycharly
+/docs @chipzoller
+/pkg/registryclient
+/api/kyverno/v1 @eddycharly
+/pkg/webhooks @prateekpandey14
+/pkg/engine @prateekpandey14
+/pkg/generate @prateekpandey14
+/pkg/policy/generate @prateekpandey14
+/api @prateekpandey14 @eddycharly
+/charts @treydock @eddycharly
+/pkg/autogen @eddycharly
+/pkg/utils @eddycharly
