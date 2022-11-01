@@ -131,7 +131,7 @@ podAntiAffinity:
           - key: app.kubernetes.io/name
             operator: In
             values:
-            - kyverno
+            - '{{ template "kyverno.fullname" . }}'
         topologyKey: kubernetes.io/hostname
 
 # -- Pod affinity constraints.
