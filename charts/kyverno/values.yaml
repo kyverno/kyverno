@@ -355,7 +355,7 @@ config:
         - key: kubernetes.io/metadata.name
           operator: NotIn
           values:
-            - {{ include "kyverno.namespace" . }}
+            - '{{ include "kyverno.namespace" . }}'
     # Exclude objects
     # - objectSelector:
     #     matchExpressions:
