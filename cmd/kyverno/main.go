@@ -726,7 +726,14 @@ func main() {
 		controller.run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
-	go le.Run(signalCtx)
+	go func() {
+		select {
+		case <-signalCtx.Done():
+			return
+		default:
+			le.Run(signalCtx)
+		}
+	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		kyvernoClient,
