@@ -468,16 +468,6 @@ OuterLoop:
 		}
 	}
 
-	if c.Resource.GetKind() == "Pod" && len(c.Resource.GetOwnerReferences()) > 0 {
-		if c.Policy.HasAutoGenAnnotation() {
-			annotations := c.Policy.GetAnnotations()
-			if _, ok := annotations[kyvernov1.PodControllersAnnotation]; ok {
-				delete(annotations, kyvernov1.PodControllersAnnotation)
-				c.Policy.SetAnnotations(annotations)
-			}
-		}
-	}
-
 	var policyHasValidate bool
 	for _, rule := range autogen.ComputeRules(c.Policy) {
 		if rule.HasValidate() || rule.HasImagesValidationChecks() {
