@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 )
@@ -118,18 +119,28 @@ func ExplicitKey[K any](parseKey func(K) cache.ExplicitKey) keyFunc {
 
 func AddFunc(logger logr.Logger, enqueue EnqueueFunc) addFunc {
 	return func(obj interface{}) {
-		_ = enqueue(obj)
+		if err := enqueue(obj); err != nil {
+			logger.Error(err, "failed to enqueue object", "obj", obj)
+		}
 	}
 }
 
 func UpdateFunc(logger logr.Logger, enqueue EnqueueFunc) updateFunc {
-	return func(_, obj interface{}) {
-		_ = enqueue(obj)
+	return func(old, obj interface{}) {
+		oldMeta := old.(metav1.Object)
+		objMeta := obj.(metav1.Object)
+		if oldMeta.GetResourceVersion() != objMeta.GetResourceVersion() {
+			if err := enqueue(obj); err != nil {
+				logger.Error(err, "failed to enqueue object", "obj", obj)
+			}
+		}
 	}
 }
 
 func DeleteFunc(logger logr.Logger, enqueue EnqueueFunc) deleteFunc {
 	return func(obj interface{}) {
-		_ = enqueue(obj)
+		if err := enqueue(obj); err != nil {
+			logger.Error(err, "failed to enqueue object", "obj", obj)
+		}
 	}
 }
