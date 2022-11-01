@@ -181,7 +181,7 @@ The command removes all the Kubernetes components associated with the chart and 
 | config.annotations | object | `{}` | Additional annotations to add to the configmap |
 | config.excludeGroupRole | list | `["system:serviceaccounts:kube-system","system:nodes","system:kube-scheduler"]` | Exclude group role |
 | config.excludeUsername | string | `nil` | Exclude username |
-| config.webhooks | list | `[{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
+| config.webhooks | list | `[{"namespaceSelector":{"matchExpressions":[{"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["{{ include \"kyverno.namespace\" . }}"]}]}}]` | Defines the `namespaceSelector` in the webhook configurations. Note that it takes a list of `namespaceSelector` and/or `objectSelector` in the JSON format, and only the first element will be forwarded to the webhook configurations. The Kyverno namespace is excluded if `excludeKyvernoNamespace` is `true` (default) |
 | config.generateSuccessEvents | bool | `false` | Generate success events. |
 | config.metricsConfig | object | `{"annotations":{},"namespaces":{"exclude":[],"include":[]}}` | Metrics config. |
 | config.metricsConfig.annotations | object | `{}` | Additional annotations to add to the metricsconfigmap |
