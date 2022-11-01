@@ -44,10 +44,10 @@ const (
 	ControllerName            = "webhook-controller"
 	DefaultWebhookTimeout     = 10
 	AnnotationLastRequestTime = "kyverno.io/last-request-time"
-	IdleDeadline              = tickerInterval * 5
+	IdleDeadline              = tickerInterval * 10
 	maxRetries                = 10
 	managedByLabel            = "webhook.kyverno.io/managed-by"
-	tickerInterval            = 30 * time.Second
+	tickerInterval            = 10 * time.Second
 )
 
 var (
