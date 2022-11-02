@@ -661,9 +661,6 @@ func main() {
 		config.KyvernoPodName(),
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
-			// when losing the lead we just terminate the pod
-			// TODO: remove when we run the leader election loop continuously
-			defer signalCancel()
 			// validate config
 			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")
@@ -723,7 +720,14 @@ func main() {
 		controller.run(signalCtx, logger.WithName("controllers"), &wg)
 	}
 	// start leader election
-	go le.Run(signalCtx)
+	go func() {
+		select {
+		case <-signalCtx.Done():
+			return
+		default:
+			le.Run(signalCtx)
+		}
+	}()
 	// create webhooks server
 	urgen := webhookgenerate.NewGenerator(
 		kyvernoClient,

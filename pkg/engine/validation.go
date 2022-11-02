@@ -78,7 +78,7 @@ func buildResponse(ctx *PolicyContext, resp *response.EngineResponse, startTime 
 	resp.PolicyResponse.Resource.Namespace = resp.PatchedResource.GetNamespace()
 	resp.PolicyResponse.Resource.Kind = resp.PatchedResource.GetKind()
 	resp.PolicyResponse.Resource.APIVersion = resp.PatchedResource.GetAPIVersion()
-	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.GetSpec().GetValidationFailureAction()
+	resp.PolicyResponse.ValidationFailureAction = ctx.Policy.GetSpec().ValidationFailureAction
 
 	for _, v := range ctx.Policy.GetSpec().ValidationFailureActionOverrides {
 		resp.PolicyResponse.ValidationFailureActionOverrides = append(resp.PolicyResponse.ValidationFailureActionOverrides, response.ValidationFailureActionOverride{Action: v.Action, Namespaces: v.Namespaces})
