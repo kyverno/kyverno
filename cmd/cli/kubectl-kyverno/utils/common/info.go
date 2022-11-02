@@ -1,4 +1,4 @@
-package policyreport
+package common
 
 import (
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
