@@ -446,6 +446,12 @@ createSelfSignedCert: false
 # If the CRDs are not installed by Helm, they must be added before policies can be created.
 installCRDs: true
 
+crds:
+  # -- Additional CRDs annotations.
+  annotations: {}
+    # argocd.argoproj.io/sync-options: Replace=true
+    # strategy.spinnaker.io/replace: 'true'
+
 networkPolicy:
   # -- When true, use a NetworkPolicy to allow ingress to the webhook
   # This is useful on clusters using Calico and/or native k8s network policies in a default-deny setup.
