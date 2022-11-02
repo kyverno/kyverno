@@ -26,7 +26,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	ut "github.com/kyverno/kyverno/pkg/engine/utils"
 	"github.com/kyverno/kyverno/pkg/engine/variables"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	yamlutils "github.com/kyverno/kyverno/pkg/utils/yaml"
 	yamlv2 "gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -355,7 +354,7 @@ func GetVariable(variablesString, valuesFile string, fs billy.Filesystem, isGit 
 }
 
 // ApplyPolicyOnResource - function to apply policy on resource
-func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, policyreport.Info, error) {
+func ApplyPolicyOnResource(c ApplyPolicyConfig) ([]*response.EngineResponse, Info, error) {
 	var engineResponses []*response.EngineResponse
 	namespaceLabels := make(map[string]string)
 	operationIsDelete := false
@@ -402,7 +401,7 @@ OuterLoop:
 		resourceNamespace := c.Resource.GetNamespace()
 		namespaceLabels = c.NamespaceSelectorMap[c.Resource.GetNamespace()]
 		if resourceNamespace != "default" && len(namespaceLabels) < 1 {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
+			return engineResponses, Info{}, sanitizederror.NewWithError(fmt.Sprintf("failed to get namespace labels for resource %s. use --values-file flag to pass the namespace labels", c.Resource.GetName()), nil)
 		}
 	}
 
@@ -464,7 +463,7 @@ OuterLoop:
 	err = processMutateEngineResponse(c, mutateResponse, resPath)
 	if err != nil {
 		if !sanitizederror.IsErrorSanitized(err) {
-			return engineResponses, policyreport.Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
+			return engineResponses, Info{}, sanitizederror.NewWithError("failed to print mutated result", err)
 		}
 	}
 
@@ -477,7 +476,7 @@ OuterLoop:
 
 	policyContext.NewResource = mutateResponse.PatchedResource
 
-	var info policyreport.Info
+	var info Info
 	var validateResponse *response.EngineResponse
 	if policyHasValidate {
 		validateResponse = engine.Validate(policyContext)
@@ -674,7 +673,7 @@ func GetResourceAccordingToResourcePath(fs billy.Filesystem, resourcePaths []str
 	return resources, err
 }
 
-func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) policyreport.Info {
+func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateResponse *response.EngineResponse, resPath string, rc *ResultCounts, policyReport bool) Info {
 	var violatedRules []kyvernov1.ViolatedRule
 
 	printCount := 0
@@ -750,11 +749,11 @@ func ProcessValidateEngineResponse(policy kyvernov1.PolicyInterface, validateRes
 	return buildPVInfo(validateResponse, violatedRules)
 }
 
-func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) policyreport.Info {
-	info := policyreport.Info{
+func buildPVInfo(er *response.EngineResponse, violatedRules []kyvernov1.ViolatedRule) Info {
+	info := Info{
 		PolicyName: er.PolicyResponse.Policy.Name,
 		Namespace:  er.PatchedResource.GetNamespace(),
-		Results: []policyreport.EngineResponseResult{
+		Results: []EngineResponseResult{
 			{
 				Resource: er.GetResourceSpec(),
 				Rules:    violatedRules,
