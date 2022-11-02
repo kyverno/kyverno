@@ -3,12 +3,12 @@ kind: TestSuite
 testDirs:
   # Generate tests
 # - ./generate/clusterpolicy/standard/clone/nosync
-- ./generate/clusterpolicy/standard/clone/sync
-- ./generate/clusterpolicy/standard/data/sync
-- ./generate/clusterpolicy/standard/data/nosync
-- ./mutate/
-- ./validate/
-- ./verifyImages/
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
+- ./test/conformance/kuttl/mutate/
+- ./test/conformance/kuttl/validate/
+- ./test/conformance/kuttl/verifyImages/
 startKIND: false
 timeout: 15
 parallel: 1
