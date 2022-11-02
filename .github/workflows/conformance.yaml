@@ -22,6 +22,6 @@ jobs:
       - name: Install kuttl
         run: curl -sL https://github.com/kudobuilder/kuttl/releases/download/v0.13.0/kubectl-kuttl_0.13.0_linux_x86_64 -o kuttl && chmod +x kuttl
       - name: Run kuttl
-        run: ./kuttl test ./test/conformance/kuttl/kuttl-test.yaml
+        run: ./kuttl test --config ./test/conformance/kuttl/kuttl-test.yaml
       # - name: Kyverno conformance tests
       #   run: go run ./test/conformance/main.go
