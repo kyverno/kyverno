@@ -20,8 +20,8 @@ jobs:
       - name: Prep environment
         run: make kind-create-cluster kind-deploy-kyverno
       - name: Install kuttl
-        run: kubectl krew install kuttl
+        run: curl -sL https://github.com/kudobuilder/kuttl/releases/download/v0.13.0/kubectl-kuttl_0.13.0_linux_x86_64 -o kuttl && chmod +x kuttl
       - name: Run kuttl
-        run: kubectl kuttl test ./test/conformance/kuttl/kuttl-test.yaml
+        run: ./kuttl test ./test/conformance/kuttl/kuttl-test.yaml
       # - name: Kyverno conformance tests
       #   run: go run ./test/conformance/main.go
