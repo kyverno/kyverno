@@ -19,6 +19,8 @@ jobs:
           go-version: ~1.18.6
       - name: Prep environment
         run: make kind-create-cluster kind-deploy-kyverno
+      - name: Wait for Kyverno to fully start
+        run: sleep 60
       - name: Install kuttl
         run: curl -sL https://github.com/kudobuilder/kuttl/releases/download/v0.13.0/kubectl-kuttl_0.13.0_linux_x86_64 -o kuttl && chmod +x kuttl
       - name: Run kuttl
