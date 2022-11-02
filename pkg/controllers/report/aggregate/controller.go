@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -298,7 +299,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	} else {
 		list, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).List(ctx, metav1.ListOptions{})
@@ -306,7 +309,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	}
 	return reports, nil
