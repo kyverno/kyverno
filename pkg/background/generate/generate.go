@@ -278,10 +278,8 @@ func (c *GenerateController) getPolicySpec(ur kyvernov1beta1.UpdateRequest) (kyv
 		return policy, err
 	}
 	return kyvernov1.ClusterPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pName,
-		},
-		Spec: npolicyObj.Spec,
+		ObjectMeta: npolicyObj.ObjectMeta,
+		Spec:       npolicyObj.Spec,
 	}, nil
 }
 
@@ -493,6 +491,12 @@ func applyRule(log logr.Logger, client dclient.Interface, rule kyvernov1.Rule, r
 		}
 
 		label["policy.kyverno.io/policy-name"] = policy.GetName()
+		if policy.IsNamespaced() {
+			label["policy.kyverno.io/policy-kind"] = kyvernov1beta1.PolicyKindNamespace
+		} else {
+			label["policy.kyverno.io/policy-kind"] = kyvernov1beta1.PolicyKindCluster
+		}
+
 		label["policy.kyverno.io/gr-name"] = ur.Name
 		if rdata.Action == Create {
 			if rule.Generation.Synchronize {

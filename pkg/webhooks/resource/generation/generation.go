@@ -137,6 +137,7 @@ func (h *generationHandler) HandleUpdatesForGenerateRules(request *admissionv1.A
 	resource, err := enginutils.ConvertToUnstructured(request.OldObject.Raw)
 	if err != nil {
 		h.log.Error(err, "failed to convert object resource to unstructured format")
+		return
 	}
 
 	resLabels := resource.GetLabels()
@@ -185,13 +186,24 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 	newRes, err := enginutils.ConvertToUnstructured(request.Object.Raw)
 	if err != nil {
 		h.log.Error(err, "failed to convert object resource to unstructured format")
+		return
+	}
+	var policyKind = kyvernov1beta1.PolicyKindCluster
+	policyName := resLabels["policy.kyverno.io/policy-name"]
+
+	if resLabels["policy.kyverno.io/policy-kind"] == kyvernov1beta1.PolicyKindNamespace {
+		policyKind = kyvernov1beta1.PolicyKindNamespace
 	}
 
-	policyName := resLabels["policy.kyverno.io/policy-name"]
 	targetSourceName := newRes.GetName()
 	targetSourceKind := newRes.GetKind()
+	var policy kyvernov1.PolicyInterface
+	if policyKind == kyvernov1beta1.PolicyKindCluster {
+		policy, err = h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
+	} else {
+		policy, err = h.kyvernoClient.KyvernoV1().Policies(newRes.GetNamespace()).Get(context.TODO(), policyName, metav1.GetOptions{})
+	}
 
-	policy, err := h.kyvernoClient.KyvernoV1().ClusterPolicies().Get(context.TODO(), policyName, metav1.GetOptions{})
 	if err != nil {
 		h.log.Error(err, "failed to get policy from kyverno client.", "policy name", policyName)
 		return
@@ -202,6 +214,7 @@ func (h *generationHandler) handleUpdateGenerateTargetResource(request *admissio
 			updatedRule, err := getGeneratedByResource(newRes, resLabels, h.client, rule, h.log)
 			if err != nil {
 				h.log.V(4).Info("skipping generate policy and resource pattern validaton", "error", err)
+				continue
 			} else {
 				data := updatedRule.Generation.DeepCopy().GetData()
 				if data != nil {

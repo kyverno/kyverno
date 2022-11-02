@@ -14,4 +14,8 @@ const (
 	URGenerateResourceNSLabel      = "generate.kyverno.io/resource-namespace"
 	URGenerateResourceKindLabel    = "generate.kyverno.io/resource-kind"
 	URGenerateRetryCountAnnotation = "generate.kyverno.io/retry-count"
+	URGenerateClonePolicyKindLabel = "generate.kyverno.io/clone-policy-kind"
+
+	PolicyKindNamespace = "Namespace"
+	PolicyKindCluster   = "Cluster"
 )
