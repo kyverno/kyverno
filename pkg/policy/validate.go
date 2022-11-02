@@ -395,7 +395,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		}
 	}
 
-	if spec.SchemaValidation == nil || *spec.SchemaValidation {
+	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
 			return warnings, err
 		}
