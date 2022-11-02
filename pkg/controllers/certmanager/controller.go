@@ -42,13 +42,12 @@ func NewController(secretInformer corev1informers.SecretInformer, certRenewer tl
 		renewer:       certRenewer,
 		secretLister:  secretInformer.Lister(),
 		queue:         queue,
-		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger.V(3), secretInformer.Informer(), queue),
+		secretEnqueue: controllerutils.AddDefaultEventHandlers(logger, secretInformer.Informer(), queue),
 	}
 	return &c
 }
 
 func (c *controller) Run(ctx context.Context, workers int) {
-	go c.ticker(ctx)
 	// we need to enqueue our secrets in case they don't exist yet in the cluster
 	// this way we ensure the reconcile happens (hence renewal/creation)
 	if err := c.secretEnqueue(&corev1.Secret{
@@ -67,7 +66,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	}); err != nil {
 		logger.Error(err, "failed to enqueue CA secret", "name", tls.GenerateRootCASecretName())
 	}
-	controllerutils.Run(ctx, ControllerName, logger.V(3), c.queue, workers, maxRetries, c.reconcile)
+	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile, c.ticker)
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, namespace, name string) error {
@@ -80,7 +79,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, nam
 	return c.renewCertificates()
 }
 
-func (c *controller) ticker(ctx context.Context) {
+func (c *controller) ticker(ctx context.Context, logger logr.Logger) {
 	certsRenewalTicker := time.NewTicker(tls.CertRenewalInterval)
 	defer certsRenewalTicker.Stop()
 	for {

@@ -51,11 +51,13 @@ KUSTOMIZE                          := $(TOOLS_DIR)/kustomize
 KUSTOMIZE_VERSION                  := latest
 GOIMPORTS                          := $(TOOLS_DIR)/goimports
 GOIMPORTS_VERSION                  := latest
+HELM                               := $(TOOLS_DIR)/helm
+HELM_VERSION                       := v3.10.1
 HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM_DOCS) $(KO)
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -101,6 +103,10 @@ $(KUSTOMIZE):
 $(GOIMPORTS):
 	@echo Install goimports... >&2
 	@GOBIN=$(TOOLS_DIR) go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)
+
+$(HELM):
+	@echo Install helm... >&2
+	@GOBIN=$(TOOLS_DIR) go install helm.sh/helm/v3/cmd/helm@$(HELM_VERSION)
 
 $(HELM_DOCS):
 	@echo Install helm-docs... >&2
@@ -421,11 +427,12 @@ codegen-deepcopy-all: codegen-deepcopy-kyverno codegen-deepcopy-report ## Genera
 .PHONY: codegen-api-docs
 codegen-api-docs: $(PACKAGE_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) ## Generate API docs
 	@echo Generate api docs... >&2
-	@rm -rf docs/crd && mkdir -p docs/crd
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1alpha2 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1alpha2/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1beta1/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v1/index.html
-	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 6 -api-dir ./api/kyverno/v2beta1 -config docs/config.json -template-dir docs/template -out-file docs/crd/v2beta1/index.html
+	@rm -rf docs/user/crd && mkdir -p docs/user/crd
+	@GOPATH=$(GOPATH_SHIM) $(GEN_CRD_API_REFERENCE_DOCS) -v 4 \
+			-api-dir github.com/kyverno/kyverno/api \
+			-config docs/user/config.json \
+			-template-dir docs/user/template \
+			-out-file docs/user/crd/index.html
 
 .PHONY: codegen-helm-docs
 codegen-helm-docs: ## Generate helm docs
@@ -511,10 +518,10 @@ verify-deepcopy: codegen-deepcopy-all ## Check deepcopy functions are up to date
 
 .PHONY: verify-api-docs
 verify-api-docs: codegen-api-docs ## Check api reference docs are up to date
-	@git --no-pager diff docs
+	@git --no-pager diff docs/user
 	@echo 'If this test fails, it is because the git diff is non-empty after running "make codegen-api-docs".' >&2
 	@echo 'To correct this, locally run "make codegen-api-docs", commit the changes, and re-run tests.' >&2
-	@git diff --quiet --exit-code docs
+	@git diff --quiet --exit-code docs/user
 
 .PHONY: verify-helm
 verify-helm: codegen-helm-all ## Check Helm charts are up to date
@@ -553,6 +560,20 @@ code-cov-report: test-clean ## Generate code coverage report
 	@GO111MODULE=on go test -v -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out -o $(CODE_COVERAGE_FILE_TXT)
 	@go tool cover -html=coverage.out -o $(CODE_COVERAGE_FILE_HTML)
+
+#####################
+# CONFORMANCE TESTS #
+#####################
+
+.PHONY: test-conformance
+test-conformance: ## Run conformance tests
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance
+
+.PHONY: kind-test-conformance
+kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
+	@echo Running conformance tests... >&2
+	@go run ./test/conformance --create-cluster=false
 
 #############
 # CLI TESTS #
@@ -673,7 +694,7 @@ gh-pin-actions: gh-install-pin-github-action
 .PHONY: kind-create-cluster
 kind-create-cluster: $(KIND) ## Create kind cluster
 	@echo Create kind cluster... >&2
-	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE)
+	@$(KIND) create cluster --name $(KIND_NAME) --image $(KIND_IMAGE) --config ./scripts/kind.yaml
 
 .PHONY: kind-delete-cluster
 kind-delete-cluster: $(KIND) ## Delete kind cluster
@@ -694,27 +715,27 @@ kind-load-kyverno: $(KIND) image-build-kyverno ## Build kyverno image and load i
 kind-load-all: kind-load-kyvernopre kind-load-kyverno ## Build images and load them in kind cluster
 
 .PHONY: kind-deploy-kyverno
-kind-deploy-kyverno: kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
+kind-deploy-kyverno: $(HELM) kind-load-all ## Build images, load them in kind cluster and deploy kyverno helm chart
 	@echo Install kyverno chart... >&2
-	@helm upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
+	@$(HELM) upgrade --install kyverno --namespace kyverno --wait --create-namespace ./charts/kyverno \
 		--set image.repository=$(LOCAL_KYVERNO_IMAGE) \
 		--set image.tag=$(IMAGE_TAG_DEV) \
 		--set initImage.repository=$(LOCAL_KYVERNOPRE_IMAGE) \
 		--set initImage.tag=$(IMAGE_TAG_DEV) \
 		--set initContainer.extraArgs={--loggingFormat=text} \
-		--set "extraArgs={--autogenInternals=true,--loggingFormat=text}"
+		--set "extraArgs={--loggingFormat=text}"
 	@echo Restart kyverno pods... >&2
 	@kubectl rollout restart deployment -n kyverno kyverno
 
 .PHONY: kind-deploy-kyverno-policies
-kind-deploy-kyverno-policies: ## Deploy kyverno-policies helm chart
+kind-deploy-kyverno-policies: $(HELM) ## Deploy kyverno-policies helm chart
 	@echo Install kyverno-policies chart... >&2
-	@helm upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
+	@$(HELM) upgrade --install kyverno-policies --namespace kyverno --create-namespace ./charts/kyverno-policies
 
 .PHONY: kind-deploy-metrics-server
-kind-deploy-metrics-server: ## Deploy metrics-server helm chart
+kind-deploy-metrics-server: $(HELM) ## Deploy metrics-server helm chart
 	@echo Install metrics-server chart... >&2
-	@helm upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
+	@$(HELM) upgrade --install metrics-server --repo https://charts.bitnami.com/bitnami metrics-server -n kube-system \
 		--set extraArgs={--kubelet-insecure-tls=true} \
 		--set apiService.create=true
 
@@ -722,9 +743,9 @@ kind-deploy-metrics-server: ## Deploy metrics-server helm chart
 kind-deploy-all: kind-deploy-metrics-server | kind-deploy-kyverno kind-deploy-kyverno-policies ## Build images, load them in kind cluster and deploy helm charts
 
 .PHONY: kind-deploy-reporter
-kind-deploy-reporter: ## Deploy policy-reporter helm chart
+kind-deploy-reporter: $(HELM) ## Deploy policy-reporter helm chart
 	@echo Install policy-reporter chart... >&2
-	@helm upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
+	@$(HELM) upgrade --install policy-reporter --repo https://kyverno.github.io/policy-reporter policy-reporter -n policy-reporter \
 		--set ui.enabled=true \
 		--set kyvernoPlugin.enabled=true \
 		--create-namespace
