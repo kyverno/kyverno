@@ -17,5 +17,11 @@ jobs:
         uses: actions/setup-go@268d8c0ca0432bb2cf416faae41297df9d262d7f # pin@v3
         with:
           go-version: ~1.18.6
-      - name: Kyverno conformance tests
-        run: go run ./test/conformance/main.go
+      - name: Prep environment
+        run: make kind-create-cluster kind-deploy-kyverno
+      - name: Install kuttl
+        run: kubectl krew install kuttl
+      - name: Run kuttl
+        run: kubectl kuttl test ./test/conformance/kuttl/kuttl-test.yaml
+      # - name: Kyverno conformance tests
+      #   run: go run ./test/conformance/main.go

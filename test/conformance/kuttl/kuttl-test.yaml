@@ -1,0 +1,14 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+  # Generate tests
+# - ./generate/clusterpolicy/standard/clone/nosync
+- ./generate/clusterpolicy/standard/clone/sync
+- ./generate/clusterpolicy/standard/data/sync
+- ./generate/clusterpolicy/standard/data/nosync
+- ./mutate/
+- ./validate/
+- ./verifyImages/
+startKIND: false
+timeout: 15
+parallel: 1
