@@ -59,7 +59,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Enforce,
+						ValidationFailureAction: "Enforce",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-fail",
@@ -80,7 +80,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Audit,
+						ValidationFailureAction: "Audit",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-fail",
@@ -101,7 +101,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Audit,
+						ValidationFailureAction: "Audit",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-error",
@@ -122,7 +122,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Audit,
+						ValidationFailureAction: "Audit",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-error",
@@ -143,7 +143,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Audit,
+						ValidationFailureAction: "Audit",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-warning",
@@ -164,7 +164,7 @@ func TestBlockRequest(t *testing.T) {
 			engineResponses: []*response.EngineResponse{
 				{
 					PolicyResponse: response.PolicyResponse{
-						ValidationFailureAction: kyvernov1.Audit,
+						ValidationFailureAction: "Audit",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-warning",
@@ -205,7 +205,7 @@ func TestGetBlockedMessages(t *testing.T) {
 						Policy: response.PolicySpec{
 							Name: "test",
 						},
-						ValidationFailureAction: kyvernov1.Enforce,
+						ValidationFailureAction: "Enforce",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-fail",
@@ -232,7 +232,7 @@ func TestGetBlockedMessages(t *testing.T) {
 						Policy: response.PolicySpec{
 							Name: "test",
 						},
-						ValidationFailureAction: kyvernov1.Enforce,
+						ValidationFailureAction: "Enforce",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-error",
@@ -259,7 +259,7 @@ func TestGetBlockedMessages(t *testing.T) {
 						Policy: response.PolicySpec{
 							Name: "test",
 						},
-						ValidationFailureAction: kyvernov1.Enforce,
+						ValidationFailureAction: "Enforce",
 						Rules: []response.RuleResponse{
 							{
 								Name:    "rule-fail",

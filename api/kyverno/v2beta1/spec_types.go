@@ -32,7 +32,7 @@ type Spec struct {
 	// and report an error in a policy report. Optional.
 	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=audit
 	ValidationFailureAction kyvernov1.ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
@@ -185,15 +185,6 @@ func (s *Spec) GetFailurePolicy() kyvernov1.FailurePolicyType {
 		return kyvernov1.Fail
 	}
 	return *s.FailurePolicy
-}
-
-// GetValidationFailureAction returns the validation failure action to be applied
-func (s *Spec) GetValidationFailureAction() kyvernov1.ValidationFailureAction {
-	if s.ValidationFailureAction == "" {
-		return kyvernov1.Audit
-	}
-
-	return s.ValidationFailureAction
 }
 
 // GetFailurePolicy returns the failure policy to be applied
