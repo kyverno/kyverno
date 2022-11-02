@@ -325,7 +325,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	} else {
 		list, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).List(ctx, metav1.ListOptions{})
@@ -333,7 +335,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	}
 	return reports, nil
