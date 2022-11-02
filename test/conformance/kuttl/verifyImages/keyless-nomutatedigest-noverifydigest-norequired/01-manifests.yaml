@@ -23,3 +23,5 @@ spec:
           - keyless:
               subject: "https://github.com/chipzoller/zulu/.github/workflows/slsa-generic-keyless.yaml@refs/tags/v*"
               issuer: "https://token.actions.githubusercontent.com"
+              rekor:
+                url: https://rekor.sigstore.dev
