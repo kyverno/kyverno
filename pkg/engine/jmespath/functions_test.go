@@ -849,7 +849,7 @@ func Test_Divide(t *testing.T) {
 			err:  true,
 		},
 		{
-			test: "divide('12s', `2`)",
+			test: "divide(`12`, '2s')",
 			err:  true,
 		},
 		{
@@ -858,7 +858,7 @@ func Test_Divide(t *testing.T) {
 			retFloat:       true,
 		},
 		{
-			test:           "divide(`12`, '2s')",
+			test:           "divide('12s', `2`)",
 			expectedResult: `6s`,
 		},
 		{
