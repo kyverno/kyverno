@@ -21,15 +21,12 @@ func registerPolicyExecutionDurationMetric(
 	ruleResult metrics.RuleResult,
 	ruleType metrics.RuleType,
 	ruleExecutionCause metrics.RuleExecutionCause,
-	generateRuleLatencyType string,
 	ruleExecutionLatency float64,
 ) error {
 	if policyType == metrics.Cluster {
 		policyNamespace = "-"
 	}
-	if ruleType != metrics.Generate || generateRuleLatencyType == "" {
-		generateRuleLatencyType = "-"
-	}
+
 	includeNamespaces, excludeNamespaces := m.Config.GetIncludeNamespaces(), m.Config.GetExcludeNamespaces()
 	if (resourceNamespace != "" && resourceNamespace != "-") && utils.ContainsString(excludeNamespaces, resourceNamespace) {
 		m.Log.V(2).Info(fmt.Sprintf("Skipping the registration of kyverno_policy_execution_duration_seconds metric as the operation belongs to the namespace '%s' which is one of 'namespaces.exclude' %+v in values.yaml", resourceNamespace, excludeNamespaces))
@@ -40,14 +37,14 @@ func registerPolicyExecutionDurationMetric(
 		return nil
 	}
 
-	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, generateRuleLatencyType, ruleExecutionLatency)
+	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, resourceRequestOperation, ruleName, ruleResult, ruleType, ruleExecutionCause, ruleExecutionLatency)
 
 	return nil
 }
 
 // policy - policy related data
 // engineResponse - resource and rule related data
-func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, generateRuleLatencyType string, resourceRequestOperation metrics.ResourceRequestOperation) error {
+func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse, executionCause metrics.RuleExecutionCause, resourceRequestOperation metrics.ResourceRequestOperation) error {
 	name, namespace, policyType, backgroundMode, validationMode, err := metrics.GetPolicyInfos(policy)
 	if err != nil {
 		return err
@@ -87,7 +84,6 @@ func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInte
 			ruleResult,
 			ruleType,
 			executionCause,
-			generateRuleLatencyType,
 			ruleExecutionLatencyInSeconds,
 		); err != nil {
 			return err

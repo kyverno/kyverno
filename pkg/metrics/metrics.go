@@ -309,7 +309,7 @@ func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNam
 
 func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
 	resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64,
+	ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64,
 ) {
 	ctx := context.Background()
 
@@ -326,7 +326,6 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode Polic
 		attribute.String("rule_result", string(ruleResult)),
 		attribute.String("rule_type", string(ruleType)),
 		attribute.String("rule_execution_cause", string(ruleExecutionCause)),
-		attribute.String("general_rule_latency_type", generalRuleLatencyType),
 	}
 
 	m.policyExecutionDurationMetric.Record(ctx, ruleExecutionLatency, commonLabels...)
