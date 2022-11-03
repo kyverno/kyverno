@@ -1,0 +1,23 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: mutate-wildcard
+spec:
+  background: false
+  mutateExistingOnPolicyUpdate: true
+  failurePolicy: Ignore
+  rules:
+  - name: mutate-wildcard
+    match:
+      all:
+        - resources:
+            kinds:
+            - "Pod"
+    mutate:
+      targets:
+      - apiVersion: v1
+        kind: Pod    
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            test: "app"

@@ -41,6 +41,9 @@ type PolicyContext struct {
 
 	// AdmissionOperation represents if the caller is from the webhook server
 	AdmissionOperation bool
+
+	// IsTest flag used for discriminate between test and apply commands
+	IsTest bool
 }
 
 func (pc *PolicyContext) Copy() *PolicyContext {

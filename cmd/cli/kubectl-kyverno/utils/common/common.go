@@ -84,6 +84,7 @@ type ApplyPolicyConfig struct {
 	PrintPatchResource        bool
 	RuleToCloneSourceResource map[string]string
 	Client                    dclient.Interface
+	IsTest                    bool
 }
 
 // HasVariables - check for variables in the policy
@@ -454,6 +455,8 @@ OuterLoop:
 		NamespaceLabels: namespaceLabels,
 		AdmissionInfo:   c.UserInfo,
 		Client:          c.Client,
+		IsTest:          c.IsTest,
+		OldResource: 	 *c.Resource,
 	}
 
 	mutateResponse := engine.Mutate(policyContext)

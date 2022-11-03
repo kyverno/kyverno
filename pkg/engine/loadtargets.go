@@ -83,16 +83,26 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		return []unstructured.Unstructured{*obj}, nil
 	}
 
-	// list all targets if wildcard is specified
-	objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
-	if err != nil {
-		return nil, err
-	}
+	// if comes from testCommandExecute
+	if ctx.IsTest {
+		// Get resource from kyverno-test.yaml
+		// Then parse to *unstructured.UnstructuredList
+		list := &unstructured.UnstructuredList{}
+		list.Items = append(list.Items, ctx.OldResource)
+		targetObjects = append(targetObjects, list.Items[0])
 
-	for i := range objList.Items {
-		obj := objList.Items[i].DeepCopy()
-		if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
-			targetObjects = append(targetObjects, *obj)
+	} else {
+		// list all targets if wildcard is specified
+		objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
+		if err != nil {
+			return nil, err
+		}
+
+		for i := range objList.Items {
+			obj := objList.Items[i].DeepCopy()
+			if match(namespace, name, obj.GetNamespace(), obj.GetName()) {
+				targetObjects = append(targetObjects, *obj)
+			}
 		}
 	}
 

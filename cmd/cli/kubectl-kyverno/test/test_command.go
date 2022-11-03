@@ -476,7 +476,6 @@ func testCommandExecute(dirPath []string, fileName string, gitBranch string, tes
 		printFailedTestResult()
 		os.Exit(1)
 	}
-	os.Exit(0)
 	return rc, nil
 }
 
@@ -1014,6 +1013,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 				Rc:                        &resultCounts,
 				RuleToCloneSourceResource: ruleToCloneSourceResource,
 				Client:                    dClient,
+				IsTest:                    true,
 			}
 			ers, info, err := common.ApplyPolicyOnResource(applyPolicyConfig)
 			if err != nil {
