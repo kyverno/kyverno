@@ -15,7 +15,7 @@ func registerPolicyExecutionDurationMetric(
 	policyType metrics.PolicyType,
 	policyBackgroundMode metrics.PolicyBackgroundMode,
 	policyNamespace, policyName string,
-	resourceKind, resourceNamespace string,
+	resourceNamespace string,
 	ruleName string,
 	ruleResult metrics.RuleResult,
 	ruleType metrics.RuleType,
@@ -36,7 +36,7 @@ func registerPolicyExecutionDurationMetric(
 		return nil
 	}
 
-	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, ruleName, ruleResult, ruleType, ruleExecutionCause, ruleExecutionLatency)
+	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, ruleName, ruleResult, ruleType, ruleExecutionCause, ruleExecutionLatency)
 
 	return nil
 }
@@ -49,7 +49,6 @@ func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInte
 		return err
 	}
 	resourceSpec := engineResponse.PolicyResponse.Resource
-	resourceKind := resourceSpec.Kind
 	resourceNamespace := resourceSpec.Namespace
 	ruleResponses := engineResponse.PolicyResponse.Rules
 	for _, rule := range ruleResponses {
@@ -77,7 +76,7 @@ func ProcessEngineResponse(m *metrics.MetricsConfig, policy kyvernov1.PolicyInte
 			policyType,
 			backgroundMode,
 			namespace, name,
-			resourceKind, resourceNamespace,
+			resourceNamespace,
 			ruleName,
 			ruleResult,
 			ruleType,
