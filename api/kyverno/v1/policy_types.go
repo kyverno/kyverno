@@ -104,6 +104,10 @@ func (p *Policy) IsReady() bool {
 	return p.Status.IsReady()
 }
 
+func (p *Policy) ValidateSchema() bool {
+	return p.Spec.ValidateSchema()
+}
+
 // Validate implements programmatic validation.
 // namespaced means that the policy is bound to a namespace and therefore
 // should not filter/generate cluster wide resources.
