@@ -303,19 +303,7 @@ func (op1 Scalar) Divide(op2 interface{}) (interface{}, error) {
 
 		return resource.NewDecimalQuantity(quo, v.Format).String(), nil
 	case Duration:
-		var quo float64
-		if op1.float64 == 0 {
-			return nil, fmt.Errorf(undefinedQuoError, divide)
-		}
-
-		quo = op1.float64 / v.Seconds()
-
-		res, err := time.ParseDuration(fmt.Sprintf("%.9fs", quo))
-		if err != nil {
-			return nil, err
-		}
-
-		return res.String(), nil
+		return nil, fmt.Errorf(invalidArgumentTypeError, divide, 2, "Real")
 	}
 
 	return nil, nil

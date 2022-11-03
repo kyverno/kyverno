@@ -853,6 +853,10 @@ func Test_Divide(t *testing.T) {
 			err:  true,
 		},
 		{
+			test: "divide(`360`, '-2s')",
+			err:  true,
+		},
+		{
 			test:           "divide(`25`, `2`)",
 			expectedResult: 12.5,
 			retFloat:       true,
@@ -870,10 +874,6 @@ func Test_Divide(t *testing.T) {
 			test:           "divide('25m0s', '2s')",
 			expectedResult: 750.0,
 			retFloat:       true,
-		},
-		{
-			test:           "divide(`360`, '-2s')",
-			expectedResult: `-3m0s`,
 		},
 		{
 			test:           "divide(`13312`, '1Ki')",
@@ -923,87 +923,87 @@ func Test_Modulo(t *testing.T) {
 		err            bool
 		retFloat       bool
 	}{
-		// {
-		// 	test: "modulo('12', '13s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Ki', '13s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '13')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '13Ki')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12s', '0s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0s')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12M', '0Mi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12K', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12K', '0m')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Ki', '0G')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Mi', '0Gi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo('12Mi', `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0Gi')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, '0K')",
-		// 	err:  true,
-		// },
-		// {
-		// 	test: "modulo(`12`, `0`)",
-		// 	err:  true,
-		// },
-		// {
-		// 	test:           "modulo(`25`, `2`)",
-		// 	expectedResult: 1.0,
-		// 	retFloat:       true,
-		// },
-		// {
-		// 	test:           "modulo(`13`, '2s')",
-		// 	expectedResult: `1s`,
-		// },
-		// {
-		// 	test:           "modulo('25m13s', '32s')",
-		// 	expectedResult: `9s`,
-		// },
-		// {
-		// 	test:           "modulo(`371`, '-13s')",
-		// 	expectedResult: `7s`,
-		// },
+		{
+			test: "modulo('12', '13s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Ki', '13s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '13')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '13Ki')",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo('12s', '0s')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0s')",
+			err:  true,
+		},
+		{
+			test: "modulo('12M', '0Mi')",
+			err:  true,
+		},
+		{
+			test: "modulo('12K', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo('12K', '0m')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Ki', '0G')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Mi', '0Gi')",
+			err:  true,
+		},
+		{
+			test: "modulo('12Mi', `0`)",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0Gi')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, '0K')",
+			err:  true,
+		},
+		{
+			test: "modulo(`12`, `0`)",
+			err:  true,
+		},
+		{
+			test:           "modulo(`25`, `2`)",
+			expectedResult: 1.0,
+			retFloat:       true,
+		},
+		{
+			test:           "modulo(`13`, '2s')",
+			expectedResult: `1s`,
+		},
+		{
+			test:           "modulo('25m13s', '32s')",
+			expectedResult: `9s`,
+		},
+		{
+			test:           "modulo(`371`, '-13s')",
+			expectedResult: `7s`,
+		},
 		{
 			test:           "modulo(`13312`, '513')",
 			expectedResult: `487`,
