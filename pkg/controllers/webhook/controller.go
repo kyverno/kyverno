@@ -224,6 +224,9 @@ func (c *controller) watchdog(ctx context.Context, logger logr.Logger) {
 							Labels: map[string]string{
 								"app.kubernetes.io/name": kyvernov1.ValueKyvernoApp,
 							},
+							Annotations: map[string]string{
+								AnnotationLastRequestTime: time.Now().Format(time.RFC3339),
+							},
 						},
 					}, metav1.CreateOptions{})
 					if err != nil {
