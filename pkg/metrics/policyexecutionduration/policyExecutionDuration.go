@@ -36,7 +36,7 @@ func registerPolicyExecutionDurationMetric(
 		return nil
 	}
 
-	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, resourceNamespace, ruleName, ruleResult, ruleType, ruleExecutionCause, ruleExecutionLatency)
+	m.RecordPolicyExecutionDuration(policyValidationMode, policyType, policyBackgroundMode, policyNamespace, policyName, resourceKind, ruleName, ruleResult, ruleType, ruleExecutionCause, ruleExecutionLatency)
 
 	return nil
 }

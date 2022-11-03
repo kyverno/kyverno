@@ -308,8 +308,7 @@ func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNam
 }
 
 func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-	resourceKind string, resourceNamespace string, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64) {
+	resourceKind string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
@@ -319,7 +318,6 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode Polic
 		attribute.String("policy_namespace", policyNamespace),
 		attribute.String("policy_name", policyName),
 		attribute.String("resource_kind", resourceKind),
-		attribute.String("resource_namespace", resourceNamespace),
 		attribute.String("rule_name", ruleName),
 		attribute.String("rule_result", string(ruleResult)),
 		attribute.String("rule_type", string(ruleType)),
