@@ -91,7 +91,8 @@ func Test_VariableSubstitutionPatchStrategicMerge(t *testing.T) {
 	policyContext := &PolicyContext{
 		Policy:      &policy,
 		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		NewResource: *resourceUnstructured,
+	}
 	er := Mutate(policyContext)
 	t.Log(string(expectedPatch))
 
@@ -164,7 +165,8 @@ func Test_variableSubstitutionPathNotExist(t *testing.T) {
 	policyContext := &PolicyContext{
 		Policy:      &policy,
 		JSONContext: ctx,
-		NewResource: *resourceUnstructured}
+		NewResource: *resourceUnstructured,
+	}
 	er := Mutate(policyContext)
 	assert.Equal(t, len(er.PolicyResponse.Rules), 1)
 	assert.Assert(t, strings.Contains(er.PolicyResponse.Rules[0].Message, "Unknown key \"name1\" in path"))
@@ -1416,6 +1418,94 @@ func Test_mutate_existing_resources(t *testing.T) {
 			},
 			targetList: "ComfigMapList",
 			patches:    []string{`{"op":"replace","path":"/data/key","value":"valuetwo-valueone"}`, `{"op":"replace","path":"/data/key","value":"valuethree-valueone"}`},
+		},
+		{
+			name: "testing-preconditions-for-target-resource",
+			policy: []byte(`{
+      "apiVersion": "kyverno.io/v1",
+      "kind": "ClusterPolicy",
+      "metadata": {
+        "name": "sync-cms"
+      },
+      "spec": {
+        "mutateExistingOnPolicyUpdate": false,
+        "rules": [
+          {
+            "name": "concat-cm",
+            "match": {
+              "any": [
+                {
+                  "resources": {
+                    "kinds": [
+                      "ConfigMap"
+                    ],
+                    "names": [
+                      "cmone"
+                    ],
+                    "namespaces": [
+                      "one"
+                    ]
+                  }
+                }
+              ]
+            },
+            "mutate": {
+              "targets": [
+                {
+                  "apiVersion": "v1",
+                  "kind": "ConfigMap",
+                  "name": "cmtwo",
+                  "namespace": "two"
+                }
+              ],
+              "preconditions": {
+                "all": [
+                  {
+                    "key": "{{ target.data.cmtwo }}",
+                    "operator": "Equals",
+                    "value": "fries"
+                  }
+                ]
+              },
+              "patchStrategicMerge": {
+                "data": {
+                  "cmtwo": "{{@}} plus {{ request.object.data.cmone }}"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+    `),
+			trigger: []byte(`{
+      "apiVersion": "v1",
+      "data": {
+          "cmone": "french"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+          "name": "cmone",
+          "namespace": "one"
+      }
+  }`),
+			targets: [][]byte{
+				[]byte(`
+          {
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": {
+                "name": "cmtwo",
+                "namespace": "two"
+            },
+            "data": {
+                "cmtwo": "fries"
+            }
+          }
+    `),
+			},
+			targetList: "ComfigMapList",
+			patches:    []string{`{"op":"replace","path":"/data/cmtwo","value":"fries plus french"}`},
 		},
 	}
 
