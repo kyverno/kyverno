@@ -68,7 +68,7 @@ func (pc *PolicyController) registerPolicyResultsMetricValidation(logger logr.Lo
 }
 
 func (pc *PolicyController) registerPolicyExecutionDurationMetricValidate(logger logr.Logger, policy kyvernov1.PolicyInterface, engineResponse response.EngineResponse) {
-	if err := policyExecutionDuration.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, "", metrics.ResourceCreated); err != nil {
+	if err := policyExecutionDuration.ProcessEngineResponse(pc.metricsConfig, policy, engineResponse, metrics.BackgroundScan, metrics.ResourceCreated); err != nil {
 		logger.Error(err, "error occurred while registering kyverno_policy_execution_duration_seconds metrics for the above policy", "name", policy.GetName())
 	}
 }
