@@ -51,7 +51,7 @@ type MetricsConfigManager interface {
 	RecordPolicyChanges(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, policyChangeType string)
 	RecordPolicyRuleInfo(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, ruleName string, ruleType RuleType, status string, metricValue float64)
 	RecordAdmissionRequests(resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation)
-	RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, generalRuleLatencyType string, ruleExecutionLatency float64)
+	RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string, resourceKind string, resourceNamespace string, ruleName string, ruleResult RuleResult, ruleType RuleType, ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64)
 	RecordAdmissionReviewDuration(resourceKind string, resourceNamespace string, resourceRequestOperation string, admissionRequestLatency float64)
 	RecordClientQueries(clientQueryOperation ClientQueryOperation, clientType ClientType, resourceKind string, resourceNamespace string)
 }
@@ -308,9 +308,8 @@ func (m *MetricsConfig) RecordAdmissionRequests(resourceKind string, resourceNam
 }
 
 func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode PolicyValidationMode, policyType PolicyType, policyBackgroundMode PolicyBackgroundMode, policyNamespace string, policyName string,
-	resourceKind string, resourceNamespace string, resourceRequestOperation ResourceRequestOperation, ruleName string, ruleResult RuleResult, ruleType RuleType,
-	ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64,
-) {
+	resourceKind string, resourceNamespace string, ruleName string, ruleResult RuleResult, ruleType RuleType,
+	ruleExecutionCause RuleExecutionCause, ruleExecutionLatency float64) {
 	ctx := context.Background()
 
 	commonLabels := []attribute.KeyValue{
@@ -321,7 +320,6 @@ func (m *MetricsConfig) RecordPolicyExecutionDuration(policyValidationMode Polic
 		attribute.String("policy_name", policyName),
 		attribute.String("resource_kind", resourceKind),
 		attribute.String("resource_namespace", resourceNamespace),
-		attribute.String("resource_request_operation", string(resourceRequestOperation)),
 		attribute.String("rule_name", ruleName),
 		attribute.String("rule_result", string(ruleResult)),
 		attribute.String("rule_type", string(ruleType)),
