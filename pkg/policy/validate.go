@@ -140,9 +140,6 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
 			return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
 		}
-		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
-			return warnings, fmt.Errorf("%s", err)
-		}
 
 		if jsonPatchOnPod(rule) {
 			msg := "Pods managed by workload controllers should not be directly mutated using policies. " +
