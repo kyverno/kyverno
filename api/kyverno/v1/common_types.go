@@ -514,6 +514,17 @@ func (g *Generation) SetData(in apiextensions.JSON) {
 	g.RawData = ToJSON(in)
 }
 
+// CleanUp delete resources in a Kubernetes cluster.
+type CleanUp struct {
+	// The schedule in Cron format
+	// +optional
+	Schedule string `json:"schedule,omitempty" yaml:"schedule,omitempty"`
+
+	// Conditions defines conditions used to select resources which user needs to delete
+	// +optional
+	Conditions *AnyAllConditions `json:"conditions,omitempty" yaml:"conditions,omitempty"`
+}
+
 // CloneFrom provides the location of the source resource used to generate target resources.
 // The resource kind is derived from the match criteria.
 type CloneFrom struct {

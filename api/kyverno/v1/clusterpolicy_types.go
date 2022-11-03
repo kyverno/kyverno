@@ -73,6 +73,11 @@ func (p *ClusterPolicy) HasGenerate() bool {
 	return p.Spec.HasGenerate()
 }
 
+// HasCleanUp checks for generate rule types
+func (p *ClusterPolicy) HasCleanUp() bool {
+	return p.Spec.HasCleanUp()
+}
+
 // HasVerifyImages checks for image verification rule types
 func (p *ClusterPolicy) HasVerifyImages() bool {
 	return p.Spec.HasVerifyImages()

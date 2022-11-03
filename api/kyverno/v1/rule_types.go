@@ -86,6 +86,10 @@ type Rule struct {
 	// VerifyImages is used to verify image signatures and mutate them to add a digest
 	// +optional
 	VerifyImages []ImageVerification `json:"verifyImages,omitempty" yaml:"verifyImages,omitempty"`
+
+	// CleanUp is used to delete resources in a Kubernetes cluster
+	// +optional
+	CleanUp CleanUp `json:"cleanup,omitempty" yaml:"cleanup,omitempty"`
 }
 
 // HasMutate checks for mutate rule
@@ -142,6 +146,11 @@ func (r *Rule) IsMutateExisting() bool {
 
 func (r *Rule) IsPodSecurity() bool {
 	return r.Validation.PodSecurity != nil
+}
+
+// HasCleanUp checks for cleanup rule
+func (r *Rule) HasCleanUp() bool {
+	return !reflect.DeepEqual(r.CleanUp, CleanUp{})
 }
 
 // IsCloneSyncGenerate checks if the generate rule has the clone block with sync=true

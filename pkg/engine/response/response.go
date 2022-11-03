@@ -87,6 +87,8 @@ const (
 	Generation RuleType = "Generation"
 	// ImageVerify type for image verification
 	ImageVerify RuleType = "ImageVerify"
+	// CleanUp type for cleanup rule
+	CleanUp RuleType = "CleanUp"
 )
 
 // RuleResponse details for each rule application

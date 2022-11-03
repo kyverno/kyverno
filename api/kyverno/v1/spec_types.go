@@ -144,6 +144,17 @@ func (s *Spec) HasGenerate() bool {
 	return false
 }
 
+// HasCleanUp checks for generate rule types
+func (s *Spec) HasCleanUp() bool {
+	for _, rule := range s.Rules {
+		if rule.HasCleanUp() {
+			return true
+		}
+	}
+
+	return false
+}
+
 // HasImagesValidationChecks checks for image verification rules invoked during resource validation
 func (s *Spec) HasImagesValidationChecks() bool {
 	for _, rule := range s.Rules {

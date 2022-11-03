@@ -25,6 +25,7 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
+	"github.com/robfig/cron/v3"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -269,6 +270,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
 					return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 						" the rule does not match any kind")
+				}
+			}
+
+			if rule.HasCleanUp() {
+				schedule := rule.CleanUp.Schedule
+				if _, err := cron.ParseStandard(schedule); err != nil {
+					return nil, fmt.Errorf("schedule spec in the policy's cleanup rule is not in proper cron format")
 				}
 			}
 

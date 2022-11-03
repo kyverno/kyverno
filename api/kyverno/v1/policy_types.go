@@ -74,6 +74,11 @@ func (p *Policy) HasGenerate() bool {
 	return p.Spec.HasGenerate()
 }
 
+// HasCleanUp checks for generate rule types
+func (p *Policy) HasCleanUp() bool {
+	return p.Spec.HasCleanUp()
+}
+
 // HasVerifyImages checks for image verification rule types
 func (p *Policy) HasVerifyImages() bool {
 	return p.Spec.HasVerifyImages()

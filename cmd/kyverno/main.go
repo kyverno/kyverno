@@ -23,6 +23,7 @@ import (
 	kyvernoclient "github.com/kyverno/kyverno/pkg/clients/wrappers"
 	"github.com/kyverno/kyverno/pkg/config"
 	"github.com/kyverno/kyverno/pkg/controllers/certmanager"
+	cleanupcontroller "github.com/kyverno/kyverno/pkg/controllers/cleanup"
 	configcontroller "github.com/kyverno/kyverno/pkg/controllers/config"
 	policymetricscontroller "github.com/kyverno/kyverno/pkg/controllers/metrics/policy"
 	openapicontroller "github.com/kyverno/kyverno/pkg/controllers/openapi"
@@ -350,11 +351,17 @@ func createNonLeaderControllers(
 		eventGenerator,
 		configuration,
 	)
+	cleanupController := cleanupcontroller.NewController(
+		dynamicClient,
+		kyvernoInformer.Kyverno().V1().ClusterPolicies(),
+		kyvernoInformer.Kyverno().V1().Policies(),
+	)
 	return []controller{
 			newController(policycachecontroller.ControllerName, policyCacheController, policycachecontroller.Workers),
 			newController(openapicontroller.ControllerName, openApiController, openapicontroller.Workers),
 			newController(configcontroller.ControllerName, configurationController, configcontroller.Workers),
 			newController("update-request-controller", updateRequestController, genWorkers),
+			newController(cleanupcontroller.ControllerName, cleanupController, cleanupcontroller.Workers),
 		},
 		func() error {
 			return policyCacheController.WarmUp()
