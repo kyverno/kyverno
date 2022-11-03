@@ -156,7 +156,7 @@ func (h *mutationHandler) applyMutation(request *admissionv1.AdmissionRequest, p
 		return nil, nil, fmt.Errorf("failed to apply policy %s rules %v", policyContext.Policy.GetName(), engineResponse.GetFailedRules())
 	}
 
-	if engineResponse.PatchedResource.GetKind() != "*" {
+	if policyContext.Policy.ValidateSchema() && engineResponse.PatchedResource.GetKind() != "*" {
 		err := h.openApiManager.ValidateResource(*engineResponse.PatchedResource.DeepCopy(), engineResponse.PatchedResource.GetAPIVersion(), engineResponse.PatchedResource.GetKind())
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "failed to validate resource mutated by policy %s", policyContext.Policy.GetName())
