@@ -6,8 +6,11 @@ testDirs:
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
+  # Mutate tests
 - ./test/conformance/kuttl/mutate/
+  # Validate tests
 - ./test/conformance/kuttl/validate/
+  #verifyImages tests
 - ./test/conformance/kuttl/verifyImages/
 startKIND: false
 timeout: 15
