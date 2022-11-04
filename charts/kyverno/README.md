@@ -210,7 +210,10 @@ The command removes all the Kubernetes components associated with the chart and 
 | networkPolicy.ingressFrom | list | `[]` | A list of valid from selectors according to https://kubernetes.io/docs/concepts/services-networking/network-policies. |
 | webhooksCleanup.enable | bool | `false` | Create a helm pre-delete hook to cleanup webhooks. |
 | webhooksCleanup.image | string | `"bitnami/kubectl:latest"` | `kubectl` image to run commands for deleting webhooks. |
-| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization |
+| tufRootMountPath | string | `"/.sigstore"` | A writable volume to use for the TUF root initialization. |
+| grafana.enabled | bool | `false` | Enable grafana dashboard creation. |
+| grafana.namespace | string | `nil` | Namespace to create the grafana dashboard configmap. If not set, it will be created in the same namespace where the chart is deployed. |
+| grafana.annotations | object | `{}` | Grafana dashboard configmap annotations. |
 
 ## TLS Configuration
 
