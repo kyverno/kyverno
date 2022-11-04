@@ -305,7 +305,6 @@ func (v *validator) validateForEach() *response.RuleResponse {
 			v.log.V(2).Info("failed to evaluate list", "list", foreach.List, "error", err.Error())
 			continue
 		}
-
 		resp, count := v.validateElements(foreach, elements, foreach.ElementScope)
 		if resp.Status != response.RuleStatusPass {
 			return resp
@@ -327,6 +326,9 @@ func (v *validator) validateElements(foreach kyvernov1.ForEachValidation, elemen
 	applyCount := 0
 
 	for i, e := range elements {
+		if e == nil {
+			continue
+		}
 		store.SetForeachElement(i)
 		v.ctx.JSONContext.Reset()
 
@@ -416,6 +418,7 @@ func (v *validator) validateDeny() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in deny conditions", err)
 	}
 
+	fmt.Println("anyAllCond======>", anyAllCond)
 	if err = v.substituteDeny(); err != nil {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in rule", err)
 	}
