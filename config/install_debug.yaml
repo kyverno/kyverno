@@ -3640,11 +3640,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -4101,11 +4103,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -4194,9 +4198,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -6552,11 +6556,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -7026,11 +7032,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -9301,11 +9309,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -9747,11 +9757,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -9815,9 +9827,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -12173,11 +12185,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -12647,11 +12661,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -15736,11 +15752,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -16197,11 +16215,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -16290,9 +16310,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -18649,11 +18669,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -19123,11 +19145,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
@@ -21399,11 +21423,13 @@ spec:
                                                 that contains a public key
                                               properties:
                                                 name:
-                                                  description: name of the secret
+                                                  description: Name of the secret.
+                                                    The provided secret must contain
+                                                    a key named cosign.pub.
                                                   type: string
                                                 namespace:
-                                                  description: namespace name in which
-                                                    secret is created
+                                                  description: Namespace name where
+                                                    the Secret exists.
                                                   type: string
                                               required:
                                               - name
@@ -21845,11 +21871,13 @@ spec:
                                               that contains a public key
                                             properties:
                                               name:
-                                                description: name of the secret
+                                                description: Name of the secret. The
+                                                  provided secret must contain a key
+                                                  named cosign.pub.
                                                 type: string
                                               namespace:
-                                                description: namespace name in which
-                                                  secret is created
+                                                description: Namespace name where
+                                                  the Secret exists.
                                                 type: string
                                             required:
                                             - name
@@ -21913,9 +21941,9 @@ spec:
                   type: object
                 type: array
               schemaValidation:
-                description: SchemaValidation skips policy validation checks. Optional.
-                  The default value is set to "true", it must be set to "false" to
-                  disable the validation checks.
+                description: SchemaValidation skips validation checks for policies
+                  as well as patched resources. Optional. The default value is set
+                  to "true", it must be set to "false" to disable the validation checks.
                 type: boolean
               validationFailureAction:
                 default: audit
@@ -24271,11 +24299,13 @@ spec:
                                                     key
                                                   properties:
                                                     name:
-                                                      description: name of the secret
+                                                      description: Name of the secret.
+                                                        The provided secret must contain
+                                                        a key named cosign.pub.
                                                       type: string
                                                     namespace:
-                                                      description: namespace name
-                                                        in which secret is created
+                                                      description: Namespace name
+                                                        where the Secret exists.
                                                       type: string
                                                   required:
                                                   - name
@@ -24745,11 +24775,13 @@ spec:
                                                   key
                                                 properties:
                                                   name:
-                                                    description: name of the secret
+                                                    description: Name of the secret.
+                                                      The provided secret must contain
+                                                      a key named cosign.pub.
                                                     type: string
                                                   namespace:
-                                                    description: namespace name in
-                                                      which secret is created
+                                                    description: Namespace name where
+                                                      the Secret exists.
                                                     type: string
                                                 required:
                                                 - name
