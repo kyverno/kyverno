@@ -71,6 +71,11 @@ type Rule struct {
 	// +optional
 	RawAnyAllConditions *apiextv1.JSON `json:"preconditions,omitempty" yaml:"preconditions,omitempty"`
 
+	// AnyOrAll specifies whether Any and All of attributes will be treated as ANDed or ORed.
+	// If AnyOrAll is set to true, It means Any and All attributes will be treated as ORed otherwise will be treated ANDed.
+	// +optional
+	AnyOrAll bool
+
 	// Mutation is used to modify matching resources.
 	// +optional
 	Mutation Mutation `json:"mutate,omitempty" yaml:"mutate,omitempty"`
