@@ -418,7 +418,6 @@ func (v *validator) validateDeny() *response.RuleResponse {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in deny conditions", err)
 	}
 
-	fmt.Println("anyAllCond======>", anyAllCond)
 	if err = v.substituteDeny(); err != nil {
 		return ruleError(v.rule, response.Validation, "failed to substitute variables in rule", err)
 	}
