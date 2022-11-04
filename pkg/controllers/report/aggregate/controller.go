@@ -60,6 +60,11 @@ type controller struct {
 	chunkSize int
 }
 
+type policyMapEntry struct {
+	policy kyvernov1.PolicyInterface
+	rules  sets.String
+}
+
 func keyFunc(obj metav1.Object) cache.ExplicitKey {
 	return cache.ExplicitKey(obj.GetNamespace())
 }
@@ -104,7 +109,7 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string, policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
+func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string, policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
 	if namespace == "" {
 		next := ""
 		for {
@@ -144,7 +149,7 @@ func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string
 	}
 }
 
-func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace string, policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
+func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace string, policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
 	if namespace == "" {
 		next := ""
 		for {
@@ -184,11 +189,26 @@ func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace s
 	}
 }
 
-func (c *controller) reconcileReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
+func (c *controller) reconcileReport(ctx context.Context, policyMap map[string]policyMapEntry, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
 	if report == nil {
-		return reportutils.CreateReport(ctx, reportutils.NewPolicyReport(namespace, name, results...), c.client)
+		report = reportutils.NewPolicyReport(namespace, name, results...)
+		for _, result := range results {
+			policy := policyMap[result.Policy]
+			if policy.policy != nil {
+				reportutils.SetPolicyLabel(report, policy.policy)
+			}
+		}
+		return reportutils.CreateReport(ctx, report, c.client)
 	}
 	after := reportutils.DeepCopy(report)
+	after.SetLabels(nil)
+	reportutils.SetManagedByKyvernoLabel(after)
+	for _, result := range results {
+		policy := policyMap[result.Policy]
+		if policy.policy != nil {
+			reportutils.SetPolicyLabel(after, policy.policy)
+		}
+	}
 	reportutils.SetResults(after, results...)
 	if reflect.DeepEqual(report, after) {
 		return after, nil
@@ -212,7 +232,7 @@ func (c *controller) cleanReports(ctx context.Context, actual map[string]kyverno
 	return nil
 }
 
-func mergeReports(policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
+func mergeReports(policyMap map[string]policyMapEntry, accumulator map[string]policyreportv1alpha2.PolicyReportResult, reports ...kyvernov1alpha2.ReportInterface) {
 	for _, report := range reports {
 		if len(report.GetOwnerReferences()) == 1 {
 			ownerRef := report.GetOwnerReferences()[0]
@@ -225,7 +245,7 @@ func mergeReports(policyMap map[string]sets.String, accumulator map[string]polic
 			}}
 			for _, result := range report.GetResults() {
 				currentPolicy := policyMap[result.Policy]
-				if currentPolicy != nil && currentPolicy.Has(result.Rule) {
+				if currentPolicy.rules != nil && currentPolicy.rules.Has(result.Rule) {
 					key := result.Policy + "/" + result.Rule + "/" + string(ownerRef.UID)
 					result.Resources = objectRefs
 					if rule, exists := accumulator[key]; !exists {
@@ -239,8 +259,8 @@ func mergeReports(policyMap map[string]sets.String, accumulator map[string]polic
 	}
 }
 
-func (c *controller) createPolicyMap() (map[string]sets.String, error) {
-	results := map[string]sets.String{}
+func (c *controller) createPolicyMap() (map[string]policyMapEntry, error) {
+	results := map[string]policyMapEntry{}
 	cpols, err := c.cpolLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -250,9 +270,12 @@ func (c *controller) createPolicyMap() (map[string]sets.String, error) {
 		if err != nil {
 			return nil, err
 		}
-		results[key] = sets.NewString()
+		results[key] = policyMapEntry{
+			policy: cpol,
+			rules:  sets.NewString(),
+		}
 		for _, rule := range autogen.ComputeRules(cpol) {
-			results[key].Insert(rule.Name)
+			results[key].rules.Insert(rule.Name)
 		}
 	}
 	pols, err := c.polLister.List(labels.Everything())
@@ -264,31 +287,34 @@ func (c *controller) createPolicyMap() (map[string]sets.String, error) {
 		if err != nil {
 			return nil, err
 		}
-		results[key] = sets.NewString()
+		results[key] = policyMapEntry{
+			policy: pol,
+			rules:  sets.NewString(),
+		}
 		for _, rule := range autogen.ComputeRules(pol) {
-			results[key].Insert(rule.Name)
+			results[key].rules.Insert(rule.Name)
 		}
 	}
 	return results, nil
 }
 
-func (c *controller) buildReportsResults(ctx context.Context, namespace string) ([]policyreportv1alpha2.PolicyReportResult, error) {
+func (c *controller) buildReportsResults(ctx context.Context, namespace string) ([]policyreportv1alpha2.PolicyReportResult, map[string]policyMapEntry, error) {
 	policyMap, err := c.createPolicyMap()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
 	if err := c.mergeAdmissionReports(ctx, namespace, policyMap, merged); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := c.mergeBackgroundScanReports(ctx, namespace, policyMap, merged); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, result := range merged {
 		results = append(results, result)
 	}
-	return results, nil
+	return results, policyMap, nil
 }
 
 func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
@@ -318,7 +344,7 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 }
 
 func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, _ string) error {
-	results, err := c.buildReportsResults(ctx, key)
+	results, policyMap, err := c.buildReportsResults(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -346,7 +372,7 @@ func (c *controller) reconcile(ctx context.Context, logger logr.Logger, key, _, 
 			if i > 0 {
 				name = fmt.Sprintf("%s-%d", name, i/chunkSize)
 			}
-			report, err := c.reconcileReport(ctx, actual[name], key, name, results[i:end]...)
+			report, err := c.reconcileReport(ctx, policyMap, actual[name], key, name, results[i:end]...)
 			if err != nil {
 				return err
 			}
