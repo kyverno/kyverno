@@ -27,6 +27,7 @@ const (
 	Validate      RuleType = "validate"
 	Mutate        RuleType = "mutate"
 	Generate      RuleType = "generate"
+	ImageVerify   RuleType = "imageVerify"
 	EmptyRuleType RuleType = "-"
 )
 
