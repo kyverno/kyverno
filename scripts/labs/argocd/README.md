@@ -11,8 +11,6 @@ This lab sets up the following components:
 - ArgoCD application to deploy [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack)
 - ArgoCD application to deploy [loki-stack](https://github.com/grafana/helm-charts/tree/main/charts/loki-stack)
 
-> **Note**: Unfortunately kube-prometheus-stack fails to sync the first time it is deployed hence we need to make it pass by hand.
-
 ## Install
 
 Run the command below to install the lab:
