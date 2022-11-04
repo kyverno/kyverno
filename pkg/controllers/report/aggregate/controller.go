@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
 	kyvernov1alpha2 "github.com/kyverno/kyverno/api/kyverno/v1alpha2"
 	policyreportv1alpha2 "github.com/kyverno/kyverno/api/policyreport/v1alpha2"
 	"github.com/kyverno/kyverno/pkg/autogen"
@@ -35,6 +36,7 @@ const (
 	Workers        = 1
 	ControllerName = "aggregate-report-controller"
 	maxRetries     = 10
+	mergeLimit     = 1000
 )
 
 type controller struct {
@@ -74,6 +76,8 @@ func NewController(
 	cadmrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusteradmissionreports"))
 	bgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("backgroundscanreports"))
 	cbgscanrInformer := metadataFactory.ForResource(kyvernov1alpha2.SchemeGroupVersion.WithResource("clusterbackgroundscanreports"))
+	polrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("policyreports"))
+	cpolrInformer := metadataFactory.ForResource(policyreportv1alpha2.SchemeGroupVersion.WithResource("clusterpolicyreports"))
 	c := controller{
 		client:         client,
 		polLister:      polInformer.Lister(),
@@ -87,6 +91,8 @@ func NewController(
 		chunkSize:      chunkSize,
 	}
 	delay := 15 * time.Second
+	controllerutils.AddDelayedExplicitEventHandlers(logger, polrInformer.Informer(), c.queue, delay, keyFunc)
+	controllerutils.AddDelayedExplicitEventHandlers(logger, cpolrInformer.Informer(), c.queue, delay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, admrInformer.Informer(), c.queue, delay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, cadmrInformer.Informer(), c.queue, delay, keyFunc)
 	controllerutils.AddDelayedExplicitEventHandlers(logger, bgscanrInformer.Informer(), c.queue, delay, keyFunc)
@@ -98,48 +104,84 @@ func (c *controller) Run(ctx context.Context, workers int) {
 	controllerutils.Run(ctx, logger, ControllerName, time.Second, c.queue, workers, maxRetries, c.reconcile)
 }
 
-func (c *controller) listAdmissionReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
-	var reports []kyvernov1alpha2.ReportInterface
+func (c *controller) mergeAdmissionReports(ctx context.Context, namespace string, policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
 	if namespace == "" {
-		cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range cadms.Items {
-			reports = append(reports, &cadms.Items[i])
+		next := ""
+		for {
+			cadms, err := c.client.KyvernoV1alpha2().ClusterAdmissionReports().List(ctx, metav1.ListOptions{
+				Limit:    mergeLimit,
+				Continue: next,
+			})
+			if err != nil {
+				return err
+			}
+			next = cadms.Continue
+			for i := range cadms.Items {
+				mergeReports(policyMap, accumulator, &cadms.Items[i])
+			}
+			if next == "" {
+				return nil
+			}
 		}
 	} else {
-		adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range adms.Items {
-			reports = append(reports, &adms.Items[i])
+		next := ""
+		for {
+			adms, err := c.client.KyvernoV1alpha2().AdmissionReports(namespace).List(ctx, metav1.ListOptions{
+				Limit:    mergeLimit,
+				Continue: next,
+			})
+			if err != nil {
+				return err
+			}
+			next = adms.Continue
+			for i := range adms.Items {
+				mergeReports(policyMap, accumulator, &adms.Items[i])
+			}
+			if next == "" {
+				return nil
+			}
 		}
 	}
-	return reports, nil
 }
 
-func (c *controller) listBackgroundScanReports(ctx context.Context, namespace string) ([]kyvernov1alpha2.ReportInterface, error) {
-	var reports []kyvernov1alpha2.ReportInterface
+func (c *controller) mergeBackgroundScanReports(ctx context.Context, namespace string, policyMap map[string]sets.String, accumulator map[string]policyreportv1alpha2.PolicyReportResult) error {
 	if namespace == "" {
-		cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range cbgscans.Items {
-			reports = append(reports, &cbgscans.Items[i])
+		next := ""
+		for {
+			cbgscans, err := c.client.KyvernoV1alpha2().ClusterBackgroundScanReports().List(ctx, metav1.ListOptions{
+				Limit:    mergeLimit,
+				Continue: next,
+			})
+			if err != nil {
+				return err
+			}
+			next = cbgscans.Continue
+			for i := range cbgscans.Items {
+				mergeReports(policyMap, accumulator, &cbgscans.Items[i])
+			}
+			if next == "" {
+				return nil
+			}
 		}
 	} else {
-		bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range bgscans.Items {
-			reports = append(reports, &bgscans.Items[i])
+		next := ""
+		for {
+			bgscans, err := c.client.KyvernoV1alpha2().BackgroundScanReports(namespace).List(ctx, metav1.ListOptions{
+				Limit:    mergeLimit,
+				Continue: next,
+			})
+			if err != nil {
+				return err
+			}
+			next = bgscans.Continue
+			for i := range bgscans.Items {
+				mergeReports(policyMap, accumulator, &bgscans.Items[i])
+			}
+			if next == "" {
+				return nil
+			}
 		}
 	}
-	return reports, nil
 }
 
 func (c *controller) reconcileReport(ctx context.Context, report kyvernov1alpha2.ReportInterface, namespace, name string, results ...policyreportv1alpha2.PolicyReportResult) (kyvernov1alpha2.ReportInterface, error) {
@@ -236,19 +278,11 @@ func (c *controller) buildReportsResults(ctx context.Context, namespace string) 
 		return nil, err
 	}
 	merged := map[string]policyreportv1alpha2.PolicyReportResult{}
-	{
-		reports, err := c.listAdmissionReports(ctx, namespace)
-		if err != nil {
-			return nil, err
-		}
-		mergeReports(policyMap, merged, reports...)
+	if err := c.mergeAdmissionReports(ctx, namespace, policyMap, merged); err != nil {
+		return nil, err
 	}
-	{
-		reports, err := c.listBackgroundScanReports(ctx, namespace)
-		if err != nil {
-			return nil, err
-		}
-		mergeReports(policyMap, merged, reports...)
+	if err := c.mergeBackgroundScanReports(ctx, namespace, policyMap, merged); err != nil {
+		return nil, err
 	}
 	var results []policyreportv1alpha2.PolicyReportResult
 	for _, result := range merged {
@@ -265,7 +299,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	} else {
 		list, err := c.client.Wgpolicyk8sV1alpha2().PolicyReports(namespace).List(ctx, metav1.ListOptions{})
@@ -273,7 +309,9 @@ func (c *controller) getPolicyReports(ctx context.Context, namespace string) ([]
 			return nil, err
 		}
 		for i := range list.Items {
-			reports = append(reports, &list.Items[i])
+			if controllerutils.CheckLabel(&list.Items[i], kyvernov1.LabelAppManagedBy, kyvernov1.ValueKyvernoApp) {
+				reports = append(reports, &list.Items[i])
+			}
 		}
 	}
 	return reports, nil

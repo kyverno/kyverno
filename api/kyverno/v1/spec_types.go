@@ -13,11 +13,20 @@ type ValidationFailureAction string
 
 // Policy Reporting Modes
 const (
-	// Enforce blocks the request on failure
-	Enforce ValidationFailureAction = "enforce"
-	// Audit indicates not to block the request on failure, but report failures as policy violations
-	Audit ValidationFailureAction = "audit"
+	// enforceOld blocks the request on failure
+	// DEPRECATED: use enforce instead
+	enforceOld ValidationFailureAction = "enforce"
+	// enforce blocks the request on failure
+	enforce ValidationFailureAction = "Enforce"
 )
+
+func (a ValidationFailureAction) Enforce() bool {
+	return a == enforce || a == enforceOld
+}
+
+func (a ValidationFailureAction) Audit() bool {
+	return !a.Enforce()
+}
 
 type ValidationFailureActionOverride struct {
 	// +kubebuilder:validation:Enum=audit;enforce
@@ -50,7 +59,7 @@ type Spec struct {
 	// and report an error in a policy report. Optional.
 	// Allowed values are audit or enforce. The default value is "audit".
 	// +optional
-	// +kubebuilder:validation:Enum=audit;enforce
+	// +kubebuilder:validation:Enum=audit;enforce;Audit;Enforce
 	// +kubebuilder:default=audit
 	ValidationFailureAction ValidationFailureAction `json:"validationFailureAction,omitempty" yaml:"validationFailureAction,omitempty"`
 
@@ -66,7 +75,7 @@ type Spec struct {
 	// +kubebuilder:default=true
 	Background *bool `json:"background,omitempty" yaml:"background,omitempty"`
 
-	// SchemaValidation skips policy validation checks.
+	// SchemaValidation skips validation checks for policies as well as patched resources.
 	// Optional. The default value is set to "true", it must be set to "false" to disable the validation checks.
 	// +optional
 	SchemaValidation *bool `json:"schemaValidation,omitempty" yaml:"schemaValidation,omitempty"`
@@ -207,21 +216,19 @@ func (s *Spec) GetFailurePolicy() FailurePolicyType {
 	return *s.FailurePolicy
 }
 
-// GetValidationFailureAction returns the validation failure action to be applied
-func (s *Spec) GetValidationFailureAction() ValidationFailureAction {
-	if s.ValidationFailureAction == "" {
-		return Audit
-	}
-
-	return s.ValidationFailureAction
-}
-
 // GetFailurePolicy returns the failure policy to be applied
 func (s *Spec) GetApplyRules() ApplyRulesType {
 	if s.ApplyRules == nil {
 		return ApplyAll
 	}
 	return *s.ApplyRules
+}
+
+func (s *Spec) ValidateSchema() bool {
+	if s.SchemaValidation != nil {
+		return *s.SchemaValidation
+	}
+	return true
 }
 
 // ValidateRuleNames checks if the rule names are unique across a policy

@@ -25,7 +25,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/utils"
 	kubeutils "github.com/kyverno/kyverno/pkg/utils/kube"
 	"github.com/pkg/errors"
-	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -110,7 +109,8 @@ func validateJSONPatch(patch string, ruleIdx int) error {
 }
 
 // Validate checks the policy and rules declarations for required configurations
-func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) (*admissionv1.AdmissionResponse, error) {
+func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock bool, openApiManager openapi.Manager) ([]string, error) {
+	var warnings []string
 	namespaced := policy.IsNamespaced()
 	spec := policy.GetSpec()
 	background := spec.BackgroundProcessingEnabled()
@@ -124,13 +124,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 
 	err := ValidateVariables(policy, background)
 	if err != nil {
-		return nil, err
+		return warnings, err
 	}
 
 	if onPolicyUpdate {
 		err := ValidateOnPolicyUpdate(policy, onPolicyUpdate)
 		if err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
@@ -140,7 +140,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		// Get all the cluster type kind supported by cluster
 		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
-			return nil, err
+			return warnings, err
 		}
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
@@ -152,13 +152,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 	}
 
 	if errs := policy.Validate(clusterResources); len(errs) != 0 {
-		return nil, errs.ToAggregate()
+		return warnings, errs.ToAggregate()
 	}
 
 	if !namespaced {
 		err := validateNamespaces(spec, specPath.Child("validationFailureActionOverrides"))
 		if err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
@@ -168,34 +168,31 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		rulePath := rulesPath.Index(i)
 		// check for forward slash
 		if err := validateJSONPatchPathForForwardSlash(rule.Mutation.PatchesJSON6902); err != nil {
-			return nil, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
+			return warnings, fmt.Errorf("path must begin with a forward slash: spec.rules[%d]: %s", i, err)
 		}
 		if err := validateJSONPatch(rule.Mutation.PatchesJSON6902, i); err != nil {
-			return nil, fmt.Errorf("%s", err)
+			return warnings, fmt.Errorf("%s", err)
 		}
 
 		if jsonPatchOnPod(rule) {
 			msg := "Pods managed by workload controllers should not be directly mutated using policies. " +
 				"Use the autogen feature or write policies that match Pod controllers."
 			logging.V(1).Info(msg)
-			return &admissionv1.AdmissionResponse{
-				Allowed:  true,
-				Warnings: []string{msg},
-			}, nil
+			warnings = append(warnings, msg)
 		}
 
 		// validate resource description
 		if path, err := validateResources(rulePath, rule); err != nil {
-			return nil, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d].%s: %v", i, path, err)
 		}
 
 		err := validateElementInForEach(rule)
 		if err != nil {
-			return nil, err
+			return warnings, err
 		}
 
 		if err := validateRuleContext(rule); err != nil {
-			return nil, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
+			return warnings, fmt.Errorf("path: spec.rules[%d]: %v", i, err)
 		}
 
 		// If a rule's match block does not match any kind,
@@ -203,25 +200,25 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		if len(rule.MatchResources.Any) > 0 {
 			for _, rmr := range rule.MatchResources.Any {
 				if len(rmr.Kinds) == 0 {
-					return nil, validateMatchKindHelper(rule)
+					return warnings, validateMatchKindHelper(rule)
 				}
 			}
 		} else if len(rule.MatchResources.All) > 0 {
 			for _, rmr := range rule.MatchResources.All {
 				if len(rmr.Kinds) == 0 {
-					return nil, validateMatchKindHelper(rule)
+					return warnings, validateMatchKindHelper(rule)
 				}
 			}
 		} else {
 			if len(rule.MatchResources.Kinds) == 0 {
-				return nil, validateMatchKindHelper(rule)
+				return warnings, validateMatchKindHelper(rule)
 			}
 		}
 
 		// validate Cluster Resources in namespaced policy
 		// For namespaced policy, ClusterResource type field and values are not allowed in match and exclude
 		if namespaced {
-			return nil, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
+			return warnings, checkClusterResourceInMatchAndExclude(rule, clusterResources, mock, res)
 		}
 
 		// validate rule actions
@@ -229,26 +226,26 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		// - Validate
 		// - Generate
 		if err := validateActions(i, &rules[i], client, mock); err != nil {
-			return nil, err
+			return warnings, err
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") && spec.BackgroundProcessingEnabled() {
-			return nil, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
+			return warnings, fmt.Errorf("wildcard policy not allowed in background mode. Set spec.background=false to disable background mode for this policy rule ")
 		}
 
 		if (utils.ContainsString(rule.MatchResources.Kinds, "*") && len(rule.MatchResources.Kinds) > 1) || (utils.ContainsString(rule.ExcludeResources.Kinds, "*") && len(rule.ExcludeResources.Kinds) > 1) {
-			return nil, fmt.Errorf("wildard policy can not deal more than one kind")
+			return warnings, fmt.Errorf("wildard policy can not deal more than one kind")
 		}
 
 		if utils.ContainsString(rule.MatchResources.Kinds, "*") || utils.ContainsString(rule.ExcludeResources.Kinds, "*") {
 			if rule.HasGenerate() || rule.HasVerifyImages() || rule.Validation.ForEachValidation != nil {
-				return nil, fmt.Errorf("wildcard policy does not support rule type")
+				return warnings, fmt.Errorf("wildcard policy does not support rule type")
 			}
 
 			if rule.HasValidate() {
 				if rule.Validation.GetPattern() != nil || rule.Validation.GetAnyPattern() != nil {
 					if !ruleOnlyDealsWithResourceMetaData(rule) {
-						return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+						return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 							" the rule does not match any kind")
 					}
 				}
@@ -260,7 +257,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 						for _, condition := range typedConditions {
 							key := condition.GetKey()
 							if !strings.Contains(key.(string), "request.object.metadata.") && (!wildCardAllowedVariables.MatchString(key.(string)) || strings.Contains(key.(string), "request.object.spec")) {
-								return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+								return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 									" the rule does not match any kind")
 							}
 						}
@@ -270,7 +267,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 
 			if rule.HasMutate() {
 				if !ruleOnlyDealsWithResourceMetaData(rule) {
-					return nil, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
+					return warnings, fmt.Errorf("policy can only deal with the metadata field of the resource if" +
 						" the rule does not match any kind")
 				}
 			}
@@ -283,7 +280,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			}
 
 			if len(errs) != 0 {
-				return nil, errs.ToAggregate()
+				return warnings, errs.ToAggregate()
 			}
 		}
 
@@ -293,7 +290,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 				errs = append(errs, i.Validate(verifyImagePath.Index(index))...)
 			}
 			if len(errs) != 0 {
-				return nil, errs.ToAggregate()
+				return warnings, errs.ToAggregate()
 			}
 		}
 
@@ -303,11 +300,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			msg := "Policies that match Pods apply to all Pods including those created and managed by controllers " +
 				"excluded from autogen. Use preconditions to exclude the Pods managed by controllers which are " +
 				"excluded from autogen. Refer to https://kyverno.io/docs/writing-policies/autogen/ for details."
-
-			return &admissionv1.AdmissionResponse{
-				Allowed:  true,
-				Warnings: []string{msg},
-			}, nil
+			warnings = append(warnings, msg)
 		}
 
 		// Validate Kind with match resource kinds
@@ -317,7 +310,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
+					return warnings, errors.Wrapf(err, "the kind defined in the any match resource is invalid")
 				}
 			}
 		}
@@ -325,7 +318,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
+					return warnings, errors.Wrapf(err, "the kind defined in the all match resource is invalid")
 				}
 			}
 		}
@@ -333,7 +326,7 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
+					return warnings, errors.Wrapf(err, "the kind defined in the any exclude resource is invalid")
 				}
 			}
 		}
@@ -341,24 +334,24 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 			if !utils.ContainsString(value.ResourceDescription.Kinds, "*") {
 				err := validateKinds(value.ResourceDescription.Kinds, mock, client, policy)
 				if err != nil {
-					return nil, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
+					return warnings, errors.Wrapf(err, "the kind defined in the all exclude resource is invalid")
 				}
 			}
 		}
 		if !utils.ContainsString(rule.MatchResources.Kinds, "*") {
 			err := validateKinds(rule.MatchResources.Kinds, mock, client, policy)
 			if err != nil {
-				return nil, errors.Wrapf(err, "match resource kind is invalid")
+				return warnings, errors.Wrapf(err, "match resource kind is invalid")
 			}
 			err = validateKinds(rule.ExcludeResources.Kinds, mock, client, policy)
 			if err != nil {
-				return nil, errors.Wrapf(err, "exclude resource kind is invalid")
+				return warnings, errors.Wrapf(err, "exclude resource kind is invalid")
 			}
 		}
 
 		// Validate string values in labels
 		if !isLabelAndAnnotationsString(rule) {
-			return nil, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
+			return warnings, fmt.Errorf("labels and annotations supports only string values, \"use double quotes around the non string values\"")
 		}
 
 		// add label to source mentioned in policy
@@ -402,13 +395,13 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		}
 	}
 
-	if spec.SchemaValidation == nil || *spec.SchemaValidation {
+	if !mock && (spec.SchemaValidation == nil || *spec.SchemaValidation) {
 		if err := openApiManager.ValidatePolicyMutation(policy); err != nil {
-			return nil, err
+			return warnings, err
 		}
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func ValidateVariables(p kyvernov1.PolicyInterface, backgroundMode bool) error {
@@ -1142,32 +1135,31 @@ func validateWildcardsWithNamespaces(enforce, audit, enforceW, auditW []string) 
 
 func validateNamespaces(s *kyvernov1.Spec, path *field.Path) error {
 	action := map[string]sets.String{
-		string(kyvernov1.Enforce): sets.NewString(),
-		string(kyvernov1.Audit):   sets.NewString(),
-		"enforceW":                sets.NewString(),
-		"auditW":                  sets.NewString(),
+		"enforce":  sets.NewString(),
+		"audit":    sets.NewString(),
+		"enforceW": sets.NewString(),
+		"auditW":   sets.NewString(),
 	}
 
 	for i, vfa := range s.ValidationFailureActionOverrides {
 		patternList, nsList := utils.SeperateWildcards(vfa.Namespaces)
 
-		if vfa.Action == kyvernov1.Audit {
-			if action[string(kyvernov1.Enforce)].HasAny(nsList...) {
+		if vfa.Action.Audit() {
+			if action["enforce"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action[string(kyvernov1.Enforce)].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(action["enforce"].Intersection(sets.NewString(nsList...)).List(), ", "))
 			}
 			action["auditW"].Insert(patternList...)
-		} else if vfa.Action == kyvernov1.Enforce {
-			if action[string(kyvernov1.Audit)].HasAny(nsList...) {
+		} else if vfa.Action.Enforce() {
+			if action["audit"].HasAny(nsList...) {
 				return fmt.Errorf("conflicting namespaces found in path: %s: %s", path.Index(i).Child("namespaces").String(),
-					strings.Join(action[string(kyvernov1.Audit)].Intersection(sets.NewString(nsList...)).List(), ", "))
+					strings.Join(action["audit"].Intersection(sets.NewString(nsList...)).List(), ", "))
 			}
 			action["enforceW"].Insert(patternList...)
 		}
-		action[string(vfa.Action)].Insert(nsList...)
+		action[strings.ToLower(string(vfa.Action))].Insert(nsList...)
 
-		err := validateWildcardsWithNamespaces(action[string(kyvernov1.Enforce)].List(),
-			action[string(kyvernov1.Audit)].List(), action["enforceW"].List(), action["auditW"].List())
+		err := validateWildcardsWithNamespaces(action["enforce"].List(), action["audit"].List(), action["enforceW"].List(), action["auditW"].List())
 		if err != nil {
 			return fmt.Errorf("path: %s: %s", path.Index(i).Child("namespaces").String(), err.Error())
 		}
