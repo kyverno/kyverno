@@ -109,8 +109,8 @@ func Verify() AdmissionHandler {
 		bytes, err := patch.ToPatchBytes()
 		if err != nil {
 			logger.Error(err, "failed to build patch bytes")
-			return admissionutils.ResponseFailure(err.Error())
+			return admissionutils.Response(err)
 		}
-		return admissionutils.ResponseSuccessWithPatch(bytes)
+		return admissionutils.MutationResponse(bytes)
 	}
 }

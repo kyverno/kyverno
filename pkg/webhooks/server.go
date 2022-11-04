@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -278,14 +279,14 @@ func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
 		newResource, oldResource, err := utils.ExtractResources(nil, request)
 		if err != nil {
 			logger.Error(err, "Failed to extract resources")
-			return admissionutils.ResponseFailure(err.Error())
+			return admissionutils.Response(err)
 		}
 		for _, resource := range []unstructured.Unstructured{newResource, oldResource} {
 			resLabels := resource.GetLabels()
 			if resLabels[kyvernov1.LabelAppManagedBy] == kyvernov1.ValueKyvernoApp {
 				if request.UserInfo.Username != fmt.Sprintf("system:serviceaccount:%s:%s", config.KyvernoNamespace(), config.KyvernoServiceAccountName()) {
 					logger.Info("Access to the resource not authorized, this is a kyverno managed resource and should be altered only by kyverno")
-					return admissionutils.ResponseFailure("A kyverno managed resource can only be modified by kyverno")
+					return admissionutils.Response(errors.New("A kyverno managed resource can only be modified by kyverno"))
 				}
 			}
 		}
