@@ -6,12 +6,14 @@ testDirs:
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
+- ./test/conformance/kuttl/generate/clusterpolicy/cornercases
   # Mutate tests
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard
 - ./test/conformance/kuttl/mutate/clusterpolicy/standard/existing
   # Validate tests
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/audit
 - ./test/conformance/kuttl/validate/clusterpolicy/standard/enforce
+- ./test/conformance/kuttl/validate/clusterpolicy/cornercases
   # verifyImages tests
 - ./test/conformance/kuttl/verifyImages/clusterpolicy/standard
   # Report tests
