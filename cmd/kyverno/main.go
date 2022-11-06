@@ -623,7 +623,6 @@ func main() {
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
 		serverIP,
-		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
@@ -664,9 +663,6 @@ func main() {
 		leaderElectionRetryPeriod,
 		func(ctx context.Context) {
 			logger := logger.WithName("leader")
-			// when losing the lead we just terminate the pod
-			// TODO: remove when we run the leader election loop continuously
-			defer signalCancel()
 			// validate config
 			// if err := webhookCfg.ValidateWebhookConfigurations(config.KyvernoNamespace(), config.KyvernoConfigMapName()); err != nil {
 			// 	logger.Error(err, "invalid format of the Kyverno init ConfigMap, please correct the format of 'data.webhooks'")

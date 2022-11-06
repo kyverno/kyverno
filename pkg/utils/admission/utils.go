@@ -111,3 +111,15 @@ func GetResourceName(request *admissionv1.AdmissionRequest) string {
 	}
 	return resourceName
 }
+
+func ValidationResponse(err error, warnings ...string) *admissionv1.AdmissionResponse {
+	response := Response(err == nil)
+	if err != nil {
+		response.Result = &metav1.Status{
+			Status:  metav1.StatusFailure,
+			Message: err.Error(),
+		}
+	}
+	response.Warnings = warnings
+	return response
+}
