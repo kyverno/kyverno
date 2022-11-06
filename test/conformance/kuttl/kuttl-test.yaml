@@ -20,5 +20,5 @@ testDirs:
 - ./test/conformance/kuttl/reports/admission
 - ./test/conformance/kuttl/reports/background
 startKIND: false
-timeout: 15
+# timeout: 15
 parallel: 1
