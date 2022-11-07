@@ -11,6 +11,7 @@ import (
 
 	"github.com/distribution/distribution/reference"
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/gardener/controller-manager-library/pkg/logger"
 	"github.com/jmespath/go-jmespath"
 	"github.com/jmoiron/jsonq"
 	kyvernov1 "github.com/kyverno/kyverno/api/kyverno/v1"
@@ -111,6 +112,14 @@ func Validate(policy kyvernov1.PolicyInterface, client dclient.Interface, mock b
 		res, err := discovery.ServerPreferredResources(client.Discovery().DiscoveryInterface())
 		if err != nil {
 			return nil, err
+			if discovery.IsGroupDiscoveryFailedError(err) {
+				err := err.(*discovery.ErrGroupDiscoveryFailed)
+				for gv, err := range err.Groups {
+					logger.Error(err, "failed to list api resources", "group", gv)
+				}
+			} else {
+				return nil, err
+			}
 		}
 		for _, resList := range res {
 			for _, r := range resList.APIResources {
