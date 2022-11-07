@@ -193,6 +193,29 @@ func (s *server) cleanup(ctx context.Context) {
 	close(s.cleanUp)
 }
 
+func dump(inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) handlers.AdmissionHandler {
+	// debug mode not enabled, no need to add debug middleware
+	if !debugModeOpts.DumpPayload {
+		return inner
+	}
+	return handlers.Dump(inner)
+}
+
+func protect(inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+	if !toggle.ProtectManagedResources.Enabled() {
+		return inner
+	}
+	return handlers.Protect(inner)
+}
+
+func filter(configuration config.Configuration, inner handlers.AdmissionHandler) handlers.AdmissionHandler {
+	return handlers.Filter(configuration, inner)
+}
+
+func admission(logger logr.Logger, inner handlers.AdmissionHandler, debugModeOpts DebugModeOptions) http.HandlerFunc {
+	return handlers.Admission(logger, dump(protect(inner), debugModeOpts))
+}
+
 func registerWebhookHandlers(
 	logger logr.Logger,
 	mux *httprouter.Router,
