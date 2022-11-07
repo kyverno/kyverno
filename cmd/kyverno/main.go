@@ -621,7 +621,6 @@ func main() {
 	runtime := runtimeutils.NewRuntime(
 		logger.WithName("runtime-checks"),
 		serverIP,
-		kubeKyvernoInformer.Coordination().V1().Leases(),
 		kubeKyvernoInformer.Apps().V1().Deployments(),
 		certRenewer,
 	)
