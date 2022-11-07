@@ -1,4 +1,4 @@
-package v1alpha2
+package v1alpha1
 
 import (
 	kyvernov1alpha1 "github.com/kyverno/kyverno/api/kyverno/v1alpha1"
