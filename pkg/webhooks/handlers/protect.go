@@ -13,6 +13,13 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
+func (h AdmissionHandler) WithProtection(enabled bool) AdmissionHandler {
+	if !enabled {
+		return h
+	}
+	return Protect(h)
+}
+
 func Protect(inner AdmissionHandler) AdmissionHandler {
 	return func(logger logr.Logger, request *admissionv1.AdmissionRequest, startTime time.Time) *admissionv1.AdmissionResponse {
 		newResource, oldResource, err := utils.ExtractResources(nil, request)
