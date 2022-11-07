@@ -73,16 +73,6 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		namespace = ctx.Policy.GetNamespace()
 	}
 
-	if namespace != "" && name != "" &&
-		!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
-		obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
-		}
-
-		return []unstructured.Unstructured{*obj}, nil
-	}
-
 	// if comes from testCommandExecute
 	if ctx.IsTest {
 		// Get resource from kyverno-test.yaml
@@ -92,6 +82,17 @@ func getTargets(target kyvernov1.ResourceSpec, ctx *PolicyContext, logger logr.L
 		targetObjects = append(targetObjects, list.Items[0])
 
 	} else {
+
+		if namespace != "" && name != "" &&
+			!wildcard.ContainsWildcard(namespace) && !wildcard.ContainsWildcard(name) {
+			obj, err := ctx.Client.GetResource(target.APIVersion, target.Kind, namespace, name)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get target %s/%s %s/%s : %v", target.APIVersion, target.Kind, namespace, name, err)
+			}
+
+			return []unstructured.Unstructured{*obj}, nil
+		}
+
 		// list all targets if wildcard is specified
 		objList, err := ctx.Client.ListResource(target.APIVersion, target.Kind, "", nil)
 		if err != nil {

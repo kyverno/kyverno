@@ -456,7 +456,7 @@ OuterLoop:
 		AdmissionInfo:   c.UserInfo,
 		Client:          c.Client,
 		IsTest:          c.IsTest,
-		OldResource: 	 *c.Resource,
+		OldResource:     *c.Resource,
 	}
 
 	mutateResponse := engine.Mutate(policyContext)
