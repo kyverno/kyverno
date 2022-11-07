@@ -29,7 +29,6 @@ import (
 	"github.com/kyverno/kyverno/pkg/engine/response"
 	"github.com/kyverno/kyverno/pkg/openapi"
 	policy2 "github.com/kyverno/kyverno/pkg/policy"
-	"github.com/kyverno/kyverno/pkg/policyreport"
 	util "github.com/kyverno/kyverno/pkg/utils"
 	"github.com/lensesio/tableprinter"
 	"github.com/spf13/cobra"
@@ -513,7 +512,7 @@ func getLocalDirTestFiles(fs billy.Filesystem, path, fileName string, rc *result
 	return errors
 }
 
-func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []policyreport.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []TestResults) {
+func buildPolicyResults(engineResponses []*response.EngineResponse, testResults []TestResults, infos []common.Info, policyResourcePath string, fs billy.Filesystem, isGit bool) (map[string]policyreportv1alpha2.PolicyReportResult, []TestResults) {
 	results := make(map[string]policyreportv1alpha2.PolicyReportResult)
 	now := metav1.Timestamp{Seconds: time.Now().Unix()}
 
@@ -823,7 +822,7 @@ func applyPoliciesFromPath(fs billy.Filesystem, policyBytes []byte, isGit bool, 
 	var dClient dclient.Interface
 	values := &Test{}
 	var variablesString string
-	var pvInfos []policyreport.Info
+	var pvInfos []common.Info
 	var resultCounts common.ResultCounts
 
 	store.SetMock(true)

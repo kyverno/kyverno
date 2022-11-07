@@ -122,7 +122,7 @@ spec:
   source:
     chart: metrics-server
     repoURL: https://charts.bitnami.com/bitnami
-    targetRevision: 6.2.1
+    targetRevision: 6.2.2
     helm:
       values: |
         extraArgs:
@@ -151,7 +151,7 @@ spec:
   source:
     chart: kube-prometheus-stack
     repoURL: https://prometheus-community.github.io/helm-charts
-    targetRevision: 41.4.1
+    targetRevision: 41.7.3
     helm:
       values: |
         kubeEtcd:
@@ -207,7 +207,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - Replace=true
+      - ServerSideApply=true
 EOF
 
 # CREATE KYVERNO APP
@@ -226,7 +226,7 @@ spec:
   source:
     chart: kyverno
     repoURL: https://kyverno.github.io/kyverno
-    targetRevision: 2.6.0
+    targetRevision: 2.6.1
     helm:
       values: |
         serviceMonitor:
@@ -237,7 +237,7 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - Replace=true
+      - ServerSideApply=true
 EOF
 
 # CREATE KYVERNO-POLICIES APP
@@ -256,7 +256,7 @@ spec:
   source:
     chart: kyverno-policies
     repoURL: https://kyverno.github.io/kyverno
-    targetRevision: 2.6.0
+    targetRevision: 2.6.1
   syncPolicy:
     automated:
       prune: true
@@ -281,7 +281,7 @@ spec:
   source:
     chart: policy-reporter
     repoURL: https://kyverno.github.io/policy-reporter
-    targetRevision: 2.13.1
+    targetRevision: 2.13.4
     helm:
       values: |
         ui:

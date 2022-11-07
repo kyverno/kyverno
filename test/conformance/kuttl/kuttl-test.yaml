@@ -1,0 +1,22 @@
+apiVersion: kuttl.dev/v1beta1
+kind: TestSuite
+testDirs:
+  # Generate tests
+# - ./generate/clusterpolicy/standard/clone/nosync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
+- ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
+  # Mutate tests
+- ./test/conformance/kuttl/mutate/clusterpolicy/standard
+- ./test/conformance/kuttl/mutate/clusterpolicy/standard/existing
+  # Validate tests
+- ./test/conformance/kuttl/validate/clusterpolicy/standard/audit
+- ./test/conformance/kuttl/validate/clusterpolicy/standard/enforce
+  # verifyImages tests
+- ./test/conformance/kuttl/verifyImages/clusterpolicy/standard
+  # Report tests
+- ./test/conformance/kuttl/reports/admission
+- ./test/conformance/kuttl/reports/background
+startKIND: false
+timeout: 15
+parallel: 1
