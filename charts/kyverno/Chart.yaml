@@ -48,3 +48,7 @@ annotations:
       description: Enable adding optional annotations to configmaps
     - kind: added
       description: Add startup probes support
+    - kind: added
+      description: Support extra CRD annotations
+    - kind: added
+      description: Grafana dashboard.

@@ -239,6 +239,7 @@ func (s *server) cleanup(ctx context.Context) {
 			}
 		}
 		deleteLease("kyvernopre-lock")
+		deleteLease("kyverno-health")
 		deleteVwc(config.ValidatingWebhookConfigurationName)
 		deleteVwc(config.PolicyValidatingWebhookConfigurationName)
 		deleteMwc(config.MutatingWebhookConfigurationName)
