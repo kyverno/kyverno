@@ -2,7 +2,7 @@ apiVersion: kuttl.dev/v1beta1
 kind: TestSuite
 testDirs:
   # Generate tests
-# - ./generate/clusterpolicy/standard/clone/nosync
+# - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/nosync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/clone/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/sync
 - ./test/conformance/kuttl/generate/clusterpolicy/standard/data/nosync
