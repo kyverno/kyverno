@@ -25,7 +25,7 @@ RUN --mount=type=bind,target=. \
     CGO_ENABLED=0 xx-go build -o /output/kyvernopre -ldflags="${LD_FLAGS}" -v ./cmd/initContainer/
 
 # Packaging stage
-FROM ghcr.io/distroless/static:latest
+FROM ghcr.io/distroless/static@sha256:a9650a15060275287ebf4530b34020b8d998bd2de9aea00d113c332d8c41eb0b
 
 LABEL maintainer="Kyverno"
 
