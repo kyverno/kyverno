@@ -16,7 +16,6 @@ jobs:
           prow-commands: '/assign 
             /unassign
             /lgtm 
-            /milestone
-            /approve'
+            /milestone'
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           
