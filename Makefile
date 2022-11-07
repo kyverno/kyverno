@@ -57,7 +57,9 @@ HELM_DOCS                          := $(TOOLS_DIR)/helm-docs
 HELM_DOCS_VERSION                  := v1.11.0
 KO                                 := $(TOOLS_DIR)/ko
 KO_VERSION                         := main #e93dbee8540f28c45ec9a2b8aec5ef8e43123966
-TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO)
+KUTTL                              := $(TOOLS_DIR)/kubectl-kuttl
+KUTTL_VERSION                      := v0.13.0
+TOOLS                              := $(KIND) $(CONTROLLER_GEN) $(CLIENT_GEN) $(LISTER_GEN) $(INFORMER_GEN) $(OPENAPI_GEN) $(GEN_CRD_API_REFERENCE_DOCS) $(GO_ACC) $(KUSTOMIZE) $(GOIMPORTS) $(HELM) $(HELM_DOCS) $(KO) $(KUTTL)
 ifeq ($(GOOS), darwin)
 SED                                := gsed
 else
@@ -115,6 +117,10 @@ $(HELM_DOCS):
 $(KO):
 	@echo Install ko... >&2
 	@GOBIN=$(TOOLS_DIR) go install github.com/google/ko@$(KO_VERSION)
+
+$(KUTTL):
+	@echo Install kuttl... >&2
+	@GOBIN=$(TOOLS_DIR) go install github.com/kudobuilder/kuttl/cmd/kubectl-kuttl@$(KUTTL_VERSION)
 
 .PHONY: install-tools
 install-tools: $(TOOLS) ## Install tools
@@ -574,6 +580,15 @@ test-conformance: ## Run conformance tests
 kind-test-conformance: kind-deploy-kyverno ## Run conformance tests on a local cluster
 	@echo Running conformance tests... >&2
 	@go run ./test/conformance --create-cluster=false
+
+###############
+# KUTTL TESTS #
+###############
+
+.PHONY: test-kuttl
+test-kuttl: $(KUTTL) ## Run kuttl tests
+	@echo Running kuttl tests... >&2
+	@$(KUTTL) test --config ./test/conformance/kuttl/kuttl-test.yaml
 
 #############
 # CLI TESTS #
