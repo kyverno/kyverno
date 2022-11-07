@@ -70,13 +70,7 @@ func (h *mutationHandler) HandleMutation(
 	if err != nil {
 		return nil, nil, err
 	}
-
 	h.log.V(6).Info("", "generated patches", string(mutatePatches))
-
-	admissionReviewLatencyDuration := int64(time.Since(admissionRequestTimestamp))
-	go webhookutils.RegisterAdmissionReviewDurationMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses, admissionReviewLatencyDuration)
-	go webhookutils.RegisterAdmissionRequestsMetricMutate(h.log, metricsConfig, string(request.Operation), mutateEngineResponses)
-
 	return mutatePatches, webhookutils.GetWarningMessages(mutateEngineResponses), nil
 }
 
